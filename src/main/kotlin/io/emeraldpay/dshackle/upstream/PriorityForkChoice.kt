@@ -32,7 +32,6 @@ import kotlin.concurrent.write
  * if it's active, i.e. it's status is good (not in syncing mode, etc). The top priority upstream is always right.
  */
 class PriorityForkChoice : ForkChoice {
-
     companion object {
         private val log = LoggerFactory.getLogger(PriorityForkChoice::class.java)
     }
@@ -53,7 +52,10 @@ class PriorityForkChoice : ForkChoice {
     private val upstreamBlockLock = ReentrantReadWriteLock()
     private val upstreamBlocks = mutableMapOf<String, List<BlockId>>()
 
-    fun addUpstream(upstream: Upstream, priority: Int) {
+    fun addUpstream(
+        upstream: Upstream,
+        priority: Int,
+    ) {
         // it supposed to be added once on launch so all the following reads should be thread safe
         synchronized(this) {
             val existing = upstreams.find { it.priority == priority }
@@ -64,7 +66,7 @@ class PriorityForkChoice : ForkChoice {
                 }
                 log.warn(
                     "Two upstreams share the same priority. It can cause an unpredicted behaviour of the Dshackle. " +
-                        "Check config for ${existing.upstream.getId()} and ${upstream.getId()}, both have $priority priority"
+                        "Check config for ${existing.upstream.getId()} and ${upstream.getId()}, both have $priority priority",
                 )
             }
             priorities[upstream.getId()] = priority
@@ -80,12 +82,16 @@ class PriorityForkChoice : ForkChoice {
      * Must be called before actual use. It subscribes to the new upstreams and updates their priorities for the following checks.
      */
     fun followUpstreams(upstreams: Publisher<Upstream>) {
-        Flux.from(upstreams)
+        Flux
+            .from(upstreams)
             .subscribeOn(Schedulers.boundedElastic())
             .subscribe(::addUpstream)
     }
 
-    override fun submit(block: BlockContainer, upstream: Upstream): ForkChoice.Status {
+    override fun submit(
+        block: BlockContainer,
+        upstream: Upstream,
+    ): ForkChoice.Status {
         requireNotNull(block.parentHash) { "Block parentHash is null" }
         keepJournal(block)
         val history = getUpstreamBlocks(upstream)
@@ -100,9 +106,7 @@ class PriorityForkChoice : ForkChoice {
         }
     }
 
-    override fun getName(): String {
-        return "Priority"
-    }
+    override fun getName(): String = "Priority"
 
     // ----------- INTERNAL LOGIC
 
@@ -118,13 +122,15 @@ class PriorityForkChoice : ForkChoice {
             ?.upstream
     }
 
-    fun getUpstreamBlocks(upstream: Upstream): List<BlockId> {
-        return upstreamBlockLock.read {
+    fun getUpstreamBlocks(upstream: Upstream): List<BlockId> =
+        upstreamBlockLock.read {
             upstreamBlocks[upstream.getId()] ?: emptyList()
         }
-    }
 
-    fun setUpstreamBlocks(upstream: Upstream, current: List<BlockId>) {
+    fun setUpstreamBlocks(
+        upstream: Upstream,
+        current: List<BlockId>,
+    ) {
         upstreamBlockLock.write {
             upstreamBlocks[upstream.getId()] = current
         }
@@ -133,12 +139,16 @@ class PriorityForkChoice : ForkChoice {
     /**
      * Remember relation between blocks. For future checking on the forks.
      */
-    fun keepJournal(parent: BlockId, current: BlockId): Boolean {
-        return journalLock.write {
+    fun keepJournal(
+        parent: BlockId,
+        current: BlockId,
+    ): Boolean =
+        journalLock.write {
             val pair = Pair(parent, current)
-            val exists = journal.descendingIterator().asSequence().any {
-                it.first == pair.first && it.second == pair.second
-            }
+            val exists =
+                journal.descendingIterator().asSequence().any {
+                    it.first == pair.first && it.second == pair.second
+                }
             if (!exists) {
                 journal.offer(pair)
                 if (journal.size > journalLimit) {
@@ -147,7 +157,6 @@ class PriorityForkChoice : ForkChoice {
             }
             !exists
         }
-    }
 
     /**
      * Remember the block relation to others.
@@ -160,18 +169,21 @@ class PriorityForkChoice : ForkChoice {
     /**
      * Try to find a parent block for the specified.
      */
-    fun findParentInJournal(block: BlockId): Pair<BlockId, BlockId>? {
-        return journalLock.read {
+    fun findParentInJournal(block: BlockId): Pair<BlockId, BlockId>? =
+        journalLock.read {
             journal.descendingIterator().asSequence().find {
                 it.second == block
             }
         }
-    }
 
     /**
      * Try to rebuild the whole history of the blocks by filling gaps between known information
      */
-    fun rebuild(existing: List<BlockId>, parent: BlockId, current: BlockId): List<BlockId> {
+    fun rebuild(
+        existing: List<BlockId>,
+        parent: BlockId,
+        current: BlockId,
+    ): List<BlockId> {
         val result = LinkedList<BlockId>()
         result.add(parent)
         result.add(current)
@@ -189,7 +201,11 @@ class PriorityForkChoice : ForkChoice {
      * Merge the block into the existing with possibly forking from one of the existing blocks.
      * Produces the actual history of blocks, and throws out any existing if it was just replaced by a fork.
      */
-    fun merge(existing: List<BlockId>, parent: BlockId, current: BlockId): List<BlockId> {
+    fun merge(
+        existing: List<BlockId>,
+        parent: BlockId,
+        current: BlockId,
+    ): List<BlockId> {
         if (existing.isEmpty()) {
             return rebuild(existing, parent, current)
         }
@@ -207,7 +223,10 @@ class PriorityForkChoice : ForkChoice {
     /**
      * Compare [uptream's] history to the recognized (i.e, a top priority) history.
      */
-    fun compareHistory(recognized: List<BlockId>, current: List<BlockId>): ForkChoice.Status {
+    fun compareHistory(
+        recognized: List<BlockId>,
+        current: List<BlockId>,
+    ): ForkChoice.Status {
         if (recognized.isEmpty()) {
             return ForkChoice.Status.NEW
         }

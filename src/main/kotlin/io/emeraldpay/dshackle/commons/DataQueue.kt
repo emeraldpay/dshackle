@@ -28,18 +28,22 @@ class DataQueue<T>(
      * Queue Limit. When the subscribers are slower that providers it starts to drop new items when reached this size
      */
     private val queueLimit: Int,
-    onError: ((Error) -> Unit) = {}
+    onError: ((Error) -> Unit) = {},
 ) {
-
     private val locks = ReentrantLock()
     private var queue = ArrayList<T>()
     private var closed = false
     private val nonFailingOnError: ((Error) -> Unit) = {
-        try { onError(it) } catch (t: Throwable) {}
+        try {
+            onError(it)
+        } catch (t: Throwable) {
+        }
     }
 
     enum class Error {
-        FULL, CLOSED, INTERNAL
+        FULL,
+        CLOSED,
+        INTERNAL,
     }
 
     /**
@@ -92,8 +96,8 @@ class DataQueue<T>(
         }
     }
 
-    fun request(limit: Int): List<T> {
-        return locks.withLock {
+    fun request(limit: Int): List<T> =
+        locks.withLock {
             if (queue.isEmpty()) {
                 emptyList()
             } else if (queue.size < limit) {
@@ -114,5 +118,4 @@ class DataQueue<T>(
                 result
             }
         }
-    }
 }

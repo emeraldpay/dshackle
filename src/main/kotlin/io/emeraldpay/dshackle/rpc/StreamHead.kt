@@ -30,33 +30,38 @@ import reactor.core.publisher.Mono
 
 @Service
 class StreamHead(
-    @Autowired private val multistreamHolder: MultistreamHolder
+    @Autowired private val multistreamHolder: MultistreamHolder,
 ) {
-
     private val log = LoggerFactory.getLogger(StreamHead::class.java)
 
     fun add(requestMono: Mono<Common.Chain>): Flux<BlockchainOuterClass.ChainHead> {
-        return requestMono.map { request ->
-            Chain.byId(request.type.number)
-        }.flatMapMany { chain ->
-            val up = multistreamHolder.getUpstream(chain)
-                ?: return@flatMapMany Flux.error<BlockchainOuterClass.ChainHead>(Exception("Unavailable chain: $chain"))
-            up.getHead()
-                .getFlux()
-                .map { asProto(chain, it!!) }
-                .onErrorContinue { t, _ ->
-                    log.warn("Head subscription error: ${t.message}")
-                }
-        }
+        return requestMono
+            .map { request ->
+                Chain.byId(request.type.number)
+            }.flatMapMany { chain ->
+                val up =
+                    multistreamHolder.getUpstream(chain)
+                        ?: return@flatMapMany Flux.error<BlockchainOuterClass.ChainHead>(Exception("Unavailable chain: $chain"))
+                up
+                    .getHead()
+                    .getFlux()
+                    .map { asProto(chain, it!!) }
+                    .onErrorContinue { t, _ ->
+                        log.warn("Head subscription error: ${t.message}")
+                    }
+            }
     }
 
-    fun asProto(chain: Chain, block: BlockContainer): BlockchainOuterClass.ChainHead {
-        return BlockchainOuterClass.ChainHead.newBuilder()
+    fun asProto(
+        chain: Chain,
+        block: BlockContainer,
+    ): BlockchainOuterClass.ChainHead =
+        BlockchainOuterClass.ChainHead
+            .newBuilder()
             .setChainValue(chain.id)
             .setHeight(block.height)
             .setTimestamp(block.timestamp.toEpochMilli())
             .setWeight(ByteString.copyFrom(block.difficulty.toByteArray()))
             .setBlockId(block.hash.toHex())
             .build()
-    }
 }

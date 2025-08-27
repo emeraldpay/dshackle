@@ -27,17 +27,15 @@ import org.slf4j.LoggerFactory
 class EthereumDshackleIngressSubscription(
     private val blockchain: Chain,
     private val conn: ReactorBlockchainGrpc.ReactorBlockchainStub,
-) : IngressSubscription, EthereumIngressSubscription {
-
+) : IngressSubscription,
+    EthereumIngressSubscription {
     companion object {
         private val log = LoggerFactory.getLogger(EthereumDshackleIngressSubscription::class.java)
     }
 
     private val pendingTxes = DshacklePendingTxesSource(blockchain, conn)
 
-    override fun getAvailableTopics(): List<String> {
-        return listOf(EthereumEgressSubscription.METHOD_PENDING_TXES)
-    }
+    override fun getAvailableTopics(): List<String> = listOf(EthereumEgressSubscription.METHOD_PENDING_TXES)
 
     override fun <T> get(topic: String): SubscriptionConnect<T>? {
         if (topic == EthereumEgressSubscription.METHOD_PENDING_TXES) {
@@ -50,7 +48,5 @@ class EthereumDshackleIngressSubscription(
         pendingTxes.update(conf)
     }
 
-    override fun getPendingTxes(): PendingTxesSource? {
-        return pendingTxes
-    }
+    override fun getPendingTxes(): PendingTxesSource? = pendingTxes
 }

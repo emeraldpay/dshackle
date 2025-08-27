@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.upstream.bitcoin.subscribe
 
 enum class BitcoinZmqTopic(
-    val id: String
+    val id: String,
 ) {
     HASHBLOCK("hashblock"),
     HASHTX("hashtx"),

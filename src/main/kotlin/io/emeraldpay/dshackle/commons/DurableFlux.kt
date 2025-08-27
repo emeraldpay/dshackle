@@ -19,33 +19,29 @@ class DurableFlux<T>(
     private val provider: () -> Flux<T>,
     private val errorBackOff: BackOff,
     private val log: Logger,
-    private val control: AtomicBoolean
+    private val control: AtomicBoolean,
 ) {
-
     companion object {
         private val defaultLog = LoggerFactory.getLogger(DurableFlux::class.java)
 
         @JvmStatic
-        fun newBuilder(): Builder<*> {
-            return Builder<Any>()
-        }
+        fun newBuilder(): Builder<*> = Builder<Any>()
     }
 
     private var messagesSinceStart = 0
     private var errorBackOffExecution = errorBackOff.start()
 
-    fun connect(): Flux<T> {
-        return provider.invoke()
+    fun connect(): Flux<T> =
+        provider
+            .invoke()
             .doOnNext {
                 if (messagesSinceStart == 0) {
                     errorBackOffExecution = errorBackOff.start()
                 }
                 messagesSinceStart++
-            }
-            .doOnSubscribe {
+            }.doOnSubscribe {
                 messagesSinceStart = 0
-            }
-            .onErrorResume { t ->
+            }.onErrorResume { t ->
                 val backoff = errorBackOffExecution.nextBackOff()
                 val silent = t is SilentException
                 if (backoff != BackOffExecution.STOP && control.get()) {
@@ -60,10 +56,8 @@ class DurableFlux<T>(
                     Mono.error(t)
                 }
             }
-    }
 
     class Builder<T> {
-
         private var provider: (() -> Flux<T>)? = null
 
         protected var errorBackOff: BackOff = FixedBackOff(1_000, Long.MAX_VALUE)
@@ -81,12 +75,17 @@ class DurableFlux<T>(
             return this
         }
 
-        fun backoffOnError(time: Duration, multiplier: Double, max: Duration? = null): Builder<T> {
-            errorBackOff = ExponentialBackOff(time.toMillis(), multiplier).also {
-                if (max != null) {
-                    it.maxInterval = max.toMillis()
+        fun backoffOnError(
+            time: Duration,
+            multiplier: Double,
+            max: Duration? = null,
+        ): Builder<T> {
+            errorBackOff =
+                ExponentialBackOff(time.toMillis(), multiplier).also {
+                    if (max != null) {
+                        it.maxInterval = max.toMillis()
+                    }
                 }
-            }
             return this
         }
 

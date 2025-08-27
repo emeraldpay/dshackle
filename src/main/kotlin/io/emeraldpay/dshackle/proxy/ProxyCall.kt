@@ -26,9 +26,8 @@ class ProxyCall(
     /**
      * Type of the request. The response format depends on it
      */
-    val type: RpcType
+    val type: RpcType,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(ProxyCall::class.java)
     }
@@ -53,6 +52,6 @@ class ProxyCall(
          * Batch passed as Array of Object. It may be one-element array, i.e., single request, though response
          * must be formatted as an Array
          */
-        BATCH
+        BATCH,
     }
 }

@@ -16,16 +16,11 @@
 package io.emeraldpay.dshackle.upstream
 
 open class NoIngressSubscription : IngressSubscription {
-
     companion object {
         val DEFAULT = NoIngressSubscription()
     }
 
-    override fun getAvailableTopics(): List<String> {
-        return listOf()
-    }
+    override fun getAvailableTopics(): List<String> = listOf()
 
-    override fun <T> get(topic: String): SubscriptionConnect<T>? {
-        return null
-    }
+    override fun <T> get(topic: String): SubscriptionConnect<T>? = null
 }

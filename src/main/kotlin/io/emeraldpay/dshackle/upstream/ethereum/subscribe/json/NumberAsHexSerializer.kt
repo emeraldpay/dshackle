@@ -25,17 +25,21 @@ import java.math.BigInteger
  * Encodes numeric values as hex string prefixed with <code>0x</code>, per Ethereum standard.
  */
 class NumberAsHexSerializer : JsonSerializer<Number>() {
-
-    override fun serialize(value: Number?, gen: JsonGenerator, serializers: SerializerProvider) {
+    override fun serialize(
+        value: Number?,
+        gen: JsonGenerator,
+        serializers: SerializerProvider,
+    ) {
         if (value == null) {
             gen.writeNull()
             return
         }
-        val hex = if (value is BigInteger) {
-            HexQuantity.from(value)
-        } else {
-            HexQuantity.from(value.toLong())
-        }
+        val hex =
+            if (value is BigInteger) {
+                HexQuantity.from(value)
+            } else {
+                HexQuantity.from(value.toLong())
+            }
         gen.writeString(hex.toHex())
     }
 }

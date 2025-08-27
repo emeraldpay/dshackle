@@ -34,39 +34,46 @@ open class EthereumWsFactory(
     private val uri: URI,
     private val origin: URI,
 ) {
-
     var basicAuth: AuthConfig.ClientBasicAuth? = null
     var config: UpstreamsConfig.WsEndpoint? = null
 
     // metrics are shared between all connections to the same WS
-    private val metrics: RpcMetrics = run {
-        val metricsTags = listOf(
-            Tag.of("upstream", id),
-            Tag.of("chain", chain.chainCode)
-        )
+    private val metrics: RpcMetrics =
+        run {
+            val metricsTags =
+                listOf(
+                    Tag.of("upstream", id),
+                    Tag.of("chain", chain.chainCode),
+                )
 
-        RpcMetrics(
-            metricsTags,
-            timer = Timer.builder("upstream.ws.conn")
-                .description("Request time through a WebSocket JSON RPC connection")
-                .tags(metricsTags)
-                .publishPercentileHistogram()
-                .register(Metrics.globalRegistry),
-            fails = Counter.builder("upstream.ws.fail")
-                .description("Number of failures of WebSocket JSON RPC requests")
-                .tags(metricsTags)
-                .register(Metrics.globalRegistry),
-            responseSize = DistributionSummary.builder("upstream.ws.response.size")
-                .description("Size of WebSocket JSON RPC responses")
-                .baseUnit("Bytes")
-                .tags(metricsTags)
-                .register(Metrics.globalRegistry),
-            connectionMetrics = ConnectionMetrics(metricsTags)
-        )
-    }
+            RpcMetrics(
+                metricsTags,
+                timer =
+                    Timer
+                        .builder("upstream.ws.conn")
+                        .description("Request time through a WebSocket JSON RPC connection")
+                        .tags(metricsTags)
+                        .publishPercentileHistogram()
+                        .register(Metrics.globalRegistry),
+                fails =
+                    Counter
+                        .builder("upstream.ws.fail")
+                        .description("Number of failures of WebSocket JSON RPC requests")
+                        .tags(metricsTags)
+                        .register(Metrics.globalRegistry),
+                responseSize =
+                    DistributionSummary
+                        .builder("upstream.ws.response.size")
+                        .description("Size of WebSocket JSON RPC responses")
+                        .baseUnit("Bytes")
+                        .tags(metricsTags)
+                        .register(Metrics.globalRegistry),
+                connectionMetrics = ConnectionMetrics(metricsTags),
+            )
+        }
 
-    open fun create(onConnectionChange: Consumer<WsConnection.ConnectionStatus>?): WsConnection {
-        return WsConnectionImpl(uri, origin, basicAuth, metrics).also { ws ->
+    open fun create(onConnectionChange: Consumer<WsConnection.ConnectionStatus>?): WsConnection =
+        WsConnectionImpl(uri, origin, basicAuth, metrics).also { ws ->
             ws.onConnectionChange(onConnectionChange)
             config?.frameSize?.let {
                 ws.frameSize = it
@@ -78,5 +85,4 @@ open class EthereumWsFactory(
                 ws.compress = it
             }
         }
-    }
 }

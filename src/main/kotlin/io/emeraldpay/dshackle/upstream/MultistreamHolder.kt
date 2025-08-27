@@ -26,9 +26,14 @@ import reactor.util.function.Tuple2
  */
 interface MultistreamHolder {
     fun getUpstream(chain: Chain): Multistream?
+
     fun getAvailable(): List<Chain>
+
     fun observeChains(): Flux<Chain>
+
     fun observeAddedUpstreams(): Flux<Tuple2<Chain, Upstream>>
+
     fun getDefaultMethods(chain: Chain): CallMethods
+
     fun isAvailable(chain: Chain): Boolean
 }

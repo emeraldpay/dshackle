@@ -13,7 +13,6 @@ import java.util.concurrent.atomic.AtomicReference
 class VerifyingReader(
     private val methods: AtomicReference<CallMethods>,
 ) : DshackleRpcReader {
-
     companion object {
         private val log = LoggerFactory.getLogger(VerifyingReader::class.java)
     }

@@ -33,7 +33,6 @@ import reactor.core.publisher.Flux
  *
  * */
 interface WsSubscriptions {
-
     /**
      * Subscribe on remote
      */

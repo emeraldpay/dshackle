@@ -40,8 +40,8 @@ class SocketLogWriter<T>(
     encoding: LogEncoding,
     private val metrics: LogMetrics = LogMetrics.None(),
     bufferSize: Int? = null,
-) : LogWriter<T>, BufferingLogWriter<T>(serializer, encoding, metrics = metrics, queueLimit = bufferSize ?: DEFAULT_BUFFER_SIZE) {
-
+) : BufferingLogWriter<T>(serializer, encoding, metrics = metrics, queueLimit = bufferSize ?: DEFAULT_BUFFER_SIZE),
+    LogWriter<T> {
     companion object {
         private val log = LoggerFactory.getLogger(SocketLogWriter::class.java)
 
@@ -81,7 +81,9 @@ class SocketLogWriter<T>(
                     {
                         reconnecting.release()
                         reconnect()
-                    }, time, TimeUnit.MILLISECONDS
+                    },
+                    time,
+                    TimeUnit.MILLISECONDS,
                 )
             } else {
                 log.debug("Already scheduled for a reconnection to $remoteId. Skipping a new job...")
@@ -99,23 +101,24 @@ class SocketLogWriter<T>(
             return null
         }
 
-        val runnable = Runnable {
-            var socket: SocketChannel? = null
-            try {
-                // it uses a plain TCP NIO Socket implementation instead of a Reactor TCP Client because (a) it's much easier
-                // to control in this simple situation and (b) because there is no backpressure in this case so a reactive way
-                // has no advantage
-                socket = SocketChannel.open(InetSocketAddress(host, port))
-                log.info("Connected to logs server $remoteId")
-                sendToConnectedSocket(socket)
-            } catch (t: Throwable) {
-                log.error("Failed to connect to $remoteId", t)
-                // schedule a reconnection if needed
-                mayReconnect()
-            } finally {
-                socket?.close()
+        val runnable =
+            Runnable {
+                var socket: SocketChannel? = null
+                try {
+                    // it uses a plain TCP NIO Socket implementation instead of a Reactor TCP Client because (a) it's much easier
+                    // to control in this simple situation and (b) because there is no backpressure in this case so a reactive way
+                    // has no advantage
+                    socket = SocketChannel.open(InetSocketAddress(host, port))
+                    log.info("Connected to logs server $remoteId")
+                    sendToConnectedSocket(socket)
+                } catch (t: Throwable) {
+                    log.error("Failed to connect to $remoteId", t)
+                    // schedule a reconnection if needed
+                    mayReconnect()
+                } finally {
+                    socket?.close()
+                }
             }
-        }
         return Thread(runnable, "SocketLogWriter $remoteId").also {
             it.isDaemon = true
         }
@@ -170,7 +173,5 @@ class SocketLogWriter<T>(
         super.stop()
     }
 
-    override fun isRunning(): Boolean {
-        return !stopped.get()
-    }
+    override fun isRunning(): Boolean = !stopped.get()
 }

@@ -20,13 +20,12 @@ import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
 
 class AuthConfigReader : YamlConfigReader() {
-
     companion object {
         private val log = LoggerFactory.getLogger(AuthConfigReader::class.java)
     }
 
-    fun readClientBasicAuth(node: MappingNode?): AuthConfig.ClientBasicAuth? {
-        return getMapping(node, "basic-auth")?.let { authNode ->
+    fun readClientBasicAuth(node: MappingNode?): AuthConfig.ClientBasicAuth? =
+        getMapping(node, "basic-auth")?.let { authNode ->
             val username = getValueAsString(authNode, "username")
             val password = getValueAsString(authNode, "password")
             if (username != null && password != null) {
@@ -36,17 +35,15 @@ class AuthConfigReader : YamlConfigReader() {
                 null
             }
         }
-    }
 
-    fun readClientTls(node: MappingNode?): AuthConfig.ClientTlsAuth? {
-        return getMapping(node, "tls")?.let { authNode ->
+    fun readClientTls(node: MappingNode?): AuthConfig.ClientTlsAuth? =
+        getMapping(node, "tls")?.let { authNode ->
             val auth = AuthConfig.ClientTlsAuth()
             auth.ca = getValueAsString(authNode, "ca")
             auth.certificate = getValueAsString(authNode, "certificate")
             auth.key = getValueAsString(authNode, "key")
             auth
         }
-    }
 
     /**
      * Example config:

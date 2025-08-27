@@ -28,9 +28,9 @@ import java.net.URISyntaxException
 import java.util.Locale
 
 class UpstreamsConfigReader(
-    private val fileResolver: FileResolver
-) : YamlConfigReader(), ConfigReader<UpstreamsConfig> {
-
+    private val fileResolver: FileResolver,
+) : YamlConfigReader(),
+    ConfigReader<UpstreamsConfig> {
     private val log = LoggerFactory.getLogger(UpstreamsConfigReader::class.java)
     private val authConfigReader = AuthConfigReader()
 
@@ -39,11 +39,10 @@ class UpstreamsConfigReader(
         return readInternal(configNode)
     }
 
-    override fun read(input: MappingNode?): UpstreamsConfig? {
-        return getMapping(input, "cluster")?.let {
+    override fun read(input: MappingNode?): UpstreamsConfig? =
+        getMapping(input, "cluster")?.let {
             readInternal(it)
         }
-    }
 
     fun readInternal(input: MappingNode?): UpstreamsConfig? {
         val config = UpstreamsConfig()
@@ -176,9 +175,10 @@ class UpstreamsConfigReader(
                             //   tcp://127.0.0.1:1234
                             //   127.0.0.1:1234
                             //   1234 <- assume localhost connection
-                            val conn: Pair<String, Int> = parseHostPort(address, defaultHost = "127.0.0.1") {
-                                "Invalid config for ZeroMQ: $address. Expected to be in format HOST:PORT"
-                            }
+                            val conn: Pair<String, Int> =
+                                parseHostPort(address, defaultHost = "127.0.0.1") {
+                                    "Invalid config for ZeroMQ: $address. Expected to be in format HOST:PORT"
+                                }
                             val topics = getListOfString(node, "topics").orEmpty()
                             connection.zeroMq = UpstreamsConfig.BitcoinZeroMq(conn.first, conn.second, topics)
                         }
@@ -208,15 +208,16 @@ class UpstreamsConfigReader(
                                     }
                                 } else {
                                     connection.host = uri.host
-                                    connection.port = if (uri.port > 0) {
-                                        uri.port
-                                    } else if (uri.scheme == "https") {
-                                        443
-                                    } else if (uri.scheme == "http") {
-                                        80
-                                    } else {
-                                        throw IllegalStateException("Dshackle port is not specified in address: $address")
-                                    }
+                                    connection.port =
+                                        if (uri.port > 0) {
+                                            uri.port
+                                        } else if (uri.scheme == "https") {
+                                            443
+                                        } else if (uri.scheme == "http") {
+                                            80
+                                        } else {
+                                            throw IllegalStateException("Dshackle port is not specified in address: $address")
+                                        }
                                 }
 
                                 connection.autoTls = uri.scheme == "https"
@@ -242,8 +243,13 @@ class UpstreamsConfigReader(
         return config
     }
 
-    fun parseHostPort(address: String, defaultHost: String? = null, defaultPort: Int? = null, error: (() -> String)?): Pair<String, Int> {
-        return try {
+    fun parseHostPort(
+        address: String,
+        defaultHost: String? = null,
+        defaultPort: Int? = null,
+        error: (() -> String)?,
+    ): Pair<String, Int> =
+        try {
             URI(address).let {
                 // it tries to parse addresses like localhost:1234, but produces invalid URL
                 if (it.port < 0 || it.host == null) {
@@ -262,7 +268,6 @@ class UpstreamsConfigReader(
                 throw IllegalArgumentException(error?.invoke() ?: "Invalid address: $address")
             }
         }
-    }
 
     fun isValid(upstream: UpstreamsConfig.Upstream<*>): Boolean {
         val id = upstream.id
@@ -275,7 +280,10 @@ class UpstreamsConfigReader(
         return true
     }
 
-    internal fun readUpstreamCommon(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<*>) {
+    internal fun readUpstreamCommon(
+        upNode: MappingNode,
+        upstream: UpstreamsConfig.Upstream<*>,
+    ) {
         upstream.id = getValueAsString(upNode, "id")
         upstream.options = tryReadOptions(upNode)
         upstream.methods = tryReadMethods(upNode)
@@ -286,7 +294,7 @@ class UpstreamsConfigReader(
 
     internal fun readUpstreamGrpc(
         upNode: MappingNode,
-        upstream: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>
+        upstream: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>,
     ) {
         // Dshackle gRPC connection dispatches requests to different upstreams, which may
         // be on different blockchains, and each may have different set of labels.
@@ -300,13 +308,17 @@ class UpstreamsConfigReader(
         }
     }
 
-    internal fun readUpstreamStandard(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<*>) {
+    internal fun readUpstreamStandard(
+        upNode: MappingNode,
+        upstream: UpstreamsConfig.Upstream<*>,
+    ) {
         upstream.blockchain = getValueAsString(upNode, "blockchain", "chain")
         getValueAsString(upNode, "role")?.let {
-            val name = it.trim().let {
-                // `standard` was initial role, now split into `primary` and `secondary`
-                if (it == "standard") "primary" else it
-            }
+            val name =
+                it.trim().let {
+                    // `standard` was initial role, now split into `primary` and `secondary`
+                    if (it == "standard") "primary" else it
+                }
             try {
                 val role = UpstreamsConfig.UpstreamRole.valueOf(name.uppercase(Locale.getDefault()))
                 upstream.role = role
@@ -316,7 +328,8 @@ class UpstreamsConfigReader(
         }
         if (hasAny(upNode, "labels")) {
             getMapping(upNode, "labels")?.let { labels ->
-                labels.value.stream()
+                labels.value
+                    .stream()
                     .filter { n -> n.keyNode is ScalarNode && n.valueNode is ScalarNode }
                     .map { n -> Tuples.of((n.keyNode as ScalarNode).value, (n.valueNode as ScalarNode).value) }
                     .map { kv -> Tuples.of(kv.t1.trim(), kv.t2.trim()) }
@@ -338,30 +351,38 @@ class UpstreamsConfigReader(
         }
     }
 
-    internal fun tryReadMethods(upNode: MappingNode): UpstreamsConfig.Methods? {
-        return getMapping(upNode, "methods")?.let { mnode ->
-            val enabled = getList<MappingNode>(mnode, "enabled")?.value?.map { m ->
-                getValueAsString(m, "name")?.let { name ->
-                    UpstreamsConfig.Method(
-                        name = name,
-                        quorum = getValueAsString(m, "quorum"),
-                        static = getValueAsString(m, "static")
-                    )
-                }
-            }?.filterNotNull()?.toSet() ?: emptySet()
-            val disabled = getList<MappingNode>(mnode, "disabled")?.value?.map { m ->
-                getValueAsString(m, "name")?.let { name ->
-                    UpstreamsConfig.Method(
-                        name = name
-                    )
-                }
-            }?.filterNotNull()?.toSet() ?: emptySet()
+    internal fun tryReadMethods(upNode: MappingNode): UpstreamsConfig.Methods? =
+        getMapping(upNode, "methods")?.let { mnode ->
+            val enabled =
+                getList<MappingNode>(mnode, "enabled")
+                    ?.value
+                    ?.map { m ->
+                        getValueAsString(m, "name")?.let { name ->
+                            UpstreamsConfig.Method(
+                                name = name,
+                                quorum = getValueAsString(m, "quorum"),
+                                static = getValueAsString(m, "static"),
+                            )
+                        }
+                    }?.filterNotNull()
+                    ?.toSet() ?: emptySet()
+            val disabled =
+                getList<MappingNode>(mnode, "disabled")
+                    ?.value
+                    ?.map { m ->
+                        getValueAsString(m, "name")?.let { name ->
+                            UpstreamsConfig.Method(
+                                name = name,
+                            )
+                        }
+                    }?.filterNotNull()
+                    ?.toSet() ?: emptySet()
 
             UpstreamsConfig.Methods(
-                enabled, disabled
+                enabled,
+                disabled,
             )
         }
-    }
 
     internal fun readOptions(values: MappingNode): UpstreamsConfig.PartialOptions {
         val options = UpstreamsConfig.PartialOptions()

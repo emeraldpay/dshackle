@@ -33,11 +33,12 @@ import javax.annotation.PreDestroy
 @Repository
 open class CurrentRequestLogWriter(
     @Autowired mainConfig: MainConfig,
-) : RequestLogWriter, CurrentLogWriter<RequestRecord.BlockchainRequest>(
-    Category.REQUEST, LogJsonSerializer(),
-    FileOptions(startSleep = START_SLEEP, flushSleep = FLUSH_SLEEP, batchLimit = WRITE_BATCH_LIMIT)
-) {
-
+) : CurrentLogWriter<RequestRecord.BlockchainRequest>(
+        Category.REQUEST,
+        LogJsonSerializer(),
+        FileOptions(startSleep = START_SLEEP, flushSleep = FLUSH_SLEEP, batchLimit = WRITE_BATCH_LIMIT),
+    ),
+    RequestLogWriter {
     companion object {
         private val log = LoggerFactory.getLogger(CurrentRequestLogWriter::class.java)
 
@@ -73,7 +74,11 @@ open class CurrentRequestLogWriter(
         logWriter.submit(event)
     }
 
-    fun wrap(reader: StandardRpcReader, upstreamId: String, channel: Channel): StandardRpcReader {
+    fun wrap(
+        reader: StandardRpcReader,
+        upstreamId: String,
+        channel: Channel,
+    ): StandardRpcReader {
         if (!config.enabled) {
             return reader
         }

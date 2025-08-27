@@ -27,12 +27,14 @@ import reactor.core.publisher.Flux
 class DshacklePendingTxesSource(
     private val blockchain: Chain,
     private val conn: ReactorBlockchainGrpc.ReactorBlockchainStub,
-) : PendingTxesSource, DefaultPendingTxesSource() {
-
-    private val request = NativeSubscribeRequest.newBuilder()
-        .setChainValue(blockchain.id)
-        .setMethod(EthereumEgressSubscription.METHOD_PENDING_TXES)
-        .build()
+) : DefaultPendingTxesSource(),
+    PendingTxesSource {
+    private val request =
+        NativeSubscribeRequest
+            .newBuilder()
+            .setChainValue(blockchain.id)
+            .setMethod(EthereumEgressSubscription.METHOD_PENDING_TXES)
+            .build()
 
     var available = false
 
@@ -52,8 +54,9 @@ class DshacklePendingTxesSource(
     }
 
     fun update(conf: BlockchainOuterClass.DescribeChain) {
-        available = conf.supportedSubscriptionsList.any {
-            it == EthereumEgressSubscription.METHOD_PENDING_TXES
-        }
+        available =
+            conf.supportedSubscriptionsList.any {
+                it == EthereumEgressSubscription.METHOD_PENDING_TXES
+            }
     }
 }

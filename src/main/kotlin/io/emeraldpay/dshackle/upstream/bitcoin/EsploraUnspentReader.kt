@@ -25,7 +25,6 @@ import java.util.function.Function
 class EsploraUnspentReader(
     private val esploraClient: EsploraClient,
 ) : UnspentReader {
-
     companion object {
         private val log = LoggerFactory.getLogger(EsploraUnspentReader::class.java)
     }
@@ -38,12 +37,13 @@ class EsploraUnspentReader(
         )
     }
 
-    private val convertAll: Function<List<EsploraUnspent>, List<SimpleUnspent>> = Function { base ->
-        base.map(convert)
-    }
+    private val convertAll: Function<List<EsploraUnspent>, List<SimpleUnspent>> =
+        Function { base ->
+            base.map(convert)
+        }
 
-    override fun read(key: Address): Mono<List<SimpleUnspent>> {
-        return esploraClient.getUtxo(key)
+    override fun read(key: Address): Mono<List<SimpleUnspent>> =
+        esploraClient
+            .getUtxo(key)
             .map(convertAll)
-    }
 }

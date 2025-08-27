@@ -18,7 +18,6 @@ class ExpiringSet<T>(
     comparator: Comparator<T>,
     val limit: Int,
 ) : MutableSet<T> {
-
     companion object {
         private val log = LoggerFactory.getLogger(ExpiringSet::class.java)
     }
@@ -32,11 +31,9 @@ class ExpiringSet<T>(
 
     data class JournalItem<T>(
         val since: Long = System.currentTimeMillis(),
-        val value: T
+        val value: T,
     ) {
-        fun isExpired(ttl: Long): Boolean {
-            return System.currentTimeMillis() > since + ttl
-        }
+        fun isExpired(ttl: Long): Boolean = System.currentTimeMillis() > since + ttl
     }
 
     override val size: Int
@@ -70,9 +67,7 @@ class ExpiringSet<T>(
         }
     }
 
-    override fun isEmpty(): Boolean {
-        return count == 0
-    }
+    override fun isEmpty(): Boolean = count == 0
 
     override fun iterator(): MutableIterator<T> {
         // not mutable
@@ -113,9 +108,7 @@ class ExpiringSet<T>(
         }
     }
 
-    override fun containsAll(elements: Collection<T>): Boolean {
-        return elements.all { contains(it) }
-    }
+    override fun containsAll(elements: Collection<T>): Boolean = elements.all { contains(it) }
 
     override fun contains(element: T): Boolean {
         lock.withLock {

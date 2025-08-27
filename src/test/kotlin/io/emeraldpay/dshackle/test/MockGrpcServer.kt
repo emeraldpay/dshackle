@@ -8,7 +8,6 @@ import io.grpc.testing.GrpcCleanupRule
 import org.slf4j.LoggerFactory
 
 class MockGrpcServer {
-
     companion object {
         private val log = LoggerFactory.getLogger(MockGrpcServer::class.java)
     }
@@ -19,7 +18,11 @@ class MockGrpcServer {
         val serverName = InProcessServerBuilder.generateName()
         grpcCleanup.register(
             InProcessServerBuilder
-                .forName(serverName).directExecutor().addService(base).build().start()
+                .forName(serverName)
+                .directExecutor()
+                .addService(base)
+                .build()
+                .start(),
         )
         val channel = grpcCleanup.register(InProcessChannelBuilder.forName(serverName).directExecutor().build())
         return ReactorBlockchainGrpc.newReactorStub(channel)

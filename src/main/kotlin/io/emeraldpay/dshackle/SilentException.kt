@@ -20,16 +20,23 @@ import io.emeraldpay.api.Chain
 /**
  * Exception that should be handled/logged without a stacktrace in production
  */
-open class SilentException(message: String) : Exception(message) {
-
+open class SilentException(
+    message: String,
+) : Exception(message) {
     /**
      * Blockchain is not available or not supported by current instance of the Dshackle
      */
-    class UnsupportedBlockchain(val blockchainId: Int) : SilentException("Unsupported blockchain $blockchainId") {
+    class UnsupportedBlockchain(
+        val blockchainId: Int,
+    ) : SilentException("Unsupported blockchain $blockchainId") {
         constructor(chain: Chain) : this(chain.id)
     }
 
-    class DataUnavailable(val code: String) : SilentException("Data is unavailable: $code")
+    class DataUnavailable(
+        val code: String,
+    ) : SilentException("Data is unavailable: $code")
 
-    class Timeout(message: String) : SilentException(message)
+    class Timeout(
+        message: String,
+    ) : SilentException(message)
 }

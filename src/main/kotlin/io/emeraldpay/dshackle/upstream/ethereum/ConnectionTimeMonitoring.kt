@@ -27,13 +27,13 @@ import java.util.function.Consumer
 class ConnectionTimeMonitoring(
     val metrics: RpcMetrics,
 ) : Consumer<WsConnection.ConnectionStatus> {
-
     private val connectedAt = AtomicReference<Instant?>(null)
 
     val connectionTime: Duration?
-        get() = connectedAt.get()?.let {
-            Duration.between(it, Instant.now()).coerceAtLeast(Duration.ofMillis(0))
-        }
+        get() =
+            connectedAt.get()?.let {
+                Duration.between(it, Instant.now()).coerceAtLeast(Duration.ofMillis(0))
+            }
 
     override fun accept(t: WsConnection.ConnectionStatus) {
         if (t == WsConnection.ConnectionStatus.CONNECTED) {

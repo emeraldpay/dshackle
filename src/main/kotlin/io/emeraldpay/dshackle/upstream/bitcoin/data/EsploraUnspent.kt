@@ -22,5 +22,5 @@ data class EsploraUnspent(
     val vout: Int,
     val value: Long,
     val timestamp: Instant,
-    val height: Long
+    val height: Long,
 )

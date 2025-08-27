@@ -26,8 +26,9 @@ import java.io.InputStream
 /**
  * Read YAML config, part related to Proxy configuration
  */
-class ProxyConfigReader : YamlConfigReader(), ConfigReader<ProxyConfig> {
-
+class ProxyConfigReader :
+    YamlConfigReader(),
+    ConfigReader<ProxyConfig> {
     companion object {
         private val log = LoggerFactory.getLogger(ProxyConfigReader::class.java)
     }
@@ -40,9 +41,7 @@ class ProxyConfigReader : YamlConfigReader(), ConfigReader<ProxyConfig> {
         return read(configNode)
     }
 
-    override fun read(input: MappingNode?): ProxyConfig? {
-        return readInternal(getMapping(input, "proxy"))
-    }
+    override fun read(input: MappingNode?): ProxyConfig? = readInternal(getMapping(input, "proxy"))
 
     fun readInternal(input: MappingNode?): ProxyConfig? {
         if (input == null) {
@@ -72,21 +71,22 @@ class ProxyConfigReader : YamlConfigReader(), ConfigReader<ProxyConfig> {
         }
         val currentRoutes = HashSet<String>()
         getList<MappingNode>(input, "routes")?.let { routes ->
-            config.routes = routes.value.map { route ->
-                val id = getValueAsString(route, "id")
-                if (id == null || StringUtils.isEmpty(id) || !StringUtils.isAlphanumeric(id)) {
-                    throw InvalidConfigYamlException(filename, route.startMark, "Route id must be alphanumeric")
+            config.routes =
+                routes.value.map { route ->
+                    val id = getValueAsString(route, "id")
+                    if (id == null || StringUtils.isEmpty(id) || !StringUtils.isAlphanumeric(id)) {
+                        throw InvalidConfigYamlException(filename, route.startMark, "Route id must be alphanumeric")
+                    }
+                    if (currentRoutes.contains(id)) {
+                        throw InvalidConfigYamlException(filename, route.startMark, "Route id repeated: $id")
+                    }
+                    currentRoutes.add(id)
+                    val blockchain = getValueAsString(route, "blockchain")
+                    if (StringUtils.isEmpty(blockchain) || Global.chainById(blockchain!!) == Chain.UNSPECIFIED) {
+                        throw InvalidConfigYamlException(filename, route.startMark, "Invalid blockchain or not specified")
+                    }
+                    ProxyConfig.Route(id, Global.chainById(blockchain))
                 }
-                if (currentRoutes.contains(id)) {
-                    throw InvalidConfigYamlException(filename, route.startMark, "Route id repeated: $id")
-                }
-                currentRoutes.add(id)
-                val blockchain = getValueAsString(route, "blockchain")
-                if (StringUtils.isEmpty(blockchain) || Global.chainById(blockchain!!) == Chain.UNSPECIFIED) {
-                    throw InvalidConfigYamlException(filename, route.startMark, "Invalid blockchain or not specified")
-                }
-                ProxyConfig.Route(id, Global.chainById(blockchain))
-            }
         }
         if (config.routes.isEmpty()) {
             log.warn("Proxy config has no routes")

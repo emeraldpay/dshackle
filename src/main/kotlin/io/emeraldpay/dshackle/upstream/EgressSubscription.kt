@@ -19,5 +19,9 @@ import reactor.core.publisher.Flux
 
 interface EgressSubscription {
     fun getAvailableTopics(): List<String>
-    fun subscribe(topic: String, params: Any?): Flux<out Any>
+
+    fun subscribe(
+        topic: String,
+        params: Any?,
+    ): Flux<out Any>
 }

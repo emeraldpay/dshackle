@@ -3,8 +3,11 @@ package io.emeraldpay.dshackle.upstream.signature
 import io.emeraldpay.dshackle.upstream.Upstream
 
 interface ResponseSigner {
-
-    fun sign(nonce: Long, message: ByteArray, source: Upstream): Signature?
+    fun sign(
+        nonce: Long,
+        message: ByteArray,
+        source: Upstream,
+    ): Signature?
 
     data class Signature(
         val value: ByteArray,

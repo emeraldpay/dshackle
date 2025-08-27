@@ -29,14 +29,17 @@ import org.springframework.stereotype.Service
 
 @Service
 open class TlsSetup(
-    @Autowired val fileResolver: FileResolver
+    @Autowired val fileResolver: FileResolver,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(TlsSetup::class.java)
     }
 
-    fun setupServer(category: String, config: AuthConfig.ServerTlsAuth?, grpc: Boolean): SslContext? {
+    fun setupServer(
+        category: String,
+        config: AuthConfig.ServerTlsAuth?,
+        grpc: Boolean,
+    ): SslContext? {
         if (config == null) {
             log.warn("Using insecure transport for $category")
             return null
@@ -47,7 +50,9 @@ open class TlsSetup(
         if (!tlsDisabled) {
             if (StringUtils.isEmpty(config.certificate)) {
                 if (mustBeSecure) {
-                    log.error("tls.server.certificate property for $category is not set (path to server TLS certificate) but TLS is enabled")
+                    log.error(
+                        "tls.server.certificate property for $category is not set (path to server TLS certificate) but TLS is enabled",
+                    )
                     throw IllegalArgumentException("Certificate not set")
                 }
                 hasServerCertificate = false
@@ -66,21 +71,22 @@ open class TlsSetup(
                 log.warn("Using JDK TLS implementation. Install OpenSSL to better performance")
             }
 
-            val sslContextBuilder = if (grpc) {
-                GrpcSslContexts.forServer(
-                    fileResolver.resolve(config.certificate!!),
-                    fileResolver.resolve(config.key!!)
-                )
-            } else {
-                SslContextBuilder.forServer(
-                    fileResolver.resolve(config.certificate!!),
-                    fileResolver.resolve(config.key!!)
-                )
-            }
+            val sslContextBuilder =
+                if (grpc) {
+                    GrpcSslContexts.forServer(
+                        fileResolver.resolve(config.certificate!!),
+                        fileResolver.resolve(config.key!!),
+                    )
+                } else {
+                    SslContextBuilder.forServer(
+                        fileResolver.resolve(config.certificate!!),
+                        fileResolver.resolve(config.key!!),
+                    )
+                }
             if (StringUtils.isNotEmpty(config.clientCa)) {
                 log.info("Using TLS for client authentication for $category")
                 sslContextBuilder.trustManager(
-                    fileResolver.resolve(config.clientCa!!)
+                    fileResolver.resolve(config.clientCa!!),
                 )
                 if (config.clientRequire != null && config.clientRequire!!) {
                     sslContextBuilder.clientAuth(ClientAuth.REQUIRE)

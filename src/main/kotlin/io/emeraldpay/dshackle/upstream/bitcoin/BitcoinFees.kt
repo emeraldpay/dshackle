@@ -29,8 +29,8 @@ class BitcoinFees(
     upstreams: BitcoinMultistream,
     private val data: DataReaders,
     heightLimit: Int,
-) : AbstractChainFees<BitcoinFees.TxFee, Map<String, Any>, TxId, String>(heightLimit, upstreams, extractTx), ChainFees {
-
+) : AbstractChainFees<BitcoinFees.TxFee, Map<String, Any>, TxId, String>(heightLimit, upstreams, extractTx),
+    ChainFees {
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinFees::class.java)
 
@@ -47,7 +47,8 @@ class BitcoinFees(
     fun calculateFee(tx: Map<String, Any>): Mono<Long> {
         val outAmount = extractVOuts(tx).reduce { acc, l -> (acc ?: 0L) + (l ?: 0L) } ?: 0
         val vinsData = tx.get("vin")?.let { it as List<Map<String, Any>> } ?: return Mono.empty()
-        return Flux.fromIterable(vinsData)
+        return Flux
+            .fromIterable(vinsData)
             .flatMap {
                 val txid = it["txid"] as String?
                 val vout = (it["vout"] as Number?)?.toInt()
@@ -56,31 +57,35 @@ class BitcoinFees(
                 } else {
                     getTxOutAmount(TxId.from(txid), vout)
                 }
-            }
-            .reduce { t, u -> t + u }
+            }.reduce { t, u -> t + u }
             .map { inAmount ->
                 (inAmount - outAmount).coerceAtLeast(0)
             }
     }
 
     fun extractSize(tx: Map<String, Any>): Int {
-        val size: Number = if (tx.containsKey("vsize")) {
-            tx["vsize"] as Number
-        } else if (tx.containsKey("size")) {
-            tx["size"] as Number
-        } else {
-            0
-        }
+        val size: Number =
+            if (tx.containsKey("vsize")) {
+                tx["vsize"] as Number
+            } else if (tx.containsKey("size")) {
+                tx["size"] as Number
+            } else {
+                0
+            }
         return size.toInt()
     }
 
-    fun getTxOutAmount(txid: TxId, vout: Int): Mono<Long> {
-        return data.getTxJson(txid)
+    fun getTxOutAmount(
+        txid: TxId,
+        vout: Int,
+    ): Mono<Long> =
+        data
+            .getTxJson(txid)
             .switchIfEmpty(
-                Mono.fromCallable { log.warn("No tx $txid") }
-                    .then(Mono.empty())
-            )
-            .flatMap {
+                Mono
+                    .fromCallable { log.warn("No tx $txid") }
+                    .then(Mono.empty()),
+            ).flatMap {
                 extractVOuts(it).let {
                     if (vout < it.size) {
                         Mono.justOrEmpty(it[vout])
@@ -89,7 +94,6 @@ class BitcoinFees(
                     }
                 }
             }
-    }
 
     fun extractVOuts(tx: Map<String, Any>): List<Long?> {
         val voutsData = tx.get("vout")?.let { it as List<Map<String, Any>> } ?: return emptyList()
@@ -101,10 +105,15 @@ class BitcoinFees(
         }
     }
 
-    override fun readFeesAt(height: Long, selector: TxAt<Map<String, Any>, TxId>): Mono<TxFee> {
-        return data.getBlockJson(height)
+    override fun readFeesAt(
+        height: Long,
+        selector: TxAt<Map<String, Any>, TxId>,
+    ): Mono<TxFee> =
+        data
+            .getBlockJson(height)
             .flatMap { block ->
-                Mono.justOrEmpty(selector.get(block))
+                Mono
+                    .justOrEmpty(selector.get(block))
                     .flatMap { txid -> data.getTxJson(txid!!) }
                     .flatMap { tx ->
                         calculateFee(tx)
@@ -113,7 +122,6 @@ class BitcoinFees(
                             }
                     }
             }
-    }
 
     override fun feeAggregation(mode: ChainFees.Mode): Function<Flux<TxFee>, Mono<TxFee>> {
         if (mode == ChainFees.Mode.MIN_ALWAYS) {
@@ -130,19 +138,22 @@ class BitcoinFees(
         }
     }
 
-    override fun getResponseBuilder(): Function<TxFee, BlockchainOuterClass.EstimateFeeResponse> {
-        return Function {
+    override fun getResponseBuilder(): Function<TxFee, BlockchainOuterClass.EstimateFeeResponse> =
+        Function {
             val fee = (it.fee / it.count).coerceAtLeast(1)
-            BlockchainOuterClass.EstimateFeeResponse.newBuilder()
+            BlockchainOuterClass.EstimateFeeResponse
+                .newBuilder()
                 .setBitcoinStd(
-                    BlockchainOuterClass.BitcoinStdFees.newBuilder()
-                        .setSatPerKb(fee)
-                )
-                .build()
+                    BlockchainOuterClass.BitcoinStdFees
+                        .newBuilder()
+                        .setSatPerKb(fee),
+                ).build()
         }
-    }
 
     // -------
 
-    data class TxFee(val count: Int, val fee: Long)
+    data class TxFee(
+        val count: Int,
+        val fee: Long,
+    )
 }

@@ -18,13 +18,12 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.upstream.NoIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 
-class NoEthereumIngressSubscription : NoIngressSubscription(), EthereumIngressSubscription {
-
+class NoEthereumIngressSubscription :
+    NoIngressSubscription(),
+    EthereumIngressSubscription {
     companion object {
         val DEFAULT = NoEthereumIngressSubscription()
     }
 
-    override fun getPendingTxes(): PendingTxesSource? {
-        return null
-    }
+    override fun getPendingTxes(): PendingTxesSource? = null
 }

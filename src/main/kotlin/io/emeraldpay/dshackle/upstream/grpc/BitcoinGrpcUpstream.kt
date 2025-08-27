@@ -57,94 +57,98 @@ class BitcoinGrpcUpstream(
     chain: Chain,
     options: UpstreamsConfig.Options,
     val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
-    private val client: JsonRpcGrpcClient
+    private val client: JsonRpcGrpcClient,
 ) : BitcoinUpstream(
-    "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
-    chain, forkWatch,
-    options,
-    role
-),
+        "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
+        chain,
+        forkWatch,
+        options,
+        role,
+    ),
     GrpcUpstream,
     Lifecycle {
-
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinGrpcUpstream::class.java)
     }
 
-    constructor(parentId: String, role: UpstreamsConfig.UpstreamRole, chain: Chain, remote: ReactorBlockchainStub, client: JsonRpcGrpcClient) :
-        this(parentId, ForkWatch.Never(), role, chain, UpstreamsConfig.PartialOptions.getDefaults().build(), remote, client)
+    constructor(
+        parentId: String,
+        role: UpstreamsConfig.UpstreamRole,
+        chain: Chain,
+        remote: ReactorBlockchainStub,
+        client: JsonRpcGrpcClient,
+    ) :
+        this(
+            parentId,
+            ForkWatch.Never(),
+            role,
+            chain,
+            UpstreamsConfig.PartialOptions.getDefaults().build(),
+            remote,
+            client,
+        )
 
     private val extractBlock = ExtractBlock()
     private val reader: StandardRpcReader = client.forSelector(parentId, Selector.empty)
-    private val blockConverter: Function<BlockchainOuterClass.ChainHead, BlockContainer> = Function { value ->
-        val block = BlockContainer(
-            value.height,
-            BlockId.from(value.blockId), null,
-            BigInteger(1, value.weight.toByteArray()),
-            Instant.ofEpochMilli(value.timestamp),
-            false,
-            null,
-            null
-        )
-        block
-    }
-    private val reloadBlock: Function<BlockContainer, Publisher<BlockContainer>> = Function { existingBlock ->
-        // head comes without transaction data
-        // need to download transactions for the block
-        reader.read(JsonRpcRequest("getblock", listOf(existingBlock.hash.toHex())))
-            .flatMap(JsonRpcResponse::requireResult)
-            .map(extractBlock::extract)
-            .timeout(timeout, Mono.error(SilentException.Timeout("Timeout from upstream")))
-            .doOnError { t ->
-                setStatus(UpstreamAvailability.UNAVAILABLE)
-                val msg = "Failed to download block data for chain $chain on $parentId"
-                if (t is RpcException || t is SilentException.Timeout) {
-                    log.warn("$msg. Message: ${t.message}")
-                } else {
-                    log.error(msg, t)
+    private val blockConverter: Function<BlockchainOuterClass.ChainHead, BlockContainer> =
+        Function { value ->
+            val block =
+                BlockContainer(
+                    value.height,
+                    BlockId.from(value.blockId),
+                    null,
+                    BigInteger(1, value.weight.toByteArray()),
+                    Instant.ofEpochMilli(value.timestamp),
+                    false,
+                    null,
+                    null,
+                )
+            block
+        }
+    private val reloadBlock: Function<BlockContainer, Publisher<BlockContainer>> =
+        Function { existingBlock ->
+            // head comes without transaction data
+            // need to download transactions for the block
+            reader
+                .read(JsonRpcRequest("getblock", listOf(existingBlock.hash.toHex())))
+                .flatMap(JsonRpcResponse::requireResult)
+                .map(extractBlock::extract)
+                .timeout(timeout, Mono.error(SilentException.Timeout("Timeout from upstream")))
+                .doOnError { t ->
+                    setStatus(UpstreamAvailability.UNAVAILABLE)
+                    val msg = "Failed to download block data for chain $chain on $parentId"
+                    if (t is RpcException || t is SilentException.Timeout) {
+                        log.warn("$msg. Message: ${t.message}")
+                    } else {
+                        log.error(msg, t)
+                    }
                 }
-            }
-    }
+        }
     private val upstreamStatus = GrpcUpstreamStatus()
-    private val grpcHead = OptionalHead(
-        GrpcHead(chain, this, remote, blockConverter, reloadBlock)
-    )
+    private val grpcHead =
+        OptionalHead(
+            GrpcHead(chain, this, remote, blockConverter, reloadBlock),
+        )
     var timeout = Defaults.timeout
     private var capabilities: Set<Capability> = emptySet()
     private val ingressSubscription = BitcoinDshackleIngressSubscription(chain, remote)
     private var updateHandler: (() -> Unit)? = null
 
-    override fun getBlockchainApi(): ReactorBlockchainGrpc.ReactorBlockchainStub {
-        return remote
-    }
+    override fun getBlockchainApi(): ReactorBlockchainGrpc.ReactorBlockchainStub = remote
 
-    override fun getHead(): Head {
-        return grpcHead
-    }
+    override fun getHead(): Head = grpcHead
 
-    override fun getIngressReader(): StandardRpcReader {
-        return reader
-    }
+    override fun getIngressReader(): StandardRpcReader = reader
 
-    override fun getLabels(): Collection<UpstreamsConfig.Labels> {
-        return upstreamStatus.getLabels()
-    }
+    override fun getLabels(): Collection<UpstreamsConfig.Labels> = upstreamStatus.getLabels()
 
-    override fun getMethods(): CallMethods {
-        return upstreamStatus.getCallMethods()
-    }
+    override fun getMethods(): CallMethods = upstreamStatus.getCallMethods()
 
-    override fun getCapabilities(): Set<Capability> {
-        return capabilities
-    }
+    override fun getCapabilities(): Set<Capability> = capabilities
 
-    override fun isGrpc(): Boolean {
-        return true
-    }
+    override fun isGrpc(): Boolean = true
 
-    override fun getIngressSubscription(): IngressSubscription {
-        return ingressSubscription
-    }
+    override fun getIngressSubscription(): IngressSubscription = ingressSubscription
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : Upstream> cast(selfType: Class<T>): T {
@@ -154,9 +158,7 @@ class BitcoinGrpcUpstream(
         return this as T
     }
 
-    override fun isRunning(): Boolean {
-        return true
-    }
+    override fun isRunning(): Boolean = true
 
     override fun start() {
         super.start()

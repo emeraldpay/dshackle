@@ -42,48 +42,47 @@ class EthereumWsHead(
     private val blockchain: Chain,
     private val api: StandardRpcReader,
     private val wsSubscriptions: WsSubscriptions,
-) : DefaultEthereumHead(blockchain), Lifecycle {
-
+) : DefaultEthereumHead(blockchain),
+    Lifecycle {
     private val log = LoggerFactory.getLogger(EthereumWsHead::class.java)
 
     private val running = AtomicBoolean(false)
     private var subscription: Disposable? = null
 
-    override fun isRunning(): Boolean {
-        return subscription != null
-    }
+    override fun isRunning(): Boolean = subscription != null
 
     override fun start() {
         running.set(true)
         this.subscription?.dispose()
-        val heads = Flux.merge(
-            // get the current block immediately, not just wait for the next update
-            getLatestBlock(api),
-            listNewHeadsWithRetry()
-        )
+        val heads =
+            Flux.merge(
+                // get the current block immediately, not just wait for the next update
+                getLatestBlock(api),
+                listNewHeadsWithRetry(),
+            )
         this.subscription = super.follow(heads)
     }
 
     /**
      * WebSocket connection may disconnect, and it should retry again subscribing to newHeads
      */
-    fun listNewHeadsWithRetry(): Flux<BlockContainer> {
-        return DurableFlux.newBuilder()
+    fun listNewHeadsWithRetry(): Flux<BlockContainer> =
+        DurableFlux
+            .newBuilder()
             .logTo(log)
             .controlWith(running)
             .using { listenNewHeads() }
             .build()
             .connect()
-    }
 
-    fun listenNewHeads(): Flux<BlockContainer> {
-        return wsSubscriptions.subscribe("newHeads")
+    fun listenNewHeads(): Flux<BlockContainer> =
+        wsSubscriptions
+            .subscribe("newHeads")
             .contextWrite(Global.monitoring.ingress.withBlockchain(blockchain))
             .contextWrite(Global.monitoring.ingress.startCall(RequestRecord.Source.INTERNAL))
             .map {
                 Global.objectMapper.readValue(it, BlockJson::class.java) as BlockJson<TransactionRefJson>
-            }
-            .flatMap { block ->
+            }.flatMap { block ->
                 // newHeads returns incomplete blocks, i.e. without some fields and without transaction hashes,
                 // so we need to fetch the full block data
                 if (block.difficulty == null || block.transactions == null) {
@@ -94,21 +93,21 @@ class EthereumWsHead(
             }
             // provide an error once the source completes, so we can retry to request heads again
             .concatWith(Mono.error(SilentException.DataUnavailable("newHeads")))
-    }
 
-    fun enhanceRealBlock(block: BlockJson<TransactionRefJson>): Mono<BlockContainer> {
-        return Mono.just(block.hash)
+    fun enhanceRealBlock(block: BlockJson<TransactionRefJson>): Mono<BlockContainer> =
+        Mono
+            .just(block.hash)
             .flatMap { hash ->
                 val request = JsonRpcRequest("eth_getBlockByHash", listOf(hash.toHex(), false))
-                api.read(request)
+                api
+                    .read(request)
                     .flatMap { resp ->
                         if (resp.isNull()) {
                             Mono.error(SilentException("Received null for block $hash"))
                         } else {
                             Mono.just(resp)
                         }
-                    }
-                    .flatMap(JsonRpcResponse::requireResult)
+                    }.flatMap(JsonRpcResponse::requireResult)
                     .map { BlockContainer.fromEthereumJson(it) }
                     .subscribeOn(Schedulers.boundedElastic())
                     .contextWrite(Global.monitoring.ingress.withBlockchain(blockchain))
@@ -116,13 +115,12 @@ class EthereumWsHead(
                     .contextWrite(Global.monitoring.ingress.startCall(RequestRecord.Source.INTERNAL))
                     .timeout(Defaults.timeoutInternal, Mono.empty())
             }.repeatWhenEmpty { n ->
-                Repeat.times<Any>(5)
+                Repeat
+                    .times<Any>(5)
                     .exponentialBackoff(Duration.ofMillis(50), Duration.ofMillis(500))
                     .apply(n)
-            }
-            .timeout(Defaults.timeout, Mono.empty())
+            }.timeout(Defaults.timeout, Mono.empty())
             .onErrorResume { Mono.empty() }
-    }
 
     override fun stop() {
         running.set(false)

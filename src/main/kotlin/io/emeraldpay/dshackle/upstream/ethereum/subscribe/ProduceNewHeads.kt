@@ -29,25 +29,24 @@ import reactor.core.publisher.Flux
  * @see NewHeadMessage
  */
 class ProduceNewHeads(
-    val head: Head
+    val head: Head,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(ProduceNewHeads::class.java)
     }
 
     private val objectMapper = Global.objectMapper
 
-    fun start(): Flux<NewHeadMessage> {
-        return head.getFlux()
+    fun start(): Flux<NewHeadMessage> =
+        head
+            .getFlux()
             .map {
                 if (it.parsed != null) {
                     it.parsed as BlockJson<TransactionRefJson>
                 } else {
                     objectMapper.readValue(it.json, BlockJson::class.java)
                 }
-            }
-            .map { block ->
+            }.map { block ->
                 NewHeadMessage(
                     block.number,
                     block.hash,
@@ -58,8 +57,7 @@ class ProduceNewHeads(
                     block.gasUsed,
                     block.logsBloom,
                     block.miner,
-                    block.baseFeePerGas?.amount
+                    block.baseFeePerGas?.amount,
                 )
             }
-    }
 }

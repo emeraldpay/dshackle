@@ -25,17 +25,21 @@ import io.emeraldpay.etherjar.rpc.RpcException
 import org.slf4j.LoggerFactory
 
 abstract class ValueAwareQuorum<T>(
-    val clazz: Class<T>
+    val clazz: Class<T>,
 ) : CallQuorum {
-
     private val log = LoggerFactory.getLogger(ValueAwareQuorum::class.java)
     private var rpcError: JsonRpcError? = null
 
-    fun extractValue(response: ByteArray, clazz: Class<T>): T? {
-        return Global.objectMapper.readValue(response.inputStream(), clazz)
-    }
+    fun extractValue(
+        response: ByteArray,
+        clazz: Class<T>,
+    ): T? = Global.objectMapper.readValue(response.inputStream(), clazz)
 
-    override fun record(response: ByteArray, signature: ResponseSigner.Signature?, upstream: Upstream): Boolean {
+    override fun record(
+        response: ByteArray,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+    ): Boolean {
         try {
             val value = extractValue(response, clazz)
             recordValue(response, value, signature, upstream)
@@ -47,16 +51,28 @@ abstract class ValueAwareQuorum<T>(
         return isResolved()
     }
 
-    override fun record(error: JsonRpcException, signature: ResponseSigner.Signature?, upstream: Upstream) {
+    override fun record(
+        error: JsonRpcException,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+    ) {
         this.rpcError = error.error
         recordError(null, error.error.message, signature, upstream)
     }
 
-    abstract fun recordValue(response: ByteArray, responseValue: T?, signature: ResponseSigner.Signature?, upstream: Upstream)
+    abstract fun recordValue(
+        response: ByteArray,
+        responseValue: T?,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+    )
 
-    abstract fun recordError(response: ByteArray?, errorMessage: String?, signature: ResponseSigner.Signature?, upstream: Upstream)
+    abstract fun recordError(
+        response: ByteArray?,
+        errorMessage: String?,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+    )
 
-    override fun getError(): JsonRpcError? {
-        return rpcError
-    }
+    override fun getError(): JsonRpcError? = rpcError
 }

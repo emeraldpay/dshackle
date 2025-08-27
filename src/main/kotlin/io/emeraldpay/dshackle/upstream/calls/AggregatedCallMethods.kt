@@ -23,9 +23,8 @@ import java.util.Collections
  * Aggregation over several parent configuration. It dispatches call to a first delegate that supports it.
  */
 class AggregatedCallMethods(
-    private val delegates: Collection<CallMethods>
+    private val delegates: Collection<CallMethods>,
 ) : CallMethods {
-
     private val allMethods: Set<String>
 
     init {
@@ -37,39 +36,33 @@ class AggregatedCallMethods(
     /**
      * Finds first delegate that has Allowed that method and returns its Quorum
      */
-    override fun createQuorumFor(method: String): CallQuorum {
-        return delegates.find {
-            it.isCallable(method) || it.isHardcoded(method)
-        }?.createQuorumFor(method) ?: throw IllegalStateException("No executor delegate for $method")
-    }
+    override fun createQuorumFor(method: String): CallQuorum =
+        delegates
+            .find {
+                it.isCallable(method) || it.isHardcoded(method)
+            }?.createQuorumFor(method) ?: throw IllegalStateException("No executor delegate for $method")
 
     /**
      * Checks if ANY of delegates supports the method
      */
-    override fun isCallable(method: String): Boolean {
-        return delegates.any { it.isCallable(method) }
-    }
+    override fun isCallable(method: String): Boolean = delegates.any { it.isCallable(method) }
 
     /**
      * Returns all available methods, accessible through at least one of delegates
      */
-    override fun getSupportedMethods(): Set<String> {
-        return allMethods
-    }
+    override fun getSupportedMethods(): Set<String> = allMethods
 
     /**
      * @return true if there is at least one delegate that allows the method and it's hardcoded on that delegate
      */
-    override fun isHardcoded(method: String): Boolean {
-        return delegates.any { it.isHardcoded(method) }
-    }
+    override fun isHardcoded(method: String): Boolean = delegates.any { it.isHardcoded(method) }
 
     /**
      * Executed the method on the first delegate that supports it as a hardcoded method
      */
-    override fun executeHardcoded(method: String): ByteArray {
-        return delegates.find {
-            it.isHardcoded(method)
-        }?.executeHardcoded(method) ?: throw IllegalStateException("No hardcoded for $method")
-    }
+    override fun executeHardcoded(method: String): ByteArray =
+        delegates
+            .find {
+                it.isHardcoded(method)
+            }?.executeHardcoded(method) ?: throw IllegalStateException("No hardcoded for $method")
 }

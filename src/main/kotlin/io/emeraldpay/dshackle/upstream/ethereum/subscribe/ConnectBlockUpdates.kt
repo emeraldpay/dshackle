@@ -34,9 +34,8 @@ import kotlin.concurrent.withLock
 import kotlin.concurrent.write
 
 class ConnectBlockUpdates(
-    private val upstream: EthereumMultistream
+    private val upstream: EthereumMultistream,
 ) : SubscriptionConnect<ConnectBlockUpdates.Update> {
-
     companion object {
         private val log = LoggerFactory.getLogger(ConnectBlockUpdates::class.java)
         private const val HISTORY_LIMIT = 6 * 3
@@ -62,39 +61,43 @@ class ConnectBlockUpdates(
             if (currentRecheck != null) {
                 return currentRecheck
             }
-            val connection = DurableFlux.newBuilder()
-                .logTo(log)
-                .using { extract(upstream.getHead()) }
-                .backoffOnError(Duration.ofSeconds(1), 1.5, Duration.ofMinutes(1))
-                .build()
-                .connect()
+            val connection =
+                DurableFlux
+                    .newBuilder()
+                    .logTo(log)
+                    .using { extract(upstream.getHead()) }
+                    .backoffOnError(Duration.ofSeconds(1), 1.5, Duration.ofMinutes(1))
+                    .build()
+                    .connect()
 
-            val created = connection
-                .publishOn(Schedulers.boundedElastic())
-                .publish()
-                .refCount(1, Duration.ofSeconds(60))
-                .doFinally {
-                    // forget it on disconnect, so next time it's recreated
-                    connected = null
-                }
+            val created =
+                connection
+                    .publishOn(Schedulers.boundedElastic())
+                    .publish()
+                    .refCount(1, Duration.ofSeconds(60))
+                    .doFinally {
+                        // forget it on disconnect, so next time it's recreated
+                        connected = null
+                    }
             connected = created
             return created
         }
     }
 
-    fun extract(head: Head): Flux<Update> {
-        return head.getFlux()
+    fun extract(head: Head): Flux<Update> =
+        head
+            .getFlux()
             .flatMap(this@ConnectBlockUpdates::extract)
-    }
 
     fun extract(block: BlockContainer): Flux<Update> {
         val prev = findPrevious(block)
         remember(block)
-        val removed = if (prev != null) {
-            whenReplaced(prev)
-        } else {
-            Flux.empty()
-        }
+        val removed =
+            if (prev != null) {
+                whenReplaced(prev)
+            } else {
+                Flux.empty()
+            }
         val added = extractUpdates(block)
         return Flux.concat(removed, added)
     }
@@ -123,28 +126,27 @@ class ConnectBlockUpdates(
     /**
      * Produce updates for transactions when a block is replaces with a different one on the same height.
      */
-    fun whenReplaced(prev: BlockContainer): Flux<Update> {
-        return Flux.fromIterable(prev.transactions).map {
+    fun whenReplaced(prev: BlockContainer): Flux<Update> =
+        Flux.fromIterable(prev.transactions).map {
             Update(
                 prev.hash,
                 prev.height,
                 UpdateType.DROP,
-                it
+                it,
             )
         }
-    }
 
-    fun extractUpdates(block: BlockContainer): Flux<Update> {
-        return Flux.fromIterable(block.transactions)
+    fun extractUpdates(block: BlockContainer): Flux<Update> =
+        Flux
+            .fromIterable(block.transactions)
             .map {
                 Update(
                     block.hash,
                     block.height,
                     UpdateType.NEW,
-                    it
+                    it,
                 )
             }
-    }
 
     data class Update(
         val blockHash: BlockId,
@@ -155,6 +157,6 @@ class ConnectBlockUpdates(
 
     enum class UpdateType {
         NEW,
-        DROP
+        DROP,
     }
 }

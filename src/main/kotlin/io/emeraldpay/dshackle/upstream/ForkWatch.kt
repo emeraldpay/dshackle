@@ -37,28 +37,32 @@ open class ForkWatch(
     private val forkChoice: ForkChoice,
     private val chain: Chain,
 ) : Lifecycle {
-
     companion object {
         private val log = LoggerFactory.getLogger(ForkWatch::class.java)
     }
 
-    private val metrics = EnumMap<ForkChoice.Status, Counter>(ForkChoice.Status::class.java).also { metrics ->
-        ForkChoice.Status.values().forEach { status ->
-            metrics[status] = Counter.builder("forkwatch.status.bychain")
-                .tag("type", forkChoice.getName())
-                .tag("status", status.name)
-                .tag("chain", chain.chainCode)
-                .register(Metrics.globalRegistry)
+    private val metrics =
+        EnumMap<ForkChoice.Status, Counter>(ForkChoice.Status::class.java).also { metrics ->
+            ForkChoice.Status.values().forEach { status ->
+                metrics[status] =
+                    Counter
+                        .builder("forkwatch.status.bychain")
+                        .tag("type", forkChoice.getName())
+                        .tag("status", status.name)
+                        .tag("chain", chain.chainCode)
+                        .register(Metrics.globalRegistry)
+            }
         }
-    }
 
     /**
      * Keep it as a separate Sink because it needs to start only when Lifecycle#start is executed, but
      * still needs to return a reference to a Flux with changes anytime when #register is called
      */
-    private val changes = Sinks.many()
-        .multicast()
-        .directBestEffort<Boolean>()
+    private val changes =
+        Sinks
+            .many()
+            .multicast()
+            .directBestEffort<Boolean>()
 
     private var upstream: Upstream? = null
     private var subscription: Disposable? = null
@@ -72,20 +76,22 @@ open class ForkWatch(
         return changes.asFlux()
     }
 
-    private fun isForkedMapper(source: Upstream): Function<BlockContainer, Boolean> {
-        return Function { block -> isForked(block, source) }
-    }
+    private fun isForkedMapper(source: Upstream): Function<BlockContainer, Boolean> = Function { block -> isForked(block, source) }
 
     /**
      * Check if the block renders the upstream as forked
      */
-    private fun isForked(block: BlockContainer, source: Upstream): Boolean {
-        val status = try {
-            forkChoice.submit(block, source)
-        } catch (t: Throwable) {
-            log.error("Failed to check for a fork", t)
-            ForkChoice.Status.REJECTED
-        }
+    private fun isForked(
+        block: BlockContainer,
+        source: Upstream,
+    ): Boolean {
+        val status =
+            try {
+                forkChoice.submit(block, source)
+            } catch (t: Throwable) {
+                log.error("Failed to check for a fork", t)
+                ForkChoice.Status.REJECTED
+            }
         metrics[status]?.increment()
         return !status.isOk
     }
@@ -94,28 +100,33 @@ open class ForkWatch(
      * A dummy Fork Watch which never forks. Mostly for testing purposes
      */
     class Never : ForkWatch(NeverForkChoice(), Chain.UNSPECIFIED) {
-        override fun register(upstream: Upstream): Flux<Boolean> {
-            return Flux.just(false)
-        }
+        override fun register(upstream: Upstream): Flux<Boolean> = Flux.just(false)
     }
 
     override fun start() {
         subscription?.dispose()
-        subscription = Flux.interval(Duration.ofMillis(100))
-            .flatMap {
-                val upstream = this.upstream
-                if (upstream == null) { Mono.empty() } else { Mono.just(upstream) }
-            }.next().flatMapMany { upstream ->
-                val head = upstream.getHead()
-                head.getFlux()
-                    // the following is just to debug if anything goes wrong
-                    .doOnSubscribe { log.debug("Start fork watch ${forkChoice.javaClass.name} for upstream ${upstream?.getId()}") }
-                    .doFinally { log.warn("Stopping fork watch for upstream ${upstream?.getId()} after receiving ${it.name}") }
-                    .doOnError { t -> log.error("ForkWatch processing failed", t) }
-                    .map(isForkedMapper(upstream))
-            }
-            .distinctUntilChanged()
-            .subscribe(changes::tryEmitNext)
+        subscription =
+            Flux
+                .interval(Duration.ofMillis(100))
+                .flatMap {
+                    val upstream = this.upstream
+                    if (upstream == null) {
+                        Mono.empty()
+                    } else {
+                        Mono.just(upstream)
+                    }
+                }.next()
+                .flatMapMany { upstream ->
+                    val head = upstream.getHead()
+                    head
+                        .getFlux()
+                        // the following is just to debug if anything goes wrong
+                        .doOnSubscribe { log.debug("Start fork watch ${forkChoice.javaClass.name} for upstream ${upstream?.getId()}") }
+                        .doFinally { log.warn("Stopping fork watch for upstream ${upstream?.getId()} after receiving ${it.name}") }
+                        .doOnError { t -> log.error("ForkWatch processing failed", t) }
+                        .map(isForkedMapper(upstream))
+                }.distinctUntilChanged()
+                .subscribe(changes::tryEmitNext)
     }
 
     override fun stop() {
@@ -123,7 +134,5 @@ open class ForkWatch(
         subscription = null
     }
 
-    override fun isRunning(): Boolean {
-        return subscription != null
-    }
+    override fun isRunning(): Boolean = subscription != null
 }

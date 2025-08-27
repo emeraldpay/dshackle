@@ -29,9 +29,8 @@ import kotlin.concurrent.withLock
  * Connects/reconnects to the upstream to produce NewHeads messages
  */
 class ConnectNewHeads(
-    private val upstream: EthereumMultistream
+    private val upstream: EthereumMultistream,
 ) : SubscriptionConnect<NewHeadMessage> {
-
     companion object {
         private val log = LoggerFactory.getLogger(ConnectNewHeads::class.java)
     }
@@ -49,15 +48,16 @@ class ConnectNewHeads(
             if (currentRecheck != null) {
                 return currentRecheck
             }
-            val created = ProduceNewHeads(upstream.getHead())
-                .start()
-                .publishOn(Schedulers.boundedElastic())
-                .publish()
-                .refCount(1, Duration.ofSeconds(60))
-                .doFinally {
-                    // forget it on disconnect, so next time it's recreated
-                    connected = null
-                }
+            val created =
+                ProduceNewHeads(upstream.getHead())
+                    .start()
+                    .publishOn(Schedulers.boundedElastic())
+                    .publish()
+                    .refCount(1, Duration.ofSeconds(60))
+                    .doFinally {
+                        // forget it on disconnect, so next time it's recreated
+                        connected = null
+                    }
             connected = created
             return created
         }

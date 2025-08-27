@@ -32,14 +32,19 @@ import java.util.UUID
  * @see io.emeraldpay.dshackle.rpc.BlockchainRpc which puts it using EgressContext into the Reactor context
  */
 class GenerateRequestId : ServerInterceptor {
-
     companion object {
         private val log = LoggerFactory.getLogger(GenerateRequestId::class.java)
     }
 
-    override fun <ReqT : Any?, RespT : Any?> interceptCall(call: ServerCall<ReqT, RespT>, headers: Metadata, next: ServerCallHandler<ReqT, RespT>): ServerCall.Listener<ReqT> {
-        val ctx = Context.current()
-            .withValue(AccessContext.REQUEST_ID_GRPC_KEY, AccessContext.Value(UUID.randomUUID(), Instant.now()))
+    override fun <ReqT : Any?, RespT : Any?> interceptCall(
+        call: ServerCall<ReqT, RespT>,
+        headers: Metadata,
+        next: ServerCallHandler<ReqT, RespT>,
+    ): ServerCall.Listener<ReqT> {
+        val ctx =
+            Context
+                .current()
+                .withValue(AccessContext.REQUEST_ID_GRPC_KEY, AccessContext.Value(UUID.randomUUID(), Instant.now()))
 
         return Contexts.interceptCall(ctx, call, headers, next)
     }

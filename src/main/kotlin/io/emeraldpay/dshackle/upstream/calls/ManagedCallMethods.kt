@@ -34,20 +34,21 @@ import java.util.Collections
 class ManagedCallMethods(
     private val delegate: CallMethods,
     private val enabled: Set<String>,
-    private val disabled: Set<String>
+    private val disabled: Set<String>,
 ) : CallMethods {
-
     companion object {
         private val log = LoggerFactory.getLogger(ManagedCallMethods::class.java)
-        private val defaultQuorum: Factory<CallQuorum> = Factory<CallQuorum> {
-            AlwaysQuorum()
-        }
+        private val defaultQuorum: Factory<CallQuorum> =
+            Factory<CallQuorum> {
+                AlwaysQuorum()
+            }
     }
 
     private val delegated = delegate.getSupportedMethods().sorted()
-    private val allAllowed: Set<String> = Collections.unmodifiableSet(
-        enabled + delegated - disabled
-    )
+    private val allAllowed: Set<String> =
+        Collections.unmodifiableSet(
+            enabled + delegated - disabled,
+        )
     private val quorum: MutableMap<String, Factory<CallQuorum>> = HashMap()
     private val staticResponse: MutableMap<String, String> = HashMap()
     private val redefined = delegated.filter(enabled::contains).sorted()
@@ -58,25 +59,32 @@ class ManagedCallMethods(
         }
     }
 
-    fun setQuorum(method: String, quorumId: String) {
-        val quorum = when (quorumId) {
-            "always" -> Factory<CallQuorum> { AlwaysQuorum() }
-            "no-lag", "not-lagging", "no_lag", "not_lagging" -> Factory<CallQuorum> { NotLaggingQuorum(0) }
-            "not-empty", "not_empty", "non-empty", "non_empty" -> Factory<CallQuorum> { NonEmptyQuorum() }
-            else -> {
-                log.warn("Unknown quorum: $quorumId for custom method $method")
-                return
+    fun setQuorum(
+        method: String,
+        quorumId: String,
+    ) {
+        val quorum =
+            when (quorumId) {
+                "always" -> Factory<CallQuorum> { AlwaysQuorum() }
+                "no-lag", "not-lagging", "no_lag", "not_lagging" -> Factory<CallQuorum> { NotLaggingQuorum(0) }
+                "not-empty", "not_empty", "non-empty", "non_empty" -> Factory<CallQuorum> { NonEmptyQuorum() }
+                else -> {
+                    log.warn("Unknown quorum: $quorumId for custom method $method")
+                    return
+                }
             }
-        }
         this.quorum[method] = quorum
     }
 
-    fun setStaticResponse(method: String, response: String) {
+    fun setStaticResponse(
+        method: String,
+        response: String,
+    ) {
         this.staticResponse[method] = response
     }
 
-    override fun createQuorumFor(method: String): CallQuorum {
-        return when {
+    override fun createQuorumFor(method: String): CallQuorum =
+        when {
             isDelegated(method) && !isRedefined(method) -> delegate.createQuorumFor(method)
             enabled.contains(method) -> quorum[method]?.create() ?: defaultQuorum.create()
             else -> {
@@ -84,27 +92,16 @@ class ManagedCallMethods(
                 defaultQuorum.create()
             }
         }
-    }
 
-    private fun isDelegated(method: String): Boolean {
-        return Collections.binarySearch(delegated, method) >= 0
-    }
+    private fun isDelegated(method: String): Boolean = Collections.binarySearch(delegated, method) >= 0
 
-    private fun isRedefined(method: String): Boolean {
-        return Collections.binarySearch(redefined, method) >= 0
-    }
+    private fun isRedefined(method: String): Boolean = Collections.binarySearch(redefined, method) >= 0
 
-    override fun isCallable(method: String): Boolean {
-        return allAllowed.contains(method)
-    }
+    override fun isCallable(method: String): Boolean = allAllowed.contains(method)
 
-    override fun getSupportedMethods(): Set<String> {
-        return allAllowed
-    }
+    override fun getSupportedMethods(): Set<String> = allAllowed
 
-    override fun isHardcoded(method: String): Boolean {
-        return this.staticResponse.containsKey(method) || delegate.isHardcoded(method)
-    }
+    override fun isHardcoded(method: String): Boolean = this.staticResponse.containsKey(method) || delegate.isHardcoded(method)
 
     override fun executeHardcoded(method: String): ByteArray {
         if (this.staticResponse.containsKey(method)) {

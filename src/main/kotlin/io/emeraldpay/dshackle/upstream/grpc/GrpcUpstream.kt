@@ -20,7 +20,6 @@ import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.upstream.Upstream
 
 interface GrpcUpstream : Upstream {
-
     /**
      * Update the configuration of the upstream with the new data.
      * Called on the first creation, and each time a new state received from upstream

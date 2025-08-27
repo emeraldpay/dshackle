@@ -23,10 +23,12 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import reactor.core.publisher.Flux
 
 interface Upstream {
-
     fun isAvailable(): Boolean
+
     fun getStatus(): UpstreamAvailability
+
     fun observeStatus(): Flux<UpstreamAvailability>
+
     fun getHead(): Head
 
     /**
@@ -35,14 +37,23 @@ interface Upstream {
     fun getIngressReader(): StandardRpcReader
 
     fun getOptions(): UpstreamsConfig.Options
+
     fun getRole(): UpstreamsConfig.UpstreamRole
+
     fun setLag(lag: Long)
+
     fun getLag(): Long
+
     fun getLabels(): Collection<UpstreamsConfig.Labels>
+
     fun getMethods(): CallMethods
+
     fun getId(): String
+
     fun getCapabilities(): Set<Capability>
+
     fun isGrpc(): Boolean
+
     fun getBlockchain(): Chain
 
     /**

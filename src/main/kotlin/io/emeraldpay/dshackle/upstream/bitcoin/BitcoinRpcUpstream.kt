@@ -43,50 +43,38 @@ open class BitcoinRpcUpstream(
     callMethods: CallMethods,
     private val ingressSubscription: BitcoinRpcIngressSubscription,
     esploraClient: EsploraClient? = null,
-) : BitcoinUpstream(id, chain, forkWatch, options, role, callMethods, node, esploraClient), Lifecycle {
-
+) : BitcoinUpstream(id, chain, forkWatch, options, role, callMethods, node, esploraClient),
+    Lifecycle {
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinRpcUpstream::class.java)
     }
 
     private var validatorSubscription: Disposable? = null
 
-    private val capabilities = if (options.providesBalance == true) {
-        setOf(Capability.RPC, Capability.BALANCE)
-    } else {
-        setOf(Capability.RPC)
-    }
+    private val capabilities =
+        if (options.providesBalance == true) {
+            setOf(Capability.RPC, Capability.BALANCE)
+        } else {
+            setOf(Capability.RPC)
+        }
 
-    private fun createHead(): Head {
-        return BitcoinRpcHead(
+    private fun createHead(): Head =
+        BitcoinRpcHead(
             directApi,
-            ExtractBlock()
+            ExtractBlock(),
         )
-    }
 
-    override fun getHead(): Head {
-        return head
-    }
+    override fun getHead(): Head = head
 
-    override fun getIngressReader(): StandardRpcReader {
-        return directApi
-    }
+    override fun getIngressReader(): StandardRpcReader = directApi
 
-    override fun getIngressSubscription(): IngressSubscription {
-        return ingressSubscription
-    }
+    override fun getIngressSubscription(): IngressSubscription = ingressSubscription
 
-    override fun getLabels(): Collection<UpstreamsConfig.Labels> {
-        return listOf(UpstreamsConfig.Labels())
-    }
+    override fun getLabels(): Collection<UpstreamsConfig.Labels> = listOf(UpstreamsConfig.Labels())
 
-    override fun getCapabilities(): Set<Capability> {
-        return capabilities
-    }
+    override fun getCapabilities(): Set<Capability> = capabilities
 
-    override fun isGrpc(): Boolean {
-        return false
-    }
+    override fun isGrpc(): Boolean = false
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : Upstream> cast(selfType: Class<T>): T {
@@ -120,8 +108,10 @@ open class BitcoinRpcUpstream(
         } else {
             validatorSubscription?.dispose()
             val validator = BitcoinUpstreamValidator(directApi, getOptions())
-            validatorSubscription = validator.start()
-                .subscribe(this::setStatus)
+            validatorSubscription =
+                validator
+                    .start()
+                    .subscribe(this::setStatus)
         }
     }
 

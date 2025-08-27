@@ -19,7 +19,6 @@ package io.emeraldpay.dshackle.upstream
 import org.reactivestreams.Publisher
 
 interface ApiSource : Publisher<Upstream> {
-
     /**
      * Total size of the available upstreams list, including the upstreams that may be not available (not matched) at the moment.
      * Because otherwise a matcher for "fresh upstreams" Matcher it may limit to the size of one, and a Quorum processor

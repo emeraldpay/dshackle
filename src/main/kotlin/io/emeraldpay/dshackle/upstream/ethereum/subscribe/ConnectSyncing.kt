@@ -25,9 +25,8 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 class ConnectSyncing(
-    private val upstream: EthereumMultistream
+    private val upstream: EthereumMultistream,
 ) : SubscriptionConnect<Boolean> {
-
     companion object {
         private val log = LoggerFactory.getLogger(ConnectSyncing::class.java)
     }
@@ -45,14 +44,16 @@ class ConnectSyncing(
             if (currentRecheck != null) {
                 return currentRecheck
             }
-            val created = upstream.observeStatus()
-                .map { it != UpstreamAvailability.OK }
-                .publish()
-                .refCount(1, Duration.ofSeconds(60))
-                .doFinally {
-                    // forget it on disconnect, so next time it's recreated
-                    connected = null
-                }
+            val created =
+                upstream
+                    .observeStatus()
+                    .map { it != UpstreamAvailability.OK }
+                    .publish()
+                    .refCount(1, Duration.ofSeconds(60))
+                    .doFinally {
+                        // forget it on disconnect, so next time it's recreated
+                        connected = null
+                    }
             connected = created
             return created
         }

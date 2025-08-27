@@ -18,13 +18,13 @@ class CacheUpdate(
     private val caches: Caches,
     private val delegate: StandardRpcReader,
 ) : StandardRpcReader {
-
     companion object {
         private val log = LoggerFactory.getLogger(CacheUpdate::class.java)
     }
 
-    override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
-        return delegate.read(key)
+    override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> =
+        delegate
+            .read(key)
             .doOnNext {
                 if (it.hasResult() && !it.isNull()) {
                     try {
@@ -34,9 +34,11 @@ class CacheUpdate(
                     }
                 }
             }
-    }
 
-    private fun cacheResponse(key: JsonRpcRequest, response: JsonRpcResponse) {
+    private fun cacheResponse(
+        key: JsonRpcRequest,
+        response: JsonRpcResponse,
+    ) {
         when (key.method) {
             "eth_getBlockByNumber", "eth_getBlockByHash" -> {
                 val block = BlockContainer.fromEthereumJson(response.resultOrEmpty)
@@ -47,18 +49,19 @@ class CacheUpdate(
                 caches.cache(Caches.Tag.REQUESTED, tx)
             }
             "eth_getTransactionReceipt" -> {
-                val id = try {
-                    TxId.from(key.params[0] as String)
-                } catch (t: Throwable) {
-                    return
-                }
+                val id =
+                    try {
+                        TxId.from(key.params[0] as String)
+                    } catch (t: Throwable) {
+                        return
+                    }
                 val receipt = response.resultOrEmpty
                 caches.cacheReceipt(
                     Caches.Tag.REQUESTED,
                     DefaultContainer(
                         txId = id,
                         json = receipt,
-                    )
+                    ),
                 )
             }
         }

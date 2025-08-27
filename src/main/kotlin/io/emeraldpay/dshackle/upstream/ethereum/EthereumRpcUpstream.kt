@@ -28,20 +28,43 @@ open class EthereumRpcUpstream(
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
     private val node: QuorumForLabels.QuorumItem,
-    targets: CallMethods
-) : EthereumUpstream(id, chain, forkWatch, options, role, targets, node), Upstream, CachesEnabled, Lifecycle {
-
-    constructor(id: String, chain: Chain, directReader: StandardRpcReader, options: UpstreamsConfig.Options, role: UpstreamsConfig.UpstreamRole, node: QuorumForLabels.QuorumItem, targets: CallMethods) :
+    targets: CallMethods,
+) : EthereumUpstream(id, chain, forkWatch, options, role, targets, node),
+    Upstream,
+    CachesEnabled,
+    Lifecycle {
+    constructor(
+        id: String,
+        chain: Chain,
+        directReader: StandardRpcReader,
+        options: UpstreamsConfig.Options,
+        role: UpstreamsConfig.UpstreamRole,
+        node: QuorumForLabels.QuorumItem,
+        targets: CallMethods,
+    ) :
         this(
-            id, chain, ForkWatch.Never(), directReader, null, options, role, node, targets
+            id,
+            chain,
+            ForkWatch.Never(),
+            directReader,
+            null,
+            options,
+            role,
+            node,
+            targets,
         )
 
     constructor(id: String, chain: Chain, forkWatch: ForkWatch, api: StandardRpcReader) :
         this(
-            id, chain, forkWatch, api, null,
-            UpstreamsConfig.PartialOptions.getDefaults().build(), UpstreamsConfig.UpstreamRole.PRIMARY,
+            id,
+            chain,
+            forkWatch,
+            api,
+            null,
+            UpstreamsConfig.PartialOptions.getDefaults().build(),
+            UpstreamsConfig.UpstreamRole.PRIMARY,
             QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels()),
-            DirectCallMethods()
+            DirectCallMethods(),
         )
 
     constructor(id: String, chain: Chain, api: StandardRpcReader) :
@@ -64,9 +87,7 @@ open class EthereumRpcUpstream(
         }
     }
 
-    override fun getIngressSubscription(): EthereumIngressSubscription {
-        return NoEthereumIngressSubscription.DEFAULT
-    }
+    override fun getIngressSubscription(): EthereumIngressSubscription = NoEthereumIngressSubscription.DEFAULT
 
     override fun start() {
         log.info("Configured for ${chain.chainName}")
@@ -78,14 +99,14 @@ open class EthereumRpcUpstream(
         } else {
             log.debug("Start validation for upstream ${this.getId()}")
             val validator = EthereumUpstreamValidator(this, getOptions())
-            validatorSubscription = validator.start()
-                .subscribe(this::setStatus)
+            validatorSubscription =
+                validator
+                    .start()
+                    .subscribe(this::setStatus)
         }
     }
 
-    override fun isRunning(): Boolean {
-        return true
-    }
+    override fun isRunning(): Boolean = true
 
     override fun stop() {
         super.stop()
@@ -96,16 +117,18 @@ open class EthereumRpcUpstream(
         }
     }
 
-    open fun createHead(): Head {
-        return if (wsPool != null) {
+    open fun createHead(): Head =
+        if (wsPool != null) {
             val subscriptions = WsSubscriptionsImpl(wsPool)
-            val wsHead = EthereumWsHead(chain, getIngressReader(), subscriptions).apply {
-                start()
-            }
+            val wsHead =
+                EthereumWsHead(chain, getIngressReader(), subscriptions).apply {
+                    start()
+                }
             // receive all new blocks through WebSockets, but also periodically verify with RPC in case if WS failed
-            val rpcHead = EthereumRpcHead(chain, getIngressReader(), Duration.ofSeconds(60)).apply {
-                start()
-            }
+            val rpcHead =
+                EthereumRpcHead(chain, getIngressReader(), Duration.ofSeconds(60)).apply {
+                    start()
+                }
             MergedPowHead(listOf(rpcHead, wsHead)).apply {
                 start()
             }
@@ -115,19 +138,12 @@ open class EthereumRpcUpstream(
                 start()
             }
         }
-    }
 
-    override fun getHead(): Head {
-        return head
-    }
+    override fun getHead(): Head = head
 
-    override fun getIngressReader(): StandardRpcReader {
-        return directReader
-    }
+    override fun getIngressReader(): StandardRpcReader = directReader
 
-    override fun isGrpc(): Boolean {
-        return false
-    }
+    override fun isGrpc(): Boolean = false
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : Upstream> cast(selfType: Class<T>): T {

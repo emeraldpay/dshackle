@@ -23,7 +23,6 @@ import org.slf4j.LoggerFactory
  * Global access to monitoring functions
  */
 class MonitoringContext {
-
     companion object {
         private val log = LoggerFactory.getLogger(MonitoringContext::class.java)
     }

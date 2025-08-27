@@ -11,13 +11,12 @@ class IntegralRpcReader(
     hardcoded: DshackleRpcReader,
     ingress: DshackleRpcReader,
 ) : DshackleRpcReader {
+    private val compound =
+        CompoundReader(
+            verify,
+            hardcoded,
+            ingress,
+        )
 
-    private val compound = CompoundReader(
-        verify, hardcoded,
-        ingress
-    )
-
-    override fun read(key: DshackleRequest): Mono<DshackleResponse> {
-        return compound.read(key)
-    }
+    override fun read(key: DshackleRequest): Mono<DshackleResponse> = compound.read(key)
 }

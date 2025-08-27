@@ -24,20 +24,19 @@ import java.time.Duration
 abstract class BitcoinSubscriptionConnect<T>(
     open val topic: BitcoinZmqTopic, // open for tests
 ) : SubscriptionConnect<T> {
+    private val connectionSource =
+        DurableFlux
+            .newBuilder()
+            .using(::createConnection)
+            .backoffOnError(Duration.ofMillis(100), 1.5, Duration.ofSeconds(60))
+            .build()
 
-    private val connectionSource = DurableFlux
-        .newBuilder()
-        .using(::createConnection)
-        .backoffOnError(Duration.ofMillis(100), 1.5, Duration.ofSeconds(60))
-        .build()
+    private val holder =
+        SharedFluxHolder(
+            connectionSource::connect,
+        )
 
-    private val holder = SharedFluxHolder(
-        connectionSource::connect
-    )
-
-    override fun connect(): Flux<T> {
-        return holder.get()
-    }
+    override fun connect(): Flux<T> = holder.get()
 
     abstract fun createConnection(): Flux<T>
 }

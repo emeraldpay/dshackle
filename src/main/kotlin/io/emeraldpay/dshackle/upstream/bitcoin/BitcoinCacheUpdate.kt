@@ -11,15 +11,15 @@ class BitcoinCacheUpdate(
     private val cache: Caches,
     private val delegate: StandardRpcReader,
 ) : StandardRpcReader {
-
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinCacheUpdate::class.java)
     }
 
     private val extractBlock = ExtractBlock()
 
-    override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
-        return delegate.read(key)
+    override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> =
+        delegate
+            .read(key)
             .doOnNext {
                 if (it.hasResult() && !it.isNull()) {
                     try {
@@ -29,9 +29,11 @@ class BitcoinCacheUpdate(
                     }
                 }
             }
-    }
 
-    private fun cacheResponse(key: JsonRpcRequest, response: JsonRpcResponse) {
+    private fun cacheResponse(
+        key: JsonRpcRequest,
+        response: JsonRpcResponse,
+    ) {
         when (key.method) {
             "getblock" -> {
                 val block = extractBlock.extract(response.resultOrEmpty)

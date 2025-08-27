@@ -21,38 +21,30 @@ import io.emeraldpay.etherjar.rpc.json.BlockJson
 import org.bouncycastle.util.encoders.Hex
 
 class BlockId(
-    value: ByteArray
+    value: ByteArray,
 ) : HashId(value) {
-
     companion object {
         @JvmStatic
-        fun from(hash: ByteArray): BlockId {
-            return BlockId(hash)
-        }
+        fun from(hash: ByteArray): BlockId = BlockId(hash)
 
         @JvmStatic
-        fun from(hash: BlockHash): BlockId {
-            return BlockId(hash.bytes)
-        }
+        fun from(hash: BlockHash): BlockId = BlockId(hash.bytes)
 
         @JvmStatic
-        fun from(block: BlockJson<*>): BlockId {
-            return from(block.hash)
-        }
+        fun from(block: BlockJson<*>): BlockId = from(block.hash)
 
         @JvmStatic
         fun from(id: String): BlockId {
-            val clean = if (id.startsWith("0x")) {
-                id.substring(2)
-            } else {
-                id
-            }
+            val clean =
+                if (id.startsWith("0x")) {
+                    id.substring(2)
+                } else {
+                    id
+                }
             val bytes = Hex.decode(clean)
             return BlockId(bytes)
         }
     }
 
-    fun toEthereumHash(): BlockHash {
-        return BlockHash.from(value)
-    }
+    fun toEthereumHash(): BlockHash = BlockHash.from(value)
 }

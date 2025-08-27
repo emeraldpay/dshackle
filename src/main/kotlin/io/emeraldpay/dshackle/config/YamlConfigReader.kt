@@ -28,16 +28,17 @@ import java.util.Locale
 abstract class YamlConfigReader {
     private val envVariables = EnvVariables()
 
-    fun readNode(input: String): MappingNode {
-        return readNode(input.byteInputStream())
-    }
+    fun readNode(input: String): MappingNode = readNode(input.byteInputStream())
 
     fun readNode(input: InputStream): MappingNode {
         val yaml = Yaml()
         return asMappingNode(yaml.compose(InputStreamReader(input)))
     }
 
-    protected fun hasAny(mappingNode: MappingNode?, vararg key: String): Boolean {
+    protected fun hasAny(
+        mappingNode: MappingNode?,
+        vararg key: String,
+    ): Boolean {
         if (mappingNode == null) {
             return false
         }
@@ -51,7 +52,11 @@ abstract class YamlConfigReader {
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun <T> getValue(mappingNode: MappingNode?, key: String, type: Class<T>): T? {
+    private fun <T> getValue(
+        mappingNode: MappingNode?,
+        key: String,
+        type: Class<T>,
+    ): T? {
         if (mappingNode == null) {
             return null
         }
@@ -61,9 +66,9 @@ abstract class YamlConfigReader {
             .filter { n ->
                 val sn = n.keyNode as ScalarNode
                 key == sn.value
-            }
-            .map { n -> n.valueNode as T }
-            .findFirst().let {
+            }.map { n -> n.valueNode as T }
+            .findFirst()
+            .let {
                 if (it.isPresent) {
                     it.get()
                 } else {
@@ -72,47 +77,60 @@ abstract class YamlConfigReader {
             }
     }
 
-    protected fun getMapping(mappingNode: MappingNode?, vararg keys: String): MappingNode? {
-        return keys
+    protected fun getMapping(
+        mappingNode: MappingNode?,
+        vararg keys: String,
+    ): MappingNode? =
+        keys
             .find { key -> hasAny(mappingNode, key) }
             ?.let { key -> getValue(mappingNode, key, MappingNode::class.java) }
-    }
 
-    private fun getValue(mappingNode: MappingNode?, key: String): ScalarNode? {
-        return getValue(mappingNode, key, ScalarNode::class.java)
-    }
+    private fun getValue(
+        mappingNode: MappingNode?,
+        key: String,
+    ): ScalarNode? = getValue(mappingNode, key, ScalarNode::class.java)
 
     @Suppress("UNCHECKED_CAST")
-    protected fun <T> getList(mappingNode: MappingNode?, vararg keys: String): CollectionNode<T>? {
-        return keys
+    protected fun <T> getList(
+        mappingNode: MappingNode?,
+        vararg keys: String,
+    ): CollectionNode<T>? =
+        keys
             .find { key -> hasAny(mappingNode, key) }
             ?.let { key ->
                 getValue(mappingNode, key, CollectionNode::class.java) as CollectionNode<T>?
             }
-    }
 
-    protected fun getListOfString(mappingNode: MappingNode?, vararg keys: String): List<String>? {
-        return keys
+    protected fun getListOfString(
+        mappingNode: MappingNode?,
+        vararg keys: String,
+    ): List<String>? =
+        keys
             .find { key -> hasAny(mappingNode, key) }
             ?.let { key ->
-                getList<ScalarNode>(mappingNode, key)?.value
+                getList<ScalarNode>(mappingNode, key)
+                    ?.value
                     ?.map { it.value }
                     ?.map(envVariables::postProcess)
             }
-    }
 
-    protected fun getValueAsString(mappingNode: MappingNode?, vararg keys: String): String? {
-        return keys
+    protected fun getValueAsString(
+        mappingNode: MappingNode?,
+        vararg keys: String,
+    ): String? =
+        keys
             .find { key -> hasAny(mappingNode, key) }
             ?.let { key ->
                 getValue(mappingNode, key)
                     ?.value
                     ?.let(envVariables::postProcess)
             }
-    }
 
-    protected fun getValueAsInt(mappingNode: MappingNode?, vararg keys: String): Int? {
-        return keys
+    protected fun getValueAsInt(
+        mappingNode: MappingNode?,
+        vararg keys: String,
+    ): Int? =
+        keys
             .find { key -> hasAny(mappingNode, key) }
             ?.let { key ->
                 getValue(mappingNode, key)?.let {
@@ -125,10 +143,12 @@ abstract class YamlConfigReader {
                     }
                 }
             }
-    }
 
-    protected fun getValueAsBool(mappingNode: MappingNode?, vararg keys: String): Boolean? {
-        return keys
+    protected fun getValueAsBool(
+        mappingNode: MappingNode?,
+        vararg keys: String,
+    ): Boolean? =
+        keys
             .find { key -> hasAny(mappingNode, key) }
             ?.let { key ->
                 getValue(mappingNode, key)?.let {
@@ -141,33 +161,35 @@ abstract class YamlConfigReader {
                     }
                 }
             }
-    }
 
-    protected fun asMappingNode(node: Node): MappingNode {
-        return if (MappingNode::class.java.isAssignableFrom(node.javaClass)) {
+    protected fun asMappingNode(node: Node): MappingNode =
+        if (MappingNode::class.java.isAssignableFrom(node.javaClass)) {
             node as MappingNode
         } else {
             throw IllegalArgumentException("Not a map")
         }
-    }
 
-    fun getValueAsBytes(mappingNode: MappingNode?, vararg keys: String): Int? {
-        return keys
+    fun getValueAsBytes(
+        mappingNode: MappingNode?,
+        vararg keys: String,
+    ): Int? =
+        keys
             .find { key -> hasAny(mappingNode, key) }
             ?.let { key ->
                 getValueAsString(mappingNode, key)?.let(envVariables::postProcess)?.let {
-                    val m = Regex("^(\\d+)(m|mb|k|kb|b)?$").find(it.lowercase().trim())
-                        ?: throw IllegalArgumentException("Not a data size: $it. Example of correct values: '1024', '1kb', '5mb'")
-                    val multiplier = m.groups[2]?.let {
-                        when (it.value) {
-                            "k", "kb" -> 1024
-                            "m", "mb" -> 1024 * 1024
-                            else -> 1
-                        }
-                    } ?: 1
+                    val m =
+                        Regex("^(\\d+)(m|mb|k|kb|b)?$").find(it.lowercase().trim())
+                            ?: throw IllegalArgumentException("Not a data size: $it. Example of correct values: '1024', '1kb', '5mb'")
+                    val multiplier =
+                        m.groups[2]?.let {
+                            when (it.value) {
+                                "k", "kb" -> 1024
+                                "m", "mb" -> 1024 * 1024
+                                else -> 1
+                            }
+                        } ?: 1
                     val base = m.groups[1]!!.value.toInt()
                     base * multiplier
                 }
             }
-    }
 }

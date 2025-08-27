@@ -21,16 +21,14 @@ import java.io.Serializable
 import java.util.EnumMap
 
 class BitcoinRpcIngressSubscription(
-    subscriptionList: List<BitcoinSubscriptionConnect<out Serializable>>
+    subscriptionList: List<BitcoinSubscriptionConnect<out Serializable>>,
 ) : IngressSubscription {
-
     private val subscriptions: EnumMap<BitcoinZmqTopic, BitcoinSubscriptionConnect<out Serializable>> =
         subscriptionList.associateByTo(EnumMap(BitcoinZmqTopic::class.java)) { it.topic }
 
-    override fun getAvailableTopics(): List<String> {
-        return subscriptions.keys
+    override fun getAvailableTopics(): List<String> =
+        subscriptions.keys
             .map { it.id }
-    }
 
     @Suppress("UNCHECKED_CAST")
     override fun <T> get(topic: String): SubscriptionConnect<T>? {

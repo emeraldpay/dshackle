@@ -17,9 +17,8 @@ class SharedFluxHolder<T>(
      * I.e., if there is a few calls because of a thread-race only one is kept.
      * But once it's completed a new one may be created if requested.
      */
-    private val provider: () -> Flux<T>
+    private val provider: () -> Flux<T>,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(SharedFluxHolder::class.java)
     }
@@ -37,12 +36,14 @@ class SharedFluxHolder<T>(
         // The following doesn't consume resources because it's just create a Flux without actual subscription
         // So even for the case of a thread race it's okay to create many. B/c only one is going to be kept as `current` and subscribed
         val id = ids.incrementAndGet()
-        val created = Holder(
-            provider.invoke()
-                .share()
-                .doFinally { onClose(id) },
-            id
-        )
+        val created =
+            Holder(
+                provider
+                    .invoke()
+                    .share()
+                    .doFinally { onClose(id) },
+                id,
+            )
         lock.write {
             if (current != null) {
                 return current!!.flux

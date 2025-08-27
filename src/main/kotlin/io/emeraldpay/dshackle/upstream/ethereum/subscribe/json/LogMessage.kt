@@ -40,5 +40,5 @@ data class LogMessage(
     val transactionHash: TransactionId,
     @get:JsonSerialize(using = NumberAsHexSerializer::class)
     val transactionIndex: Long,
-    val removed: Boolean
+    val removed: Boolean,
 )

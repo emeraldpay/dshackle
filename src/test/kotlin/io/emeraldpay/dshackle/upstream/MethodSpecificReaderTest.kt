@@ -12,59 +12,70 @@ import reactor.core.publisher.Mono
 import java.lang.IllegalStateException
 import java.time.Duration
 
-class MethodSpecificReaderTest : ShouldSpec({
+class MethodSpecificReaderTest :
+    ShouldSpec({
 
-    should("Call when method is registered") {
-        val delegate = mockk<DshackleRpcReader>()
+        should("Call when method is registered") {
+            val delegate = mockk<DshackleRpcReader>()
 
-        val reader = MethodSpecificReader()
-        reader.register("test_foo", delegate)
+            val reader = MethodSpecificReader()
+            reader.register("test_foo", delegate)
 
-        every { delegate.read(any()) } returns Mono.just(DshackleResponse(1, "\"Test\"".toByteArray()))
+            every { delegate.read(any()) } returns Mono.just(DshackleResponse(1, "\"Test\"".toByteArray()))
 
-        val act = reader.read(DshackleRequest("test_foo", emptyList()))
-            .block(Duration.ofSeconds(1))
+            val act =
+                reader
+                    .read(DshackleRequest("test_foo", emptyList()))
+                    .block(Duration.ofSeconds(1))
 
-        act shouldNotBe null
-        act.hasResult shouldBe true
-        act.resultAsProcessedString shouldBe "Test"
-    }
+            act shouldNotBe null
+            act.hasResult shouldBe true
+            act.resultAsProcessedString shouldBe "Test"
+        }
 
-    should("Return empty when method is not registered") {
-        val delegate = mockk<DshackleRpcReader>()
+        should("Return empty when method is not registered") {
+            val delegate = mockk<DshackleRpcReader>()
 
-        val reader = MethodSpecificReader()
-        reader.register("test_foo1", delegate)
+            val reader = MethodSpecificReader()
+            reader.register("test_foo1", delegate)
 
-        every { delegate.read(any()) } returns Mono.error(IllegalStateException())
+            every { delegate.read(any()) } returns Mono.error(IllegalStateException())
 
-        val act = reader.read(DshackleRequest("test_foo2", emptyList()))
-            .block(Duration.ofSeconds(1))
+            val act =
+                reader
+                    .read(DshackleRequest("test_foo2", emptyList()))
+                    .block(Duration.ofSeconds(1))
 
-        act shouldBe null
-    }
+            act shouldBe null
+        }
 
-    should("Call when method is registered and the predicate is ok") {
-        val delegate = mockk<DshackleRpcReader>()
+        should("Call when method is registered and the predicate is ok") {
+            val delegate = mockk<DshackleRpcReader>()
 
-        val reader = MethodSpecificReader()
-        reader.register("test_foo", { it == listOf(1) }, delegate)
+            val reader = MethodSpecificReader()
+            reader.register("test_foo", { it == listOf(1) }, delegate)
 
-        every { delegate.read(any()) } returns Mono.just(DshackleResponse(1, "\"Test\"".toByteArray()))
+            every { delegate.read(any()) } returns Mono.just(DshackleResponse(1, "\"Test\"".toByteArray()))
 
-        val act1 = reader.read(DshackleRequest("test_foo", emptyList()))
-            .block(Duration.ofSeconds(1))
+            val act1 =
+                reader
+                    .read(DshackleRequest("test_foo", emptyList()))
+                    .block(Duration.ofSeconds(1))
 
-        act1 shouldBe null
+            act1 shouldBe null
 
-        val act2 = reader.read(DshackleRequest("test_foo", listOf(0)))
-            .block(Duration.ofSeconds(1))
+            val act2 =
+                reader
+                    .read(DshackleRequest("test_foo", listOf(0)))
+                    .block(Duration.ofSeconds(1))
 
-        act2 shouldBe null
+            act2 shouldBe null
 
-        val act3 = reader.read(DshackleRequest("test_foo", listOf(1)))
-            .block(Duration.ofSeconds(1))
+            val act3 =
+                reader
+                    .read(DshackleRequest("test_foo", listOf(1)))
+                    .block(Duration.ofSeconds(1))
 
-        act3 shouldNotBe null
-    }
-})
+            act3 shouldNotBe null
+        }
+    })

@@ -31,7 +31,6 @@ import java.util.function.Function
  */
 @Service
 open class WriteRpcJson {
-
     companion object {
         private val log = LoggerFactory.getLogger(WriteRpcJson::class.java)
     }
@@ -55,8 +54,7 @@ open class WriteRpcJson {
                     } else {
                         Flux.just(json)
                     }
-                }
-                .onErrorResume { t ->
+                }.onErrorResume { t ->
                     if (t is NativeCall.CallFailure) {
                         Mono.just(toJson(call, t)!!)
                     } else {
@@ -66,22 +64,30 @@ open class WriteRpcJson {
         }
     }
 
-    open fun toJson(call: ProxyCall, response: NativeCall.CallResult): String? {
-        val id = call.ids[response.id]?.let {
-            JsonRpcResponse.Id.from(it)
-        } ?: return null
-        val json = if (response.isError()) {
-            val error = response.error!!
-            error.upstreamError?.let { upstreamError ->
-                JsonRpcResponse.error(upstreamError, id)
-            } ?: JsonRpcResponse.error(-32002, error.message, id)
-        } else {
-            JsonRpcResponse.ok(response.result!!, id)
-        }
+    open fun toJson(
+        call: ProxyCall,
+        response: NativeCall.CallResult,
+    ): String? {
+        val id =
+            call.ids[response.id]?.let {
+                JsonRpcResponse.Id.from(it)
+            } ?: return null
+        val json =
+            if (response.isError()) {
+                val error = response.error!!
+                error.upstreamError?.let { upstreamError ->
+                    JsonRpcResponse.error(upstreamError, id)
+                } ?: JsonRpcResponse.error(-32002, error.message, id)
+            } else {
+                JsonRpcResponse.ok(response.result!!, id)
+            }
         return objectMapper.writeValueAsString(json)
     }
 
-    fun toJson(call: ProxyCall, error: NativeCall.CallFailure): String? {
+    fun toJson(
+        call: ProxyCall,
+        error: NativeCall.CallFailure,
+    ): String? {
         val id = call.ids[error.id] ?: return null
         val json = JsonRpcResponse.error(-32003, error.reason.message ?: "", JsonRpcResponse.Id.from(id))
         return objectMapper.writeValueAsString(json)
@@ -90,21 +96,22 @@ open class WriteRpcJson {
     /**
      * Format response as JSON Array, for Batch requests
      */
-    fun asArray(): Function<Flux<String>, Flux<String>> {
-        return Function { flux ->
-            val body = flux.zipWith(Flux.concat(Mono.just(false), Flux.just(true).repeat()))
-                .map {
-                    if (it.t2) {
-                        "," + it.t1
-                    } else {
-                        it.t1
+    fun asArray(): Function<Flux<String>, Flux<String>> =
+        Function { flux ->
+            val body =
+                flux
+                    .zipWith(Flux.concat(Mono.just(false), Flux.just(true).repeat()))
+                    .map {
+                        if (it.t2) {
+                            "," + it.t1
+                        } else {
+                            it.t1
+                        }
                     }
-                }
             Flux.concat(
                 Mono.just("["),
                 body,
-                Mono.just("]")
+                Mono.just("]"),
             )
         }
-    }
 }

@@ -32,20 +32,22 @@ class FileLogWriter<T>(
     private val flushSleep: Duration,
     private val batchLimit: Int = 5000,
     metrics: LogMetrics = LogMetrics.None(),
-) : LogWriter<T>, BufferingLogWriter<T>(serializer, LogEncodingNewLine(), queueLimit = batchLimit, metrics = metrics) {
-
+) : BufferingLogWriter<T>(serializer, LogEncodingNewLine(), queueLimit = batchLimit, metrics = metrics),
+    LogWriter<T> {
     companion object {
         private val log = LoggerFactory.getLogger(FileLogWriter::class.java)
     }
+
     private val scheduler = Executors.newSingleThreadScheduledExecutor()
     private var started: Boolean = false
     private val batchTime = flushSleep.dividedBy(2).coerceAtLeast(Duration.ofMillis(5))
     private val errors = RateLimitedAction(Duration.ofSeconds(1))
     private val flushLock = Semaphore(1)
 
-    private val runner = Runnable {
-        flushRunner()
-    }
+    private val runner =
+        Runnable {
+            flushRunner()
+        }
 
     init {
         check(flushSleep >= Duration.ofMillis(10)) {
@@ -76,14 +78,15 @@ class FileLogWriter<T>(
                 return true
             }
 
-            val channel = try {
-                FileChannel.open(file, StandardOpenOption.WRITE, StandardOpenOption.APPEND, StandardOpenOption.CREATE)
-            } catch (t: Throwable) {
-                errors.execute {
-                    log.error("Cannot create log file at $file")
+            val channel =
+                try {
+                    FileChannel.open(file, StandardOpenOption.WRITE, StandardOpenOption.APPEND, StandardOpenOption.CREATE)
+                } catch (t: Throwable) {
+                    errors.execute {
+                        log.error("Cannot create log file at $file")
+                    }
+                    return false
                 }
-                return false
-            }
 
             return channel.use { wrt ->
                 var pos = 0
@@ -122,7 +125,5 @@ class FileLogWriter<T>(
         super.stop()
     }
 
-    override fun isRunning(): Boolean {
-        return started
-    }
+    override fun isRunning(): Boolean = started
 }

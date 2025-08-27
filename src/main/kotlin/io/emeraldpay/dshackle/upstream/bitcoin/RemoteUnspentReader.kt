@@ -14,29 +14,34 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
 class RemoteUnspentReader(
-    val upstreams: BitcoinMultistream
+    val upstreams: BitcoinMultistream,
 ) : UnspentReader {
-
     companion object {
         private val log = LoggerFactory.getLogger(RemoteUnspentReader::class.java)
     }
 
-    private val selector = Selector.LocalAndMatcher(
-        Selector.GrpcMatcher(),
-        Selector.CapabilityMatcher(Capability.BALANCE)
-    )
+    private val selector =
+        Selector.LocalAndMatcher(
+            Selector.GrpcMatcher(),
+            Selector.CapabilityMatcher(Capability.BALANCE),
+        )
 
     override fun read(key: Address): Mono<List<SimpleUnspent>> {
         val apis = upstreams.getApiSource(selector)
         apis.request(1)
-        return Mono.from(apis)
+        return Mono
+            .from(apis)
             .map { up -> up.cast(BitcoinGrpcUpstream::class.java) }
             .flatMap { readFromUpstream(it, key) }
     }
 
-    fun readFromUpstream(upstream: BitcoinGrpcUpstream, address: Address): Mono<List<SimpleUnspent>> {
+    fun readFromUpstream(
+        upstream: BitcoinGrpcUpstream,
+        address: Address,
+    ): Mono<List<SimpleUnspent>> {
         val request = createRequest(address)
-        return upstream.remote.getBalance(request)
+        return upstream.remote
+            .getBalance(request)
             .switchIfEmpty(Mono.error(SilentException.DataUnavailable("Balance not provider")))
             .doOnError { t -> log.warn("Failed to get balance from remote", t) }
             .map { resp ->
@@ -47,15 +52,14 @@ class RemoteUnspentReader(
                         utxo.balance.toLong(),
                     )
                 }
-            }
-            .reduce(List<SimpleUnspent>::plus)
+            }.reduce(List<SimpleUnspent>::plus)
     }
 
-    fun createRequest(address: Address): BalanceRequest {
-        return BalanceRequest.newBuilder()
+    fun createRequest(address: Address): BalanceRequest =
+        BalanceRequest
+            .newBuilder()
             .setAddress(AnyAddress.newBuilder().setAddressSingle(SingleAddress.newBuilder().setAddress(address.toString())))
             .setAsset(Common.Asset.newBuilder().setChainValue(upstreams.chain.id))
             .setIncludeUtxo(true)
             .build()
-    }
 }

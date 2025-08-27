@@ -27,104 +27,118 @@ import reactor.util.context.ContextView
 import java.util.function.Function
 
 class IngressLogProcessor(
-    private val writer: RequestLogWriter
+    private val writer: RequestLogWriter,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(IngressLogProcessor::class.java)
     }
 
     var context = Global.monitoring.ingress
 
-    fun onComplete(upstreamId: String, channel: Channel): (key: JsonRpcRequest) -> Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>> {
-        return {
+    fun onComplete(
+        upstreamId: String,
+        channel: Channel,
+    ): (key: JsonRpcRequest) -> Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>> =
+        {
             successComplete(upstreamId, channel)
                 .andThen(errorComplete(upstreamId, channel))
                 .andThen(prepare())
         }
-    }
 
-    fun prepare(): Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>> {
-        return Function { reader ->
+    fun prepare(): Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>> =
+        Function { reader ->
             reader.contextWrite(context.prepareForRpcCall())
         }
-    }
 
-    fun successComplete(upstreamId: String, channel: Channel): Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>> {
-        return Function { reader ->
+    fun successComplete(
+        upstreamId: String,
+        channel: Channel,
+    ): Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>> =
+        Function { reader ->
             reader
                 .contextWrite(context.cleanup())
                 .flatMap { resp ->
                     Mono.deferContextual { ctx ->
-                        val event = context.getOrCreate(ctx)
-                            .let(copyUpstream(upstreamId, channel))
-                            .let(copyEgressId(ctx))
-                            .let(copyReqId(ctx))
-                            .let {
-                                if (resp.hasError()) {
-                                    it.copy(
-                                        error = RequestRecord.ErrorDetails(
-                                            resp.error!!.code,
-                                            resp.error.message
+                        val event =
+                            context
+                                .getOrCreate(ctx)
+                                .let(copyUpstream(upstreamId, channel))
+                                .let(copyEgressId(ctx))
+                                .let(copyReqId(ctx))
+                                .let {
+                                    if (resp.hasError()) {
+                                        it.copy(
+                                            error =
+                                                RequestRecord.ErrorDetails(
+                                                    resp.error!!.code,
+                                                    resp.error.message,
+                                                ),
                                         )
-                                    )
-                                } else {
-                                    it.copy(responseSize = resp.resultOrEmpty.size)
-                                }
-                            }
-                            .build()
+                                    } else {
+                                        it.copy(responseSize = resp.resultOrEmpty.size)
+                                    }
+                                }.build()
                         writer.accept(event)
                         Mono.just(resp)
                     }
                 }
         }
-    }
 
-    fun errorComplete(upstreamId: String, channel: Channel): Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>> {
-        return Function { reader ->
+    fun errorComplete(
+        upstreamId: String,
+        channel: Channel,
+    ): Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>> =
+        Function { reader ->
             Mono.deferContextual { ctx ->
                 reader
                     .doOnError { t ->
                         if (context.isAvailable(ctx)) {
-                            val event = context.getOrCreate(ctx)
-                                .let(copyUpstream(upstreamId, channel))
-                                .let(copyEgressId(ctx))
-                                .let(copyReqId(ctx))
-                                .let {
-                                    val error = if (t is JsonRpcException) {
-                                        RequestRecord.ErrorDetails(
-                                            t.error.code,
-                                            t.error.message
-                                        )
-                                    } else {
-                                        RequestRecord.ErrorDetails(
-                                            0,
-                                            "ERROR ${t.javaClass}: ${t.message}"
-                                        )
-                                    }
-                                    it.copy(error = error)
-                                }
-                                .build()
+                            val event =
+                                context
+                                    .getOrCreate(ctx)
+                                    .let(copyUpstream(upstreamId, channel))
+                                    .let(copyEgressId(ctx))
+                                    .let(copyReqId(ctx))
+                                    .let {
+                                        val error =
+                                            if (t is JsonRpcException) {
+                                                RequestRecord.ErrorDetails(
+                                                    t.error.code,
+                                                    t.error.message,
+                                                )
+                                            } else {
+                                                RequestRecord.ErrorDetails(
+                                                    0,
+                                                    "ERROR ${t.javaClass}: ${t.message}",
+                                                )
+                                            }
+                                        it.copy(error = error)
+                                    }.build()
                             writer.accept(event)
                         }
                     }
             }
         }
-    }
 
-    private fun copyUpstream(upstreamId: String, channel: Channel): (RequestRecord.Builder) -> RequestRecord.Builder = {
-        it
-            .copy(upstreamId = upstreamId, channel = channel)
-            .copy(type = RequestType.JSONRPC)
-    }
-
-    private fun copyEgressId(ctx: ContextView): (RequestRecord.Builder) -> RequestRecord.Builder = {
-        Global.monitoring.egress.getRequest(ctx).let { req ->
-            it.copy(ts = req.ts, requestId = req.id)
+    private fun copyUpstream(
+        upstreamId: String,
+        channel: Channel,
+    ): (RequestRecord.Builder) -> RequestRecord.Builder =
+        {
+            it
+                .copy(upstreamId = upstreamId, channel = channel)
+                .copy(type = RequestType.JSONRPC)
         }
-    }
 
-    private fun copyReqId(ctx: ContextView): (RequestRecord.Builder) -> RequestRecord.Builder = {
-        it.copy(rpc = it.rpc.copy(id = context.getRpcId(ctx)))
-    }
+    private fun copyEgressId(ctx: ContextView): (RequestRecord.Builder) -> RequestRecord.Builder =
+        {
+            Global.monitoring.egress.getRequest(ctx).let { req ->
+                it.copy(ts = req.ts, requestId = req.id)
+            }
+        }
+
+    private fun copyReqId(ctx: ContextView): (RequestRecord.Builder) -> RequestRecord.Builder =
+        {
+            it.copy(rpc = it.rpc.copy(id = context.getRpcId(ctx)))
+        }
 }

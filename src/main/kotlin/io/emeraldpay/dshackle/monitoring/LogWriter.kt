@@ -18,7 +18,7 @@ package io.emeraldpay.dshackle.monitoring
 import org.springframework.context.Lifecycle
 
 interface LogWriter<T> : Lifecycle {
-
     fun submit(event: T)
+
     fun submitAll(events: List<T>)
 }

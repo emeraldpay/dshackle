@@ -30,9 +30,9 @@ import java.util.concurrent.Executors
 class EthereumRpcHead(
     private val blockchain: Chain,
     private val api: StandardRpcReader,
-    private val interval: Duration = Duration.ofSeconds(10)
-) : DefaultEthereumHead(blockchain), Lifecycle {
-
+    private val interval: Duration = Duration.ofSeconds(10),
+) : DefaultEthereumHead(blockchain),
+    Lifecycle {
     companion object {
         val scheduler =
             Schedulers.fromExecutor(Executors.newCachedThreadPool(CustomizableThreadFactory("ethereum-rpc-head")))
@@ -44,17 +44,17 @@ class EthereumRpcHead(
 
     override fun start() {
         refreshSubscription?.dispose()
-        val base = Flux.interval(interval)
-            .publishOn(scheduler)
-            .flatMap {
-                getLatestBlock(api)
-            }
+        val base =
+            Flux
+                .interval(interval)
+                .publishOn(scheduler)
+                .flatMap {
+                    getLatestBlock(api)
+                }
         refreshSubscription = super.follow(base)
     }
 
-    override fun isRunning(): Boolean {
-        return refreshSubscription != null
-    }
+    override fun isRunning(): Boolean = refreshSubscription != null
 
     override fun stop() {
         refreshSubscription?.dispose()

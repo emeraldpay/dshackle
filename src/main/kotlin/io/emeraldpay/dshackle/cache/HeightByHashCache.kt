@@ -21,6 +21,5 @@ import io.emeraldpay.dshackle.reader.Reader
 import reactor.core.publisher.Mono
 
 interface HeightByHashCache : Reader<BlockId, Long> {
-
     fun add(block: BlockContainer): Mono<Void>
 }

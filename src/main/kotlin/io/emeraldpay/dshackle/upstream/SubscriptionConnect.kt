@@ -21,6 +21,5 @@ import reactor.core.publisher.Flux
  * Note that T is supposed to be serializable as JSON
  */
 interface SubscriptionConnect<T> {
-
     fun connect(): Flux<T>
 }

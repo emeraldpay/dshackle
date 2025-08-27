@@ -18,6 +18,5 @@ package io.emeraldpay.dshackle.monitoring
 import java.nio.ByteBuffer
 
 interface LogEncoding {
-
     fun write(bytes: ByteBuffer): ByteBuffer
 }

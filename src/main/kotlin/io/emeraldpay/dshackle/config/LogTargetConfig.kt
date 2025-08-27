@@ -16,7 +16,6 @@
 package io.emeraldpay.dshackle.config
 
 class LogTargetConfig {
-
     interface Any
 
     data class File(
@@ -27,11 +26,11 @@ class LogTargetConfig {
         val host: String,
         val port: Int,
         val encoding: Encoding = Encoding.SIZE_PREFIX,
-        val bufferLimit: Int? = null
+        val bufferLimit: Int? = null,
     ) : Any
 
     enum class Encoding {
         NEW_LINE,
-        SIZE_PREFIX
+        SIZE_PREFIX,
     }
 }

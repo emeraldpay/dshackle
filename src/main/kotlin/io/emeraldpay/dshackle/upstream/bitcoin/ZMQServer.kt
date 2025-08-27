@@ -16,7 +16,6 @@ class ZMQServer(
     val port: Int,
     val topic: String,
 ) : Lifecycle {
-
     companion object {
         private val log = LoggerFactory.getLogger(ZMQServer::class.java)
         private val RECEIVE_TIME_MS = 100
@@ -27,37 +26,41 @@ class ZMQServer(
     private val runningLock = ReentrantLock()
     private var running = false
     private val sinkPublisher = Executors.newSingleThreadExecutor()
-    private val sink = Sinks.many()
-        .multicast()
-        .directBestEffort<ByteArray>()
+    private val sink =
+        Sinks
+            .many()
+            .multicast()
+            .directBestEffort<ByteArray>()
 
     fun getFlux(): Flux<ByteArray> = sink.asFlux()
-    fun startInternal() = Runnable {
-        log.info("Connecting to ZMQ at $host:$port")
-        val context = ZContext()
-        val socket: ZMQ.Socket = context.createSocket(SocketType.SUB)
-        socket.connect("tcp://$host:$port")
-        socket.subscribe(topic)
-        socket.receiveTimeOut = RECEIVE_TIME_MS
 
-        while (running && !Thread.currentThread().isInterrupted) {
-            val msg = readMessage(socket)
-            if (msg != null) {
-                // this should not happen, but check just in case
-                if (!topicId.contentEquals(msg.id)) {
-                    continue
-                }
-                sinkPublisher.execute {
-                    val sent = sink.tryEmitNext(msg.value)
-                    if (sent.isFailure && sent != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
-                        log.warn("Failed to notify with $sent")
+    fun startInternal() =
+        Runnable {
+            log.info("Connecting to ZMQ at $host:$port")
+            val context = ZContext()
+            val socket: ZMQ.Socket = context.createSocket(SocketType.SUB)
+            socket.connect("tcp://$host:$port")
+            socket.subscribe(topic)
+            socket.receiveTimeOut = RECEIVE_TIME_MS
+
+            while (running && !Thread.currentThread().isInterrupted) {
+                val msg = readMessage(socket)
+                if (msg != null) {
+                    // this should not happen, but check just in case
+                    if (!topicId.contentEquals(msg.id)) {
+                        continue
+                    }
+                    sinkPublisher.execute {
+                        val sent = sink.tryEmitNext(msg.value)
+                        if (sent.isFailure && sent != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
+                            log.warn("Failed to notify with $sent")
+                        }
                     }
                 }
             }
+            socket.close()
+            log.debug("Stopped ZMQ connection to $host:$port")
         }
-        socket.close()
-        log.debug("Stopped ZMQ connection to $host:$port")
-    }
 
     fun readMessage(socket: ZMQ.Socket): Message? {
         val id = readOnce(socket)
@@ -103,9 +106,7 @@ class ZMQServer(
         Thread.sleep(RECEIVE_TIME_MS.toLong())
     }
 
-    override fun isRunning(): Boolean {
-        return running
-    }
+    override fun isRunning(): Boolean = running
 
     // Bitcoind produces messages as something like:
     // | hashblock | <32-byte block hash in Little Endian> | <uint32 sequence number in Little Endian>

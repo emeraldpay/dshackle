@@ -50,5 +50,5 @@ data class NewHeadMessage(
     val miner: Address,
     @get:JsonSerialize(using = NumberAsHexSerializer::class)
     @get:JsonInclude(JsonInclude.Include.NON_NULL)
-    val baseFeePerGas: BigInteger?
+    val baseFeePerGas: BigInteger?,
 )

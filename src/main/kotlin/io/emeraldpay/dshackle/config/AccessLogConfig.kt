@@ -5,24 +5,21 @@ package io.emeraldpay.dshackle.config
  */
 class AccessLogConfig(
     val enabled: Boolean = false,
-    val includeMessages: Boolean = false
+    val includeMessages: Boolean = false,
 ) {
-
     var target: LogTargetConfig.Any = defaultFile
 
     companion object {
-        val defaultFile = LogTargetConfig.File(
-            filename = "./access_log.jsonl"
-        )
-
-        fun default(): AccessLogConfig {
-            return disabled()
-        }
-
-        fun disabled(): AccessLogConfig {
-            return AccessLogConfig(
-                enabled = false
+        val defaultFile =
+            LogTargetConfig.File(
+                filename = "./access_log.jsonl",
             )
-        }
+
+        fun default(): AccessLogConfig = disabled()
+
+        fun disabled(): AccessLogConfig =
+            AccessLogConfig(
+                enabled = false,
+            )
     }
 }

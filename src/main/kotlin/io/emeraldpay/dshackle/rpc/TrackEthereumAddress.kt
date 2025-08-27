@@ -35,9 +35,8 @@ import java.util.Locale
 
 @Service
 class TrackEthereumAddress(
-    @Autowired private val multistreamHolder: MultistreamHolder
+    @Autowired private val multistreamHolder: MultistreamHolder,
 ) : TrackAddress {
-
     private val log = LoggerFactory.getLogger(TrackEthereumAddress::class.java)
     private val ethereumAddresses = EthereumAddresses()
 
@@ -48,56 +47,58 @@ class TrackEthereumAddress(
         val asset = request.asset.code.lowercase(Locale.getDefault())
         val chain = Chain.byId(request.asset.chainValue)
         return asset == "ether" &&
-            BlockchainType.from(chain) == BlockchainType.ETHEREUM && multistreamHolder.isAvailable(chain)
+            BlockchainType.from(chain) == BlockchainType.ETHEREUM &&
+            multistreamHolder.isAvailable(chain)
     }
 
-    override fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
-        return initAddress(request)
+    override fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> =
+        initAddress(request)
             .flatMap { a -> getBalance(a).map { a.withBalance(it) } }
             .map { buildResponse(it) }
-    }
 
     override fun subscribe(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
         val chain = Chain.byId(request.asset.chainValue)
         val head = multistreamHolder.getUpstream(chain)?.getHead()?.getFlux() ?: Flux.empty()
-        val balances = initAddress(request)
-            .flatMap { tracked ->
-                val current = getBalance(tracked)
-                    .map {
-                        tracked.withBalance(it)
-                    }
-                val updates = head
-                    .flatMap {
+        val balances =
+            initAddress(request)
+                .flatMap { tracked ->
+                    val current =
                         getBalance(tracked)
-                    }.map {
-                        tracked.withBalance(it)
-                    }
+                            .map {
+                                tracked.withBalance(it)
+                            }
+                    val updates =
+                        head
+                            .flatMap {
+                                getBalance(tracked)
+                            }.map {
+                                tracked.withBalance(it)
+                            }
 
-                Flux.concat(current, updates)
-                    .distinctUntilChanged {
-                        it.balance ?: Wei.ZERO
+                    Flux
+                        .concat(current, updates)
+                        .distinctUntilChanged {
+                            it.balance ?: Wei.ZERO
+                        }
+                }.doOnError { t ->
+                    if (t is SilentException) {
+                        if (t is SilentException.UnsupportedBlockchain) {
+                            log.warn("Unsupported blockchain: ${t.blockchainId}")
+                        }
+                        log.debug("Failed to process subscription", t)
+                    } else {
+                        log.warn("Failed to process subscription", t)
                     }
-            }
-            .doOnError { t ->
-                if (t is SilentException) {
-                    if (t is SilentException.UnsupportedBlockchain) {
-                        log.warn("Unsupported blockchain: ${t.blockchainId}")
-                    }
-                    log.debug("Failed to process subscription", t)
-                } else {
-                    log.warn("Failed to process subscription", t)
                 }
-            }
 
         return balances.map {
             buildResponse(it)
         }
     }
 
-    fun getUpstream(chain: Chain): EthereumMultistream {
-        return multistreamHolder.getUpstream(chain)?.cast(EthereumMultistream::class.java)
+    fun getUpstream(chain: Chain): EthereumMultistream =
+        multistreamHolder.getUpstream(chain)?.cast(EthereumMultistream::class.java)
             ?: throw SilentException.UnsupportedBlockchain(chain)
-    }
 
     private fun initAddress(request: BlockchainOuterClass.BalanceRequest): Flux<TrackedAddress> {
         val chain = Chain.byId(request.asset.chainValue)
@@ -112,38 +113,40 @@ class TrackEthereumAddress(
         }
     }
 
-    private fun createAddress(address: Common.SingleAddress, chain: Chain): TrackedAddress {
+    private fun createAddress(
+        address: Common.SingleAddress,
+        chain: Chain,
+    ): TrackedAddress {
         val addressParsed = Address.from(address.address)
         return TrackedAddress(
             chain,
-            addressParsed
+            addressParsed,
         )
     }
 
-    fun getBalance(addr: TrackedAddress): Mono<Wei> {
-        return getUpstream(addr.chain)
+    fun getBalance(addr: TrackedAddress): Mono<Wei> =
+        getUpstream(addr.chain)
             .dataReaders
             .balanceReader
             .read(addr.address)
             .timeout(Defaults.timeout)
-    }
 
-    private fun buildResponse(address: TrackedAddress): BlockchainOuterClass.AddressBalance {
-        return BlockchainOuterClass.AddressBalance.newBuilder()
+    private fun buildResponse(address: TrackedAddress): BlockchainOuterClass.AddressBalance =
+        BlockchainOuterClass.AddressBalance
+            .newBuilder()
             .setBalance(address.balance!!.amount!!.toString(10))
             .setAsset(
-                Common.Asset.newBuilder()
+                Common.Asset
+                    .newBuilder()
                     .setChainValue(address.chain.id)
-                    .setCode("ETHER")
-            )
-            .setAddress(Common.SingleAddress.newBuilder().setAddress(address.address.toHex()))
+                    .setCode("ETHER"),
+            ).setAddress(Common.SingleAddress.newBuilder().setAddress(address.address.toHex()))
             .build()
-    }
 
     class TrackedAddress(
         val chain: Chain,
         val address: Address,
-        val balance: Wei? = null
+        val balance: Wei? = null,
     ) {
         fun withBalance(balance: Wei) = TrackedAddress(chain, address, balance)
     }

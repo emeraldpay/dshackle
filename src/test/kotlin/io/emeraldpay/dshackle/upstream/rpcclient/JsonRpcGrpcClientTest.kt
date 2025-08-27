@@ -19,72 +19,100 @@ import reactor.core.Exceptions
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 
-class JsonRpcGrpcClientTest : ShouldSpec({
+class JsonRpcGrpcClientTest :
+    ShouldSpec({
 
-    should("Make a request") {
-        val mockGrpc = MockGrpcServer()
-        val requested = AtomicReference<BlockchainOuterClass.NativeCallRequest>()
+        should("Make a request") {
+            val mockGrpc = MockGrpcServer()
+            val requested = AtomicReference<BlockchainOuterClass.NativeCallRequest>()
 
-        val gprc = mockGrpc.clientForServer(object : BlockchainGrpc.BlockchainImplBase() {
-            override fun nativeCall(request: BlockchainOuterClass.NativeCallRequest, responseObserver: StreamObserver<BlockchainOuterClass.NativeCallReplyItem>) {
-                requested.set(request)
-                responseObserver.onNext(
-                    BlockchainOuterClass.NativeCallReplyItem.newBuilder()
-                        .setId(1)
-                        .setSucceed(true)
-                        .setPayload(ByteString.copyFromUtf8("\"hello world!\""))
-                        .build()
+            val gprc =
+                mockGrpc.clientForServer(
+                    object : BlockchainGrpc.BlockchainImplBase() {
+                        override fun nativeCall(
+                            request: BlockchainOuterClass.NativeCallRequest,
+                            responseObserver: StreamObserver<BlockchainOuterClass.NativeCallReplyItem>,
+                        ) {
+                            requested.set(request)
+                            responseObserver.onNext(
+                                BlockchainOuterClass.NativeCallReplyItem
+                                    .newBuilder()
+                                    .setId(1)
+                                    .setSucceed(true)
+                                    .setPayload(ByteString.copyFromUtf8("\"hello world!\""))
+                                    .build(),
+                            )
+                            responseObserver.onCompleted()
+                        }
+                    },
                 )
-                responseObserver.onCompleted()
-            }
-        })
-        val client = JsonRpcGrpcClient(
-            gprc, Chain.BITCOIN, null, null
-        ).forSelector("test", Selector.empty)
+            val client =
+                JsonRpcGrpcClient(
+                    gprc,
+                    Chain.BITCOIN,
+                    null,
+                    null,
+                ).forSelector("test", Selector.empty)
 
-        val act = client.read(JsonRpcRequest("test", emptyList()))
-            .block(Duration.ofSeconds(1))
+            val act =
+                client
+                    .read(JsonRpcRequest("test", emptyList()))
+                    .block(Duration.ofSeconds(1))
 
-        act shouldNotBe null
-        act!!.hasError() shouldBe false
-        act.resultAsProcessedString shouldBe "hello world!"
+            act shouldNotBe null
+            act!!.hasError() shouldBe false
+            act.resultAsProcessedString shouldBe "hello world!"
 
-        requested.get() shouldBe BlockchainOuterClass.NativeCallRequest.newBuilder()
-            .setChain(Common.ChainRef.CHAIN_BITCOIN)
-            .addAllItems(
-                listOf(
-                    BlockchainOuterClass.NativeCallItem.newBuilder()
-                        .setId(1)
-                        .setMethod("test")
-                        .setPayload(ByteString.copyFromUtf8("[]"))
-                        .build()
-                )
-            )
-            .build()
-    }
-
-    should("Return error on HTTP error") {
-        val mockGrpc = MockGrpcServer()
-
-        val gprc = mockGrpc.clientForServer(object : BlockchainGrpc.BlockchainImplBase() {
-            override fun nativeCall(request: BlockchainOuterClass.NativeCallRequest, responseObserver: StreamObserver<BlockchainOuterClass.NativeCallReplyItem>) {
-                responseObserver.onError(IllegalStateException("fail"))
-            }
-        })
-
-        val client = JsonRpcGrpcClient(
-            gprc, Chain.BITCOIN, null, null
-        ).forSelector("test", Selector.empty)
-
-        val act = shouldThrowAny {
-            client.read(JsonRpcRequest("test", emptyList()))
-                .block(Duration.ofSeconds(1))
-        }.let(Exceptions::unwrap)
-
-        act shouldBe instanceOf<RpcException>()
-        with((act as RpcException).error) {
-            message shouldBe "Remote status code: UNKNOWN"
-            code shouldBe RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR
+            requested.get() shouldBe
+                BlockchainOuterClass.NativeCallRequest
+                    .newBuilder()
+                    .setChain(Common.ChainRef.CHAIN_BITCOIN)
+                    .addAllItems(
+                        listOf(
+                            BlockchainOuterClass.NativeCallItem
+                                .newBuilder()
+                                .setId(1)
+                                .setMethod("test")
+                                .setPayload(ByteString.copyFromUtf8("[]"))
+                                .build(),
+                        ),
+                    ).build()
         }
-    }
-})
+
+        should("Return error on HTTP error") {
+            val mockGrpc = MockGrpcServer()
+
+            val gprc =
+                mockGrpc.clientForServer(
+                    object : BlockchainGrpc.BlockchainImplBase() {
+                        override fun nativeCall(
+                            request: BlockchainOuterClass.NativeCallRequest,
+                            responseObserver: StreamObserver<BlockchainOuterClass.NativeCallReplyItem>,
+                        ) {
+                            responseObserver.onError(IllegalStateException("fail"))
+                        }
+                    },
+                )
+
+            val client =
+                JsonRpcGrpcClient(
+                    gprc,
+                    Chain.BITCOIN,
+                    null,
+                    null,
+                ).forSelector("test", Selector.empty)
+
+            val act =
+                shouldThrowAny {
+                    client
+                        .read(JsonRpcRequest("test", emptyList()))
+                        .block(Duration.ofSeconds(1))
+                }.let(Exceptions::unwrap)
+
+            act shouldBe instanceOf<RpcException>()
+            with((act as RpcException).error) {
+                message shouldBe "Remote status code: UNKNOWN"
+                code shouldBe RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR
+            }
+        }
+    })

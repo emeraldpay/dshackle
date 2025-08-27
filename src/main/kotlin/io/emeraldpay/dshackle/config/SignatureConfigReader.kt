@@ -5,8 +5,10 @@ import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
 import java.io.InputStream
 
-class SignatureConfigReader(val fileResolver: FileResolver) : YamlConfigReader(), ConfigReader<SignatureConfig> {
-
+class SignatureConfigReader(
+    val fileResolver: FileResolver,
+) : YamlConfigReader(),
+    ConfigReader<SignatureConfig> {
     companion object {
         private val log = LoggerFactory.getLogger(SignatureConfig::class.java)
     }
@@ -16,8 +18,8 @@ class SignatureConfigReader(val fileResolver: FileResolver) : YamlConfigReader()
         return read(configNode)
     }
 
-    override fun read(input: MappingNode?): SignatureConfig? {
-        return getMapping(input, "signed-response")?.let { node ->
+    override fun read(input: MappingNode?): SignatureConfig? =
+        getMapping(input, "signed-response")?.let { node ->
             val config = SignatureConfig()
             getValueAsBool(node, "enabled")?.let {
                 config.enabled = it
@@ -32,9 +34,10 @@ class SignatureConfigReader(val fileResolver: FileResolver) : YamlConfigReader()
                 }
             }
             if (config.enabled && config.privateKey == null) {
-                throw IllegalStateException("Path to a private key (`signature.private-key`) is required when Response signature is enabled.")
+                throw IllegalStateException(
+                    "Path to a private key (`signature.private-key`) is required when Response signature is enabled.",
+                )
             }
             config
         }
-    }
 }

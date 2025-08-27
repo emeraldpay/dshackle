@@ -20,22 +20,25 @@ import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import reactor.core.publisher.Flux
 
 class BitcoinEgressSubscription(
-    val upstream: BitcoinMultistream
+    val upstream: BitcoinMultistream,
 ) : EgressSubscription {
-
-    override fun getAvailableTopics(): List<String> {
-        return upstream.upstreams
+    override fun getAvailableTopics(): List<String> =
+        upstream.upstreams
             .flatMap {
                 it.getIngressSubscription().getAvailableTopics()
-            }
-            .distinct()
-    }
+            }.distinct()
 
-    override fun subscribe(topic: String, params: Any?): Flux<out Any> {
-        val subscribes = upstream.upstreams.mapNotNull {
-            it.getIngressSubscription().get<ByteArray>(topic)
-                ?.connect()
-        }
+    override fun subscribe(
+        topic: String,
+        params: Any?,
+    ): Flux<out Any> {
+        val subscribes =
+            upstream.upstreams.mapNotNull {
+                it
+                    .getIngressSubscription()
+                    .get<ByteArray>(topic)
+                    ?.connect()
+            }
         if (subscribes.isEmpty()) {
             return Flux.error(IllegalArgumentException("Subscription topic $topic not supported"))
         }

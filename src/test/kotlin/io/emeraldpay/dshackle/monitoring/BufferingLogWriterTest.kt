@@ -8,126 +8,132 @@ import io.kotest.matchers.shouldNotBe
 import java.lang.RuntimeException
 import java.nio.ByteBuffer
 
-class BufferingLogWriterTest : ShouldSpec({
+class BufferingLogWriterTest :
+    ShouldSpec({
 
-    class TempImpl(
-        queueLimit: Int,
-        serializer: LogSerializer<String> = MonitoringTestCommons.defaultSerializer,
-        encoding: LogEncoding = LogEncodingNewLine(),
-    ) : BufferingLogWriter<String>(
-        serializer = serializer,
-        encoding = encoding,
-        queueLimit = queueLimit
-    ) {
-        override fun start() {}
-        override fun isRunning(): Boolean = true
-    }
+        class TempImpl(
+            queueLimit: Int,
+            serializer: LogSerializer<String> = MonitoringTestCommons.defaultSerializer,
+            encoding: LogEncoding = LogEncodingNewLine(),
+        ) : BufferingLogWriter<String>(
+                serializer = serializer,
+                encoding = encoding,
+                queueLimit = queueLimit,
+            ) {
+            override fun start() {}
 
-    should("Accept and produce event") {
-        val writer = TempImpl(10)
+            override fun isRunning(): Boolean = true
+        }
 
-        writer.submit("test")
+        should("Accept and produce event") {
+            val writer = TempImpl(10)
 
-        val next = writer.next(10)
+            writer.submit("test")
 
-        next shouldHaveSize 1
-        next[0] shouldBe "test"
-    }
+            val next = writer.next(10)
 
-    should("Accept and produce and encoded event") {
-        val writer = TempImpl(10)
+            next shouldHaveSize 1
+            next[0] shouldBe "test"
+        }
 
-        writer.submit("test")
-        writer.submit("test2")
+        should("Accept and produce and encoded event") {
+            val writer = TempImpl(10)
 
-        val next = writer.next(10)
-        next shouldHaveSize 2
-        MonitoringTestCommons.bufferToString(writer.encode(next[0])!!) shouldBe "test\n"
-        MonitoringTestCommons.bufferToString(writer.encode(next[1])!!) shouldBe "test2\n"
-    }
+            writer.submit("test")
+            writer.submit("test2")
 
-    should("Ignore serializer errors") {
-        val writer = TempImpl(10, MonitoringTestCommons.failSerializer)
+            val next = writer.next(10)
+            next shouldHaveSize 2
+            MonitoringTestCommons.bufferToString(writer.encode(next[0])!!) shouldBe "test\n"
+            MonitoringTestCommons.bufferToString(writer.encode(next[1])!!) shouldBe "test2\n"
+        }
 
-        val fail = writer.encode("fail")
-        fail shouldBe null
+        should("Ignore serializer errors") {
+            val writer = TempImpl(10, MonitoringTestCommons.failSerializer)
 
-        val test = writer.encode("test")
-        test shouldNotBe null
-        MonitoringTestCommons.bufferToString(test!!) shouldBe "test\n"
-    }
+            val fail = writer.encode("fail")
+            fail shouldBe null
 
-    should("Produce ignoring serializer errors") {
-        val writer = TempImpl(10, serializer = MonitoringTestCommons.failSerializer)
+            val test = writer.encode("test")
+            test shouldNotBe null
+            MonitoringTestCommons.bufferToString(test!!) shouldBe "test\n"
+        }
 
-        writer.submit("fail")
-        writer.submit("test")
+        should("Produce ignoring serializer errors") {
+            val writer = TempImpl(10, serializer = MonitoringTestCommons.failSerializer)
 
-        val next = writer.next(10)
-        writer.encode(next[0]) shouldBe null
-        MonitoringTestCommons.bufferToString(writer.encode(next[1])!!) shouldBe "test\n"
-    }
+            writer.submit("fail")
+            writer.submit("test")
 
-    should("Ignore encoding errors") {
-        val writer = TempImpl(
-            10,
-            encoding = object : LogEncoding {
-                override fun write(bytes: ByteBuffer): ByteBuffer {
-                    if ("fail" == String(bytes.array())) {
-                        throw RuntimeException()
-                    }
-                    return bytes
-                }
-            }
-        )
+            val next = writer.next(10)
+            writer.encode(next[0]) shouldBe null
+            MonitoringTestCommons.bufferToString(writer.encode(next[1])!!) shouldBe "test\n"
+        }
 
-        val fail = writer.encode("fail")
-        fail shouldBe null
+        should("Ignore encoding errors") {
+            val writer =
+                TempImpl(
+                    10,
+                    encoding =
+                        object : LogEncoding {
+                            override fun write(bytes: ByteBuffer): ByteBuffer {
+                                if ("fail" == String(bytes.array())) {
+                                    throw RuntimeException()
+                                }
+                                return bytes
+                            }
+                        },
+                )
 
-        val test = writer.encode("test")
-        test shouldNotBe null
-        MonitoringTestCommons.bufferToString(test!!) shouldBe "test"
-    }
+            val fail = writer.encode("fail")
+            fail shouldBe null
 
-    should("Produce ignoring encoder errors") {
-        val writer = TempImpl(
-            10,
-            encoding = object : LogEncoding {
-                override fun write(bytes: ByteBuffer): ByteBuffer {
-                    if ("fail" == String(bytes.array())) {
-                        throw RuntimeException()
-                    }
-                    return bytes
-                }
-            }
-        )
+            val test = writer.encode("test")
+            test shouldNotBe null
+            MonitoringTestCommons.bufferToString(test!!) shouldBe "test"
+        }
 
-        writer.submit("fail")
-        writer.submit("test")
+        should("Produce ignoring encoder errors") {
+            val writer =
+                TempImpl(
+                    10,
+                    encoding =
+                        object : LogEncoding {
+                            override fun write(bytes: ByteBuffer): ByteBuffer {
+                                if ("fail" == String(bytes.array())) {
+                                    throw RuntimeException()
+                                }
+                                return bytes
+                            }
+                        },
+                )
 
-        val next = writer.next(10)
-        writer.encode(next[0]) shouldBe null
-        MonitoringTestCommons.bufferToString(writer.encode(next[1])!!) shouldBe "test"
-    }
+            writer.submit("fail")
+            writer.submit("test")
 
-    should("Return unprocessed events") {
-        val writer = TempImpl(10)
+            val next = writer.next(10)
+            writer.encode(next[0]) shouldBe null
+            MonitoringTestCommons.bufferToString(writer.encode(next[1])!!) shouldBe "test"
+        }
 
-        writer.submit("test-1")
-        writer.submit("test-2")
-        writer.submit("test-3")
-        writer.submit("test-4")
-        writer.submit("test-5")
+        should("Return unprocessed events") {
+            val writer = TempImpl(10)
 
-        val next = writer.next(10)
+            writer.submit("test-1")
+            writer.submit("test-2")
+            writer.submit("test-3")
+            writer.submit("test-4")
+            writer.submit("test-5")
 
-        next shouldHaveSize 5
-        writer.returnBack(2, next)
+            val next = writer.next(10)
 
-        val next2 = writer.next(10)
-        next2 shouldHaveSize 3
-        MonitoringTestCommons.bufferToString(writer.encode(next2[0])!!) shouldBe "test-3\n"
-        MonitoringTestCommons.bufferToString(writer.encode(next2[1])!!) shouldBe "test-4\n"
-        MonitoringTestCommons.bufferToString(writer.encode(next2[2])!!) shouldBe "test-5\n"
-    }
-})
+            next shouldHaveSize 5
+            writer.returnBack(2, next)
+
+            val next2 = writer.next(10)
+            next2 shouldHaveSize 3
+            MonitoringTestCommons.bufferToString(writer.encode(next2[0])!!) shouldBe "test-3\n"
+            MonitoringTestCommons.bufferToString(writer.encode(next2[1])!!) shouldBe "test-4\n"
+            MonitoringTestCommons.bufferToString(writer.encode(next2[2])!!) shouldBe "test-5\n"
+        }
+    })

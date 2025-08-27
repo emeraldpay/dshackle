@@ -19,9 +19,9 @@ import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import java.util.function.Consumer
 
 abstract class WsConnectionPool : AutoCloseable {
-
     var statusUpdates: Consumer<UpstreamAvailability>? = null
 
     abstract fun connect()
+
     abstract fun getConnection(): WsConnection
 }

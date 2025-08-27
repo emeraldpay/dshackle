@@ -18,103 +18,107 @@ import reactor.util.function.Tuples
 class BitcoinCacheReader(
     private val caches: Caches,
 ) : DshackleRpcReader {
-
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinCacheReader::class.java)
     }
 
-    private val blockRaw = object : Reader<BlockId, ByteArray> {
-        override fun read(key: BlockId): Mono<ByteArray> {
-            return (caches.getGenericCache("block-raw")?.read(key.toHex()) ?: Mono.empty())
-                .map(Hex::encodeHexString)
-                .map(String::toByteArray)
+    private val blockRaw =
+        object : Reader<BlockId, ByteArray> {
+            override fun read(key: BlockId): Mono<ByteArray> =
+                (caches.getGenericCache("block-raw")?.read(key.toHex()) ?: Mono.empty())
+                    .map(Hex::encodeHexString)
+                    .map(String::toByteArray)
         }
-    }
 
     private val blockJson = TransformingReader(caches.getBlocksByHash()) { it.json!! }
 
     private val txJson = TransformingReader(caches.getTxByHash()) { it.json!! }
 
-    private val txRawFromJson = TransformingReader(caches.getTxByHash()) {
-        val parsed = it.getParsed(Map::class.java) ?: Global.objectMapper.readValue(it.json!!, Map::class.java)
-        if (parsed.containsKey("hex")) {
-            (parsed["hex"] as String).toByteArray()
-        } else {
-            null
+    private val txRawFromJson =
+        TransformingReader(caches.getTxByHash()) {
+            val parsed = it.getParsed(Map::class.java) ?: Global.objectMapper.readValue(it.json!!, Map::class.java)
+            if (parsed.containsKey("hex")) {
+                (parsed["hex"] as String).toByteArray()
+            } else {
+                null
+            }
         }
-    }
 
-    private val txRaw = object : Reader<TxId, ByteArray> {
-        override fun read(key: TxId): Mono<ByteArray> {
-            return (caches.getGenericCache("tx-raw")?.read(key.toHex()) ?: Mono.empty())
-                .map(Hex::encodeHexString)
-                .map(String::toByteArray)
+    private val txRaw =
+        object : Reader<TxId, ByteArray> {
+            override fun read(key: TxId): Mono<ByteArray> =
+                (caches.getGenericCache("tx-raw")?.read(key.toHex()) ?: Mono.empty())
+                    .map(Hex::encodeHexString)
+                    .map(String::toByteArray)
         }
-    }
 
-    fun readBlock(blockId: BlockId, verbosity: Int): Mono<ByteArray> {
-        return when (verbosity) {
+    fun readBlock(
+        blockId: BlockId,
+        verbosity: Int,
+    ): Mono<ByteArray> =
+        when (verbosity) {
             0 -> blockRaw.read(blockId)
             1 -> blockJson.read(blockId)
             // TODO process verbosity 2 by splitting into transactions and processing them individually
             else -> Mono.empty()
         }
-    }
 
-    fun readRawTx(txId: TxId, verbose: Boolean): Mono<ByteArray> {
-        return if (verbose) {
+    fun readRawTx(
+        txId: TxId,
+        verbose: Boolean,
+    ): Mono<ByteArray> =
+        if (verbose) {
             txJson.read(txId)
         } else {
             CompoundReader(
                 txRaw,
-                txRawFromJson
+                txRawFromJson,
             ).read(txId)
         }
-    }
 
     fun processGetTxRequest(key: DshackleRequest): Mono<ByteArray> {
-        return Mono.fromCallable {
-            // #1 - txid - string, required
-            // #2 - verbose - boolean, optional, default=false
-            // #3 - blockhash - string, optional
-            if (key.params.size !in 1..3) {
-                return@fromCallable null
-            }
-            val txid = TxId.from(key.params[0].toString())
-            val verbose = if (key.params.size >= 2) {
-                key.params[1] as Boolean
-            } else {
-                false
-            }
-            Tuples.of(txid, verbose)
-        }
-            .onErrorResume { t ->
+        return Mono
+            .fromCallable {
+                // #1 - txid - string, required
+                // #2 - verbose - boolean, optional, default=false
+                // #3 - blockhash - string, optional
+                if (key.params.size !in 1..3) {
+                    return@fromCallable null
+                }
+                val txid = TxId.from(key.params[0].toString())
+                val verbose =
+                    if (key.params.size >= 2) {
+                        key.params[1] as Boolean
+                    } else {
+                        false
+                    }
+                Tuples.of(txid, verbose)
+            }.onErrorResume { t ->
                 log.warn("Invalid request ${key.method}(${key.params})")
                 Mono.empty()
-            }
-            .flatMap {
+            }.flatMap {
                 readRawTx(it!!.t1, it.t2)
             }
     }
 
     fun processGetBlockRequest(key: DshackleRequest): Mono<ByteArray> {
-        return Mono.fromCallable {
-            if (key.params.size !in 1..2) {
-                return@fromCallable null
-            }
-            val hash = BlockId.from(key.params[0].toString())
-            val verbosity = if (key.params.size >= 2) {
-                key.params[1].let { if (it is Number) it.toInt() else it.toString().toInt() }
-            } else {
-                1
-            }
-            Tuples.of(hash, verbosity)
-        }
-            .onErrorResume { t ->
+        return Mono
+            .fromCallable {
+                if (key.params.size !in 1..2) {
+                    return@fromCallable null
+                }
+                val hash = BlockId.from(key.params[0].toString())
+                val verbosity =
+                    if (key.params.size >= 2) {
+                        key.params[1].let { if (it is Number) it.toInt() else it.toString().toInt() }
+                    } else {
+                        1
+                    }
+                Tuples.of(hash, verbosity)
+            }.onErrorResume { t ->
                 log.warn("Invalid request ${key.method}(${key.params})")
                 Mono.empty()
-            }
-            .flatMap {
+            }.flatMap {
                 readBlock(it!!.t1, it.t2)
             }
     }

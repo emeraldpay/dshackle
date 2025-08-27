@@ -22,8 +22,9 @@ import org.yaml.snakeyaml.nodes.CollectionNode
 import org.yaml.snakeyaml.nodes.MappingNode
 import java.io.InputStream
 
-class HealthConfigReader : YamlConfigReader(), ConfigReader<HealthConfig> {
-
+class HealthConfigReader :
+    YamlConfigReader(),
+    ConfigReader<HealthConfig> {
     companion object {
         private val log = LoggerFactory.getLogger(HealthConfigReader::class.java)
     }
@@ -33,9 +34,7 @@ class HealthConfigReader : YamlConfigReader(), ConfigReader<HealthConfig> {
         return read(configNode)
     }
 
-    override fun read(input: MappingNode?): HealthConfig {
-        return readInternal(getMapping(input, "health"))
-    }
+    override fun read(input: MappingNode?): HealthConfig = readInternal(getMapping(input, "health"))
 
     fun readInternal(input: MappingNode?): HealthConfig {
         if (input == null) {
@@ -55,13 +54,17 @@ class HealthConfigReader : YamlConfigReader(), ConfigReader<HealthConfig> {
         return config
     }
 
-    fun readBlockchains(healthConfig: HealthConfig, input: CollectionNode<MappingNode>?) {
+    fun readBlockchains(
+        healthConfig: HealthConfig,
+        input: CollectionNode<MappingNode>?,
+    ) {
         if (input == null) {
             return
         }
         input.value.forEach { conf ->
-            val chain = getValueAsString(conf, "blockchain", "chain")
-                ?.let { Global.chainById(it) }
+            val chain =
+                getValueAsString(conf, "blockchain", "chain")
+                    ?.let { Global.chainById(it) }
             if (chain == null) {
                 log.warn("Blockchain is not specified for a Health Check")
                 return@forEach

@@ -19,17 +19,17 @@ import reactor.core.publisher.Mono
 
 @Service
 class TrackERC20Allowance(
-    @Autowired private val multistreamHolder: MultistreamHolder
+    @Autowired private val multistreamHolder: MultistreamHolder,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(TrackERC20Allowance::class.java)
     }
 
-    private val allowanceUpstreamMatcher = Selector.LocalAndMatcher(
-        Selector.GrpcMatcher(),
-        Selector.CapabilityMatcher(Capability.ALLOWANCE)
-    )
+    private val allowanceUpstreamMatcher =
+        Selector.LocalAndMatcher(
+            Selector.GrpcMatcher(),
+            Selector.CapabilityMatcher(Capability.ALLOWANCE),
+        )
 
     fun isSupported(request: BlockchainOuterClass.AddressAllowanceRequest): Boolean {
         val chain = Chain.byId(request.chainValue)
@@ -54,25 +54,27 @@ class TrackERC20Allowance(
     }
 
     private fun getAllowanceGrpc(chain: Chain): Mono<ReactorBlockchainGrpc.ReactorBlockchainStub> {
-        val upstream = multistreamHolder.getUpstream(chain)
-            ?.cast(EthereumMultistream::class.java)
-            ?: return Mono.error(SilentException.UnsupportedBlockchain(chain.id))
+        val upstream =
+            multistreamHolder
+                .getUpstream(chain)
+                ?.cast(EthereumMultistream::class.java)
+                ?: return Mono.error(SilentException.UnsupportedBlockchain(chain.id))
         return getAllowanceGrpc(upstream)
     }
 
     private fun getAllowanceGrpc(api: EthereumMultistream): Mono<ReactorBlockchainGrpc.ReactorBlockchainStub> {
         val ups = api.getApiSource(allowanceUpstreamMatcher)
         ups.request(1)
-        return Mono.from(ups)
+        return Mono
+            .from(ups)
             .map { up ->
                 up.cast(EthereumGrpcUpstream::class.java).remote
-            }
-            .timeout(Defaults.timeoutInternal, Mono.empty())
+            }.timeout(Defaults.timeoutInternal, Mono.empty())
             .switchIfEmpty(
-                Mono.fromCallable {
-                    log.warn("No upstream providing allowance for ${api.chain}")
-                }
-                    .then(Mono.error(SilentException.DataUnavailable("ALLOWANCE")))
+                Mono
+                    .fromCallable {
+                        log.warn("No upstream providing allowance for ${api.chain}")
+                    }.then(Mono.error(SilentException.DataUnavailable("ALLOWANCE"))),
             )
     }
 }

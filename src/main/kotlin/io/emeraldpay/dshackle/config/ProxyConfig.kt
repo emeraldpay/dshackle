@@ -22,7 +22,6 @@ import io.emeraldpay.api.Chain
  * Configure HTTP Proxy to Upstreams
  */
 open class ProxyConfig {
-
     companion object {
         const val CONFIG_ID = "parsed.proxy"
     }
@@ -73,6 +72,6 @@ open class ProxyConfig {
         /**
          * Blockchain to dispatch requests
          */
-        val blockchain: Chain
+        val blockchain: Chain,
     )
 }

@@ -32,7 +32,6 @@ import java.util.function.Function
  * Monitoring for request made by Dshackle to upstreams
  */
 class RequestContext {
-
     companion object {
         private val log = LoggerFactory.getLogger(RequestContext::class.java)
         private val REQUEST_CTX_KEY = "DSHACKLE/MONITORING/REQUEST"
@@ -60,23 +59,21 @@ class RequestContext {
     /**
      * Set an actual JSON RPC ID used to access an upstream
      */
-    fun setRpcId(id: Int): Function<Context, Context> {
-        return Function { ctx ->
+    fun setRpcId(id: Int): Function<Context, Context> =
+        Function { ctx ->
             if (ctx.hasKey(RPC_ID_KEY)) {
                 ctx.get<RpcId>(RPC_ID_KEY).rpcId = id
             }
             ctx
         }
-    }
 
     /**
      * Populate the context with the initial data before calling an upstream
      */
-    fun prepareForRpcCall(): Function<Context, Context> {
-        return Function { ctx ->
+    fun prepareForRpcCall(): Function<Context, Context> =
+        Function { ctx ->
             ctx.put(RPC_ID_KEY, RpcId())
         }
-    }
 
     /**
      * Get the ID used to access the upstream as part of the current flow
@@ -88,105 +85,105 @@ class RequestContext {
         return 0
     }
 
-    fun getOrCreate(ctx: ContextView): RequestRecord.Builder {
-        return if (!ctx.hasKey(REQUEST_CTX_KEY)) {
-            RequestRecord.newBuilder()
+    fun getOrCreate(ctx: ContextView): RequestRecord.Builder =
+        if (!ctx.hasKey(REQUEST_CTX_KEY)) {
+            RequestRecord
+                .newBuilder()
                 .copy(source = RequestRecord.Source.UNSET)
         } else {
             ctx.get(REQUEST_CTX_KEY)
         }
-    }
 
-    private fun update(modifier: (RequestRecord.Builder) -> RequestRecord.Builder): Function<Context, Context> {
-        return Function { ctx ->
+    private fun update(modifier: (RequestRecord.Builder) -> RequestRecord.Builder): Function<Context, Context> =
+        Function { ctx ->
             val existing = getOrCreate(ctx)
             ctx.put(REQUEST_CTX_KEY, modifier(existing))
         }
-    }
 
-    fun cleanup(): Function<Context, Context> {
-        return Function { ctx ->
+    fun cleanup(): Function<Context, Context> =
+        Function { ctx ->
             ctx.delete(REQUEST_CTX_KEY)
         }
-    }
 
-    fun isAvailable(ctx: ContextView): Boolean {
-        return ctx.hasKey(REQUEST_CTX_KEY)
-    }
+    fun isAvailable(ctx: ContextView): Boolean = ctx.hasKey(REQUEST_CTX_KEY)
 
     fun startCall(source: RequestRecord.Source): Function<Context, Context> {
         // prepare the value eagerly instead of the subscription moment, to make sure we have the timestamp of when the request was made
-        val value = RequestRecord.newBuilder()
-            .copy(source = source, ts = Instant.now())
+        val value =
+            RequestRecord
+                .newBuilder()
+                .copy(source = source, ts = Instant.now())
         return Function { ctx ->
-            val withRequest = Global.monitoring.egress.getRequest(ctx).let {
-                value.copy(requestId = it.id)
-            }
+            val withRequest =
+                Global.monitoring.egress.getRequest(ctx).let {
+                    value.copy(requestId = it.id)
+                }
             ctx.put(REQUEST_CTX_KEY, withRequest)
         }
     }
 
-    fun ensureInitialized(): Function<Context, Context> {
-        return Function { ctx ->
+    fun ensureInitialized(): Function<Context, Context> =
+        Function { ctx ->
             if (!ctx.hasKey(REQUEST_CTX_KEY)) {
                 ctx.put(
                     REQUEST_CTX_KEY,
-                    RequestRecord.newBuilder()
-                        .copy(source = RequestRecord.Source.UNSET)
+                    RequestRecord
+                        .newBuilder()
+                        .copy(source = RequestRecord.Source.UNSET),
                 )
             } else {
                 ctx
             }
         }
-    }
 
-    fun startExecuting(): Function<Context, Context> {
-        return update {
+    fun startExecuting(): Function<Context, Context> =
+        update {
             it.copy(executeTs = Instant.now())
         }
-    }
 
-    fun withBlockchain(blockchain: Chain): Function<Context, Context> {
-        return update {
+    fun withBlockchain(blockchain: Chain): Function<Context, Context> =
+        update {
             it.copy(blockchain = blockchain)
         }
-    }
 
-    fun withRequest(req: JsonRpcRequest): Function<Context, Context> {
-        return Function { ctx ->
+    fun withRequest(req: JsonRpcRequest): Function<Context, Context> =
+        Function { ctx ->
             withRequest(req.method, req.params).apply(ctx)
         }
-    }
 
-    fun withRequest(req: DshackleRequest): Function<Context, Context> {
-        return Function { ctx ->
+    fun withRequest(req: DshackleRequest): Function<Context, Context> =
+        Function { ctx ->
             withRequest(req.method, req.params).apply(ctx)
         }
-    }
 
-    fun withRequest(method: String, params: List<Any?>): Function<Context, Context> {
-        return Function { ctx ->
-            val paramsJson = if (includeParams) {
-                try {
-                    // cut extra long requests
-                    StringUtils.abbreviateMiddle(
-                        Global.objectMapper.writeValueAsString(params),
-                        "..",
-                        400
-                    )
-                } catch (t: Throwable) {
-                    "<ERR: ${t.message}>"
+    fun withRequest(
+        method: String,
+        params: List<Any?>,
+    ): Function<Context, Context> =
+        Function { ctx ->
+            val paramsJson =
+                if (includeParams) {
+                    try {
+                        // cut extra long requests
+                        StringUtils.abbreviateMiddle(
+                            Global.objectMapper.writeValueAsString(params),
+                            "..",
+                            400,
+                        )
+                    } catch (t: Throwable) {
+                        "<ERR: ${t.message}>"
+                    }
+                } else {
+                    null
                 }
-            } else {
-                null
-            }
             withRequest(method, paramsJson).apply(ctx)
         }
-    }
 
-    fun withRequest(method: String, paramsJson: String?): Function<Context, Context> {
-        return update {
+    fun withRequest(
+        method: String,
+        paramsJson: String?,
+    ): Function<Context, Context> =
+        update {
             it.requested(method, paramsJson)
         }
-    }
 }

@@ -38,7 +38,6 @@ open class DataReaders(
     private val source: DshackleRpcReader,
     private val head: AtomicReference<Head>,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(DataReaders::class.java)
     }
@@ -75,90 +74,110 @@ open class DataReaders(
     }
 
     init {
-        blockReader = object : Reader<BlockHash, BlockContainer> {
-            override fun read(key: BlockHash): Mono<BlockContainer> {
-                val request = DshackleRequest(1, "eth_getBlockByHash", listOf(key.toHex(), false))
-                return readBlock(request, key.toHex())
+        blockReader =
+            object : Reader<BlockHash, BlockContainer> {
+                override fun read(key: BlockHash): Mono<BlockContainer> {
+                    val request = DshackleRequest(1, "eth_getBlockByHash", listOf(key.toHex(), false))
+                    return readBlock(request, key.toHex())
+                }
             }
-        }
-        blockReaderParsed = TransformingReader(
-            blockReader,
-            extractBlock
-        )
-        blockReaderById = RekeyingReader(
-            BlockId::toEthereumHash, blockReader
-        )
-        blockByHeightReader = object : Reader<Long, BlockContainer> {
-            override fun read(key: Long): Mono<BlockContainer> {
-                val request = DshackleRequest(1, "eth_getBlockByNumber", listOf(HexQuantity.from(key).toHex(), false))
-                return readBlock(request, key.toString())
+        blockReaderParsed =
+            TransformingReader(
+                blockReader,
+                extractBlock,
+            )
+        blockReaderById =
+            RekeyingReader(
+                BlockId::toEthereumHash,
+                blockReader,
+            )
+        blockByHeightReader =
+            object : Reader<Long, BlockContainer> {
+                override fun read(key: Long): Mono<BlockContainer> {
+                    val request = DshackleRequest(1, "eth_getBlockByNumber", listOf(HexQuantity.from(key).toHex(), false))
+                    return readBlock(request, key.toString())
+                }
             }
-        }
-        blocksByHeightParsed = TransformingReader(
-            blockByHeightReader,
-            extractBlock
-        )
+        blocksByHeightParsed =
+            TransformingReader(
+                blockByHeightReader,
+                extractBlock,
+            )
 
-        txReader = object : Reader<TransactionId, TxContainer> {
-            override fun read(key: TransactionId): Mono<TxContainer> {
-                val request = DshackleRequest(1, "eth_getTransactionByHash", listOf(key.toHex()))
-                return source.read(request)
-                    .timeout(Defaults.timeoutInternal, Mono.error(SilentException.Timeout("Tx not read $key")))
-                    .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
-                    .flatMap(DshackleResponse::requireResult)
-                    .flatMap { txbytes ->
-                        val tx = objectMapper.readValue(txbytes, TransactionJson::class.java)
-                        if (tx == null) {
-                            Mono.empty()
-                        } else {
-                            Mono.just(TxContainer.from(tx, txbytes))
+        txReader =
+            object : Reader<TransactionId, TxContainer> {
+                override fun read(key: TransactionId): Mono<TxContainer> {
+                    val request = DshackleRequest(1, "eth_getTransactionByHash", listOf(key.toHex()))
+                    return source
+                        .read(request)
+                        .timeout(Defaults.timeoutInternal, Mono.error(SilentException.Timeout("Tx not read $key")))
+                        .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
+                        .flatMap(DshackleResponse::requireResult)
+                        .flatMap { txbytes ->
+                            val tx = objectMapper.readValue(txbytes, TransactionJson::class.java)
+                            if (tx == null) {
+                                Mono.empty()
+                            } else {
+                                Mono.just(TxContainer.from(tx, txbytes))
+                            }
                         }
-                    }
+                }
             }
-        }
-        txReaderById = RekeyingReader(
-            TxId::toEthereumHash, txReader
-        )
-        txReaderParsed = TransformingReader(
-            txReader,
-            extractTx
-        )
+        txReaderById =
+            RekeyingReader(
+                TxId::toEthereumHash,
+                txReader,
+            )
+        txReaderParsed =
+            TransformingReader(
+                txReader,
+                extractTx,
+            )
 
-        balanceReader = object : Reader<Address, Wei> {
-            override fun read(key: Address): Mono<Wei> {
-                val height = head.get().getCurrentHeight()?.let { HexQuantity.from(it).toHex() } ?: "latest"
-                val request = DshackleRequest(1, "eth_getBalance", listOf(key.toHex(), height))
-                return source.read(request)
-                    .timeout(Defaults.timeoutInternal, Mono.error(SilentException.Timeout("Balance not read $key")))
-                    .flatMap(DshackleResponse::requireResult)
-                    .handle { it, sink ->
-                        val str = String(it)
-                        // it's a json string, i.e. wrapped with quotes, ex. _"0x1234"_
-                        if (str.startsWith("\"") && str.endsWith("\"")) {
-                            sink.next(Wei.fromHex(str.substring(1, str.length - 1)))
-                        } else {
-                            sink.error(RpcException(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Not Wei value"))
-                        }
-                    }
-                    .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
+        balanceReader =
+            object : Reader<Address, Wei> {
+                override fun read(key: Address): Mono<Wei> {
+                    val height = head.get().getCurrentHeight()?.let { HexQuantity.from(it).toHex() } ?: "latest"
+                    val request = DshackleRequest(1, "eth_getBalance", listOf(key.toHex(), height))
+                    return source
+                        .read(request)
+                        .timeout(Defaults.timeoutInternal, Mono.error(SilentException.Timeout("Balance not read $key")))
+                        .flatMap(DshackleResponse::requireResult)
+                        .handle { it, sink ->
+                            val str = String(it)
+                            // it's a json string, i.e. wrapped with quotes, ex. _"0x1234"_
+                            if (str.startsWith("\"") && str.endsWith("\"")) {
+                                sink.next(Wei.fromHex(str.substring(1, str.length - 1)))
+                            } else {
+                                sink.error(RpcException(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Not Wei value"))
+                            }
+                        }.retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
+                }
             }
-        }
-        receiptReader = object : Reader<TransactionId, ByteArray> {
-            override fun read(key: TransactionId): Mono<ByteArray> {
-                val request = DshackleRequest(1, "eth_getTransactionReceipt", listOf(key.toHex()))
-                return source.read(request)
-                    .timeout(Defaults.timeoutInternal, Mono.error(SilentException.Timeout("Receipt not read $key")))
-                    .flatMap(DshackleResponse::requireResult)
+        receiptReader =
+            object : Reader<TransactionId, ByteArray> {
+                override fun read(key: TransactionId): Mono<ByteArray> {
+                    val request = DshackleRequest(1, "eth_getTransactionReceipt", listOf(key.toHex()))
+                    return source
+                        .read(request)
+                        .timeout(Defaults.timeoutInternal, Mono.error(SilentException.Timeout("Receipt not read $key")))
+                        .flatMap(DshackleResponse::requireResult)
+                }
             }
-        }
-        receiptReaderById = RekeyingReader(
-            TxId::toEthereumHash, receiptReader
-        )
+        receiptReaderById =
+            RekeyingReader(
+                TxId::toEthereumHash,
+                receiptReader,
+            )
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun readBlock(request: DshackleRequest, id: String): Mono<BlockContainer> {
-        return source.read(request)
+    private fun readBlock(
+        request: DshackleRequest,
+        id: String,
+    ): Mono<BlockContainer> =
+        source
+            .read(request)
             .timeout(Defaults.timeoutInternal, Mono.error(SilentException.Timeout("Block not read $id")))
             .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
             .flatMap(DshackleResponse::requireResult)
@@ -170,5 +189,4 @@ open class DataReaders(
                     Mono.just(BlockContainer.from(block, blockbytes))
                 }
             }
-    }
 }

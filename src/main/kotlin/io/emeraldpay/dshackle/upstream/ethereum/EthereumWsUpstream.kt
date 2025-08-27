@@ -39,9 +39,10 @@ class EthereumWsUpstream(
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
     node: QuorumForLabels.QuorumItem,
-    targets: CallMethods
-) : EthereumUpstream(id, chain, forkWatch, options, role, targets, node), Upstream, Lifecycle {
-
+    targets: CallMethods,
+) : EthereumUpstream(id, chain, forkWatch, options, role, targets, node),
+    Upstream,
+    Lifecycle {
     companion object {
         private val log = LoggerFactory.getLogger(EthereumWsUpstream::class.java)
     }
@@ -60,21 +61,13 @@ class EthereumWsUpstream(
         }
     }
 
-    override fun getHead(): Head {
-        return head
-    }
+    override fun getHead(): Head = head
 
-    override fun getIngressReader(): StandardRpcReader {
-        return directReader
-    }
+    override fun getIngressReader(): StandardRpcReader = directReader
 
-    override fun isGrpc(): Boolean {
-        return false
-    }
+    override fun isGrpc(): Boolean = false
 
-    override fun getIngressSubscription(): EthereumIngressSubscription {
-        return subscriptions
-    }
+    override fun getIngressSubscription(): EthereumIngressSubscription = subscriptions
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : Upstream> cast(selfType: Class<T>): T {
@@ -95,8 +88,10 @@ class EthereumWsUpstream(
         } else {
             log.debug("Start validation for upstream ${this.getId()}")
             val validator = EthereumUpstreamValidator(this, getOptions())
-            validatorSubscription = validator.start()
-                .subscribe(this::setStatus)
+            validatorSubscription =
+                validator
+                    .start()
+                    .subscribe(this::setStatus)
         }
     }
 
@@ -108,7 +103,5 @@ class EthereumWsUpstream(
         pool.close()
     }
 
-    override fun isRunning(): Boolean {
-        return super.isRunning() || head.isRunning
-    }
+    override fun isRunning(): Boolean = super.isRunning() || head.isRunning
 }

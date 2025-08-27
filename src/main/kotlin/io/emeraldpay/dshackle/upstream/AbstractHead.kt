@@ -26,7 +26,6 @@ import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 
 abstract class AbstractHead : Head {
-
     companion object {
         private val log = LoggerFactory.getLogger(AbstractHead::class.java)
     }
@@ -46,18 +45,15 @@ abstract class AbstractHead : Head {
             .onErrorResume { t ->
                 log.warn("Failed to get update block ${t.message}")
                 Mono.empty<BlockContainer>()
-            }
-            .distinctUntilChanged {
+            }.distinctUntilChanged {
                 it.hash
-            }
-            .doFinally {
+            }.doFinally {
                 // close internal stream if upstream is finished, otherwise it gets stuck,
                 // but technically it should never happen during normal work, only when the Head
                 // is stopping
                 completed = true
                 stream.tryEmitComplete()
-            }
-            .subscribeOn(Schedulers.boundedElastic())
+            }.subscribeOn(Schedulers.boundedElastic())
             .subscribe { block ->
                 notifyBeforeBlock()
                 head.set(block)
@@ -83,25 +79,21 @@ abstract class AbstractHead : Head {
         beforeBlockHandlers.add(handler)
     }
 
-    override fun getFlux(): Flux<BlockContainer> {
-        return Flux.concat(
-            Mono.justOrEmpty(head.get()),
-            stream.asFlux(),
-            // when the upstream makes a reconfiguration the head may be restarted,
-            // i.e. `follow` can be called multiple times and create a new stream each time
-            // in this case just continue with the new stream for all existing subscribers
-            Mono.fromCallable { log.warn("Restarting the Head...") }
-                .delaySubscription(Duration.ofMillis(100))
-                .thenMany { getFlux() }
-        )
-            .onBackpressureLatest()
-    }
+    override fun getFlux(): Flux<BlockContainer> =
+        Flux
+            .concat(
+                Mono.justOrEmpty(head.get()),
+                stream.asFlux(),
+                // when the upstream makes a reconfiguration the head may be restarted,
+                // i.e. `follow` can be called multiple times and create a new stream each time
+                // in this case just continue with the new stream for all existing subscribers
+                Mono
+                    .fromCallable { log.warn("Restarting the Head...") }
+                    .delaySubscription(Duration.ofMillis(100))
+                    .thenMany { getFlux() },
+            ).onBackpressureLatest()
 
-    fun getCurrent(): BlockContainer? {
-        return head.get()
-    }
+    fun getCurrent(): BlockContainer? = head.get()
 
-    override fun getCurrentHeight(): Long? {
-        return getCurrent()?.height
-    }
+    override fun getCurrentHeight(): Long? = getCurrent()?.height
 }

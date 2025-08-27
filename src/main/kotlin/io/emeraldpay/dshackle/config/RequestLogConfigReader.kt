@@ -18,14 +18,15 @@ package io.emeraldpay.dshackle.config
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
 
-class RequestLogConfigReader : YamlConfigReader(), ConfigReader<RequestLogConfig> {
-
+class RequestLogConfigReader :
+    YamlConfigReader(),
+    ConfigReader<RequestLogConfig> {
     companion object {
         private val log = LoggerFactory.getLogger(RequestLogConfigReader::class.java)
     }
 
-    override fun read(input: MappingNode?): RequestLogConfig {
-        return getMapping(input, "request-log", "requestLog", "ingress-log", "ingressLog")?.let { node ->
+    override fun read(input: MappingNode?): RequestLogConfig =
+        getMapping(input, "request-log", "requestLog", "ingress-log", "ingressLog")?.let { node ->
             val enabled = getValueAsBool(node, "enabled") ?: false
             if (!enabled) {
                 RequestLogConfig.disabled()
@@ -38,5 +39,4 @@ class RequestLogConfigReader : YamlConfigReader(), ConfigReader<RequestLogConfig
                 config
             }
         } ?: RequestLogConfig.default()
-    }
 }

@@ -58,59 +58,70 @@ open class EthereumGrpcUpstream(
     private val chain: Chain,
     options: UpstreamsConfig.Options,
     val remote: ReactorBlockchainStub,
-    private val client: JsonRpcGrpcClient
+    private val client: JsonRpcGrpcClient,
 ) : EthereumUpstream(
-    "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
-    chain,
-    forkWatch,
-    options,
-    role,
-    null, null
-),
+        "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
+        chain,
+        forkWatch,
+        options,
+        role,
+        null,
+        null,
+    ),
     GrpcUpstream,
     Lifecycle {
-
-    constructor(parentId: String, role: UpstreamsConfig.UpstreamRole, chain: Chain, remote: ReactorBlockchainStub, client: JsonRpcGrpcClient) :
+    constructor(
+        parentId: String,
+        role: UpstreamsConfig.UpstreamRole,
+        chain: Chain,
+        remote: ReactorBlockchainStub,
+        client: JsonRpcGrpcClient,
+    ) :
         this(parentId, ForkWatch.Never(), role, chain, UpstreamsConfig.PartialOptions.getDefaults().build(), remote, client)
 
-    private val blockConverter: Function<BlockchainOuterClass.ChainHead, BlockContainer> = Function { value ->
-        val block = BlockContainer(
-            value.height,
-            BlockId.from(BlockHash.from("0x" + value.blockId)), null,
-            BigInteger(1, value.weight.toByteArray()),
-            Instant.ofEpochMilli(value.timestamp),
-            false,
-            null,
-            null
-        )
-        block
-    }
+    private val blockConverter: Function<BlockchainOuterClass.ChainHead, BlockContainer> =
+        Function { value ->
+            val block =
+                BlockContainer(
+                    value.height,
+                    BlockId.from(BlockHash.from("0x" + value.blockId)),
+                    null,
+                    BigInteger(1, value.weight.toByteArray()),
+                    Instant.ofEpochMilli(value.timestamp),
+                    false,
+                    null,
+                    null,
+                )
+            block
+        }
 
-    private val reloadBlock: Function<BlockContainer, Publisher<BlockContainer>> = Function { existingBlock ->
-        // head comes without transaction data
-        // need to download transactions for the block
-        reader.read(JsonRpcRequest("eth_getBlockByHash", listOf(existingBlock.hash.toHexWithPrefix(), false)))
-            .flatMap(JsonRpcResponse::requireResult)
-            .map {
-                BlockContainer.fromEthereumJson(it)
-            }
-            .timeout(timeout, Mono.error(SilentException.Timeout("Timeout from upstream")))
-            .doOnError { t ->
-                setStatus(UpstreamAvailability.UNAVAILABLE)
-                val msg = "Failed to download block data for chain $chain on $parentId"
-                if (t is RpcException || t is SilentException.Timeout) {
-                    log.warn("$msg. Message: ${t.message}")
-                } else {
-                    log.error(msg, t)
+    private val reloadBlock: Function<BlockContainer, Publisher<BlockContainer>> =
+        Function { existingBlock ->
+            // head comes without transaction data
+            // need to download transactions for the block
+            reader
+                .read(JsonRpcRequest("eth_getBlockByHash", listOf(existingBlock.hash.toHexWithPrefix(), false)))
+                .flatMap(JsonRpcResponse::requireResult)
+                .map {
+                    BlockContainer.fromEthereumJson(it)
+                }.timeout(timeout, Mono.error(SilentException.Timeout("Timeout from upstream")))
+                .doOnError { t ->
+                    setStatus(UpstreamAvailability.UNAVAILABLE)
+                    val msg = "Failed to download block data for chain $chain on $parentId"
+                    if (t is RpcException || t is SilentException.Timeout) {
+                        log.warn("$msg. Message: ${t.message}")
+                    } else {
+                        log.error(msg, t)
+                    }
                 }
-            }
-    }
+        }
 
     private val log = LoggerFactory.getLogger(EthereumGrpcUpstream::class.java)
     private val upstreamStatus = GrpcUpstreamStatus()
-    private val grpcHead = OptionalHead(
-        GrpcHead(chain, this, remote, blockConverter, reloadBlock)
-    )
+    private val grpcHead =
+        OptionalHead(
+            GrpcHead(chain, this, remote, blockConverter, reloadBlock),
+        )
     private var capabilities: Set<Capability> = emptySet()
 
     private val reader: StandardRpcReader = client.forSelector(parentId, Selector.empty)
@@ -118,17 +129,13 @@ open class EthereumGrpcUpstream(
     private val ethereumSubscriptions = EthereumDshackleIngressSubscription(chain, remote)
     private var updateHandler: (() -> Unit)? = null
 
-    override fun getBlockchainApi(): ReactorBlockchainStub {
-        return remote
-    }
+    override fun getBlockchainApi(): ReactorBlockchainStub = remote
 
     override fun start() {
         super.start()
     }
 
-    override fun isRunning(): Boolean {
-        return true
-    }
+    override fun isRunning(): Boolean = true
 
     override fun stop() {
         super.stop()
@@ -145,37 +152,25 @@ open class EthereumGrpcUpstream(
         ethereumSubscriptions.update(conf)
     }
 
-    override fun getQuorumByLabel(): QuorumForLabels {
-        return upstreamStatus.getNodes()
-    }
+    override fun getQuorumByLabel(): QuorumForLabels = upstreamStatus.getNodes()
 
     // ------------------------------------------------------------------------------------------
 
-    override fun getLabels(): Collection<UpstreamsConfig.Labels> {
-        return upstreamStatus.getLabels()
-    }
+    override fun getLabels(): Collection<UpstreamsConfig.Labels> = upstreamStatus.getLabels()
 
-    override fun getMethods(): CallMethods {
-        return upstreamStatus.getCallMethods()
-    }
+    override fun getMethods(): CallMethods = upstreamStatus.getCallMethods()
 
-    override fun isAvailable(): Boolean {
-        return super.isAvailable() && getQuorumByLabel().getAll().any {
-            it.quorum > 0
-        }
-    }
+    override fun isAvailable(): Boolean =
+        super.isAvailable() &&
+            getQuorumByLabel().getAll().any {
+                it.quorum > 0
+            }
 
-    override fun getHead(): Head {
-        return grpcHead
-    }
+    override fun getHead(): Head = grpcHead
 
-    override fun getIngressReader(): StandardRpcReader {
-        return reader
-    }
+    override fun getIngressReader(): StandardRpcReader = reader
 
-    override fun getIngressSubscription(): EthereumIngressSubscription {
-        return ethereumSubscriptions
-    }
+    override fun getIngressSubscription(): EthereumIngressSubscription = ethereumSubscriptions
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : Upstream> cast(selfType: Class<T>): T {
@@ -185,13 +180,9 @@ open class EthereumGrpcUpstream(
         return this as T
     }
 
-    override fun getCapabilities(): Set<Capability> {
-        return capabilities
-    }
+    override fun getCapabilities(): Set<Capability> = capabilities
 
-    override fun isGrpc(): Boolean {
-        return true
-    }
+    override fun isGrpc(): Boolean = true
 
     override fun onUpdate(handler: () -> Unit) {
         this.updateHandler = handler

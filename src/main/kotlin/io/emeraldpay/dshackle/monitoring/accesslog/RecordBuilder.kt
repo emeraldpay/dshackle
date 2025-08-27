@@ -37,7 +37,6 @@ import java.util.Locale
 import java.util.UUID
 
 class RecordBuilder {
-
     companion object {
         private val log = LoggerFactory.getLogger(RecordBuilder::class.java)
 
@@ -47,7 +46,10 @@ class RecordBuilder {
     }
 
     interface StartingHttp2Request {
-        fun start(metadata: Metadata, attributes: Attributes)
+        fun start(
+            metadata: Metadata,
+            attributes: Attributes,
+        )
     }
 
     interface StartingHttp1Request {
@@ -60,29 +62,35 @@ class RecordBuilder {
 
     interface RequestReply<E, Req, Resp> : StartingHttp2Request {
         fun onRequest(msg: Req)
+
         fun onReply(msg: Resp): E
     }
 
     abstract class Base<T>(
         requestId: UUID,
-    ) : StartingHttp2Request, StartingHttp1Request, StartingWsRequest {
+    ) : StartingHttp2Request,
+        StartingHttp1Request,
+        StartingWsRequest {
         companion object {
-            private val remoteIpHeaders = listOf(
-                "x-real-ip",
-                "x-forwarded-for"
-            )
-            private val remoteIpKeys = listOf(
-                Metadata.Key.of("x-real-ip", Metadata.ASCII_STRING_MARSHALLER),
-                Metadata.Key.of("x-forwarded-for", Metadata.ASCII_STRING_MARSHALLER)
-            )
+            private val remoteIpHeaders =
+                listOf(
+                    "x-real-ip",
+                    "x-forwarded-for",
+                )
+            private val remoteIpKeys =
+                listOf(
+                    Metadata.Key.of("x-real-ip", Metadata.ASCII_STRING_MARSHALLER),
+                    Metadata.Key.of("x-forwarded-for", Metadata.ASCII_STRING_MARSHALLER),
+                )
             private val invalidCharacters = Regex("[\n\t]+")
         }
 
-        var requestDetails = AccessRecord.RequestDetails(
-            requestId,
-            Instant.now(),
-            AccessRecord.Remote(emptyList(), "", "")
-        )
+        var requestDetails =
+            AccessRecord.RequestDetails(
+                requestId,
+                Instant.now(),
+                AccessRecord.Remote(emptyList(), "", ""),
+            )
 
         var chainId: Int = Chain.UNSPECIFIED.id
         var chain = Chain.UNSPECIFIED
@@ -101,35 +109,43 @@ class RecordBuilder {
 
         private fun findBestIp(ips: List<InetAddress>): InetAddress? {
             // check if a real remote address is provided, otherwise use any local address
-            return ips.sortedWith(
-                kotlin.Comparator { a, b ->
-                    val aLocal = a.isLoopbackAddress || a.isSiteLocalAddress
-                    val bLocal = b.isLoopbackAddress || b.isSiteLocalAddress
-                    when {
-                        aLocal && bLocal -> 0
-                        aLocal -> 1
-                        else -> -1
-                    }
-                }
-            ).firstOrNull()
+            return ips
+                .sortedWith(
+                    kotlin.Comparator { a, b ->
+                        val aLocal = a.isLoopbackAddress || a.isSiteLocalAddress
+                        val bLocal = b.isLoopbackAddress || b.isSiteLocalAddress
+                        when {
+                            aLocal && bLocal -> 0
+                            aLocal -> 1
+                            else -> -1
+                        }
+                    },
+                ).firstOrNull()
         }
 
-        private fun clean(s: String): String {
-            return StringUtils.truncate(s, 128)
+        private fun clean(s: String): String =
+            StringUtils
+                .truncate(s, 128)
                 .replace(invalidCharacters, " ")
                 .trim()
-        }
 
         protected abstract fun getT(): T
 
-        override fun start(metadata: Metadata, attributes: Attributes) {
-            val userAgent = metadata.get(Metadata.Key.of("user-agent", Metadata.ASCII_STRING_MARSHALLER))
-                ?.let(this@Base::clean)
-                ?: ""
+        override fun start(
+            metadata: Metadata,
+            attributes: Attributes,
+        ) {
+            val userAgent =
+                metadata
+                    .get(Metadata.Key.of("user-agent", Metadata.ASCII_STRING_MARSHALLER))
+                    ?.let(this@Base::clean)
+                    ?: ""
             val ips = ArrayList<InetAddress>()
             remoteIpKeys.forEach { key ->
                 metadata.get(key)?.let {
-                    it.trim().ifEmpty { null }
+                    it
+                        .trim()
+                        .ifEmpty { null }
                         ?.let(this@Base::toInetAddress)
                         ?.let(ips::add)
                 }
@@ -140,14 +156,16 @@ class RecordBuilder {
                 }
             }
             val ip = findBestIp(ips)?.hostAddress ?: ""
-            this.requestDetails = this.requestDetails
-                .copy(
-                    remote = AccessRecord.Remote(
-                        ips = ips.map { it.hostAddress },
-                        ip = ip,
-                        userAgent = userAgent
+            this.requestDetails =
+                this.requestDetails
+                    .copy(
+                        remote =
+                            AccessRecord.Remote(
+                                ips = ips.map { it.hostAddress },
+                                ip = ip,
+                                userAgent = userAgent,
+                            ),
                     )
-                )
         }
 
         override fun start(request: HttpServerRequest) {
@@ -159,14 +177,16 @@ class RecordBuilder {
                 ips.add(addr.address)
             }
             val ip = findBestIp(ips)?.hostAddress ?: ""
-            this.requestDetails = this.requestDetails
-                .copy(
-                    remote = AccessRecord.Remote(
-                        ips = ips.map { it.hostAddress },
-                        ip = ip,
-                        userAgent = userAgent
+            this.requestDetails =
+                this.requestDetails
+                    .copy(
+                        remote =
+                            AccessRecord.Remote(
+                                ips = ips.map { it.hostAddress },
+                                ip = ip,
+                                userAgent = userAgent,
+                            ),
                     )
-                )
         }
 
         override fun start(request: WebsocketInbound) {
@@ -177,39 +197,47 @@ class RecordBuilder {
             // class WebsocketServerOperations, which is an implementation for the Websocket server connection, has a remoteAddress method
             // But the class, and it's parent HttpServerOperations, are both private and cannot be used directly,
             // so we try to access the field via reflection when it's possible
-            val remoteAddress: InetSocketAddress? = request.javaClass.methods
-                .find { it.name == "remoteAddress" }
-                ?.let {
-                    if (it.canAccess(request) || it.trySetAccessible()) {
-                        it.invoke(request) as InetSocketAddress
-                    } else {
-                        null
+            val remoteAddress: InetSocketAddress? =
+                request.javaClass.methods
+                    .find { it.name == "remoteAddress" }
+                    ?.let {
+                        if (it.canAccess(request) || it.trySetAccessible()) {
+                            it.invoke(request) as InetSocketAddress
+                        } else {
+                            null
+                        }
                     }
-                }
             remoteAddress?.let { addr ->
                 ips.add(addr.address)
             }
             val ip = findBestIp(ips)?.hostAddress ?: ""
-            this.requestDetails = this.requestDetails
-                .copy(
-                    remote = AccessRecord.Remote(
-                        ips = ips.map { it.hostAddress },
-                        ip = ip,
-                        userAgent = userAgent
+            this.requestDetails =
+                this.requestDetails
+                    .copy(
+                        remote =
+                            AccessRecord.Remote(
+                                ips = ips.map { it.hostAddress },
+                                ip = ip,
+                                userAgent = userAgent,
+                            ),
                     )
-                )
         }
 
-        fun getUserAgent(headers: HttpHeaders): String {
-            return headers.get("user-agent")
+        fun getUserAgent(headers: HttpHeaders): String =
+            headers
+                .get("user-agent")
                 ?.let(this@Base::clean)
                 ?: ""
-        }
 
-        fun extractIps(headers: HttpHeaders, ips: MutableList<InetAddress>) {
+        fun extractIps(
+            headers: HttpHeaders,
+            ips: MutableList<InetAddress>,
+        ) {
             remoteIpHeaders.forEach { key ->
                 headers.get(key)?.let {
-                    it.trim().ifEmpty { null }
+                    it
+                        .trim()
+                        .ifEmpty { null }
                         ?.let(this@Base::toInetAddress)
                         ?.let(ips::add)
                 }
@@ -223,43 +251,43 @@ class RecordBuilder {
         }
     }
 
-    class SubscribeHead(requestId: UUID) :
-        Base<SubscribeHead>(requestId),
+    class SubscribeHead(
+        requestId: UUID,
+    ) : Base<SubscribeHead>(requestId),
         RequestReply<AccessRecord.SubscribeHead, Common.Chain, BlockchainOuterClass.ChainHead> {
-
         private var index = 0
 
-        override fun getT(): SubscribeHead {
-            return this
-        }
+        override fun getT(): SubscribeHead = this
 
         override fun onRequest(msg: Common.Chain) {
             withChain(msg.type.number)
         }
 
-        override fun onReply(msg: BlockchainOuterClass.ChainHead): AccessRecord.SubscribeHead {
-            return AccessRecord.SubscribeHead(
-                chain, UUID.randomUUID(), requestDetails, index++
+        override fun onReply(msg: BlockchainOuterClass.ChainHead): AccessRecord.SubscribeHead =
+            AccessRecord.SubscribeHead(
+                chain,
+                UUID.randomUUID(),
+                requestDetails,
+                index++,
             )
-        }
     }
 
-    class SubscribeBalance(val subscribe: Boolean, requestId: UUID) :
-        Base<SubscribeBalance>(requestId),
+    class SubscribeBalance(
+        val subscribe: Boolean,
+        requestId: UUID,
+    ) : Base<SubscribeBalance>(requestId),
         RequestReply<AccessRecord.SubscribeBalance, BlockchainOuterClass.BalanceRequest, BlockchainOuterClass.AddressBalance> {
-
         private var index = 0
         private var balanceRequest: AccessRecord.BalanceRequest? = null
 
-        override fun getT(): SubscribeBalance {
-            return this
-        }
+        override fun getT(): SubscribeBalance = this
 
         override fun onRequest(msg: BlockchainOuterClass.BalanceRequest) {
-            balanceRequest = AccessRecord.BalanceRequest(
-                msg.asset.code.uppercase(Locale.getDefault()),
-                msg.address.addrTypeCase.name
-            )
+            balanceRequest =
+                AccessRecord.BalanceRequest(
+                    msg.asset.code.uppercase(Locale.getDefault()),
+                    msg.address.addrTypeCase.name,
+                )
         }
 
         override fun onReply(msg: BlockchainOuterClass.AddressBalance): AccessRecord.SubscribeBalance {
@@ -269,26 +297,38 @@ class RecordBuilder {
             val addressBalance = AccessRecord.AddressBalance(msg.asset.code, msg.address.address)
             val chain = Chain.byId(msg.asset.chain.number)
             return AccessRecord.SubscribeBalance(
-                chain, UUID.randomUUID(), subscribe, requestDetails, balanceRequest!!, addressBalance, index++
+                chain,
+                UUID.randomUUID(),
+                subscribe,
+                requestDetails,
+                balanceRequest!!,
+                addressBalance,
+                index++,
             )
         }
     }
 
-    class SubscribeAddressAllowance(val subscribe: Boolean, requestId: UUID) :
-        Base<SubscribeAddressAllowance>(requestId),
-        RequestReply<AccessRecord.SubscribeAddressAllowance, BlockchainOuterClass.AddressAllowanceRequest, BlockchainOuterClass.AddressAllowance> {
-
+    class SubscribeAddressAllowance(
+        val subscribe: Boolean,
+        requestId: UUID,
+    ) : Base<
+            SubscribeAddressAllowance,
+        >(requestId),
+        RequestReply<
+            AccessRecord.SubscribeAddressAllowance,
+            BlockchainOuterClass.AddressAllowanceRequest,
+            BlockchainOuterClass.AddressAllowance,
+        > {
         private var index = 0
         private var allowanceRequest: AccessRecord.AddressAllowanceRequest? = null
 
-        override fun getT(): SubscribeAddressAllowance {
-            return this
-        }
+        override fun getT(): SubscribeAddressAllowance = this
 
         override fun onRequest(msg: BlockchainOuterClass.AddressAllowanceRequest) {
-            allowanceRequest = AccessRecord.AddressAllowanceRequest(
-                msg.address.addrTypeCase.name
-            )
+            allowanceRequest =
+                AccessRecord.AddressAllowanceRequest(
+                    msg.address.addrTypeCase.name,
+                )
         }
 
         override fun onReply(msg: BlockchainOuterClass.AddressAllowance): AccessRecord.SubscribeAddressAllowance {
@@ -298,13 +338,20 @@ class RecordBuilder {
             val addressAllowance = AccessRecord.AddressAllowance(msg.address.address)
             val chain = Chain.byId(msg.chain.number)
             return AccessRecord.SubscribeAddressAllowance(
-                chain, UUID.randomUUID(), subscribe, requestDetails, allowanceRequest!!, addressAllowance, index++
+                chain,
+                UUID.randomUUID(),
+                subscribe,
+                requestDetails,
+                allowanceRequest!!,
+                addressAllowance,
+                index++,
             )
         }
     }
 
-    class TxStatus(requestId: UUID) :
-        Base<TxStatus>(requestId),
+    class TxStatus(
+        requestId: UUID,
+    ) : Base<TxStatus>(requestId),
         RequestReply<AccessRecord.TxStatus, BlockchainOuterClass.TxStatusRequest, BlockchainOuterClass.TxStatus> {
         private var index = 0
         private var txStatusRequest: AccessRecord.TxStatusRequest? = null
@@ -314,28 +361,27 @@ class RecordBuilder {
             withChain(msg.chainValue)
         }
 
-        override fun onReply(msg: BlockchainOuterClass.TxStatus): AccessRecord.TxStatus {
-            return AccessRecord.TxStatus(
-                chain, UUID.randomUUID(), requestDetails, txStatusRequest!!,
+        override fun onReply(msg: BlockchainOuterClass.TxStatus): AccessRecord.TxStatus =
+            AccessRecord.TxStatus(
+                chain,
+                UUID.randomUUID(),
+                requestDetails,
+                txStatusRequest!!,
                 AccessRecord.TxStatusResponse(msg.confirmations),
-                index++
+                index++,
             )
-        }
 
-        override fun getT(): TxStatus {
-            return this
-        }
+        override fun getT(): TxStatus = this
     }
 
-    class NativeCall(requestId: UUID) :
-        Base<NativeCall>(requestId),
+    class NativeCall(
+        requestId: UUID,
+    ) : Base<NativeCall>(requestId),
         RequestReply<AccessRecord.NativeCall, BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem> {
         val items = ArrayList<AccessRecord.NativeCallItemDetails>()
         private var index = 0
 
-        override fun getT(): NativeCall {
-            return this
-        }
+        override fun getT(): NativeCall = this
 
         override fun onRequest(msg: BlockchainOuterClass.NativeCallRequest) {
             withChain(msg.chain.number)
@@ -347,9 +393,18 @@ class RecordBuilder {
                         item.payload.size().toLong(),
                         item.nonce,
                         if (accessLogConfig.includeMessages) {
-                            if (item.payload != null && !item.payload.isEmpty && item.payload.isValidUtf8) item.payload.toStringUtf8() else ""
-                        } else null
-                    )
+                            if (item.payload != null &&
+                                !item.payload.isEmpty &&
+                                item.payload.isValidUtf8
+                            ) {
+                                item.payload.toStringUtf8()
+                            } else {
+                                ""
+                            }
+                        } else {
+                            null
+                        },
+                    ),
                 )
             }
         }
@@ -366,18 +421,21 @@ class RecordBuilder {
                 payloadSizeBytes = item.payloadSizeBytes,
                 id = UUID.randomUUID(),
                 channel = Channel.DSHACKLE,
-                responseBody = if (accessLogConfig.includeMessages) {
-                    if (msg.payload != null && !msg.payload.isEmpty && msg.payload.isValidUtf8) msg.payload.toStringUtf8() else ""
-                } else null,
+                responseBody =
+                    if (accessLogConfig.includeMessages) {
+                        if (msg.payload != null && !msg.payload.isEmpty && msg.payload.isValidUtf8) msg.payload.toStringUtf8() else ""
+                    } else {
+                        null
+                    },
                 errorMessage = if (accessLogConfig.includeMessages) msg.errorMessage else null,
                 signature = Hex.encodeHexString(msg.signature.signature.toByteArray()),
-                nonce = msg.signature.nonce
+                nonce = msg.signature.nonce,
             )
         }
 
         fun onReply(
             reply: io.emeraldpay.dshackle.rpc.NativeCall.CallResult,
-            channel: Channel
+            channel: Channel,
         ): AccessRecord.NativeCall {
             val item = items.find { it.id == reply.id }!!
             return AccessRecord.NativeCall(
@@ -391,11 +449,14 @@ class RecordBuilder {
                 id = UUID.randomUUID(),
                 channel = channel,
                 responseBody = if (accessLogConfig.includeMessages) (reply.result?.let { String(it) } ?: "") else null,
-                errorMessage = if (accessLogConfig.includeMessages) {
-                    reply.error?.let {
-                        it.upstreamError?.message ?: it.message
-                    } ?: ""
-                } else null
+                errorMessage =
+                    if (accessLogConfig.includeMessages) {
+                        reply.error?.let {
+                            it.upstreamError?.message ?: it.message
+                        } ?: ""
+                    } else {
+                        null
+                    },
             )
         }
     }
@@ -403,26 +464,28 @@ class RecordBuilder {
     class NativeSubscribe(
         val channel: Channel,
         requestId: UUID,
-    ) :
-        Base<NativeSubscribe>(requestId),
-        RequestReply<AccessRecord.NativeSubscribe, BlockchainOuterClass.NativeSubscribeRequest, BlockchainOuterClass.NativeSubscribeReplyItem> {
+    ) : Base<NativeSubscribe>(requestId),
+        RequestReply<
+            AccessRecord.NativeSubscribe,
+            BlockchainOuterClass.NativeSubscribeRequest,
+            BlockchainOuterClass.NativeSubscribeReplyItem,
+        > {
         var item: AccessRecord.NativeSubscribeItemDetails? = null
         val replies = HashMap<Int, AccessRecord.NativeSubscribeReplyDetails>()
 
-        override fun getT(): NativeSubscribe {
-            return this
-        }
+        override fun getT(): NativeSubscribe = this
 
         override fun onRequest(msg: BlockchainOuterClass.NativeSubscribeRequest) {
             withChain(msg.chain.number)
-            this.item = AccessRecord.NativeSubscribeItemDetails(
-                msg.method,
-                msg.payload.size().toLong()
-            )
+            this.item =
+                AccessRecord.NativeSubscribeItemDetails(
+                    msg.method,
+                    msg.payload.size().toLong(),
+                )
         }
 
-        override fun onReply(msg: BlockchainOuterClass.NativeSubscribeReplyItem): AccessRecord.NativeSubscribe {
-            return AccessRecord.NativeSubscribe(
+        override fun onReply(msg: BlockchainOuterClass.NativeSubscribeReplyItem): AccessRecord.NativeSubscribe =
+            AccessRecord.NativeSubscribe(
                 request = requestDetails,
                 blockchain = chain,
                 nativeSubscribe = item!!,
@@ -431,15 +494,13 @@ class RecordBuilder {
                 channel = Channel.DSHACKLE,
                 responseBody = if (accessLogConfig.includeMessages) (msg.payload?.toStringUtf8() ?: "") else null,
             )
-        }
     }
 
     class NativeSubscribeHttp(
         val channel: Channel,
         chain: Chain,
         requestId: UUID,
-    ) :
-        Base<NativeSubscribeHttp>(requestId),
+    ) : Base<NativeSubscribeHttp>(requestId),
         RequestReply<AccessRecord.NativeSubscribe, Pair<String, ByteArray?>, Long> {
         var item: AccessRecord.NativeSubscribeItemDetails? = null
         val replies = HashMap<Int, AccessRecord.NativeSubscribeReplyDetails>()
@@ -448,54 +509,48 @@ class RecordBuilder {
             withChain(chain.id)
         }
 
-        override fun getT(): NativeSubscribeHttp {
-            return this
-        }
+        override fun getT(): NativeSubscribeHttp = this
 
         override fun onRequest(msg: Pair<String, ByteArray?>) {
-            this.item = AccessRecord.NativeSubscribeItemDetails(
-                msg.first,
-                msg.second?.size?.toLong() ?: 0L
-            )
+            this.item =
+                AccessRecord.NativeSubscribeItemDetails(
+                    msg.first,
+                    msg.second?.size?.toLong() ?: 0L,
+                )
         }
 
-        override fun onReply(msg: Long): AccessRecord.NativeSubscribe {
-            return AccessRecord.NativeSubscribe(
+        override fun onReply(msg: Long): AccessRecord.NativeSubscribe =
+            AccessRecord.NativeSubscribe(
                 request = requestDetails,
                 blockchain = chain,
                 nativeSubscribe = item!!,
                 payloadSizeBytes = msg,
                 id = UUID.randomUUID(),
-                channel = channel
+                channel = channel,
             )
-        }
     }
 
-    class Describe(requestId: UUID) :
-        Base<Describe>(requestId),
+    class Describe(
+        requestId: UUID,
+    ) : Base<Describe>(requestId),
         RequestReply<AccessRecord.Describe, BlockchainOuterClass.DescribeRequest, BlockchainOuterClass.DescribeResponse> {
-
-        override fun getT(): Describe {
-            return this
-        }
+        override fun getT(): Describe = this
 
         override fun onRequest(msg: BlockchainOuterClass.DescribeRequest) {
         }
 
-        override fun onReply(msg: BlockchainOuterClass.DescribeResponse): AccessRecord.Describe {
-            return AccessRecord.Describe(
+        override fun onReply(msg: BlockchainOuterClass.DescribeResponse): AccessRecord.Describe =
+            AccessRecord.Describe(
                 id = UUID.randomUUID(),
-                request = requestDetails
+                request = requestDetails,
             )
-        }
     }
 
-    class Status(requestId: UUID) :
-        Base<Status>(requestId),
+    class Status(
+        requestId: UUID,
+    ) : Base<Status>(requestId),
         RequestReply<AccessRecord.Status, BlockchainOuterClass.StatusRequest, BlockchainOuterClass.ChainStatus> {
-        override fun getT(): Status {
-            return this
-        }
+        override fun getT(): Status = this
 
         override fun onRequest(msg: BlockchainOuterClass.StatusRequest) {
         }
@@ -505,21 +560,19 @@ class RecordBuilder {
             return AccessRecord.Status(
                 blockchain = chain,
                 request = requestDetails,
-                id = UUID.randomUUID()
+                id = UUID.randomUUID(),
             )
         }
     }
 
-    class EstimateFee(requestId: UUID) :
-        Base<EstimateFee>(requestId),
+    class EstimateFee(
+        requestId: UUID,
+    ) : Base<EstimateFee>(requestId),
         RequestReply<AccessRecord.EstimateFee, BlockchainOuterClass.EstimateFeeRequest, BlockchainOuterClass.EstimateFeeResponse> {
-
         private var mode: String = "UNKNOWN"
         private var blocks: Int = 0
 
-        override fun getT(): EstimateFee {
-            return this
-        }
+        override fun getT(): EstimateFee = this
 
         override fun onRequest(msg: BlockchainOuterClass.EstimateFeeRequest) {
             this.chain = Chain.byId(msg.chain.number)
@@ -527,16 +580,16 @@ class RecordBuilder {
             this.blocks = msg.blocks
         }
 
-        override fun onReply(msg: BlockchainOuterClass.EstimateFeeResponse): AccessRecord.EstimateFee {
-            return AccessRecord.EstimateFee(
+        override fun onReply(msg: BlockchainOuterClass.EstimateFeeResponse): AccessRecord.EstimateFee =
+            AccessRecord.EstimateFee(
                 blockchain = chain,
                 request = requestDetails,
                 id = UUID.randomUUID(),
-                estimateFee = AccessRecord.EstimateFeeDetails(
-                    mode = mode,
-                    blocks = blocks
-                )
+                estimateFee =
+                    AccessRecord.EstimateFeeDetails(
+                        mode = mode,
+                        blocks = blocks,
+                    ),
             )
-        }
     }
 }

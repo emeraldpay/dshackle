@@ -23,22 +23,22 @@ import reactor.core.publisher.Flux
 import java.time.Duration
 
 class AggregatedPendingTxes(
-    private val sources: List<PendingTxesSource>
+    private val sources: List<PendingTxesSource>,
 ) : PendingTxesSource {
-
     companion object {
         private val log = LoggerFactory.getLogger(AggregatedPendingTxes::class.java)
     }
 
-    private val track = ExpiringSet<TransactionId>(
-        Duration.ofSeconds(30),
-        HexDataComparator<TransactionId>() as Comparator<TransactionId>,
-        10_000
-    )
+    private val track =
+        ExpiringSet<TransactionId>(
+            Duration.ofSeconds(30),
+            HexDataComparator<TransactionId>() as Comparator<TransactionId>,
+            10_000,
+        )
 
-    override fun connect(): Flux<TransactionId> {
-        return Flux.merge(
-            sources.map(PendingTxesSource::connect)
-        ).filter(track::add)
-    }
+    override fun connect(): Flux<TransactionId> =
+        Flux
+            .merge(
+                sources.map(PendingTxesSource::connect),
+            ).filter(track::add)
 }

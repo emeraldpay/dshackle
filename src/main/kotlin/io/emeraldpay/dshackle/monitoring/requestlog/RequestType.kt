@@ -16,7 +16,6 @@
 package io.emeraldpay.dshackle.monitoring.requestlog
 
 enum class RequestType {
-
     /**
      * A Dshackle internal request
      */

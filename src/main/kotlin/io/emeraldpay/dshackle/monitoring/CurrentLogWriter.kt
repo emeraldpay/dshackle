@@ -25,9 +25,8 @@ import java.util.Locale
 abstract class CurrentLogWriter<T>(
     private val category: Category,
     private val serializer: LogSerializer<T>?,
-    private val fileOptions: FileOptions? = null
+    private val fileOptions: FileOptions? = null,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(CurrentLogWriter::class.java)
     }
@@ -45,38 +44,46 @@ abstract class CurrentLogWriter<T>(
                 val file = Path.of(targetConfig.filename)
                 log.info("Writing $category to $file")
                 requireNotNull(fileOptions)
-                logWriter = FileLogWriter<T>(
-                    file, serializer,
-                    startSleep = fileOptions.startSleep, flushSleep = fileOptions.flushSleep,
-                    batchLimit = fileOptions.batchLimit,
-                    metrics = metrics
-                )
+                logWriter =
+                    FileLogWriter<T>(
+                        file,
+                        serializer,
+                        startSleep = fileOptions.startSleep,
+                        flushSleep = fileOptions.flushSleep,
+                        batchLimit = fileOptions.batchLimit,
+                        metrics = metrics,
+                    )
                 logWriter.start()
             }
 
             is LogTargetConfig.Socket -> {
                 val metrics = createMetrics()
                 log.info("Sending $category to ${targetConfig.host}:${targetConfig.port}")
-                val encoding = when (targetConfig.encoding) {
-                    LogTargetConfig.Encoding.NEW_LINE -> LogEncodingNewLine()
-                    LogTargetConfig.Encoding.SIZE_PREFIX -> LogEncodingPrefix()
-                }
-                logWriter = SocketLogWriter<T>(
-                    targetConfig.host, targetConfig.port,
-                    category,
-                    serializer, encoding,
-                    bufferSize = targetConfig.bufferLimit,
-                    metrics = metrics
-                )
+                val encoding =
+                    when (targetConfig.encoding) {
+                        LogTargetConfig.Encoding.NEW_LINE -> LogEncodingNewLine()
+                        LogTargetConfig.Encoding.SIZE_PREFIX -> LogEncodingPrefix()
+                    }
+                logWriter =
+                    SocketLogWriter<T>(
+                        targetConfig.host,
+                        targetConfig.port,
+                        category,
+                        serializer,
+                        encoding,
+                        bufferSize = targetConfig.bufferLimit,
+                        metrics = metrics,
+                    )
             }
         }
     }
 
-    private fun createMetrics() = if (Global.metricsExtended) {
-        LogMetrics.Enabled(category.name.lowercase(Locale.getDefault()))
-    } else {
-        LogMetrics.None()
-    }
+    private fun createMetrics() =
+        if (Global.metricsExtended) {
+            LogMetrics.Enabled(category.name.lowercase(Locale.getDefault()))
+        } else {
+            LogMetrics.None()
+        }
 
     data class FileOptions(
         val startSleep: Duration,
@@ -85,6 +92,7 @@ abstract class CurrentLogWriter<T>(
     )
 
     enum class Category {
-        ACCESS, REQUEST
+        ACCESS,
+        REQUEST,
     }
 }

@@ -25,61 +25,54 @@ class JsonRpcResponse(
     private val result: ByteArray?,
     val error: JsonRpcError?,
     val id: Id,
-
     val httpCode: Int? = null,
     /**
      * When making a request through Dshackle protocol a remote may provide its signature with the response, which we keep here
      */
-    val providedSignature: ResponseSigner.Signature? = null
+    val providedSignature: ResponseSigner.Signature? = null,
 ) {
-
     constructor(result: ByteArray?, error: JsonRpcError?) : this(result, error, NumberId(0))
 
     companion object {
         private val NULL_VALUE = "null".toByteArray()
 
         @JvmStatic
-        fun ok(value: ByteArray): JsonRpcResponse {
-            return JsonRpcResponse(value, null)
-        }
+        fun ok(value: ByteArray): JsonRpcResponse = JsonRpcResponse(value, null)
 
         @JvmStatic
-        fun ok(value: ByteArray, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(value, null, id)
-        }
+        fun ok(
+            value: ByteArray,
+            id: Id,
+        ): JsonRpcResponse = JsonRpcResponse(value, null, id)
 
         @JvmStatic
-        fun ok(value: String): JsonRpcResponse {
-            return JsonRpcResponse(value.toByteArray(), null)
-        }
+        fun ok(value: String): JsonRpcResponse = JsonRpcResponse(value.toByteArray(), null)
 
         @JvmStatic
-        fun error(code: Int, msg: String): JsonRpcResponse {
-            return JsonRpcResponse(null, JsonRpcError(code, msg))
-        }
+        fun error(
+            code: Int,
+            msg: String,
+        ): JsonRpcResponse = JsonRpcResponse(null, JsonRpcError(code, msg))
 
         @JvmStatic
-        fun error(error: JsonRpcError, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(null, error, id)
-        }
+        fun error(
+            error: JsonRpcError,
+            id: Id,
+        ): JsonRpcResponse = JsonRpcResponse(null, error, id)
 
         @JvmStatic
-        fun error(code: Int, msg: String, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(null, JsonRpcError(code, msg), id)
-        }
+        fun error(
+            code: Int,
+            msg: String,
+            id: Id,
+        ): JsonRpcResponse = JsonRpcResponse(null, JsonRpcError(code, msg), id)
     }
 
-    fun hasResult(): Boolean {
-        return result != null
-    }
+    fun hasResult(): Boolean = result != null
 
-    fun hasError(): Boolean {
-        return error != null
-    }
+    fun hasError(): Boolean = error != null
 
-    fun isNull(): Boolean {
-        return result != null && NULL_VALUE.contentEquals(result)
-    }
+    fun isNull(): Boolean = result != null && NULL_VALUE.contentEquals(result)
 
     val resultOrEmpty: ByteArray
         get() {
@@ -100,33 +93,25 @@ class JsonRpcResponse(
             throw IllegalStateException("Not as JS string")
         }
 
-    fun requireResult(): Mono<ByteArray> {
-        return if (error != null) {
+    fun requireResult(): Mono<ByteArray> =
+        if (error != null) {
             Mono.error(error.asException(id))
         } else {
             Mono.just(resultOrEmpty)
         }
-    }
 
-    fun requireStringResult(): Mono<String> {
-        return if (error != null) {
+    fun requireStringResult(): Mono<String> =
+        if (error != null) {
             Mono.error(error.asException(id))
         } else {
             Mono.just(resultAsProcessedString)
         }
-    }
 
-    fun copyWithId(id: Id): JsonRpcResponse {
-        return JsonRpcResponse(result, error, id, httpCode, providedSignature)
-    }
+    fun copyWithId(id: Id): JsonRpcResponse = JsonRpcResponse(result, error, id, httpCode, providedSignature)
 
-    fun copyWithSignature(signature: ResponseSigner.Signature): JsonRpcResponse {
-        return JsonRpcResponse(result, error, id, httpCode, signature)
-    }
+    fun copyWithSignature(signature: ResponseSigner.Signature): JsonRpcResponse = JsonRpcResponse(result, error, id, httpCode, signature)
 
-    fun copyWithHttpCode(httpCode: Int): JsonRpcResponse {
-        return JsonRpcResponse(result, error, id, httpCode, providedSignature)
-    }
+    fun copyWithHttpCode(httpCode: Int): JsonRpcResponse = JsonRpcResponse(result, error, id, httpCode, providedSignature)
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -135,7 +120,9 @@ class JsonRpcResponse(
         if (result != null) {
             if (other.result == null) return false
             if (!result.contentEquals(other.result)) return false
-        } else if (other.result != null) return false
+        } else if (other.result != null) {
+            return false
+        }
         if (error != other.error) return false
 
         return true
@@ -152,7 +139,9 @@ class JsonRpcResponse(
      */
     interface Id {
         fun asNumber(): Long
+
         fun asString(): String
+
         fun isNumber(): Boolean
 
         companion object {
@@ -172,20 +161,16 @@ class JsonRpcResponse(
         }
     }
 
-    class NumberId(val id: Long) : Id {
+    class NumberId(
+        val id: Long,
+    ) : Id {
         constructor(id: Int) : this(id.toLong())
 
-        override fun asNumber(): Long {
-            return id
-        }
+        override fun asNumber(): Long = id
 
-        override fun asString(): String {
-            throw IllegalStateException("Not string")
-        }
+        override fun asString(): String = throw IllegalStateException("Not string")
 
-        override fun isNumber(): Boolean {
-            return true
-        }
+        override fun isNumber(): Boolean = true
 
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -196,27 +181,19 @@ class JsonRpcResponse(
             return true
         }
 
-        override fun hashCode(): Int {
-            return id.hashCode()
-        }
+        override fun hashCode(): Int = id.hashCode()
 
-        override fun toString(): String {
-            return id.toString()
-        }
+        override fun toString(): String = id.toString()
     }
 
-    class StringId(val id: String) : Id {
-        override fun asNumber(): Long {
-            throw IllegalStateException("Not a number")
-        }
+    class StringId(
+        val id: String,
+    ) : Id {
+        override fun asNumber(): Long = throw IllegalStateException("Not a number")
 
-        override fun asString(): String {
-            return id
-        }
+        override fun asString(): String = id
 
-        override fun isNumber(): Boolean {
-            return false
-        }
+        override fun isNumber(): Boolean = false
 
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -227,17 +204,17 @@ class JsonRpcResponse(
             return true
         }
 
-        override fun hashCode(): Int {
-            return id.hashCode()
-        }
+        override fun hashCode(): Int = id.hashCode()
 
-        override fun toString(): String {
-            return id
-        }
+        override fun toString(): String = id
     }
 
     class ResponseJsonSerializer : JsonSerializer<JsonRpcResponse>() {
-        override fun serialize(value: JsonRpcResponse, gen: JsonGenerator, serializers: SerializerProvider) {
+        override fun serialize(
+            value: JsonRpcResponse,
+            gen: JsonGenerator,
+            serializers: SerializerProvider,
+        ) {
             gen.writeStartObject()
             gen.writeStringField("jsonrpc", "2.0")
             if (value.id.isNumber()) {

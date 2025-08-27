@@ -26,7 +26,6 @@ import java.util.concurrent.atomic.AtomicReference
 class WsSubscriptionsImpl(
     private val pool: WsConnectionPool,
 ) : WsSubscriptions {
-
     companion object {
         private val log = LoggerFactory.getLogger(WsSubscriptionsImpl::class.java)
     }
@@ -36,12 +35,15 @@ class WsSubscriptionsImpl(
     override fun subscribe(method: String): Flux<ByteArray> {
         val subscriptionId = AtomicReference("")
         val conn = pool.getConnection()
-        val messages = conn.getSubscribeResponses()
-            .filter { it.subscriptionId == subscriptionId.get() }
-            .filter { it.result != null } // should never happen
-            .map { it.result!! }
+        val messages =
+            conn
+                .getSubscribeResponses()
+                .filter { it.subscriptionId == subscriptionId.get() }
+                .filter { it.result != null } // should never happen
+                .map { it.result!! }
 
-        return conn.callRpc(JsonRpcRequest("eth_subscribe", listOf(method), ids.incrementAndGet()))
+        return conn
+            .callRpc(JsonRpcRequest("eth_subscribe", listOf(method), ids.incrementAndGet()))
             .flatMapMany {
                 if (it.hasError()) {
                     log.warn("Failed to establish ETH Subscription: ${it.error?.message}")
@@ -53,7 +55,8 @@ class WsSubscriptionsImpl(
                     // are cancelled from the downstream, not when it completes from the upstream, that's why it's not a `concat` flux.
                     // Also, it's not a critical operation, so a simple fire-and-forget is fine
                     messages.doOnCancel {
-                        conn.callRpc(JsonRpcRequest("eth_unsubscribe", listOf(id), ids.incrementAndGet()))
+                        conn
+                            .callRpc(JsonRpcRequest("eth_unsubscribe", listOf(id), ids.incrementAndGet()))
                             .subscribe()
                     }
                 }

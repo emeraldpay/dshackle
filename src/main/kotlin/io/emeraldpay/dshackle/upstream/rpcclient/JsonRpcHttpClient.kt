@@ -47,17 +47,19 @@ class JsonRpcHttpClient(
     private val target: String,
     private val metrics: RpcMetrics,
     basicAuth: AuthConfig.ClientBasicAuth? = null,
-    tlsCAAuth: ByteArray? = null
-) : StandardRpcReader, WithHttpStatus {
-
+    tlsCAAuth: ByteArray? = null,
+) : StandardRpcReader,
+    WithHttpStatus {
     companion object {
         private val log = LoggerFactory.getLogger(JsonRpcHttpClient::class.java)
 
         // default connection pool has only 1000 of pending connections, which is not always enough
-        private val connectionProvider = ConnectionProvider.builder("json-rpc-pool")
-            .maxConnections(500)
-            .pendingAcquireMaxCount(5000)
-            .build()
+        private val connectionProvider =
+            ConnectionProvider
+                .builder("json-rpc-pool")
+                .maxConnections(500)
+                .pendingAcquireMaxCount(5000)
+                .build()
     }
 
     private val parser = ResponseRpcParser()
@@ -68,14 +70,17 @@ class JsonRpcHttpClient(
     override var onHttpError: Consumer<Int>? = null
 
     init {
-        var build = HttpClient.create(connectionProvider)
-            .resolver(DefaultAddressResolverGroup.INSTANCE)
-            .compress(compress)
-            .doOnChannelInit(metrics.onChannelInit)
+        var build =
+            HttpClient
+                .create(connectionProvider)
+                .resolver(DefaultAddressResolverGroup.INSTANCE)
+                .compress(compress)
+                .doOnChannelInit(metrics.onChannelInit)
 
-        build = build.headers { h ->
-            h.add(HttpHeaderNames.CONTENT_TYPE, "application/json")
-        }
+        build =
+            build.headers { h ->
+                h.add(HttpHeaderNames.CONTENT_TYPE, "application/json")
+            }
 
         basicAuth?.let { auth ->
             val authString: String = auth.username + ":" + auth.password
@@ -102,24 +107,27 @@ class JsonRpcHttpClient(
     }
 
     fun execute(request: ByteArray): Mono<Tuple2<Int, ByteArray>> {
-        val response = httpClient
-            .post()
-            .uri(target)
-            .send(Mono.just(request).map { Unpooled.wrappedBuffer(it) })
+        val response =
+            httpClient
+                .post()
+                .uri(target)
+                .send(Mono.just(request).map { Unpooled.wrappedBuffer(it) })
 
-        return response.response { header, bytes ->
-            val statusCode = header.status().code()
-            bytes.aggregate().asByteArray().map {
-                Tuples.of(statusCode, it)
-            }
-        }.doFinally {
-            metrics.onMessageFinished()
-        }.single()
+        return response
+            .response { header, bytes ->
+                val statusCode = header.status().code()
+                bytes.aggregate().asByteArray().map {
+                    Tuples.of(statusCode, it)
+                }
+            }.doFinally {
+                metrics.onMessageFinished()
+            }.single()
     }
 
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
         val startTime = StopWatch()
-        return Mono.just(key)
+        return Mono
+            .just(key)
             .doOnSubscribe { metrics.onMessageEnqueued() }
             .map(JsonRpcRequest::toJson)
             .doOnNext { startTime.start() }
@@ -128,8 +136,7 @@ class JsonRpcHttpClient(
                 if (startTime.isStarted) {
                     metrics.timer.record(startTime.nanoTime, TimeUnit.NANOSECONDS)
                 }
-            }
-            .transform(asJsonRpcResponse(key))
+            }.transform(asJsonRpcResponse(key))
             .transform(metrics.processResponseSize)
             .transform(convertErrors(key))
             .transform(throwIfError())
@@ -138,8 +145,8 @@ class JsonRpcHttpClient(
     /**
      * The subscribers expect to catch an exception if the response contains JSON RPC Error. Convert it here to JsonRpcException
      */
-    private fun throwIfError(): Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>> {
-        return Function { resp ->
+    private fun throwIfError(): Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>> =
+        Function { resp ->
             resp.flatMap {
                 if (it.hasError()) {
                     val statusCode = if (it.httpCode == 200) null else it.httpCode
@@ -152,53 +159,52 @@ class JsonRpcHttpClient(
                 }
             }
         }
-    }
 
     /**
      * Convert internal exceptions to standard JsonRpcException
      */
-    private fun convertErrors(key: JsonRpcRequest): Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>> {
-        return Function { resp ->
+    private fun convertErrors(key: JsonRpcRequest): Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>> =
+        Function { resp ->
             resp.onErrorResume { t ->
-                val err = when (t) {
-                    is RpcException -> JsonRpcException.from(t)
-                    is JsonRpcException -> t
-                    else -> JsonRpcException(key.id, t.message ?: t.javaClass.name)
-                }
+                val err =
+                    when (t) {
+                        is RpcException -> JsonRpcException.from(t)
+                        is JsonRpcException -> t
+                        else -> JsonRpcException(key.id, t.message ?: t.javaClass.name)
+                    }
                 // here we're measure the internal errors, not upstream errors
                 metrics.fails.increment()
                 Mono.error(err)
             }
         }
-    }
 
     /**
      * Process response from the upstream and convert it to JsonRpcResponse.
      * The input is a pair of (Http Status Code, Http Response Body)
      */
-    private fun asJsonRpcResponse(key: JsonRpcRequest): Function<Mono<Tuple2<Int, ByteArray>>, Mono<JsonRpcResponse>> {
-        return Function { resp ->
+    private fun asJsonRpcResponse(key: JsonRpcRequest): Function<Mono<Tuple2<Int, ByteArray>>, Mono<JsonRpcResponse>> =
+        Function { resp ->
             resp.map {
                 val parsed = parser.parse(it.t2)
                 val statusCode = it.t1
                 if (statusCode != 200) {
-                    val result = if (parsed.hasError() && parsed.error!!.code != RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE) {
-                        // extracted the error details from the HTTP Body
-                        parsed
-                    } else {
-                        // here we got a valid response with ERROR as HTTP Status Code. We assume that HTTP Status has
-                        // a higher priority so return an error here anyway
-                        JsonRpcResponse.error(
-                            RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
-                            "HTTP Code: $statusCode",
-                            JsonRpcResponse.NumberId(key.id)
-                        )
-                    }
+                    val result =
+                        if (parsed.hasError() && parsed.error!!.code != RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE) {
+                            // extracted the error details from the HTTP Body
+                            parsed
+                        } else {
+                            // here we got a valid response with ERROR as HTTP Status Code. We assume that HTTP Status has
+                            // a higher priority so return an error here anyway
+                            JsonRpcResponse.error(
+                                RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
+                                "HTTP Code: $statusCode",
+                                JsonRpcResponse.NumberId(key.id),
+                            )
+                        }
                     result.copyWithHttpCode(statusCode)
                 } else {
                     parsed
                 }
             }
         }
-    }
 }

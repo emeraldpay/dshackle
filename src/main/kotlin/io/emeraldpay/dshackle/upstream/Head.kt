@@ -23,7 +23,6 @@ import reactor.core.publisher.Flux
  * Subscription to listen to updates to the head of a blockchain.
  */
 interface Head {
-
     /**
      * @return stream of all new blocks, starts from the current block (i.e., first item should be available immediately).
      */

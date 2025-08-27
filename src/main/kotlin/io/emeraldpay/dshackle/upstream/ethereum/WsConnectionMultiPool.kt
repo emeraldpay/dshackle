@@ -38,7 +38,6 @@ class WsConnectionMultiPool(
     private val factory: EthereumWsFactory,
     val target: Int,
 ) : WsConnectionPool() {
-
     companion object {
         private const val SCHEDULE_FULL = 60L
         private const val SCHEDULE_GROW = 5L
@@ -51,16 +50,18 @@ class WsConnectionMultiPool(
 
     var scheduler: ScheduledExecutorService = Global.control
 
-    val internalStatusUpdates = Consumer<WsConnection.ConnectionStatus> {
-        val connectedCount = adjustLock.read {
-            current.count { it.isConnected }
+    val internalStatusUpdates =
+        Consumer<WsConnection.ConnectionStatus> {
+            val connectedCount =
+                adjustLock.read {
+                    current.count { it.isConnected }
+                }
+            if (connectedCount == 0) {
+                statusUpdates?.accept(UpstreamAvailability.UNAVAILABLE)
+            } else {
+                statusUpdates?.accept(UpstreamAvailability.OK)
+            }
         }
-        if (connectedCount == 0) {
-            statusUpdates?.accept(UpstreamAvailability.UNAVAILABLE)
-        } else {
-            statusUpdates?.accept(UpstreamAvailability.OK)
-        }
-    }
 
     fun adjust() {
         adjustLock.write {
@@ -75,7 +76,7 @@ class WsConnectionMultiPool(
                     current.add(
                         factory.create(internalStatusUpdates).also {
                             it.connect()
-                        }
+                        },
                     )
                     schedule = SCHEDULE_GROW
                 }
@@ -116,9 +117,11 @@ class WsConnectionMultiPool(
     }
 
     override fun getConnection(): WsConnection {
-        val tries = ExponentialBackOff(50, 1.25).also {
-            it.maxElapsedTime = Duration.ofMinutes(1).toMillis()
-        }.start()
+        val tries =
+            ExponentialBackOff(50, 1.25)
+                .also {
+                    it.maxElapsedTime = Duration.ofMinutes(1).toMillis()
+                }.start()
         var next = next()
         while (next == null) {
             val sleep = tries.nextBackOff()
@@ -127,7 +130,8 @@ class WsConnectionMultiPool(
             }
             try {
                 Thread.sleep(sleep)
-            } catch (t: InterruptedException) {}
+            } catch (t: InterruptedException) {
+            }
             next = next()
         }
         return next

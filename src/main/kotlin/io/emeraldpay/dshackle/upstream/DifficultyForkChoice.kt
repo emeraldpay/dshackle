@@ -25,22 +25,25 @@ import java.util.concurrent.atomic.AtomicReference
  * Note that the current implementation doesn't check for actual state of the forks, and makes decision on the Total Difficulty order exclusively
  */
 class DifficultyForkChoice : ForkChoice {
-
     companion object {
         private val log = LoggerFactory.getLogger(DifficultyForkChoice::class.java)
     }
 
     private val current = AtomicReference<BigInteger>(BigInteger.ZERO)
 
-    override fun submit(block: BlockContainer, upstream: Upstream): ForkChoice.Status {
+    override fun submit(
+        block: BlockContainer,
+        upstream: Upstream,
+    ): ForkChoice.Status {
         val difficulty = block.difficulty
-        val previous = current.getAndUpdate {
-            if (it < difficulty) {
-                difficulty
-            } else {
-                it
+        val previous =
+            current.getAndUpdate {
+                if (it < difficulty) {
+                    difficulty
+                } else {
+                    it
+                }
             }
-        }
         return when {
             previous > difficulty -> ForkChoice.Status.FALLBEHIND
             previous < difficulty -> ForkChoice.Status.NEW
@@ -48,7 +51,5 @@ class DifficultyForkChoice : ForkChoice {
         }
     }
 
-    override fun getName(): String {
-        return "Difficulty"
-    }
+    override fun getName(): String = "Difficulty"
 }

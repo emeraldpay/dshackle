@@ -18,11 +18,8 @@ package io.emeraldpay.dshackle.config
 import io.emeraldpay.api.Chain
 
 class HealthConfig {
-
     companion object {
-        fun default(): HealthConfig {
-            return HealthConfig()
-        }
+        fun default(): HealthConfig = HealthConfig()
     }
 
     var port: Int = 8082
@@ -30,16 +27,12 @@ class HealthConfig {
     var path: String = "/health"
     val chains = HashMap<Chain, ChainConfig>()
 
-    fun isEnabled(): Boolean {
-        return chains.isNotEmpty()
-    }
+    fun isEnabled(): Boolean = chains.isNotEmpty()
 
-    fun configs(): Collection<ChainConfig> {
-        return chains.values
-    }
+    fun configs(): Collection<ChainConfig> = chains.values
 
     data class ChainConfig(
         val blockchain: Chain,
-        val minAvailable: Int = 1
+        val minAvailable: Int = 1,
     )
 }

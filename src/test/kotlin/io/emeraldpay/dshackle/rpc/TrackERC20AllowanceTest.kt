@@ -23,75 +23,78 @@ import reactor.core.publisher.Mono
 
 private const val USDT = "0xdac17f958d2ee523a2206206994597c13d831ec7" // Tether: USDT Stablecoin
 
-class TrackERC20AllowanceTest : ShouldSpec({
+class TrackERC20AllowanceTest :
+    ShouldSpec({
 
-    should("supports ethereum chain") {
-        val trackERC20Allowance = trackERC20Allowance()
-        val request = allowanceRequest("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D")
-        val actual = trackERC20Allowance.isSupported(request)
-        actual shouldBe true
-    }
+        should("supports ethereum chain") {
+            val trackERC20Allowance = trackERC20Allowance()
+            val request = allowanceRequest("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D")
+            val actual = trackERC20Allowance.isSupported(request)
+            actual shouldBe true
+        }
 
-    should("get address allowance") {
-        val request = allowanceRequest("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D")
-        val grpcResponse = addressAllowance("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", "0x2a65aca4d5fc5b5c859090a6c34d164135398226")
-        val trackERC20Allowance = trackERC20Allowance(reactorBlockchainStubInitializer = { stub ->
-            every { stub.getAddressAllowance(request) } returns Flux.just(grpcResponse)
-            stub
-        })
-        val actual = trackERC20Allowance.getAddressAllowance(request).blockFirst()
-        actual shouldBe grpcResponse
-    }
+        should("get address allowance") {
+            val request = allowanceRequest("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D")
+            val grpcResponse = addressAllowance("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", "0x2a65aca4d5fc5b5c859090a6c34d164135398226")
+            val trackERC20Allowance =
+                trackERC20Allowance(reactorBlockchainStubInitializer = { stub ->
+                    every { stub.getAddressAllowance(request) } returns Flux.just(grpcResponse)
+                    stub
+                })
+            val actual = trackERC20Allowance.getAddressAllowance(request).blockFirst()
+            actual shouldBe grpcResponse
+        }
 
-    should("subscribe address allowance") {
-        val request = allowanceRequest("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D")
-        val grpcResponse = addressAllowance("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", "0x2a65aca4d5fc5b5c859090a6c34d164135398226")
-        val trackERC20Allowance = trackERC20Allowance(reactorBlockchainStubInitializer = { stub ->
-            every { stub.subscribeAddressAllowance(request) } returns Flux.just(grpcResponse)
-            stub
-        })
-        val actual = trackERC20Allowance.subscribeAddressAllowance(request).blockFirst()
-        actual shouldBe grpcResponse
-    }
-})
+        should("subscribe address allowance") {
+            val request = allowanceRequest("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D")
+            val grpcResponse = addressAllowance("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", "0x2a65aca4d5fc5b5c859090a6c34d164135398226")
+            val trackERC20Allowance =
+                trackERC20Allowance(reactorBlockchainStubInitializer = { stub ->
+                    every { stub.subscribeAddressAllowance(request) } returns Flux.just(grpcResponse)
+                    stub
+                })
+            val actual = trackERC20Allowance.subscribeAddressAllowance(request).blockFirst()
+            actual shouldBe grpcResponse
+        }
+    })
 
-fun addressAllowance(address: String, owner: String): AddressAllowance {
-    return AddressAllowance.newBuilder()
+fun addressAllowance(
+    address: String,
+    owner: String,
+): AddressAllowance =
+    AddressAllowance
+        .newBuilder()
         .setChainValue(Chain.ETHEREUM.id)
         .setAddress(
-            Common.SingleAddress.newBuilder().setAddress(address)
-        )
-        .setContractAddress(
-            Common.SingleAddress.newBuilder().setAddress(USDT)
-        )
-        .setOwnerAddress(
-            Common.SingleAddress.newBuilder().setAddress(owner)
-        )
-        .setSpenderAddress(
-            Common.SingleAddress.newBuilder().setAddress(address)
-        )
-        .setAllowance("1234560000000000000000")
+            Common.SingleAddress.newBuilder().setAddress(address),
+        ).setContractAddress(
+            Common.SingleAddress.newBuilder().setAddress(USDT),
+        ).setOwnerAddress(
+            Common.SingleAddress.newBuilder().setAddress(owner),
+        ).setSpenderAddress(
+            Common.SingleAddress.newBuilder().setAddress(address),
+        ).setAllowance("1234560000000000000000")
         .setAvailable("1234000000000000000000")
         .build()
-}
 
-fun allowanceRequest(address: String): AddressAllowanceRequest {
-    return AddressAllowanceRequest.newBuilder()
+fun allowanceRequest(address: String): AddressAllowanceRequest =
+    AddressAllowanceRequest
+        .newBuilder()
         .setAddress(
-            Common.AnyAddress.newBuilder()
+            Common.AnyAddress
+                .newBuilder()
                 .setAddressSingle(
-                    Common.SingleAddress.newBuilder()
-                        .setAddress(address)
-                )
-        )
-        .setChainValue(Chain.ETHEREUM.id)
+                    Common.SingleAddress
+                        .newBuilder()
+                        .setAddress(address),
+                ),
+        ).setChainValue(Chain.ETHEREUM.id)
         .build()
-}
 
 private fun trackERC20Allowance(
     upstreamInitializer: (EthereumMultistream) -> EthereumMultistream = { it },
     apiSourceInitializer: (ApiSource) -> ApiSource = { it },
-    reactorBlockchainStubInitializer: (ReactorBlockchainStub) -> ReactorBlockchainStub = { it }
+    reactorBlockchainStubInitializer: (ReactorBlockchainStub) -> ReactorBlockchainStub = { it },
 ): TrackERC20Allowance {
     var reactorBlockchainStub = mockk<ReactorBlockchainStub>()
     reactorBlockchainStub = reactorBlockchainStubInitializer(reactorBlockchainStub)

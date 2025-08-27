@@ -20,25 +20,21 @@ package io.emeraldpay.dshackle.config
  */
 class RequestLogConfig(
     val enabled: Boolean = false,
-    val includeParams: Boolean = false
+    val includeParams: Boolean = false,
 ) {
-
     var target: LogTargetConfig.Any = defaultFile
 
     companion object {
-
-        val defaultFile = LogTargetConfig.File(
-            filename = "./request_log.jsonl"
-        )
-
-        fun default(): RequestLogConfig {
-            return disabled()
-        }
-
-        fun disabled(): RequestLogConfig {
-            return RequestLogConfig(
-                enabled = false
+        val defaultFile =
+            LogTargetConfig.File(
+                filename = "./request_log.jsonl",
             )
-        }
+
+        fun default(): RequestLogConfig = disabled()
+
+        fun disabled(): RequestLogConfig =
+            RequestLogConfig(
+                enabled = false,
+            )
     }
 }

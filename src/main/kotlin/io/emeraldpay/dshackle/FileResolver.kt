@@ -19,13 +19,10 @@ package io.emeraldpay.dshackle
 import java.io.File
 
 open class FileResolver(
-    private val baseDir: File
+    private val baseDir: File,
 ) {
-
     companion object {
-        fun isAccessible(file: File): Boolean {
-            return file.exists() && file.isFile && file.canRead()
-        }
+        fun isAccessible(file: File): Boolean = file.exists() && file.isFile && file.canRead()
     }
 
     fun resolve(path: String): File {

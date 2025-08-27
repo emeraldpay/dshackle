@@ -26,7 +26,6 @@ import java.math.BigInteger
 import java.time.Instant
 
 class ExtractBlock {
-
     companion object {
         private val log = LoggerFactory.getLogger(ExtractBlock::class.java)
 
@@ -61,13 +60,14 @@ class ExtractBlock {
 
         return BlockContainer(
             height = getHeight(data) ?: throw IllegalArgumentException("Block JSON has no height"),
-            hash = BlockId.from(hash), BlockId.from(previousBlockHas),
+            hash = BlockId.from(hash),
+            BlockId.from(previousBlockHas),
             difficulty = getDifficulty(data) ?: throw IllegalArgumentException("Block JSON has no chainwork"),
             timestamp = getTime(data) ?: throw IllegalArgumentException("Block JSON has no time"),
             includesFullTransactions = false,
             json = json,
             parsed = data,
-            transactions = transactions
+            transactions = transactions,
         )
     }
 }

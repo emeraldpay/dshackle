@@ -33,9 +33,8 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 class ProduceLogs(
-    private val receipts: Reader<TxId, ByteArray>
+    private val receipts: Reader<TxId, ByteArray>,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(ProduceLogs::class.java)
     }
@@ -49,22 +48,23 @@ class ProduceLogs(
 
     // need to keep history of recent messages in case they get removed. cannot rely on
     // any other cache or upstream because when it gets removed it's unavailable in any other source
-    private val oldMessages = CacheBuilder.newBuilder()
-        // in general a block with its events can be replaced in ~90 seconds, but in case of a big network disturbance
-        // it can be much longer. here we keep events up to an hour
-        .expireAfterWrite(60, TimeUnit.MINUTES)
-        .maximumSize(90000)
-        .build<LogReference, List<LogMessage>>()
+    private val oldMessages =
+        CacheBuilder
+            .newBuilder()
+            // in general a block with its events can be replaced in ~90 seconds, but in case of a big network disturbance
+            // it can be much longer. here we keep events up to an hour
+            .expireAfterWrite(60, TimeUnit.MINUTES)
+            .maximumSize(90000)
+            .build<LogReference, List<LogMessage>>()
 
-    fun produce(block: Flux<ConnectBlockUpdates.Update>): Flux<LogMessage> {
-        return block.flatMap { update ->
+    fun produce(block: Flux<ConnectBlockUpdates.Update>): Flux<LogMessage> =
+        block.flatMap { update ->
             if (update.type == ConnectBlockUpdates.UpdateType.DROP) {
                 produceRemoved(update)
             } else {
                 produceAdded(update)
             }
         }
-    }
 
     fun produceRemoved(update: ConnectBlockUpdates.Update): Flux<LogMessage> {
         val old = oldMessages.getIfPresent(LogReference(update.blockHash, update.transactionId))
@@ -74,37 +74,40 @@ class ProduceLogs(
             }
             return Flux.empty()
         }
-        return Flux.fromIterable(old)
+        return Flux
+            .fromIterable(old)
             .map { it.copy(removed = true) }
     }
 
     fun produceAdded(update: ConnectBlockUpdates.Update): Flux<LogMessage> {
-        return receipts.read(update.transactionId)
+        return receipts
+            .read(update.transactionId)
             .checkpoint("Read a Full Receipt for an Added Log Tx ${update.transactionId}")
             .switchIfEmpty {
                 log.warn("Cannot find receipt for tx ${update.transactionId}")
                 Mono.empty()
-            }
-            .flatMapMany { jsonBytes ->
+            }.flatMapMany { jsonBytes ->
                 // receipt could be a null, like when the original block was replaced, etc.
                 // so just skip it as Flux.empty
-                val receipt = objectMapper.readValue(jsonBytes, TransactionReceiptJson::class.java)
-                    ?: return@flatMapMany Flux.empty<LogMessage>()
+                val receipt =
+                    objectMapper.readValue(jsonBytes, TransactionReceiptJson::class.java)
+                        ?: return@flatMapMany Flux.empty<LogMessage>()
                 try {
-                    val messages = receipt.logs
-                        .map { txlog ->
-                            LogMessage(
-                                txlog.address,
-                                txlog.blockHash,
-                                txlog.blockNumber,
-                                txlog.data ?: HexData.empty(),
-                                txlog.logIndex,
-                                txlog.topics,
-                                txlog.transactionHash,
-                                txlog.transactionIndex,
-                                false
-                            )
-                        }
+                    val messages =
+                        receipt.logs
+                            .map { txlog ->
+                                LogMessage(
+                                    txlog.address,
+                                    txlog.blockHash,
+                                    txlog.blockNumber,
+                                    txlog.data ?: HexData.empty(),
+                                    txlog.logIndex,
+                                    txlog.topics,
+                                    txlog.transactionHash,
+                                    txlog.transactionIndex,
+                                    false,
+                                )
+                            }
                     oldMessages.put(LogReference(update.blockHash, update.transactionId), messages)
                     Flux.fromIterable(messages)
                 } catch (t: Throwable) {
@@ -116,6 +119,6 @@ class ProduceLogs(
 
     private data class LogReference(
         val block: BlockId,
-        val tx: TxId
+        val tx: TxId,
     )
 }

@@ -46,16 +46,19 @@ open class CurrentMultistreamHolder(
     @Autowired private val cachesFactory: CachesFactory,
     @Autowired private val signer: ResponseSigner,
 ) : MultistreamHolder {
-
     private val log = LoggerFactory.getLogger(CurrentMultistreamHolder::class.java)
 
     private val chainMapping = ConcurrentHashMap<Chain, Multistream>()
-    private val chainsBus = Sinks.many()
-        .multicast()
-        .directBestEffort<Chain>()
-    private val addedUpstreams = Sinks.many()
-        .multicast()
-        .directBestEffort<Tuple2<Chain, Upstream>>()
+    private val chainsBus =
+        Sinks
+            .many()
+            .multicast()
+            .directBestEffort<Chain>()
+    private val addedUpstreams =
+        Sinks
+            .many()
+            .multicast()
+            .directBestEffort<Tuple2<Chain, Upstream>>()
     private val callTargets = HashMap<Chain, CallMethods>()
     private val updateLock = ReentrantLock()
 
@@ -65,15 +68,18 @@ open class CurrentMultistreamHolder(
             val chain = change.chain
             try {
                 val current = chainMapping[chain]
-                val factory = when (BlockchainType.from(chain)) {
-                    BlockchainType.ETHEREUM -> Callable<Multistream> {
-                        EthereumMultistream(chain, ArrayList(), cachesFactory.getCaches(chain), signer)
+                val factory =
+                    when (BlockchainType.from(chain)) {
+                        BlockchainType.ETHEREUM ->
+                            Callable<Multistream> {
+                                EthereumMultistream(chain, ArrayList(), cachesFactory.getCaches(chain), signer)
+                            }
+                        BlockchainType.BITCOIN ->
+                            Callable<Multistream> {
+                                BitcoinMultistream(chain, ArrayList(), cachesFactory.getCaches(chain), signer)
+                            }
+                        else -> throw IllegalStateException("Update for unsupported chain: $chain")
                     }
-                    BlockchainType.BITCOIN -> Callable<Multistream> {
-                        BitcoinMultistream(chain, ArrayList(), cachesFactory.getCaches(chain), signer)
-                    }
-                    else -> throw IllegalStateException("Update for unsupported chain: $chain")
-                }
                 processUpdate(change, current, factory)
             } catch (e: Throwable) {
                 log.error("Failed to update upstream", e)
@@ -81,7 +87,11 @@ open class CurrentMultistreamHolder(
         }
     }
 
-    fun processUpdate(change: UpstreamChange, current: Multistream?, factory: Callable<Multistream>) {
+    fun processUpdate(
+        change: UpstreamChange,
+        current: Multistream?,
+        factory: Callable<Multistream>,
+    ) {
         val chain = change.chain
         val up: Upstream = change.upstream
         if (change.type == UpstreamChange.ChangeType.REMOVED) {
@@ -111,42 +121,34 @@ open class CurrentMultistreamHolder(
         }
     }
 
-    override fun getUpstream(chain: Chain): Multistream? {
-        return chainMapping[chain]
-    }
+    override fun getUpstream(chain: Chain): Multistream? = chainMapping[chain]
 
-    override fun getAvailable(): List<Chain> {
-        return Collections.unmodifiableList(chainMapping.keys.toList())
-    }
+    override fun getAvailable(): List<Chain> = Collections.unmodifiableList(chainMapping.keys.toList())
 
-    override fun observeAddedUpstreams(): Flux<Tuple2<Chain, Upstream>> {
-        return Flux.from(addedUpstreams.asFlux())
-    }
+    override fun observeAddedUpstreams(): Flux<Tuple2<Chain, Upstream>> = Flux.from(addedUpstreams.asFlux())
 
-    override fun observeChains(): Flux<Chain> {
-        return Flux.concat(
+    override fun observeChains(): Flux<Chain> =
+        Flux.concat(
             Flux.fromIterable(getAvailable()),
-            chainsBus.asFlux()
+            chainsBus.asFlux(),
         )
-    }
 
     override fun getDefaultMethods(chain: Chain): CallMethods {
         return callTargets[chain] ?: return setupDefaultMethods(chain)
     }
 
     fun setupDefaultMethods(chain: Chain): CallMethods {
-        val created = when (BlockchainType.from(chain)) {
-            BlockchainType.ETHEREUM -> DefaultEthereumMethods(chain)
-            BlockchainType.BITCOIN -> DefaultBitcoinMethods()
-            else -> throw IllegalStateException("Unsupported chain: $chain")
-        }
+        val created =
+            when (BlockchainType.from(chain)) {
+                BlockchainType.ETHEREUM -> DefaultEthereumMethods(chain)
+                BlockchainType.BITCOIN -> DefaultBitcoinMethods()
+                else -> throw IllegalStateException("Unsupported chain: $chain")
+            }
         callTargets[chain] = created
         return created
     }
 
-    override fun isAvailable(chain: Chain): Boolean {
-        return chainMapping.containsKey(chain) && callTargets.containsKey(chain)
-    }
+    override fun isAvailable(chain: Chain): Boolean = chainMapping.containsKey(chain) && callTargets.containsKey(chain)
 
     @PreDestroy
     fun shutdown() {

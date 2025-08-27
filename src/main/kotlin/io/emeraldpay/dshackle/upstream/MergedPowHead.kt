@@ -28,18 +28,17 @@ import kotlin.concurrent.read
 import kotlin.concurrent.write
 
 class MergedPowHead(
-    private val sources: Iterable<Head>
-) : AbstractHead(), Lifecycle, CachesEnabled {
-
+    private val sources: Iterable<Head>,
+) : AbstractHead(),
+    Lifecycle,
+    CachesEnabled {
     private var subscription: Disposable? = null
 
     private val lock = ReentrantReadWriteLock()
     private val headLimit = 16
     private var head: List<BlockContainer> = emptyList()
 
-    override fun isRunning(): Boolean {
-        return subscription != null
-    }
+    override fun isRunning(): Boolean = subscription != null
 
     override fun start() {
         sources.forEach { head ->
@@ -51,35 +50,36 @@ class MergedPowHead(
         subscription = super.follow(merge(sources.map { it.getFlux() }))
     }
 
-    fun merge(sources: Iterable<Flux<BlockContainer>>): Flux<BlockContainer> {
-        return Flux.merge(
-            sources.map {
-                it.transform(process())
+    fun merge(sources: Iterable<Flux<BlockContainer>>): Flux<BlockContainer> =
+        Flux
+            .merge(
+                sources.map {
+                    it.transform(process())
+                },
+            ).distinctUntilChanged {
+                it.hash
             }
-        ).distinctUntilChanged {
-            it.hash
-        }
-    }
 
-    fun process(): Function<Flux<BlockContainer>, Flux<BlockContainer>> {
-        return Function { source ->
+    fun process(): Function<Flux<BlockContainer>, Flux<BlockContainer>> =
+        Function { source ->
             source.handle { block, sink ->
                 if (onNext(block)) {
-                    val top = lock.read {
-                        head.lastOrNull()
-                    }
+                    val top =
+                        lock.read {
+                            head.lastOrNull()
+                        }
                     if (top != null) {
                         sink.next(top)
                     }
                 }
             }
         }
-    }
 
     private fun onNext(block: BlockContainer): Boolean {
-        val prev = lock.read {
-            head.find { it.height == block.height }
-        }
+        val prev =
+            lock.read {
+                head.find { it.height == block.height }
+            }
         if (prev != null && prev.difficulty > block.difficulty) {
             return false
         }
@@ -91,28 +91,30 @@ class MergedPowHead(
             }
 
             // otherwise add it to the list
-            val fresh = if (head.isEmpty()) {
-                // just the first run, so nothing to do yet
-                listOf(block)
-            } else if (head.last().height < block.height) {
-                // new block, just add it on top
-                head + block
-            } else {
-                // situation when we have that block in the list and since we checked it above it has a lower priority
-                // now there are two options: the same block or different block.
-                // if it's in the middle keep the rest anyway b/c a higher priority upstream would fix it with the following updates
-                head.map {
-                    if (it.height == block.height) {
-                        block
-                    } else {
-                        it
+            val fresh =
+                if (head.isEmpty()) {
+                    // just the first run, so nothing to do yet
+                    listOf(block)
+                } else if (head.last().height < block.height) {
+                    // new block, just add it on top
+                    head + block
+                } else {
+                    // situation when we have that block in the list and since we checked it above it has a lower priority
+                    // now there are two options: the same block or different block.
+                    // if it's in the middle keep the rest anyway b/c a higher priority upstream would fix it with the following updates
+                    head.map {
+                        if (it.height == block.height) {
+                            block
+                        } else {
+                            it
+                        }
                     }
                 }
-            }
-            head = fresh
-                // drop all blocks on top of this one if their difficulty is lower
-                .filterNot { it.height > block.height && it.difficulty < block.difficulty }
-                .takeLast(headLimit)
+            head =
+                fresh
+                    // drop all blocks on top of this one if their difficulty is lower
+                    .filterNot { it.height > block.height && it.difficulty < block.difficulty }
+                    .takeLast(headLimit)
             return true
         }
     }

@@ -22,29 +22,27 @@ class EthereumUpstreamMock(
     chain: Chain = Chain.ETHEREUM,
     val api: Reader<JsonRpcRequest, JsonRpcResponse>,
     methods: CallMethods = allMethods(),
-    val ethereumHeadMock: EthereumHeadMock = EthereumHeadMock()
+    val ethereumHeadMock: EthereumHeadMock = EthereumHeadMock(),
 ) : EthereumRpcUpstream(
-    id = id,
-    chain = chain,
-    forkWatch = ForkWatch.Never(),
-    directReader = api,
-    wsPool = null,
-    options = UpstreamsConfig.PartialOptions.getDefaults().build(),
-    role = UpstreamsConfig.UpstreamRole.PRIMARY,
-    targets = methods,
-    node = QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels())
-) {
-
+        id = id,
+        chain = chain,
+        forkWatch = ForkWatch.Never(),
+        directReader = api,
+        wsPool = null,
+        options = UpstreamsConfig.PartialOptions.getDefaults().build(),
+        role = UpstreamsConfig.UpstreamRole.PRIMARY,
+        targets = methods,
+        node = QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels()),
+    ) {
     companion object {
-        fun allMethods(): CallMethods {
-            return AggregatedCallMethods(
+        fun allMethods(): CallMethods =
+            AggregatedCallMethods(
                 listOf(
                     DefaultEthereumMethods(Chain.ETHEREUM),
                     DefaultBitcoinMethods(),
-                    DirectCallMethods(listOf("eth_test"))
-                )
+                    DirectCallMethods(listOf("eth_test")),
+                ),
             )
-        }
     }
 
     var mockStatus: UpstreamAvailability? = null
@@ -63,19 +61,11 @@ class EthereumUpstreamMock(
         ethereumHeadMock.predefined = blocks
     }
 
-    override fun getStatus(): UpstreamAvailability {
-        return mockStatus ?: super.getStatus()
-    }
+    override fun getStatus(): UpstreamAvailability = mockStatus ?: super.getStatus()
 
-    override fun createHead(): EthereumHeadMock {
-        return ethereumHeadMock
-    }
+    override fun createHead(): EthereumHeadMock = ethereumHeadMock
 
-    override fun getHead(): EthereumHeadMock {
-        return ethereumHeadMock
-    }
+    override fun getHead(): EthereumHeadMock = ethereumHeadMock
 
-    override fun toString(): String {
-        return "Upstream mock ${getId()}"
-    }
+    override fun toString(): String = "Upstream mock ${getId()}"
 }

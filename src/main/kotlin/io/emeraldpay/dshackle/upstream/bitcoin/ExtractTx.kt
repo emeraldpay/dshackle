@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory
 import java.time.Instant
 
 class ExtractTx {
-
     companion object {
         private val log = LoggerFactory.getLogger(ExtractTx::class.java)
 

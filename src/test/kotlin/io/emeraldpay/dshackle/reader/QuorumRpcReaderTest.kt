@@ -12,23 +12,26 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 
-class QuorumRpcReaderTest : ShouldSpec({
+class QuorumRpcReaderTest :
+    ShouldSpec({
 
-    should("Exclude upstream from immediate retries on connection error") {
-        val quorum = AlwaysQuorum()
-        val upstream = mockk<Upstream>()
-        val apiSource = mockk<ApiSource>() {
-            every { request(any()) } returns Unit
-            every { exclude(upstream) } returns Unit
+        should("Exclude upstream from immediate retries on connection error") {
+            val quorum = AlwaysQuorum()
+            val upstream = mockk<Upstream>()
+            val apiSource =
+                mockk<ApiSource> {
+                    every { request(any()) } returns Unit
+                    every { exclude(upstream) } returns Unit
+                }
+
+            val reader = QuorumRpcReader(apiSource, quorum)
+
+            reader.handleError<String>(
+                JsonRpcException(JsonRpcResponse.NumberId(1), JsonRpcError(-32000, "test"), 429),
+                JsonRpcRequest("test", emptyList()),
+                upstream,
+            )
+
+            verify { apiSource.exclude(upstream) }
         }
-
-        val reader = QuorumRpcReader(apiSource, quorum)
-
-        reader.handleError<String>(
-            JsonRpcException(JsonRpcResponse.NumberId(1), JsonRpcError(-32000, "test"), 429),
-            JsonRpcRequest("test", emptyList()), upstream
-        )
-
-        verify { apiSource.exclude(upstream) }
-    }
-})
+    })

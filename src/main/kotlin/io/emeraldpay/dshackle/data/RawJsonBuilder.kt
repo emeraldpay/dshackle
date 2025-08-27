@@ -20,7 +20,6 @@ import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
 
 class RawJsonBuilder {
-
     companion object {
         private val log = LoggerFactory.getLogger(RawJsonBuilder::class.java)
 
@@ -31,7 +30,10 @@ class RawJsonBuilder {
         private val END = "}".toByteArray()
     }
 
-    fun write(id: Int, data: ByteArray): ByteArray {
+    fun write(
+        id: Int,
+        data: ByteArray,
+    ): ByteArray {
         val buf = ByteArrayOutputStream(data.size + 100)
         buf.write(START)
         buf.write(COMMA)

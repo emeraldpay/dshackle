@@ -20,15 +20,10 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import reactor.core.publisher.Flux
 
 class EmptyHead : Head {
-
-    override fun getFlux(): Flux<BlockContainer> {
-        return Flux.empty()
-    }
+    override fun getFlux(): Flux<BlockContainer> = Flux.empty()
 
     override fun onBeforeBlock(handler: Runnable) {
     }
 
-    override fun getCurrentHeight(): Long? {
-        return null
-    }
+    override fun getCurrentHeight(): Long? = null
 }

@@ -28,8 +28,9 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * NOTE: NativeCall checks the quorums and applies a HeightSelector if NotLaggingQuorum is enabled for a call
  */
-class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
-
+class NotLaggingQuorum(
+    val maxLag: Long = 0,
+) : CallQuorum {
     private val result: AtomicReference<ByteArray> = AtomicReference()
     private val failed = AtomicReference(false)
     private var rpcError: JsonRpcError? = null
@@ -41,15 +42,15 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
     override fun setTotalUpstreams(total: Int) {
     }
 
-    override fun isResolved(): Boolean {
-        return !isFailed() && result.get() != null
-    }
+    override fun isResolved(): Boolean = !isFailed() && result.get() != null
 
-    override fun isFailed(): Boolean {
-        return failed.get()
-    }
+    override fun isFailed(): Boolean = failed.get()
 
-    override fun record(response: ByteArray, signature: ResponseSigner.Signature?, upstream: Upstream): Boolean {
+    override fun record(
+        response: ByteArray,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+    ): Boolean {
         val lagging = upstream.getLag() > maxLag
         if (!lagging) {
             result.set(response)
@@ -59,7 +60,11 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
         return false
     }
 
-    override fun record(error: JsonRpcException, signature: ResponseSigner.Signature?, upstream: Upstream) {
+    override fun record(
+        error: JsonRpcException,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+    ) {
         this.rpcError = error.error
         val lagging = upstream.getLag() > maxLag
         if (!lagging && result.get() == null) {
@@ -67,18 +72,11 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
         }
     }
 
-    override fun getSignature(): ResponseSigner.Signature? {
-        return sig
-    }
-    override fun getResult(): ByteArray {
-        return result.get()
-    }
+    override fun getSignature(): ResponseSigner.Signature? = sig
 
-    override fun getError(): JsonRpcError? {
-        return rpcError
-    }
+    override fun getResult(): ByteArray = result.get()
 
-    override fun toString(): String {
-        return "Quorum: late <= $maxLag blocks"
-    }
+    override fun getError(): JsonRpcError? = rpcError
+
+    override fun toString(): String = "Quorum: late <= $maxLag blocks"
 }

@@ -20,17 +20,20 @@ import org.slf4j.LoggerFactory
 import java.util.concurrent.atomic.AtomicLong
 
 class NeverForkChoice : ForkChoice {
-
     companion object {
         private val log = LoggerFactory.getLogger(NeverForkChoice::class.java)
     }
 
     private val height = AtomicLong(0)
 
-    override fun submit(block: BlockContainer, upstream: Upstream): ForkChoice.Status {
-        val prev = height.getAndUpdate {
-            it.coerceAtLeast(block.height)
-        }
+    override fun submit(
+        block: BlockContainer,
+        upstream: Upstream,
+    ): ForkChoice.Status {
+        val prev =
+            height.getAndUpdate {
+                it.coerceAtLeast(block.height)
+            }
         return when {
             prev > block.height -> ForkChoice.Status.FALLBEHIND
             prev < block.height -> ForkChoice.Status.NEW
@@ -38,7 +41,5 @@ class NeverForkChoice : ForkChoice {
         }
     }
 
-    override fun getName(): String {
-        return "Never"
-    }
+    override fun getName(): String = "Never"
 }

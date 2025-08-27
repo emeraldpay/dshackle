@@ -28,19 +28,20 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
 class RpcUnspentReader(
-    private val upstreams: BitcoinMultistream
+    private val upstreams: BitcoinMultistream,
 ) : UnspentReader {
-
     companion object {
         private val log = LoggerFactory.getLogger(RpcUnspentReader::class.java)
 
         @JvmStatic
-        val selector = Selector.Builder()
-            // for BITCOIN balance we need an upstream can provide a balance
-            .withMatcher(Selector.CapabilityMatcher(Capability.BALANCE))
-            // but since we make an RPC call we need this capability as well (as opposed to RemoteUnspentReader)
-            .withMatcher(Selector.CapabilityMatcher(Capability.RPC))
-            .build()
+        val selector =
+            Selector
+                .Builder()
+                // for BITCOIN balance we need an upstream can provide a balance
+                .withMatcher(Selector.CapabilityMatcher(Capability.BALANCE))
+                // but since we make an RPC call we need this capability as well (as opposed to RemoteUnspentReader)
+                .withMatcher(Selector.CapabilityMatcher(Capability.RPC))
+                .build()
     }
 
     private val convert: (T: RpcUnspent) -> SimpleUnspent = { base ->
@@ -55,16 +56,19 @@ class RpcUnspentReader(
         // docs: https://developer.bitcoin.org/reference/rpc/listunspent.html
         //
         val address = key.toString()
-        return upstreams.read(DshackleRequest(1, "listunspent", listOf(1, 9999999, listOf(address)), matcher = selector))
+        return upstreams
+            .read(DshackleRequest(1, "listunspent", listOf(1, 9999999, listOf(address)), matcher = selector))
             .flatMap(DshackleResponse::requireResult)
             .map {
-                Global.objectMapper.readerFor(RpcUnspent::class.java).readValues<RpcUnspent>(it).readAll()
-            }
-            .map {
-                it.filter {
-                    it.address == address
-                }.map(convert)
-            }
-            .switchIfEmpty(Mono.error(SilentException.DataUnavailable("BALANCE")))
+                Global.objectMapper
+                    .readerFor(RpcUnspent::class.java)
+                    .readValues<RpcUnspent>(it)
+                    .readAll()
+            }.map {
+                it
+                    .filter {
+                        it.address == address
+                    }.map(convert)
+            }.switchIfEmpty(Mono.error(SilentException.DataUnavailable("BALANCE")))
     }
 }

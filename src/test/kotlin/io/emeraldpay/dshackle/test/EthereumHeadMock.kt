@@ -8,15 +8,16 @@ import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
 
 class EthereumHeadMock : Head {
-
     private val bus = Sinks.many().multicast().onBackpressureBuffer<BlockContainer>()
     var predefined: Publisher<BlockContainer>? = null
         set(value) {
-            field = Flux.from(value)
-                .publish()
-                .refCount(1)
-                // keep the current block as latest, because getFlux is also used to get the current height
-                .doOnNext { latest = it }
+            field =
+                Flux
+                    .from(value)
+                    .publish()
+                    .refCount(1)
+                    // keep the current block as latest, because getFlux is also used to get the current height
+                    .doOnNext { latest = it }
         }
 
     private var latest: BlockContainer? = null
@@ -31,19 +32,16 @@ class EthereumHeadMock : Head {
         bus.tryEmitNext(block)
     }
 
-    override fun getFlux(): Flux<BlockContainer> {
-        return if (predefined != null) {
+    override fun getFlux(): Flux<BlockContainer> =
+        if (predefined != null) {
             Flux.concat(Mono.justOrEmpty(latest), Flux.from(predefined))
         } else {
             Flux.concat(Mono.justOrEmpty(latest).cast(BlockContainer::class.java), bus.asFlux()).distinctUntilChanged()
         }
-    }
 
     override fun onBeforeBlock(handler: Runnable) {
         handlers.add(handler)
     }
 
-    override fun getCurrentHeight(): Long? {
-        return latest?.height
-    }
+    override fun getCurrentHeight(): Long? = latest?.height
 }

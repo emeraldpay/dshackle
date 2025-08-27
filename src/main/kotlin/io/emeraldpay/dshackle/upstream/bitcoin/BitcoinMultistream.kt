@@ -45,8 +45,9 @@ open class BitcoinMultistream(
     private val sourceUpstreams: MutableList<BitcoinUpstream>,
     caches: Caches,
     signer: ResponseSigner,
-) : Multistream(chain, sourceUpstreams as MutableList<Upstream>, caches), DshackleRpcReader, Lifecycle {
-
+) : Multistream(chain, sourceUpstreams as MutableList<Upstream>, caches),
+    DshackleRpcReader,
+    Lifecycle {
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinMultistream::class.java)
     }
@@ -55,11 +56,12 @@ open class BitcoinMultistream(
     private var egressSubscription = BitcoinEgressSubscription(this)
     private var esplora = sourceUpstreams.find { it.esploraClient != null }?.esploraClient
     private var ingressReader = MultistreamReader(this, signer)
-    private val reader = IntegralRpcReader(
-        VerifyingReader(callMethods),
-        HardcodedReader(callMethods),
-        NormalizingReader(CompoundReader(BitcoinCacheReader(caches), ingressReader))
-    )
+    private val reader =
+        IntegralRpcReader(
+            VerifyingReader(callMethods),
+            HardcodedReader(callMethods),
+            NormalizingReader(CompoundReader(BitcoinCacheReader(caches), ingressReader)),
+        )
 
     open var dataReaders = DataReaders(reader, head)
     open var unspentReader: UnspentReader = CurrentUnspentReader(this, esplora)
@@ -79,13 +81,9 @@ open class BitcoinMultistream(
             return sourceUpstreams
         }
 
-    override fun getFeeEstimation(): ChainFees {
-        return feeEstimation
-    }
+    override fun getFeeEstimation(): ChainFees = feeEstimation
 
-    open fun getXpubAddresses(): XpubAddresses? {
-        return xpubAddresses
-    }
+    open fun getXpubAddresses(): XpubAddresses? = xpubAddresses
 
     override fun updateHead(): Head {
         head.let {
@@ -95,23 +93,25 @@ open class BitcoinMultistream(
         }
         lagObserver?.stop()
         lagObserver = null
-        val head = if (sourceUpstreams.size == 1) {
-            val upstream = sourceUpstreams.first()
-            upstream.setLag(0)
-            upstream.getHead().apply {
-                if (this is Lifecycle && !this.isRunning) {
-                    this.start()
+        val head =
+            if (sourceUpstreams.size == 1) {
+                val upstream = sourceUpstreams.first()
+                upstream.setLag(0)
+                upstream.getHead().apply {
+                    if (this is Lifecycle && !this.isRunning) {
+                        this.start()
+                    }
                 }
+            } else {
+                val newHead =
+                    MergedPowHead(sourceUpstreams.map { it.getHead() }).apply {
+                        this.start()
+                    }
+                val lagObserver = BitcoinHeadLagObserver(newHead, sourceUpstreams)
+                this.lagObserver = lagObserver
+                lagObserver.start()
+                newHead
             }
-        } else {
-            val newHead = MergedPowHead(sourceUpstreams.map { it.getHead() }).apply {
-                this.start()
-            }
-            val lagObserver = BitcoinHeadLagObserver(newHead, sourceUpstreams)
-            this.lagObserver = lagObserver
-            lagObserver.start()
-            newHead
-        }
         onHeadUpdated(head)
         unspentReader = CurrentUnspentReader(this, esplora)
         return head
@@ -129,19 +129,13 @@ open class BitcoinMultistream(
         this.head.set(head)
     }
 
-    override fun getHead(): Head {
-        return head.get()
-    }
+    override fun getHead(): Head = head.get()
 
     override fun getEgressSubscription() = egressSubscription
 
-    override fun read(key: DshackleRequest): Mono<DshackleResponse> {
-        return reader.read(key)
-    }
+    override fun read(key: DshackleRequest): Mono<DshackleResponse> = reader.read(key)
 
-    fun getLabels(): Collection<UpstreamsConfig.Labels> {
-        return sourceUpstreams.flatMap { it.getLabels() }
-    }
+    fun getLabels(): Collection<UpstreamsConfig.Labels> = sourceUpstreams.flatMap { it.getLabels() }
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : Multistream> cast(selfType: Class<T>): T {
@@ -151,9 +145,7 @@ open class BitcoinMultistream(
         return this as T
     }
 
-    override fun isRunning(): Boolean {
-        return super.isRunning()
-    }
+    override fun isRunning(): Boolean = super.isRunning()
 
     override fun start() {
         super.start()

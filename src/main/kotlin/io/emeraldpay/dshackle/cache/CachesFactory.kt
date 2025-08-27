@@ -33,9 +33,8 @@ import kotlin.system.exitProcess
 
 @Repository
 open class CachesFactory(
-    @Autowired private val cacheConfig: CacheConfig
+    @Autowired private val cacheConfig: CacheConfig,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(CachesFactory::class.java)
         private const val CONFIG_PREFIX = "cache.redis"
@@ -48,9 +47,11 @@ open class CachesFactory(
     fun init() {
         val redisConfig = cacheConfig.redis ?: return
 
-        var uri = RedisURI.builder()
-            .withHost(redisConfig.host)
-            .withPort(redisConfig.port)
+        var uri =
+            RedisURI
+                .builder()
+                .withHost(redisConfig.host)
+                .withPort(redisConfig.port)
 
         redisConfig.db?.let { value ->
             uri = uri.withDatabase(value)

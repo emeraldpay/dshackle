@@ -26,7 +26,6 @@ import java.util.Collections
 import java.util.concurrent.atomic.AtomicReference
 
 class GrpcUpstreamStatus {
-
     companion object {
         private val log = LoggerFactory.getLogger(GrpcUpstreamStatus::class.java)
     }
@@ -46,17 +45,18 @@ class GrpcUpstreamStatus {
         val updateNodes = QuorumForLabels()
 
         conf.nodesList.forEach { remoteNode ->
-            val node = QuorumForLabels.QuorumItem(
-                remoteNode.quorum,
-                remoteNode.labelsList.let { provided ->
-                    val labels = UpstreamsConfig.Labels()
-                    provided.forEach {
-                        labels[it.name] = it.value
-                    }
-                    updateLabels.add(labels)
-                    labels
-                }
-            )
+            val node =
+                QuorumForLabels.QuorumItem(
+                    remoteNode.quorum,
+                    remoteNode.labelsList.let { provided ->
+                        val labels = UpstreamsConfig.Labels()
+                        provided.forEach {
+                            labels[it.name] = it.value
+                        }
+                        updateLabels.add(labels)
+                        labels
+                    },
+                )
             updateNodes.add(node)
         }
         val updateMethods = DirectCallMethods(conf.supportedMethodsList.toSet())
@@ -69,15 +69,9 @@ class GrpcUpstreamStatus {
         return !same
     }
 
-    fun getLabels(): Collection<UpstreamsConfig.Labels> {
-        return allLabels.get()
-    }
+    fun getLabels(): Collection<UpstreamsConfig.Labels> = allLabels.get()
 
-    fun getNodes(): QuorumForLabels {
-        return nodes.get()
-    }
+    fun getNodes(): QuorumForLabels = nodes.get()
 
-    fun getCallMethods(): CallMethods {
-        return targets.get()
-    }
+    fun getCallMethods(): CallMethods = targets.get()
 }

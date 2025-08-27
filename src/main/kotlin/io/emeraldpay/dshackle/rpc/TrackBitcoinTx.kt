@@ -38,21 +38,20 @@ import kotlin.math.min
 
 @Service
 class TrackBitcoinTx(
-    @Autowired private val multistreamHolder: MultistreamHolder
+    @Autowired private val multistreamHolder: MultistreamHolder,
 ) : TrackTx {
-
     companion object {
         private val log = LoggerFactory.getLogger(TrackBitcoinTx::class.java)
     }
 
-    override fun isSupported(chain: Chain): Boolean {
-        return BlockchainType.from(chain) == BlockchainType.BITCOIN && multistreamHolder.isAvailable(chain)
-    }
+    override fun isSupported(chain: Chain): Boolean =
+        BlockchainType.from(chain) == BlockchainType.BITCOIN && multistreamHolder.isAvailable(chain)
 
     override fun subscribe(request: BlockchainOuterClass.TxStatusRequest): Flux<BlockchainOuterClass.TxStatus> {
         val chain = Chain.byId(request.chainValue)
-        val upstream = multistreamHolder.getUpstream(chain)?.cast(BitcoinMultistream::class.java)
-            ?: return Flux.error(SilentException.UnsupportedBlockchain(chain))
+        val upstream =
+            multistreamHolder.getUpstream(chain)?.cast(BitcoinMultistream::class.java)
+                ?: return Flux.error(SilentException.UnsupportedBlockchain(chain))
         val txid = request.txId
         val confirmations = max(min(1, request.confirmationLimit), 12)
         return subscribe(chain, upstream, txid)
@@ -61,8 +60,12 @@ class TrackBitcoinTx(
             }.map(this::asProto)
     }
 
-    fun subscribe(chain: Chain, upstream: BitcoinMultistream, txid: String): Flux<TxStatus> {
-        return loadExisting(upstream, txid)
+    fun subscribe(
+        chain: Chain,
+        upstream: BitcoinMultistream,
+        txid: String,
+    ): Flux<TxStatus> =
+        loadExisting(upstream, txid)
             .flatMapMany { status ->
                 if (status.mined) {
                     // Head almost always knows the current height, so it can continue with calculating confirmations
@@ -71,20 +74,24 @@ class TrackBitcoinTx(
                 } else {
                     loadMempool(upstream, txid)
                         .flatMapMany { tx ->
-                            val next = if (tx.found) {
-                                untilMined(upstream, tx)
-                            } else {
-                                untilFound(chain, upstream, txid)
-                            }
+                            val next =
+                                if (tx.found) {
+                                    untilMined(upstream, tx)
+                                } else {
+                                    untilFound(chain, upstream, txid)
+                                }
                             // fist provide the current status, then updates
                             Flux.concat(Mono.just(tx), next)
                         }
                 }
             }
-    }
 
-    fun continueWithMined(upstream: BitcoinMultistream, status: TxStatus): Flux<TxStatus> {
-        return upstream.dataReaders.getBlockJson(BlockId.from(status.blockHash!!))
+    fun continueWithMined(
+        upstream: BitcoinMultistream,
+        status: TxStatus,
+    ): Flux<TxStatus> =
+        upstream.dataReaders
+            .getBlockJson(BlockId.from(status.blockHash!!))
             .map { block ->
                 TxStatus(
                     status.txid,
@@ -93,15 +100,19 @@ class TrackBitcoinTx(
                     true,
                     status.blockHash,
                     ExtractBlock.getTime(block),
-                    ExtractBlock.getDifficulty(block)
+                    ExtractBlock.getDifficulty(block),
                 )
             }.flatMapMany { tx ->
                 withConfirmations(upstream, tx)
             }
-    }
 
-    fun untilFound(chain: Chain, upstream: BitcoinMultistream, txid: String): Flux<TxStatus> {
-        return Flux.interval(Duration.ofSeconds(1))
+    fun untilFound(
+        chain: Chain,
+        upstream: BitcoinMultistream,
+        txid: String,
+    ): Flux<TxStatus> =
+        Flux
+            .interval(Duration.ofSeconds(1))
             .take(Duration.ofMinutes(10))
             .flatMap { loadMempool(upstream, txid) }
             .skipUntil { it.found }
@@ -109,22 +120,31 @@ class TrackBitcoinTx(
             .doOnError { t ->
                 log.error("Failed to wait until found", t)
             }
-    }
 
-    fun untilMined(upstream: BitcoinMultistream, tx: TxStatus): Mono<TxStatus> {
-        return upstream.getHead().getFlux().flatMap {
-            loadExisting(upstream, tx.txid)
-                .filter { it.mined }
-        }.single()
-    }
+    fun untilMined(
+        upstream: BitcoinMultistream,
+        tx: TxStatus,
+    ): Mono<TxStatus> =
+        upstream
+            .getHead()
+            .getFlux()
+            .flatMap {
+                loadExisting(upstream, tx.txid)
+                    .filter { it.mined }
+            }.single()
 
-    fun withConfirmations(upstream: BitcoinMultistream, tx: TxStatus): Flux<TxStatus> {
-        return upstream.getHead().getFlux().map {
+    fun withConfirmations(
+        upstream: BitcoinMultistream,
+        tx: TxStatus,
+    ): Flux<TxStatus> =
+        upstream.getHead().getFlux().map {
             tx.withHead(it.height)
         }
-    }
 
-    fun loadExisting(api: BitcoinMultistream, txid: String): Mono<TxStatus> {
+    fun loadExisting(
+        api: BitcoinMultistream,
+        txid: String,
+    ): Mono<TxStatus> {
         val mined = api.dataReaders.getTxJson(TxId.from(txid))
         return mined.map {
             val block = it["blockhash"] as String?
@@ -132,7 +152,10 @@ class TrackBitcoinTx(
         }
     }
 
-    fun loadMempool(upstream: BitcoinMultistream, txid: String): Mono<TxStatus> {
+    fun loadMempool(
+        upstream: BitcoinMultistream,
+        txid: String,
+    ): Mono<TxStatus> {
         val mempool = upstream.dataReaders.mempool.get()
         return mempool.map {
             if (it.contains(txid)) {
@@ -144,19 +167,22 @@ class TrackBitcoinTx(
     }
 
     private fun asProto(tx: TxStatus): BlockchainOuterClass.TxStatus {
-        val data = BlockchainOuterClass.TxStatus.newBuilder()
-            .setTxId(tx.txid)
-            .setConfirmations(tx.confirmations.toInt())
+        val data =
+            BlockchainOuterClass.TxStatus
+                .newBuilder()
+                .setTxId(tx.txid)
+                .setConfirmations(tx.confirmations.toInt())
 
         data.broadcasted = tx.found
         val isMined = tx.mined
         data.mined = isMined
         if (isMined) {
             data.setBlock(
-                Common.BlockInfo.newBuilder()
+                Common.BlockInfo
+                    .newBuilder()
                     .setBlockId(tx.blockHash!!.substring(2))
                     .setTimestamp(tx.blockTime!!.toEpochMilli())
-                    .setHeight(tx.height!!)
+                    .setHeight(tx.height!!),
             )
         }
         return data.build()
@@ -170,9 +196,8 @@ class TrackBitcoinTx(
         val blockHash: String? = null,
         val blockTime: Instant? = null,
         val blockTotalDifficulty: BigInteger? = null,
-        val confirmations: Long = 0
+        val confirmations: Long = 0,
     ) {
-
         fun withHead(headHeight: Long) =
             TxStatus(txid, found, height, mined, blockHash, blockTime, blockTotalDifficulty, headHeight - height!! + 1)
     }

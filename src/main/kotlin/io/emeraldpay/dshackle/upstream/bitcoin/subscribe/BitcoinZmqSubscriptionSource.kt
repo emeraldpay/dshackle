@@ -22,7 +22,6 @@ class BitcoinZmqSubscriptionSource(
     topic: BitcoinZmqTopic,
     private val server: ZMQServer,
 ) : BitcoinSubscriptionConnect<ByteArray>(topic) {
-
     override fun createConnection(): Flux<ByteArray> {
         server.start()
         return server.getFlux()

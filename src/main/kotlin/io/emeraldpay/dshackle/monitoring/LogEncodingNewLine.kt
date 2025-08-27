@@ -21,8 +21,9 @@ import java.nio.ByteBuffer
  * Encodes the values by adding a new line (\n) after each item
  */
 class LogEncodingNewLine : LogEncoding {
-
-    private val NL = "\n".toByteArray().first()
+    companion object {
+        private val NL = "\n".toByteArray().first()
+    }
 
     override fun write(bytes: ByteBuffer): ByteBuffer {
         val size = bytes.limit()

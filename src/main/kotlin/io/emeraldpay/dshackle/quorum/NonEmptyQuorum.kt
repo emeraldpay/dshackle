@@ -21,9 +21,9 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
 open class NonEmptyQuorum(
-    val maxTries: Int = 3
-) : CallQuorum, ValueAwareQuorum<Any>(Any::class.java) {
-
+    val maxTries: Int = 3,
+) : ValueAwareQuorum<Any>(Any::class.java),
+    CallQuorum {
     private var result: ByteArray? = null
     private var tries: Int = 0
     private var sig: ResponseSigner.Signature? = null
@@ -35,19 +35,18 @@ open class NonEmptyQuorum(
         // ignore the number because NonEmpty is supposed to retry if some data is empty because it just not yet available
     }
 
-    override fun isResolved(): Boolean {
-        return result != null
-    }
+    override fun isResolved(): Boolean = result != null
 
-    override fun isFailed(): Boolean {
-        return tries >= maxTries
-    }
+    override fun isFailed(): Boolean = tries >= maxTries
 
-    override fun getSignature(): ResponseSigner.Signature? {
-        return sig
-    }
+    override fun getSignature(): ResponseSigner.Signature? = sig
 
-    override fun recordValue(response: ByteArray, responseValue: Any?, signature: ResponseSigner.Signature?, upstream: Upstream) {
+    override fun recordValue(
+        response: ByteArray,
+        responseValue: Any?,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+    ) {
         tries++
         if (responseValue != null) {
             result = response
@@ -55,15 +54,16 @@ open class NonEmptyQuorum(
         }
     }
 
-    override fun getResult(): ByteArray? {
-        return result
-    }
+    override fun getResult(): ByteArray? = result
 
-    override fun recordError(response: ByteArray?, errorMessage: String?, sig: ResponseSigner.Signature?, upstream: Upstream) {
+    override fun recordError(
+        response: ByteArray?,
+        errorMessage: String?,
+        sig: ResponseSigner.Signature?,
+        upstream: Upstream,
+    ) {
         tries++
     }
 
-    override fun toString(): String {
-        return "Quorum: Accept Non Error Result"
-    }
+    override fun toString(): String = "Quorum: Accept Non Error Result"
 }

@@ -23,18 +23,16 @@ import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
 import org.slf4j.LoggerFactory
 
 class EthereumWsIngressSubscription(
-    private val conn: WsSubscriptions
-) : IngressSubscription, EthereumIngressSubscription {
-
+    private val conn: WsSubscriptions,
+) : IngressSubscription,
+    EthereumIngressSubscription {
     companion object {
         private val log = LoggerFactory.getLogger(EthereumWsIngressSubscription::class.java)
     }
 
     private val pendingTxes = WebsocketPendingTxes(conn)
 
-    override fun getAvailableTopics(): List<String> {
-        return listOf(EthereumEgressSubscription.METHOD_PENDING_TXES)
-    }
+    override fun getAvailableTopics(): List<String> = listOf(EthereumEgressSubscription.METHOD_PENDING_TXES)
 
     @Suppress("UNCHECKED_CAST")
     override fun <T> get(topic: String): SubscriptionConnect<T>? {
@@ -44,7 +42,5 @@ class EthereumWsIngressSubscription(
         return null
     }
 
-    override fun getPendingTxes(): PendingTxesSource? {
-        return pendingTxes
-    }
+    override fun getPendingTxes(): PendingTxesSource? = pendingTxes
 }

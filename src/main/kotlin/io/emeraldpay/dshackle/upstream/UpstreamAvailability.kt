@@ -16,8 +16,9 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-enum class UpstreamAvailability(val grpcId: Int) {
-
+enum class UpstreamAvailability(
+    val grpcId: Int,
+) {
     /**
      * Active fully synchronized node
      */
@@ -41,11 +42,10 @@ enum class UpstreamAvailability(val grpcId: Int) {
     /**
      * Unavailable node
      */
-    UNAVAILABLE(5);
+    UNAVAILABLE(5),
+    ;
 
-    fun isBetterTo(other: UpstreamAvailability): Boolean {
-        return other.grpcId > grpcId
-    }
+    fun isBetterTo(other: UpstreamAvailability): Boolean = other.grpcId > grpcId
 
     companion object {
         fun fromGrpc(id: Int?): UpstreamAvailability {

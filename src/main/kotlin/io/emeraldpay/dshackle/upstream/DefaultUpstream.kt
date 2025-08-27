@@ -42,16 +42,16 @@ abstract class DefaultUpstream(
     private val options: UpstreamsConfig.Options,
     private val role: UpstreamsConfig.UpstreamRole,
     private val targets: CallMethods?,
-    private val node: QuorumForLabels.QuorumItem?
-) : Upstream, Lifecycle {
-
+    private val node: QuorumForLabels.QuorumItem?,
+) : Upstream,
+    Lifecycle {
     constructor(
         id: String,
         chain: Chain,
         forkWatch: ForkWatch,
         options: UpstreamsConfig.Options,
         role: UpstreamsConfig.UpstreamRole,
-        targets: CallMethods?
+        targets: CallMethods?,
     ) :
         this(
             id,
@@ -62,7 +62,7 @@ abstract class DefaultUpstream(
             options,
             role,
             targets,
-            QuorumForLabels.QuorumItem.empty()
+            QuorumForLabels.QuorumItem.empty(),
         )
 
     constructor(
@@ -72,17 +72,21 @@ abstract class DefaultUpstream(
         options: UpstreamsConfig.Options,
         role: UpstreamsConfig.UpstreamRole,
         targets: CallMethods?,
-        node: QuorumForLabels.QuorumItem?
+        node: QuorumForLabels.QuorumItem?,
     ) :
         this(id, chain, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, forkWatch, options, role, targets, node)
 
     private val status = AtomicReference(Status(defaultLag, defaultAvail, statusByLag(defaultLag, defaultAvail)))
-    private val statusStream = Sinks.many()
-        .multicast()
-        .directBestEffort<UpstreamAvailability>()
-    private val forksStream = Sinks.many()
-        .multicast()
-        .directBestEffort<Boolean>()
+    private val statusStream =
+        Sinks
+            .many()
+            .multicast()
+            .directBestEffort<UpstreamAvailability>()
+    private val forksStream =
+        Sinks
+            .many()
+            .multicast()
+            .directBestEffort<Boolean>()
     private val forked = AtomicBoolean(false)
 
     init {
@@ -96,7 +100,8 @@ abstract class DefaultUpstream(
             this.setStatus(UpstreamAvailability.OK)
         }
 
-        forkWatch.register(this)
+        forkWatch
+            .register(this)
             .subscribeOn(Schedulers.boundedElastic())
             .subscribe {
                 forked.set(it)
@@ -109,29 +114,28 @@ abstract class DefaultUpstream(
     // For example if it produces an error indicating there is too many requests.
     private val temporaryDisable = AtomicReference<Instant?>(null)
 
-    val watchHttpCodes = Consumer<Int> { code ->
-        if (CallQuorum.isConnectionUnavailable(code)) {
-            val pause = Instant.now() + Duration.ofMinutes(1)
-            temporaryDisable.updateAndGet { prev ->
-                if (prev == null || prev < pause) {
-                    pause
-                } else {
-                    prev
+    val watchHttpCodes =
+        Consumer<Int> { code ->
+            if (CallQuorum.isConnectionUnavailable(code)) {
+                val pause = Instant.now() + Duration.ofMinutes(1)
+                temporaryDisable.updateAndGet { prev ->
+                    if (prev == null || prev < pause) {
+                        pause
+                    } else {
+                        prev
+                    }
                 }
+                statusStream.tryEmitNext(UpstreamAvailability.UNAVAILABLE)
             }
-            statusStream.tryEmitNext(UpstreamAvailability.UNAVAILABLE)
         }
-    }
 
-    override fun isAvailable(): Boolean {
-        return getStatus() == UpstreamAvailability.OK
-    }
+    override fun isAvailable(): Boolean = getStatus() == UpstreamAvailability.OK
 
     fun onStatus(value: BlockchainOuterClass.ChainStatus) {
         val available = value.availability
         val quorum = value.quorum
         setStatus(
-            if (available != null) UpstreamAvailability.fromGrpc(available.number) else UpstreamAvailability.UNAVAILABLE
+            if (available != null) UpstreamAvailability.fromGrpc(available.number) else UpstreamAvailability.UNAVAILABLE,
         )
     }
 
@@ -160,7 +164,10 @@ abstract class DefaultUpstream(
         statusStream.tryEmitNext(this.status.get().status)
     }
 
-    fun statusByLag(lag: Long, proposed: UpstreamAvailability): UpstreamAvailability {
+    fun statusByLag(
+        lag: Long,
+        proposed: UpstreamAvailability,
+    ): UpstreamAvailability {
         if (options.disableValidation == true) {
             // if we specifically told that this upstream should be _always valid_ then skip
             // the status calculation and trust the proposed value as is
@@ -185,20 +192,22 @@ abstract class DefaultUpstream(
 
     val availabilityByForks: Flux<UpstreamAvailability>
         get() {
-            return Flux.concat(
-                Mono.just(forked.get()),
-                Flux.from(forksStream.asFlux())
-            ).map {
-                if (it) UpstreamAvailability.IMMATURE else UpstreamAvailability.OK
-            }.distinctUntilChanged()
+            return Flux
+                .concat(
+                    Mono.just(forked.get()),
+                    Flux.from(forksStream.asFlux()),
+                ).map {
+                    if (it) UpstreamAvailability.IMMATURE else UpstreamAvailability.OK
+                }.distinctUntilChanged()
         }
 
     val availabilityByStatus: Flux<UpstreamAvailability>
         get() {
-            return Flux.concat(
-                Mono.just(status.get().status),
-                statusStream.asFlux().distinctUntilChanged()
-            ).distinctUntilChanged()
+            return Flux
+                .concat(
+                    Mono.just(status.get().status),
+                    statusStream.asFlux().distinctUntilChanged(),
+                ).distinctUntilChanged()
         }
 
     override fun observeStatus(): Flux<UpstreamAvailability> {
@@ -218,36 +227,23 @@ abstract class DefaultUpstream(
         }
     }
 
-    override fun getLag(): Long {
-        return this.status.get().lag
-    }
+    override fun getLag(): Long = this.status.get().lag
 
-    override fun getId(): String {
-        return id
-    }
+    override fun getId(): String = id
 
-    override fun getOptions(): UpstreamsConfig.Options {
-        return options
-    }
+    override fun getOptions(): UpstreamsConfig.Options = options
 
-    override fun getRole(): UpstreamsConfig.UpstreamRole {
-        return role
-    }
+    override fun getRole(): UpstreamsConfig.UpstreamRole = role
 
-    override fun getMethods(): CallMethods {
-        return targets ?: throw IllegalStateException("Methods are not set")
-    }
+    override fun getMethods(): CallMethods = targets ?: throw IllegalStateException("Methods are not set")
 
-    override fun getBlockchain(): Chain {
-        return chain
-    }
+    override fun getBlockchain(): Chain = chain
 
-    private val quorumByLabel = node?.let { QuorumForLabels(it) }
-        ?: QuorumForLabels(QuorumForLabels.QuorumItem.empty())
+    private val quorumByLabel =
+        node?.let { QuorumForLabels(it) }
+            ?: QuorumForLabels(QuorumForLabels.QuorumItem.empty())
 
-    open fun getQuorumByLabel(): QuorumForLabels {
-        return quorumByLabel
-    }
+    open fun getQuorumByLabel(): QuorumForLabels = quorumByLabel
 
     override fun start() {
         if (!this.forkWatch.isRunning) {
@@ -259,9 +255,11 @@ abstract class DefaultUpstream(
         this.forkWatch.stop()
     }
 
-    override fun isRunning(): Boolean {
-        return this.forkWatch.isRunning
-    }
+    override fun isRunning(): Boolean = this.forkWatch.isRunning
 
-    class Status(val lag: Long, val avail: UpstreamAvailability, val status: UpstreamAvailability)
+    class Status(
+        val lag: Long,
+        val avail: UpstreamAvailability,
+        val status: UpstreamAvailability,
+    )
 }

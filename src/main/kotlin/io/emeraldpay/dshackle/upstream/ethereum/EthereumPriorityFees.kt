@@ -23,26 +23,32 @@ import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import java.util.function.Function
 
-class EthereumPriorityFees(upstreams: EthereumMultistream, reader: DataReaders, heightLimit: Int) :
-    EthereumFees(upstreams, reader, heightLimit) {
-
+class EthereumPriorityFees(
+    upstreams: EthereumMultistream,
+    reader: DataReaders,
+    heightLimit: Int,
+) : EthereumFees(upstreams, reader, heightLimit) {
     companion object {
         private val log = LoggerFactory.getLogger(EthereumPriorityFees::class.java)
     }
 
     private val toGrpc: Function<EthereumFee, BlockchainOuterClass.EstimateFeeResponse> =
         Function {
-            BlockchainOuterClass.EstimateFeeResponse.newBuilder()
+            BlockchainOuterClass.EstimateFeeResponse
+                .newBuilder()
                 .setEthereumExtended(
-                    BlockchainOuterClass.EthereumExtFees.newBuilder()
+                    BlockchainOuterClass.EthereumExtFees
+                        .newBuilder()
                         .setMax(it.max.amount.toString())
                         .setPriority(it.priority.amount.toString())
-                        .setExpect(it.paid.amount.toString())
-                )
-                .build()
+                        .setExpect(it.paid.amount.toString()),
+                ).build()
         }
 
-    override fun extractFee(block: BlockJson<TransactionRefJson>, tx: TransactionJson): EthereumFee {
+    override fun extractFee(
+        block: BlockJson<TransactionRefJson>,
+        tx: TransactionJson,
+    ): EthereumFee {
         val baseFee = block.baseFeePerGas ?: Wei.ZERO
         if (tx.type == 2) {
             // an EIP-1559 Transaction provides Max and Priority fee
@@ -52,7 +58,5 @@ class EthereumPriorityFees(upstreams: EthereumMultistream, reader: DataReaders, 
         return EthereumFee(tx.gasPrice, (tx.gasPrice - baseFee).coerceAtLeast(Wei.ZERO), tx.gasPrice, baseFee)
     }
 
-    override fun getResponseBuilder(): Function<EthereumFee, BlockchainOuterClass.EstimateFeeResponse> {
-        return toGrpc
-    }
+    override fun getResponseBuilder(): Function<EthereumFee, BlockchainOuterClass.EstimateFeeResponse> = toGrpc
 }

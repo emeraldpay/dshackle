@@ -21,33 +21,27 @@ import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import org.bouncycastle.util.encoders.Hex
 
 class TxId(
-    value: ByteArray
+    value: ByteArray,
 ) : HashId(value) {
-
     companion object {
         @JvmStatic
-        fun from(id: TransactionId): TxId {
-            return TxId(id.bytes)
-        }
+        fun from(id: TransactionId): TxId = TxId(id.bytes)
 
         @JvmStatic
-        fun from(tx: TransactionJson): TxId {
-            return from(tx.hash)
-        }
+        fun from(tx: TransactionJson): TxId = from(tx.hash)
 
         @JvmStatic
         fun from(id: String): TxId {
-            val clean = if (id.startsWith("0x")) {
-                id.substring(2)
-            } else {
-                id
-            }
+            val clean =
+                if (id.startsWith("0x")) {
+                    id.substring(2)
+                } else {
+                    id
+                }
             val bytes = Hex.decode(clean)
             return TxId(bytes)
         }
     }
 
-    fun toEthereumHash(): TransactionId {
-        return TransactionId.from(value)
-    }
+    fun toEthereumHash(): TransactionId = TransactionId.from(value)
 }

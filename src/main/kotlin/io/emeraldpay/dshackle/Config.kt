@@ -50,9 +50,8 @@ import kotlin.system.exitProcess
 @EnableAsync
 open class Config(
     @Autowired private val env: Environment,
-    @Autowired private val ctx: ApplicationContext
+    @Autowired private val ctx: ApplicationContext,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(Config::class.java)
 
@@ -64,13 +63,14 @@ open class Config(
 
     init {
         configFilePath = getConfigPath()
-        Global.version = env.getProperty("version.app", Global.version).let {
-            if (it.contains("SNAPSHOT")) {
-                listOfNotNull(it, env.getProperty("version.commit")).joinToString("-")
-            } else {
-                it
+        Global.version =
+            env.getProperty("version.app", Global.version).let {
+                if (it.contains("SNAPSHOT")) {
+                    listOfNotNull(it, env.getProperty("version.commit")).joinToString("-")
+                } else {
+                    it
+                }
             }
-        }
 
         Security.addProvider(BouncyCastleProvider())
     }
@@ -92,12 +92,12 @@ open class Config(
 
     @Bean
     @Qualifier("upstreamScheduler")
-    open fun upstreamScheduler(): Scheduler {
-        return Schedulers.fromExecutorService(Executors.newFixedThreadPool(16))
-    }
+    open fun upstreamScheduler(): Scheduler = Schedulers.fromExecutorService(Executors.newFixedThreadPool(16))
 
     @Bean
-    open fun mainConfig(@Autowired fileResolver: FileResolver): MainConfig {
+    open fun mainConfig(
+        @Autowired fileResolver: FileResolver,
+    ): MainConfig {
         val f = configFilePath ?: throw IllegalStateException("Config path is not set")
         log.info("Using config: ${f.absolutePath}")
         if (!f.exists() || !f.isFile) {
@@ -117,32 +117,32 @@ open class Config(
     }
 
     @Bean
-    open fun upstreamsConfig(@Autowired mainConfig: MainConfig): UpstreamsConfig? {
-        return mainConfig.upstreams
-    }
+    open fun upstreamsConfig(
+        @Autowired mainConfig: MainConfig,
+    ): UpstreamsConfig? = mainConfig.upstreams
 
     @Bean
-    open fun cacheConfig(@Autowired mainConfig: MainConfig): CacheConfig {
-        return mainConfig.cache ?: CacheConfig()
-    }
+    open fun cacheConfig(
+        @Autowired mainConfig: MainConfig,
+    ): CacheConfig = mainConfig.cache ?: CacheConfig()
 
     @Bean
-    open fun signatureConfig(@Autowired mainConfig: MainConfig): SignatureConfig {
-        return mainConfig.signature ?: SignatureConfig()
-    }
+    open fun signatureConfig(
+        @Autowired mainConfig: MainConfig,
+    ): SignatureConfig = mainConfig.signature ?: SignatureConfig()
 
     @Bean
-    open fun tokensConfig(@Autowired mainConfig: MainConfig): TokensConfig {
-        return mainConfig.tokens ?: TokensConfig(emptyList())
-    }
+    open fun tokensConfig(
+        @Autowired mainConfig: MainConfig,
+    ): TokensConfig = mainConfig.tokens ?: TokensConfig(emptyList())
 
     @Bean
-    open fun monitoringConfig(@Autowired mainConfig: MainConfig): MonitoringConfig {
-        return mainConfig.monitoring
-    }
+    open fun monitoringConfig(
+        @Autowired mainConfig: MainConfig,
+    ): MonitoringConfig = mainConfig.monitoring
 
     @Bean
-    open fun healthConfig(@Autowired mainConfig: MainConfig): HealthConfig {
-        return mainConfig.health
-    }
+    open fun healthConfig(
+        @Autowired mainConfig: MainConfig,
+    ): HealthConfig = mainConfig.health
 }

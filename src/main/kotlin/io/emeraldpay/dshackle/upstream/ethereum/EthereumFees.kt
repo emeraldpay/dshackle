@@ -31,8 +31,12 @@ abstract class EthereumFees(
     upstreams: EthereumMultistream,
     private val data: DataReaders,
     heightLimit: Int,
-) : AbstractChainFees<EthereumFees.EthereumFee, BlockJson<TransactionRefJson>, TransactionRefJson, TransactionJson>(heightLimit, upstreams, extractTx), ChainFees {
-
+) : AbstractChainFees<EthereumFees.EthereumFee, BlockJson<TransactionRefJson>, TransactionRefJson, TransactionJson>(
+        heightLimit,
+        upstreams,
+        extractTx,
+    ),
+    ChainFees {
     companion object {
         private val log = LoggerFactory.getLogger(EthereumFees::class.java)
 
@@ -41,17 +45,24 @@ abstract class EthereumFees(
         }
     }
 
-    abstract fun extractFee(block: BlockJson<TransactionRefJson>, tx: TransactionJson): EthereumFee
+    abstract fun extractFee(
+        block: BlockJson<TransactionRefJson>,
+        tx: TransactionJson,
+    ): EthereumFee
 
-    override fun readFeesAt(height: Long, selector: TxAt<BlockJson<TransactionRefJson>, TransactionRefJson>): Mono<EthereumFee> {
-        return data.blocksByHeightParsed.read(height)
+    override fun readFeesAt(
+        height: Long,
+        selector: TxAt<BlockJson<TransactionRefJson>, TransactionRefJson>,
+    ): Mono<EthereumFee> =
+        data.blocksByHeightParsed
+            .read(height)
             .flatMap { block ->
-                Mono.justOrEmpty(selector.get(block))
+                Mono
+                    .justOrEmpty(selector.get(block))
                     .cast(TransactionRefJson::class.java)
                     .flatMap { data.txReaderParsed.read(it.hash) }
                     .map { tx -> extractFee(block, tx) }
             }
-    }
 
     override fun feeAggregation(mode: ChainFees.Mode): Function<Flux<EthereumFee>, Mono<EthereumFee>> {
         if (mode == ChainFees.Mode.MIN_ALWAYS) {
@@ -61,13 +72,14 @@ abstract class EthereumFees(
                         a.max.coerceAtLeast(b.max),
                         a.priority.coerceAtLeast(b.priority),
                         a.paid.coerceAtLeast(b.paid),
-                        Wei.ZERO
+                        Wei.ZERO,
                     )
                 }
             }
         }
         return Function { src ->
-            src.map { Tuples.of(1, it) }
+            src
+                .map { Tuples.of(1, it) }
                 .reduce { a, b ->
                     Tuples.of(a.t1 + b.t1, a.t2.plus(b.t2))
                 }.map {
@@ -78,9 +90,12 @@ abstract class EthereumFees(
 
     // ---
 
-    data class EthereumFee(val max: Wei, val priority: Wei, val paid: Wei, val base: Wei) {
-        fun plus(o: EthereumFee): EthereumFee {
-            return EthereumFee(max + o.max, priority + o.priority, paid + o.paid, base + o.base)
-        }
+    data class EthereumFee(
+        val max: Wei,
+        val priority: Wei,
+        val paid: Wei,
+        val base: Wei,
+    ) {
+        fun plus(o: EthereumFee): EthereumFee = EthereumFee(max + o.max, priority + o.priority, paid + o.paid, base + o.base)
     }
 }

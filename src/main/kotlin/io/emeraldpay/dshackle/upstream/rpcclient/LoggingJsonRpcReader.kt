@@ -28,20 +28,19 @@ class LoggingJsonRpcReader(
     private val delegate: StandardRpcReader,
     private val logger: (key: JsonRpcRequest) -> Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>>,
 ) : StandardRpcReader {
-
     companion object {
         private val log = LoggerFactory.getLogger(LoggingJsonRpcReader::class.java)
     }
 
     var requestContext = Global.monitoring
 
-    override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
-        return delegate.read(key)
+    override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> =
+        delegate
+            .read(key)
             .transform(logger(key))
             .contextWrite(requestContext.ingress.startExecuting())
             // make sure the logger would have the actual request details. b/c if it may be transformed from what was
             // originally made on the client side
             .contextWrite(requestContext.ingress.withRequest(key))
             .contextWrite(requestContext.ingress.ensureInitialized())
-    }
 }

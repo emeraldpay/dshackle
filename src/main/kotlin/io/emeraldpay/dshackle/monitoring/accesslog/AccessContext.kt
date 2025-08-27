@@ -28,7 +28,6 @@ import reactor.util.context.Context as ReactorContext
  * Access to the current Request ID
  */
 class AccessContext {
-
     companion object {
         private val log = LoggerFactory.getLogger(AccessContext::class.java)
 
@@ -41,15 +40,12 @@ class AccessContext {
         val ts: Instant,
     )
 
-    fun start(id: UUID): Function<ReactorContext, ReactorContext> {
-        return setRequest(Value(id, Instant.now()))
-    }
+    fun start(id: UUID): Function<ReactorContext, ReactorContext> = setRequest(Value(id, Instant.now()))
 
-    fun setRequest(request: Value): Function<ReactorContext, ReactorContext> {
-        return Function { ctx ->
+    fun setRequest(request: Value): Function<ReactorContext, ReactorContext> =
+        Function { ctx ->
             ctx.put(REQUEST_ID_REACTOR_KEY, request)
         }
-    }
 
     /**
      * Copy ID from gRPC Context to Reactor Context
@@ -59,9 +55,10 @@ class AccessContext {
         return setRequest(requestId)
     }
 
-    fun getRequest(ctx: ContextView): Value {
-        return ctx.getOrEmpty<Value>(REQUEST_ID_REACTOR_KEY).or {
-            Optional.of(Value(UUID.randomUUID(), Instant.now()))
-        }.get()
-    }
+    fun getRequest(ctx: ContextView): Value =
+        ctx
+            .getOrEmpty<Value>(REQUEST_ID_REACTOR_KEY)
+            .or {
+                Optional.of(Value(UUID.randomUUID(), Instant.now()))
+            }.get()
 }

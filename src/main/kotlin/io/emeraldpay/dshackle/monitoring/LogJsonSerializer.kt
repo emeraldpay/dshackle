@@ -7,9 +7,8 @@ import java.nio.BufferOverflowException
 import java.nio.ByteBuffer
 
 class LogJsonSerializer<T>(
-    initialBuffer: Int = 1024
+    initialBuffer: Int = 1024,
 ) : LogSerializer<T> {
-
     companion object {
         private val log = LoggerFactory.getLogger(LogJsonSerializer::class.java)
     }

@@ -24,9 +24,8 @@ class TxContainer(
     val hash: TxId,
     val blockId: BlockId?,
     json: ByteArray?,
-    parsed: Any? = null
+    parsed: Any? = null,
 ) : SourceContainer(json, parsed) {
-
     companion object {
         @JvmStatic
         fun fromEthereumJson(raw: ByteArray): TxContainer {
@@ -35,19 +34,19 @@ class TxContainer(
         }
 
         @JvmStatic
-        fun from(tx: TransactionJson): TxContainer {
-            return from(tx, Global.objectMapper.writeValueAsBytes(tx))
-        }
+        fun from(tx: TransactionJson): TxContainer = from(tx, Global.objectMapper.writeValueAsBytes(tx))
 
-        fun from(tx: TransactionJson, raw: ByteArray): TxContainer {
-            return TxContainer(
+        fun from(
+            tx: TransactionJson,
+            raw: ByteArray,
+        ): TxContainer =
+            TxContainer(
                 tx.blockNumber,
                 TxId.from(tx.hash),
                 tx.blockHash?.let { BlockId.from(it) },
                 raw,
-                tx
+                tx,
             )
-        }
     }
 
     override fun equals(other: Any?): Boolean {

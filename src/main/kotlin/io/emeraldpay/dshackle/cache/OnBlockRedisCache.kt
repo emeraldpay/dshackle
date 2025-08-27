@@ -32,9 +32,8 @@ import kotlin.math.min
 abstract class OnBlockRedisCache<T>(
     private val redis: RedisReactiveCommands<String, ByteArray>,
     private val chain: Chain,
-    private val valueType: ValueContainer.ValueType
+    private val valueType: ValueContainer.ValueType,
 ) : Reader<BlockId, T> {
-
     companion object {
         private val log = LoggerFactory.getLogger(OnBlockRedisCache::class.java)
 
@@ -44,26 +43,30 @@ abstract class OnBlockRedisCache<T>(
         private const val MIN_CACHE_TIME_SECONDS = 3
     }
 
-    private val prefix: String = when (valueType) {
-        ValueContainer.ValueType.BLOCK -> "block"
-        else -> throw IllegalStateException("No prefix for value type $valueType")
-    }
+    private val prefix: String =
+        when (valueType) {
+            ValueContainer.ValueType.BLOCK -> "block"
+            else -> throw IllegalStateException("No prefix for value type $valueType")
+        }
 
-    fun toProto(block: BlockContainer, value: T): ValueContainer {
-        return ValueContainer.newBuilder()
+    fun toProto(
+        block: BlockContainer,
+        value: T,
+    ): ValueContainer =
+        ValueContainer
+            .newBuilder()
             .setType(valueType)
             .setValue(ByteString.copyFrom(serializeValue(value)))
             .setBlockMeta(buildMeta(block))
             .build()
-    }
 
-    open fun buildMeta(block: BlockContainer): CachesProto.BlockMeta.Builder {
-        return CachesProto.BlockMeta.newBuilder()
+    open fun buildMeta(block: BlockContainer): CachesProto.BlockMeta.Builder =
+        CachesProto.BlockMeta
+            .newBuilder()
             .setHash(ByteString.copyFrom(block.hash.value))
             .setHeight(block.height)
             .setDifficulty(ByteString.copyFrom(block.difficulty.toByteArray()))
             .setTimestamp(block.timestamp.toEpochMilli())
-    }
 
     abstract fun serializeValue(value: T): ByteArray
 
@@ -82,16 +85,18 @@ abstract class OnBlockRedisCache<T>(
     /**
      * Key in Redis
      */
-    fun key(hash: BlockId): String {
-        return "$prefix:${chain.id}:${hash.toHex()}"
-    }
+    fun key(hash: BlockId): String = "$prefix:${chain.id}:${hash.toHex()}"
 
     /**
      * Add to cache.
      * Note that it returns Mono<Void> which must be subscribed to actually save
      */
-    open fun add(container: BlockContainer, value: T): Mono<Void> {
-        return Mono.just(container)
+    open fun add(
+        container: BlockContainer,
+        value: T,
+    ): Mono<Void> =
+        Mono
+            .just(container)
             .flatMap { block ->
                 val ttl = cachingTime(block.timestamp)
                 if (ttl > MIN_CACHE_TIME_SECONDS) {
@@ -101,16 +106,13 @@ abstract class OnBlockRedisCache<T>(
                 } else {
                     Mono.empty()
                 }
-            }
-            .doOnError {
+            }.doOnError {
                 log.warn("Failed to save Block to Redis: ${it.message}")
             }
             // if failed to cache, just continue without it
             .onErrorResume {
                 Mono.empty()
-            }
-            .then()
-    }
+            }.then()
 
     /**
      * Calculate time to cache the value
@@ -123,20 +125,19 @@ abstract class OnBlockRedisCache<T>(
         return min(age, TimeUnit.MINUTES.toSeconds(MAX_CACHE_TIME_MINUTES))
     }
 
-    fun evict(id: BlockId): Mono<Void> {
-        return Mono.just(id)
+    fun evict(id: BlockId): Mono<Void> =
+        Mono
+            .just(id)
             .flatMap {
                 redis.del(key(it))
-            }
-            .then()
-    }
+            }.then()
 
-    override fun read(key: BlockId): Mono<T> {
-        return redis.get(key(key))
+    override fun read(key: BlockId): Mono<T> =
+        redis
+            .get(key(key))
             .map { data ->
                 fromProto(data)
             }.onErrorResume {
                 Mono.empty()
             }
-    }
 }

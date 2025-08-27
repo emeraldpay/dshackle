@@ -22,8 +22,10 @@ import com.fasterxml.jackson.databind.JsonNode
 import java.math.BigDecimal
 
 class RpcUnspentDeserializer : JsonDeserializer<RpcUnspent>() {
-
-    override fun deserialize(jp: JsonParser, ctxt: DeserializationContext): RpcUnspent {
+    override fun deserialize(
+        jp: JsonParser,
+        ctxt: DeserializationContext,
+    ): RpcUnspent {
         val node: JsonNode = jp.readValueAsTree()
         return RpcUnspent(
             node.get("txid").asText(),

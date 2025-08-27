@@ -25,10 +25,13 @@ import java.time.Instant
  * @see NumberAsHexSerializer
  */
 class TimestampSerializer : JsonSerializer<Instant>() {
-
     private val numberAsHex = NumberAsHexSerializer()
 
-    override fun serialize(value: Instant?, gen: JsonGenerator, serializers: SerializerProvider) {
+    override fun serialize(
+        value: Instant?,
+        gen: JsonGenerator,
+        serializers: SerializerProvider,
+    ) {
         if (value == null) {
             gen.writeNull()
             return

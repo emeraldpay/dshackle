@@ -44,11 +44,12 @@ abstract class Multistream(
     val chain: Chain,
     private val upstreams: MutableList<Upstream>,
     val caches: Caches,
-) : DshackleRpcReader, Lifecycle, HasEgressSubscription {
-
+) : DshackleRpcReader,
+    Lifecycle,
+    HasEgressSubscription {
     companion object {
         private val log = LoggerFactory.getLogger(Multistream::class.java)
-        private const val metrics = "upstreams"
+        private const val METRICS = "upstreams"
     }
 
     private var cacheSubscription: Disposable? = null
@@ -62,17 +63,18 @@ abstract class Multistream(
     init {
         UpstreamAvailability.values().forEach { status ->
             Metrics.gauge(
-                "$metrics.availability",
+                "$METRICS.availability",
                 listOf(Tag.of("chain", chain.chainCode), Tag.of("status", status.name.lowercase(Locale.getDefault()))),
-                this
+                this,
             ) {
                 upstreams.count { it.getStatus() == status }.toDouble()
             }
         }
 
         Metrics.gauge(
-            "$metrics.connected",
-            listOf(Tag.of("chain", chain.chainCode)), this
+            "$METRICS.connected",
+            listOf(Tag.of("chain", chain.chainCode)),
+            this,
         ) {
             upstreams.size.toDouble()
         }
@@ -85,14 +87,16 @@ abstract class Multistream(
 
     private fun monitorUpstream(upstream: Upstream) {
         Metrics.gauge(
-            "$metrics.lag",
-            listOf(Tag.of("chain", chain.chainCode), Tag.of("upstream", upstream.getId())), upstream
+            "$METRICS.lag",
+            listOf(Tag.of("chain", chain.chainCode), Tag.of("upstream", upstream.getId())),
+            upstream,
         ) {
             it.getLag().toDouble()
         }
         Metrics.gauge(
-            "$metrics.height",
-            listOf(Tag.of("chain", chain.chainCode), Tag.of("upstream", upstream.getId())), upstream
+            "$METRICS.height",
+            listOf(Tag.of("chain", chain.chainCode), Tag.of("upstream", upstream.getId())),
+            upstream,
         ) {
             it.getHead().getCurrentHeight()?.toDouble() ?: 0.0
         }
@@ -105,9 +109,7 @@ abstract class Multistream(
     /**
      * Get list of all underlying upstreams
      */
-    open fun getAll(): List<Upstream> {
-        return upstreams
-    }
+    open fun getAll(): List<Upstream> = upstreams
 
     /**
      * Add an upstream
@@ -143,57 +145,66 @@ abstract class Multistream(
 
     open fun onUpstreamsUpdated() {
         log.debug("Updating state of upstreams for $chain")
-        upstreams.map { it.getMethods() }.let {
-            if (it.size > 1) {
-                AggregatedCallMethods(it)
-            } else if (it.size == 1) {
-                it.first()
+        upstreams
+            .map { it.getMethods() }
+            .let {
+                if (it.size > 1) {
+                    AggregatedCallMethods(it)
+                } else if (it.size == 1) {
+                    it.first()
+                } else {
+                    NoCallMethods()
+                }
+            }.let(this.callMethods::set)
+        capabilities =
+            if (upstreams.isEmpty()) {
+                emptySet()
             } else {
-                NoCallMethods()
+                upstreams
+                    .map(Upstream::getCapabilities)
+                    .reduce { acc, curr -> acc + curr }
             }
-        }.let(this.callMethods::set)
-        capabilities = if (upstreams.isEmpty()) {
-            emptySet()
-        } else {
-            upstreams.map(Upstream::getCapabilities)
-                .reduce { acc, curr -> acc + curr }
-        }
     }
 
     fun observeStatus(): Flux<UpstreamAvailability> {
-        val upstreamsFluxes = getAll().map { up ->
-            Flux.concat(
-                Mono.just(up.getStatus()),
-                up.observeStatus()
-            ).map { UpstreamStatus(up, it) }
-        }
-        return Flux.merge(upstreamsFluxes)
+        val upstreamsFluxes =
+            getAll().map { up ->
+                Flux
+                    .concat(
+                        Mono.just(up.getStatus()),
+                        up.observeStatus(),
+                    ).map { UpstreamStatus(up, it) }
+            }
+        return Flux
+            .merge(upstreamsFluxes)
             .filter(FilterBestAvailability())
             .map { it.status }
     }
 
-    fun isAvailable(): Boolean {
-        return getAll().any { it.isAvailable() }
-    }
+    fun isAvailable(): Boolean = getAll().any { it.isAvailable() }
 
     fun getStatus(): UpstreamAvailability {
         val upstreams = getAll()
-        return if (upstreams.isEmpty()) UpstreamAvailability.UNAVAILABLE
-        else upstreams.minOf { it.getStatus() }
+        return if (upstreams.isEmpty()) {
+            UpstreamAvailability.UNAVAILABLE
+        } else {
+            upstreams.minOf { it.getStatus() }
+        }
     }
 
-    open fun getMethods(): CallMethods {
-        return callMethods.get()
-    }
+    open fun getMethods(): CallMethods = callMethods.get()
 
     override fun start() {
         val repeated = Flux.interval(Duration.ofSeconds(30))
-        val whenChanged = observeStatus()
-            .distinctUntilChanged()
-        subscription = Flux.merge(repeated, whenChanged)
-            // print status _change_ every 15 seconds, at most; otherwise prints it on interval of 30 seconds
-            .sample(Duration.ofSeconds(15))
-            .subscribe { printStatus() }
+        val whenChanged =
+            observeStatus()
+                .distinctUntilChanged()
+        subscription =
+            Flux
+                .merge(repeated, whenChanged)
+                // print status _change_ every 15 seconds, at most; otherwise prints it on interval of 30 seconds
+                .sample(Duration.ofSeconds(15))
+                .subscribe { printStatus() }
     }
 
     override fun stop() {
@@ -212,23 +223,21 @@ abstract class Multistream(
     fun onHeadUpdated(head: Head) {
         reconfigLock.withLock {
             cacheSubscription?.dispose()
-            cacheSubscription = head.getFlux().subscribe {
-                caches.cache(Caches.Tag.LATEST, it)
-            }
+            cacheSubscription =
+                head.getFlux().subscribe {
+                    caches.cache(Caches.Tag.LATEST, it)
+                }
         }
         caches.setHead(head)
     }
 
     abstract fun updateHead(): Head
+
     abstract fun setHead(head: Head)
 
-    override fun isRunning(): Boolean {
-        return subscription != null
-    }
+    override fun isRunning(): Boolean = subscription != null
 
-    fun getBlockchain(): Chain {
-        return chain
-    }
+    fun getBlockchain(): Chain = chain
 
     abstract fun <T : Multistream> cast(selfType: Class<T>): T
 
@@ -241,48 +250,57 @@ abstract class Multistream(
         } catch (e: Exception) {
             log.warn("Head processing error: ${e.javaClass} ${e.message}")
         }
-        val statuses = upstreams.map { it.getStatus() }
-            .groupBy { it }
-            .map { "${it.key.name}/${it.value.size}" }
-            .joinToString(",")
-        val lag = upstreams
-            .map {
-                // by default, when no lag is available it uses Long.MAX_VALUE, and it doesn't make sense to print
-                // status with such value. use NA (as Not Available) instead
-                val value = it.getLag()
-                if (value == Long.MAX_VALUE) {
-                    "NA"
-                } else {
-                    value.toString()
-                }
-            }
-            .joinToString(", ")
-        val weak = upstreams
-            .filter { it.getStatus() != UpstreamAvailability.OK }
-            .joinToString(", ") { it.getId() }
+        val statuses =
+            upstreams
+                .map { it.getStatus() }
+                .groupBy { it }
+                .map { "${it.key.name}/${it.value.size}" }
+                .joinToString(",")
+        val lag =
+            upstreams
+                .map {
+                    // by default, when no lag is available it uses Long.MAX_VALUE, and it doesn't make sense to print
+                    // status with such value. use NA (as Not Available) instead
+                    val value = it.getLag()
+                    if (value == Long.MAX_VALUE) {
+                        "NA"
+                    } else {
+                        value.toString()
+                    }
+                }.joinToString(", ")
+        val weak =
+            upstreams
+                .filter { it.getStatus() != UpstreamAvailability.OK }
+                .joinToString(", ") { it.getId() }
 
         log.info("State of ${chain.chainCode}: height=${height ?: '?'}, status=[$statuses], lag=[$lag], weak=[$weak]")
     }
 
     // --------------------------------------------------------------------------------------------------------
 
-    class UpstreamStatus(val upstream: Upstream, val status: UpstreamAvailability, val ts: Instant = Instant.now())
+    class UpstreamStatus(
+        val upstream: Upstream,
+        val status: UpstreamAvailability,
+        val ts: Instant = Instant.now(),
+    )
 
     class FilterBestAvailability : Predicate<UpstreamStatus> {
         private val lastRef = AtomicReference<UpstreamStatus>()
 
         override fun test(t: UpstreamStatus): Boolean {
-            val curr = lastRef.updateAndGet { last ->
-                val changed = last == null ||
-                    t.status < last.status ||
-                    (last.upstream == t.upstream && t.status != last.status) ||
-                    last.ts.isBefore(t.ts - Duration.ofSeconds(60))
-                if (changed) {
-                    t
-                } else {
-                    last
+            val curr =
+                lastRef.updateAndGet { last ->
+                    val changed =
+                        last == null ||
+                            t.status < last.status ||
+                            (last.upstream == t.upstream && t.status != last.status) ||
+                            last.ts.isBefore(t.ts - Duration.ofSeconds(60))
+                    if (changed) {
+                        t
+                    } else {
+                        last
+                    }
                 }
-            }
             return curr == t
         }
     }

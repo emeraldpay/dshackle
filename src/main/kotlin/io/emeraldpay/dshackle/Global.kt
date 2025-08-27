@@ -38,47 +38,46 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 
 class Global {
-
     companion object {
-
         var metricsExtended = false
 
-        val chainNames = mapOf(
-            "ethereum" to Chain.ETHEREUM,
-            "ethereum-classic" to Chain.ETHEREUM_CLASSIC,
-            "eth" to Chain.ETHEREUM,
-            "polygon" to Chain.MATIC,
-            "matic" to Chain.MATIC,
-            "etc" to Chain.ETHEREUM_CLASSIC,
-            "morden" to Chain.TESTNET_MORDEN,
-            "kovan" to Chain.TESTNET_KOVAN,
-            "kovan-testnet" to Chain.TESTNET_KOVAN,
-            "goerli" to Chain.TESTNET_GOERLI,
-            "goerli-testnet" to Chain.TESTNET_GOERLI,
-            "holesky" to Chain.TESTNET_HOLESKY,
-            "holesky-testnet" to Chain.TESTNET_HOLESKY,
-            "sepolia" to Chain.TESTNET_SEPOLIA,
-            "sepolia-testnet" to Chain.TESTNET_SEPOLIA,
-            "hoodi" to Chain.TESTNET_HOODI,
-            "hoodi-testnet" to Chain.TESTNET_HOODI,
-            "rinkeby" to Chain.TESTNET_RINKEBY,
-            "rinkeby-testnet" to Chain.TESTNET_RINKEBY,
-            "ropsten" to Chain.TESTNET_ROPSTEN,
-            "ropsten-testnet" to Chain.TESTNET_ROPSTEN,
-            "bitcoin" to Chain.BITCOIN,
-            "bitcoin-testnet" to Chain.TESTNET_BITCOIN,
-            "bitcoin-testnet-3" to Chain.TESTNET_BITCOIN,
-            "bitcoin-testnet-v3" to Chain.TESTNET_BITCOIN,
-            "bitcoin-testnet-4" to Chain.TESTNET_BITCOIN_V4,
-            "bitcoin-testnet-v4" to Chain.TESTNET_BITCOIN_V4
-        )
+        val chainNames =
+            mapOf(
+                "ethereum" to Chain.ETHEREUM,
+                "ethereum-classic" to Chain.ETHEREUM_CLASSIC,
+                "eth" to Chain.ETHEREUM,
+                "polygon" to Chain.MATIC,
+                "matic" to Chain.MATIC,
+                "etc" to Chain.ETHEREUM_CLASSIC,
+                "morden" to Chain.TESTNET_MORDEN,
+                "kovan" to Chain.TESTNET_KOVAN,
+                "kovan-testnet" to Chain.TESTNET_KOVAN,
+                "goerli" to Chain.TESTNET_GOERLI,
+                "goerli-testnet" to Chain.TESTNET_GOERLI,
+                "holesky" to Chain.TESTNET_HOLESKY,
+                "holesky-testnet" to Chain.TESTNET_HOLESKY,
+                "sepolia" to Chain.TESTNET_SEPOLIA,
+                "sepolia-testnet" to Chain.TESTNET_SEPOLIA,
+                "hoodi" to Chain.TESTNET_HOODI,
+                "hoodi-testnet" to Chain.TESTNET_HOODI,
+                "rinkeby" to Chain.TESTNET_RINKEBY,
+                "rinkeby-testnet" to Chain.TESTNET_RINKEBY,
+                "ropsten" to Chain.TESTNET_ROPSTEN,
+                "ropsten-testnet" to Chain.TESTNET_ROPSTEN,
+                "bitcoin" to Chain.BITCOIN,
+                "bitcoin-testnet" to Chain.TESTNET_BITCOIN,
+                "bitcoin-testnet-3" to Chain.TESTNET_BITCOIN,
+                "bitcoin-testnet-v3" to Chain.TESTNET_BITCOIN,
+                "bitcoin-testnet-4" to Chain.TESTNET_BITCOIN_V4,
+                "bitcoin-testnet-v4" to Chain.TESTNET_BITCOIN_V4,
+            )
 
         fun chainById(id: String?): Chain {
             if (id == null) {
                 return Chain.UNSPECIFIED
             }
             return chainNames[
-                id.lowercase(Locale.getDefault()).replace("_", "-").trim()
+                id.lowercase(Locale.getDefault()).replace("_", "-").trim(),
             ] ?: Chain.UNSPECIFIED
         }
 

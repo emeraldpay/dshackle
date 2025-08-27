@@ -7,10 +7,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import reactor.core.publisher.Flux
 
 class ForkWatchMock(
-    val results: Flux<Boolean>
+    val results: Flux<Boolean>,
 ) : ForkWatch(NeverForkChoice(), Chain.ETHEREUM) {
-
-    override fun register(upstream: Upstream): Flux<Boolean> {
-        return results
-    }
+    override fun register(upstream: Upstream): Flux<Boolean> = results
 }

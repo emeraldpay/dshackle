@@ -17,16 +17,13 @@
 package io.emeraldpay.dshackle.data
 
 open class HashId(
-    val value: ByteArray
+    val value: ByteArray,
 ) {
-
     companion object {
         val HEX_DIGITS = "0123456789abcdef".toCharArray()
     }
 
-    override fun toString(): String {
-        return toHex()
-    }
+    override fun toString(): String = toHex()
 
     fun toHex(): String {
         val hex = CharArray(value.size * 2)
@@ -40,9 +37,7 @@ open class HashId(
         return String(hex)
     }
 
-    fun toHexWithPrefix(): String {
-        return "0x" + toHex()
-    }
+    fun toHexWithPrefix(): String = "0x" + toHex()
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -53,7 +48,5 @@ open class HashId(
         return true
     }
 
-    override fun hashCode(): Int {
-        return value.contentHashCode()
-    }
+    override fun hashCode(): Int = value.contentHashCode()
 }

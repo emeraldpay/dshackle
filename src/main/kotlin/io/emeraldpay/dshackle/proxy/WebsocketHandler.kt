@@ -49,7 +49,6 @@ class WebsocketHandler(
     private val accessHandler: AccessLogHandlerHttp.HandlerFactory,
     private val requestMetrics: ProxyServer.RequestMetricsFactory,
 ) : BaseHandler(writeRpcJson, nativeCall, requestMetrics) {
-
     companion object {
         private val log = LoggerFactory.getLogger(WebsocketHandler::class.java)
     }
@@ -61,26 +60,31 @@ class WebsocketHandler(
         return n.toString(16)
     }
 
-    fun proxy(routeConfig: ProxyConfig.Route): BiFunction<WebsocketInbound, WebsocketOutbound, Publisher<Void>> {
-        return BiFunction { req, resp ->
+    fun proxy(routeConfig: ProxyConfig.Route): BiFunction<WebsocketInbound, WebsocketOutbound, Publisher<Void>> =
+        BiFunction { req, resp ->
             // each connection keeps a list of subscription controllers
             val control = HashMap<String, Sinks.One<Boolean>>()
 
-            val requests: Flux<RequestJson<Any>> = req.aggregateFrames()
-                .receiveFrames()
-                .map { ByteBufInputStream(it.content()).readAllBytes() }
-                .flatMap { parseRequest(it, routeConfig.blockchain) }
+            val requests: Flux<RequestJson<Any>> =
+                req
+                    .aggregateFrames()
+                    .receiveFrames()
+                    .map { ByteBufInputStream(it.content()).readAllBytes() }
+                    .flatMap { parseRequest(it, routeConfig.blockchain) }
 
             val eventHandler = accessHandler.start(req, routeConfig.blockchain)
 
             val responses = respond(routeConfig.blockchain, control, requests, eventHandler)
 
-            resp.sendString(responses, Charsets.UTF_8)
+            resp
+                .sendString(responses, Charsets.UTF_8)
                 .then()
         }
-    }
 
-    fun parseRequest(data: ByteArray, blockchain: Chain): Mono<RequestJson<Any>> {
+    fun parseRequest(
+        data: ByteArray,
+        blockchain: Chain,
+    ): Mono<RequestJson<Any>> {
         // try to parse JSON call. If received an invalid value just silently ignore it, that's what other Ethereum servers do
         try {
             val type = readRpcJson.getType(data)
@@ -113,9 +117,9 @@ class WebsocketHandler(
         blockchain: Chain,
         control: MutableMap<String, Sinks.One<Boolean>>,
         requests: Flux<RequestJson<Any>>,
-        eventHandlerFactory: AccessLogHandlerHttp.WsHandlerFactory
-    ): Flux<String> {
-        return requests.flatMap { call ->
+        eventHandlerFactory: AccessLogHandlerHttp.WsHandlerFactory,
+    ): Flux<String> =
+        requests.flatMap { call ->
             val method = call.method
             val requestId = UUID.randomUUID()
             if (method == "eth_subscribe") {
@@ -128,23 +132,25 @@ class WebsocketHandler(
                             // TODO ineffective to encode the params each time just to get size, ideally should get a reference to the original JSON bytes
                             // but it doesn't happen very ofter, only on initial subscribe only for logs with filter
                             Pair(mp.first, mp.second?.let { Global.objectMapper.writeValueAsBytes(it) })
-                        }
+                        },
                     )
                     val currentControl = Sinks.one<Boolean>()
                     control[subscriptionId] = currentControl
                     // first need to respond with ID of the subscription, and the following responses would have it in "subscription" param
-                    val start = ResponseJson<String, Any>().also {
-                        it.id = call.id
-                        it.result = subscriptionId
-                    }
-                    // produce actual responses
-                    val responses = nativeSubscribe
-                        .subscribe(blockchain, methodParams.first, methodParams.second)
-                        .map { event ->
-                            WsSubscriptionResponse(params = WsSubscriptionData.of(event, subscriptionId))
+                    val start =
+                        ResponseJson<String, Any>().also {
+                            it.id = call.id
+                            it.result = subscriptionId
                         }
-                        .takeUntilOther(currentControl.asMono())
-                    Flux.concat(Mono.just(start), responses)
+                    // produce actual responses
+                    val responses =
+                        nativeSubscribe
+                            .subscribe(blockchain, methodParams.first, methodParams.second)
+                            .map { event ->
+                                WsSubscriptionResponse(params = WsSubscriptionData.of(event, subscriptionId))
+                            }.takeUntilOther(currentControl.asMono())
+                    Flux
+                        .concat(Mono.just(start), responses)
                         .map { Global.objectMapper.writeValueAsString(it) }
                         .doOnNext {
                             eventHandler.onResponse(it.length.toLong())
@@ -160,39 +166,42 @@ class WebsocketHandler(
                 // put it to the Access Log with fake id=0 (it doesn't matter, except the later reference)
                 val eventHandler: AccessLogHandlerHttp.RequestHandler = eventHandlerFactory.call(requestId)
                 eventHandler.onRequest(
-                    BlockchainOuterClass.NativeCallRequest.newBuilder()
+                    BlockchainOuterClass.NativeCallRequest
+                        .newBuilder()
                         .setChainValue(blockchain.id)
                         .addItems(
-                            BlockchainOuterClass.NativeCallItem.newBuilder()
+                            BlockchainOuterClass.NativeCallItem
+                                .newBuilder()
                                 .setId(0)
                                 .setMethod("eth_unsubscribe")
                                 .setPayload(ByteString.copyFromUtf8("[\"$id\"]"))
-                                .build()
-                        )
-                        .build()
+                                .build(),
+                        ).build(),
                 )
 
                 val p = control.remove(id.toString())
                 val success = p?.tryEmitValue(true)?.isSuccess ?: false
-                val response = ResponseJson<Boolean, Any>().also {
-                    it.id = call.id
-                    it.result = success
-                }
-                Mono.just(response)
+                val response =
+                    ResponseJson<Boolean, Any>().also {
+                        it.id = call.id
+                        it.result = success
+                    }
+                Mono
+                    .just(response)
                     .map { Global.objectMapper.writeValueAsString(it) }
                     .doOnNext { eventHandler.onResponse(NativeCall.CallResult.ok(0, null, it.toByteArray(), null)) }
                     .doFinally { eventHandler.close() }
             } else {
                 val eventHandler: AccessLogHandlerHttp.RequestHandler = eventHandlerFactory.call(requestId)
                 val proxyCall = readRpcJson.convertToNativeCall(ProxyCall.RpcType.SINGLE, listOf(call))
-                Mono.from(execute(blockchain, proxyCall, eventHandler))
+                Mono
+                    .from(execute(blockchain, proxyCall, eventHandler))
                     .contextWrite(Global.monitoring.egress.start(requestId))
                     // thought the event handler is used in execute
                     // it still needs to be closed at the end, so it can render the logs
                     .doFinally { eventHandler.close() }
             }
         }
-    }
 
     fun splitMethodParams(params: List<Any?>): Pair<String, Any?>? {
         if (params.isEmpty()) {
@@ -219,16 +228,18 @@ class WebsocketHandler(
 
     data class WsSubscriptionData(
         val result: Any?,
-        val subscription: String
+        val subscription: String,
     ) {
-
         companion object {
-            fun of(result: Any?, subscription: String) = WsSubscriptionData(
+            fun of(
+                result: Any?,
+                subscription: String,
+            ) = WsSubscriptionData(
                 when (result) {
                     is ByteArray -> Base64.getEncoder().encodeToString(result)
                     else -> result
                 },
-                subscription
+                subscription,
             )
         }
     }

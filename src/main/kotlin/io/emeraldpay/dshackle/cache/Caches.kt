@@ -43,19 +43,14 @@ open class Caches(
     private val redisHeightByHashCache: HeightByHashRedisCache?,
     private val genericRedisCacheFactory: GenericRedisCacheFactory?,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(Caches::class.java)
 
         @JvmStatic
-        fun newBuilder(): Builder {
-            return Builder()
-        }
+        fun newBuilder(): Builder = Builder()
 
         @JvmStatic
-        fun default(): Caches {
-            return newBuilder().build()
-        }
+        fun default(): Caches = newBuilder().build()
     }
 
     private val memHeightByHash: HeightByHashMemCache = HeightByHashMemCache()
@@ -67,21 +62,24 @@ open class Caches(
     private var head: Head? = null
 
     init {
-        blocksByHash = if (redisBlocksByHash == null) {
-            memBlocksByHash
-        } else {
-            CompoundReader(memBlocksByHash, redisBlocksByHash)
-        }
-        txsByHash = if (redisTxsByHash == null) {
-            memTxsByHash
-        } else {
-            CompoundReader(memTxsByHash, redisTxsByHash)
-        }
-        receiptByHash = if (redisReceipts == null) {
-            memReceipts
-        } else {
-            CompoundReader(memReceipts, redisReceipts)
-        }
+        blocksByHash =
+            if (redisBlocksByHash == null) {
+                memBlocksByHash
+            } else {
+                CompoundReader(memBlocksByHash, redisBlocksByHash)
+            }
+        txsByHash =
+            if (redisTxsByHash == null) {
+                memTxsByHash
+            } else {
+                CompoundReader(memTxsByHash, redisTxsByHash)
+            }
+        receiptByHash =
+            if (redisReceipts == null) {
+                memReceipts
+            } else {
+                CompoundReader(memReceipts, redisReceipts)
+            }
     }
 
     fun setHead(head: Head) {
@@ -90,7 +88,10 @@ open class Caches(
         redisReceipts?.head = head
     }
 
-    open fun cacheReceipt(tag: Tag, data: DefaultContainer<TransactionReceiptJson>) {
+    open fun cacheReceipt(
+        tag: Tag,
+        data: DefaultContainer<TransactionReceiptJson>,
+    ) {
         val currentHeight = head?.getCurrentHeight()
         if (currentHeight != null && data.height != null && memReceipts.acceptsRecentBlocks(currentHeight - data.height)) {
             memReceipts.add(data).subscribe()
@@ -99,19 +100,27 @@ open class Caches(
         redisReceipts?.add(data)?.subscribe()
     }
 
-    fun cache(tag: Tag, tx: TxContainer) {
+    fun cache(
+        tag: Tag,
+        tx: TxContainer,
+    ) {
         // do not cache transactions that are not in a block yet
         if (tx.blockId == null) {
             return
         }
         memTxsByHash.add(tx)
         // TODO move subscription to the caller
-        getBlocksByHash().read(tx.blockId).flatMap { block ->
-            redisTxsByHash?.add(tx, block) ?: Mono.empty()
-        }.subscribe()
+        getBlocksByHash()
+            .read(tx.blockId)
+            .flatMap { block ->
+                redisTxsByHash?.add(tx, block) ?: Mono.empty()
+            }.subscribe()
     }
 
-    fun cache(tag: Tag, block: BlockContainer) {
+    fun cache(
+        tag: Tag,
+        block: BlockContainer,
+    ) {
         val job = ArrayList<Mono<Void>>()
 
         redisHeightByHashCache?.add(block)?.let(job::add)
@@ -138,15 +147,17 @@ open class Caches(
             jsonValue?.let { value ->
                 val plainTransactions = value.transactions.filterIsInstance<TransactionJson>()
                 if (plainTransactions.isNotEmpty()) {
-                    val transactions = plainTransactions.map { tx ->
-                        TxContainer.from(tx)
-                    }
+                    val transactions =
+                        plainTransactions.map { tx ->
+                            TxContainer.from(tx)
+                        }
                     if (redisTxsByHash != null) {
                         job.add(
-                            Flux.fromIterable(transactions)
+                            Flux
+                                .fromIterable(transactions)
                                 .doOnNext { memTxsByHash.add(it) }
                                 .flatMap { redisTxsByHash.add(it, block) }
-                                .then()
+                                .then(),
                         )
                     }
                 }
@@ -180,41 +191,23 @@ open class Caches(
         }
     }
 
-    fun getBlocksByHash(): Reader<BlockId, BlockContainer> {
-        return blocksByHash
-    }
+    fun getBlocksByHash(): Reader<BlockId, BlockContainer> = blocksByHash
 
-    fun getBlockHashByHeight(): Reader<Long, BlockId> {
-        return blocksByHeight
-    }
+    fun getBlockHashByHeight(): Reader<Long, BlockId> = blocksByHeight
 
-    fun getTxByHash(): Reader<TxId, TxContainer> {
-        return txsByHash
-    }
+    fun getTxByHash(): Reader<TxId, TxContainer> = txsByHash
 
-    fun getReceipts(): Reader<TxId, ByteArray> {
-        return receiptByHash
-    }
+    fun getReceipts(): Reader<TxId, ByteArray> = receiptByHash
 
-    fun getGenericCache(type: String): GenericRedisCache? {
-        return genericRedisCacheFactory?.get(type)
-    }
+    fun getGenericCache(type: String): GenericRedisCache? = genericRedisCacheFactory?.get(type)
 
-    fun getGenericCacheReader(type: String): Reader<String, ByteArray> {
-        return getGenericCache(type) ?: EmptyReader.default()
-    }
+    fun getGenericCacheReader(type: String): Reader<String, ByteArray> = getGenericCache(type) ?: EmptyReader.default()
 
-    fun getLastHeightByHash(): Reader<BlockId, Long> {
-        return memHeightByHash
-    }
+    fun getLastHeightByHash(): Reader<BlockId, Long> = memHeightByHash
 
-    fun getHeightByHash(id: BlockId): Long? {
-        return memHeightByHash.get(id)
-    }
+    fun getHeightByHash(id: BlockId): Long? = memHeightByHash.get(id)
 
-    fun getRedisHeightByHash(): HeightByHashCache? {
-        return redisHeightByHashCache
-    }
+    fun getRedisHeightByHash(): HeightByHashCache? = redisHeightByHashCache
 
     enum class Tag {
         /**
@@ -225,7 +218,7 @@ open class Caches(
         /**
          * Data requested by client
          */
-        REQUESTED
+        REQUESTED,
     }
 
     class Builder {
@@ -298,8 +291,15 @@ open class Caches(
                 receipts = ReceiptMemCache()
             }
             return Caches(
-                blocksByHash!!, blocksByHeight!!, txsByHash!!, receipts!!,
-                redisBlocksByHash, redisTxsByHash, redisReceiptCache, redisHeightByHashCache, redisGenericRedisCacheFactory
+                blocksByHash!!,
+                blocksByHeight!!,
+                txsByHash!!,
+                receipts!!,
+                redisBlocksByHash,
+                redisTxsByHash,
+                redisReceiptCache,
+                redisHeightByHashCache,
+                redisGenericRedisCacheFactory,
             )
         }
     }

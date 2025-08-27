@@ -32,15 +32,17 @@ import reactor.core.publisher.Mono
  */
 open class TxRedisCache(
     private val redis: RedisReactiveCommands<String, ByteArray>,
-    private val chain: Chain
-) : Reader<TxId, TxContainer>,
-    OnTxRedisCache<TxContainer>(redis, chain, CachesProto.ValueContainer.ValueType.TX) {
-
+    private val chain: Chain,
+) : OnTxRedisCache<TxContainer>(redis, chain, CachesProto.ValueContainer.ValueType.TX),
+    Reader<TxId, TxContainer> {
     companion object {
         private val log = LoggerFactory.getLogger(TxRedisCache::class.java)
     }
 
-    override fun buildMeta(id: TxId, value: TxContainer): CachesProto.TxMeta.Builder {
+    override fun buildMeta(
+        id: TxId,
+        value: TxContainer,
+    ): CachesProto.TxMeta.Builder {
         val meta = super.buildMeta(id, value)
         value.height?.let {
             meta.setHeight(it)
@@ -52,9 +54,7 @@ open class TxRedisCache(
         return meta
     }
 
-    override fun serializeValue(value: TxContainer): ByteArray {
-        return value.json!!
-    }
+    override fun serializeValue(value: TxContainer): ByteArray = value.json!!
 
     override fun deserializeValue(value: CachesProto.ValueContainer): TxContainer {
         if (!value.hasTxMeta()) {
@@ -65,11 +65,12 @@ open class TxRedisCache(
             meta.height,
             TxId(meta.hash.toByteArray()),
             BlockId(meta.blockHash.toByteArray()),
-            value.value.toByteArray()
+            value.value.toByteArray(),
         )
     }
 
-    open fun add(tx: TxContainer, block: BlockContainer): Mono<Void> {
-        return super.add(tx.hash, tx, block, tx.height)
-    }
+    open fun add(
+        tx: TxContainer,
+        block: BlockContainer,
+    ): Mono<Void> = super.add(tx.hash, tx, block, tx.height)
 }

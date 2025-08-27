@@ -39,28 +39,30 @@ class JsonRpcGrpcClient(
     private val metrics: RpcMetrics?,
     private val modifier: Function<StandardRpcReader, StandardRpcReader>?,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(JsonRpcGrpcClient::class.java)
     }
 
-    fun forSelector(upstreamId: String, matcher: Selector.Matcher): StandardRpcReader {
-        return Executor(upstreamId, stub, chain, matcher, metrics)
+    fun forSelector(
+        upstreamId: String,
+        matcher: Selector.Matcher,
+    ): StandardRpcReader =
+        Executor(upstreamId, stub, chain, matcher, metrics)
             .let { modifier?.apply(it) ?: it }
-    }
 
     class Executor(
         private val upstreamId: String,
         private val stub: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val chain: Chain,
         private val matcher: Selector.Matcher,
-        private val metrics: RpcMetrics?
+        private val metrics: RpcMetrics?,
     ) : StandardRpcReader {
-
         override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
             val timer = StopWatch()
-            val req = BlockchainOuterClass.NativeCallRequest.newBuilder()
-                .setChainValue(chain.id)
+            val req =
+                BlockchainOuterClass.NativeCallRequest
+                    .newBuilder()
+                    .setChainValue(chain.id)
 
             if (matcher != Selector.empty) {
                 Selector.extractLabels(matcher)?.asProto().let {
@@ -68,19 +70,23 @@ class JsonRpcGrpcClient(
                 }
             }
 
-            val reqItem = BlockchainOuterClass.NativeCallItem.newBuilder()
-                .setId(1)
-                .setMethod(key.method)
-                .setPayload(ByteString.copyFrom(Global.objectMapper.writeValueAsBytes(key.params)))
+            val reqItem =
+                BlockchainOuterClass.NativeCallItem
+                    .newBuilder()
+                    .setId(1)
+                    .setMethod(key.method)
+                    .setPayload(ByteString.copyFrom(Global.objectMapper.writeValueAsBytes(key.params)))
             if (key.nonce != null) {
                 reqItem.nonce = key.nonce
             }
             req.addItems(reqItem.build())
 
-            return Mono.just(key)
+            return Mono
+                .just(key)
                 .doOnNext { timer.start() }
                 .flatMap {
-                    stub.nativeCall(req.build())
+                    stub
+                        .nativeCall(req.build())
                         .checkpoint("Call ${key.method} using Dshackle-gRPC on $upstreamId")
                         .single()
                         .onErrorResume(::handleError)
@@ -92,8 +98,7 @@ class JsonRpcGrpcClient(
                                 it
                             }
                         }
-                }
-                .doOnNext {
+                }.doOnNext {
                     if (timer.isStarted) {
                         metrics?.timer?.record(timer.getTime(TimeUnit.NANOSECONDS), TimeUnit.NANOSECONDS)
                     }
@@ -103,19 +108,20 @@ class JsonRpcGrpcClient(
         fun handleResponse(resp: BlockchainOuterClass.NativeCallReplyItem): Mono<JsonRpcResponse> =
             if (resp.succeed) {
                 val bytes = resp.payload.toByteArray()
-                val signature = if (resp.hasSignature()) {
-                    extractSignature(resp.signature)
-                } else {
-                    null
-                }
+                val signature =
+                    if (resp.hasSignature()) {
+                        extractSignature(resp.signature)
+                    } else {
+                        null
+                    }
                 Mono.just(JsonRpcResponse(bytes, null, JsonRpcResponse.NumberId(0), 200, signature))
             } else {
                 metrics?.fails?.increment()
                 Mono.error(
                     RpcException(
                         RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
-                        resp.errorMessage
-                    )
+                        resp.errorMessage,
+                    ),
                 )
             }
 
@@ -123,19 +129,21 @@ class JsonRpcGrpcClient(
             metrics?.fails?.increment()
             log.warn("Upstream $upstreamId error calling a $chain/NativeMethod: ${t.message}")
             return when (t) {
-                is StatusRuntimeException -> Mono.error(
-                    RpcException(
-                        RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
-                        "Remote status code: ${t.status.code.name}"
+                is StatusRuntimeException ->
+                    Mono.error(
+                        RpcException(
+                            RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
+                            "Remote status code: ${t.status.code.name}",
+                        ),
                     )
-                )
 
-                else -> Mono.error(
-                    RpcException(
-                        RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
-                        "Other connection error"
+                else ->
+                    Mono.error(
+                        RpcException(
+                            RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
+                            "Other connection error",
+                        ),
                     )
-                )
             }
         }
 
@@ -146,7 +154,7 @@ class JsonRpcGrpcClient(
             return ResponseSigner.Signature(
                 resp.signature.toByteArray(),
                 resp.upstreamId,
-                resp.keyId
+                resp.keyId,
             )
         }
     }

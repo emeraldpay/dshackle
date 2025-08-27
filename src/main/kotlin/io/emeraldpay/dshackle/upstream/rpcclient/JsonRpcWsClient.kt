@@ -22,9 +22,8 @@ import reactor.core.publisher.Mono
 
 class JsonRpcWsClient(
     private val pool: WsConnectionPool,
-    private val emptyOnNoConnection: Boolean = false
+    private val emptyOnNoConnection: Boolean = false,
 ) : StandardRpcReader {
-
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
         val ws = pool.getConnection()
         if (!ws.isConnected) {
@@ -36,9 +35,9 @@ class JsonRpcWsClient(
                         JsonRpcResponse.NumberId(key.id),
                         JsonRpcError(
                             RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
-                            "WebSocket is not connected"
-                        )
-                    )
+                            "WebSocket is not connected",
+                        ),
+                    ),
                 )
             }
         }

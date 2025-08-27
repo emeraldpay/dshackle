@@ -24,18 +24,19 @@ class MergedAvailability(
     private val source1: Publisher<UpstreamAvailability>,
     private val source2: Publisher<UpstreamAvailability>,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(MergedAvailability::class.java)
     }
 
     fun produce(): Flux<UpstreamAvailability> {
-        val selectWorst = BiFunction<UpstreamAvailability, UpstreamAvailability, UpstreamAvailability> { a, b ->
-            // the worst availability represents the final state. I.e. if any checks fails provide with it.
-            if (a.isBetterTo(b)) b else a
-        }
+        val selectWorst =
+            BiFunction<UpstreamAvailability, UpstreamAvailability, UpstreamAvailability> { a, b ->
+                // the worst availability represents the final state. I.e. if any checks fails provide with it.
+                if (a.isBetterTo(b)) b else a
+            }
 
-        return Flux.combineLatest(source1, source2, selectWorst)
+        return Flux
+            .combineLatest(source1, source2, selectWorst)
             .distinctUntilChanged()
     }
 }

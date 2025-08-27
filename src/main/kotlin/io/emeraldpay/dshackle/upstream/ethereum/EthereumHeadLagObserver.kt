@@ -23,9 +23,8 @@ import org.slf4j.LoggerFactory
 
 class EthereumHeadLagObserver(
     master: Head,
-    followers: Collection<Upstream>
+    followers: Collection<Upstream>,
 ) : HeadLagObserver(master, followers) {
-
     companion object {
         private val log = LoggerFactory.getLogger(EthereumHeadLagObserver::class.java)
     }

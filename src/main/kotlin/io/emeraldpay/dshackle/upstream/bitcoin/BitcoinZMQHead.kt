@@ -21,34 +21,34 @@ class BitcoinZMQHead(
     private val server: ZMQServer,
     private val api: StandardRpcReader,
     private val extractBlock: ExtractBlock,
-) : Head, AbstractHead(), Lifecycle {
-
+) : AbstractHead(),
+    Head,
+    Lifecycle {
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinZMQHead::class.java)
     }
 
     private var refreshSubscription: Disposable? = null
 
-    fun connect(): Flux<BlockContainer> {
-        return Flux.from(server.getFlux())
+    fun connect(): Flux<BlockContainer> =
+        Flux
+            .from(server.getFlux())
             .onBackpressureLatest()
             .map {
                 Hex.encodeHexString(it)
-            }
-            .flatMap { hash ->
-                api.read(JsonRpcRequest("getblock", listOf(hash)))
+            }.flatMap { hash ->
+                api
+                    .read(JsonRpcRequest("getblock", listOf(hash)))
                     .switchIfEmpty(Mono.error(SilentException.DataUnavailable("block $hash")))
                     .retryWhen(Retry.backoff(5, Duration.ofMillis(100)))
                     .switchIfEmpty(Mono.fromCallable { log.warn("Block $hash is not available on upstream") }.then(Mono.empty()))
                     .flatMap(JsonRpcResponse::requireResult)
                     .map(extractBlock::extract)
                     .timeout(Defaults.timeout, Mono.error(SilentException.Timeout("Block data is not received")))
-            }
-            .onErrorResume { t ->
+            }.onErrorResume { t ->
                 log.warn("Failed to get a block from upstream with error: ${t.message}")
                 connect()
             }
-    }
 
     override fun start() {
         server.start()
@@ -62,7 +62,5 @@ class BitcoinZMQHead(
         copy?.dispose()
     }
 
-    override fun isRunning(): Boolean {
-        return server.isRunning || refreshSubscription != null
-    }
+    override fun isRunning(): Boolean = server.isRunning || refreshSubscription != null
 }

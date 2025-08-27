@@ -14,7 +14,6 @@ open class EthereumEgressSubscription(
     val upstream: EthereumMultistream,
     val pendingTxesSource: PendingTxesSource?,
 ) : EgressSubscription {
-
     companion object {
         private val log = LoggerFactory.getLogger(EthereumEgressSubscription::class.java)
 
@@ -24,17 +23,18 @@ open class EthereumEgressSubscription(
         const val METHOD_PENDING_TXES = "newPendingTransactions"
     }
 
-    private val availableTopics = listOf(
-        METHOD_NEW_HEADS,
-        METHOD_LOGS,
-        METHOD_SYNCING,
-    ).let {
-        if (pendingTxesSource != null) {
-            it + METHOD_PENDING_TXES
-        } else {
-            it
+    private val availableTopics =
+        listOf(
+            METHOD_NEW_HEADS,
+            METHOD_LOGS,
+            METHOD_SYNCING,
+        ).let {
+            if (pendingTxesSource != null) {
+                it + METHOD_PENDING_TXES
+            } else {
+                it
+            }
         }
-    }
 
     private val newHeads = ConnectNewHeads(upstream)
     open val logs = ConnectLogs(upstream)
@@ -43,20 +43,24 @@ open class EthereumEgressSubscription(
     override fun getAvailableTopics() = availableTopics
 
     @Suppress("UNCHECKED_CAST")
-    override fun subscribe(topic: String, params: Any?): Flux<out Any> {
+    override fun subscribe(
+        topic: String,
+        params: Any?,
+    ): Flux<out Any> {
         if (topic == METHOD_NEW_HEADS) {
             return newHeads.connect()
         }
         if (topic == METHOD_LOGS) {
-            val paramsMap = try {
-                if (params != null && Map::class.java.isAssignableFrom(params.javaClass)) {
-                    readLogsRequest(params as Map<String, Any?>)
-                } else {
-                    LogsRequest(emptyList(), emptyList())
+            val paramsMap =
+                try {
+                    if (params != null && Map::class.java.isAssignableFrom(params.javaClass)) {
+                        readLogsRequest(params as Map<String, Any?>)
+                    } else {
+                        LogsRequest(emptyList(), emptyList())
+                    }
+                } catch (t: Throwable) {
+                    return Flux.error(UnsupportedOperationException("Invalid parameter for $topic. Error: ${t.message}"))
                 }
-            } catch (t: Throwable) {
-                return Flux.error(UnsupportedOperationException("Invalid parameter for $topic. Error: ${t.message}"))
-            }
             return logs.create(paramsMap.address, paramsMap.topics).connect()
         }
         if (topic == METHOD_SYNCING) {
@@ -70,52 +74,58 @@ open class EthereumEgressSubscription(
 
     data class LogsRequest(
         val address: List<Address>,
-        val topics: List<Hex32>
+        val topics: List<Hex32>,
     )
 
     fun readLogsRequest(params: Map<String, Any?>): LogsRequest {
-        val addresses: List<Address> = if (params.containsKey("address")) {
-            when (val address = params["address"]) {
-                is String -> try {
-                    listOf(Address.from(address))
-                } catch (t: Throwable) {
-                    log.debug("Ignore invalid address: $address with error ${t.message}")
-                    emptyList()
+        val addresses: List<Address> =
+            if (params.containsKey("address")) {
+                when (val address = params["address"]) {
+                    is String ->
+                        try {
+                            listOf(Address.from(address))
+                        } catch (t: Throwable) {
+                            log.debug("Ignore invalid address: $address with error ${t.message}")
+                            emptyList()
+                        }
+                    is Collection<*> ->
+                        address.mapNotNull {
+                            try {
+                                Address.from(it.toString())
+                            } catch (t: Throwable) {
+                                log.debug("Ignore invalid address: $address with error ${t.message}")
+                                null
+                            }
+                        }
+                    else -> throw IllegalArgumentException("Invalid type of address field. Must be string or list of strings")
                 }
-                is Collection<*> -> address.mapNotNull {
-                    try {
-                        Address.from(it.toString())
-                    } catch (t: Throwable) {
-                        log.debug("Ignore invalid address: $address with error ${t.message}")
-                        null
-                    }
-                }
-                else -> throw IllegalArgumentException("Invalid type of address field. Must be string or list of strings")
+            } else {
+                emptyList()
             }
-        } else {
-            emptyList()
-        }
-        val topics: List<Hex32> = if (params.containsKey("topics")) {
-            when (val topics = params["topics"]) {
-                is String -> try {
-                    listOf(Hex32.from(topics))
-                } catch (t: Throwable) {
-                    log.debug("Ignore invalid topic: $topics with error ${t.message}")
-                    emptyList()
+        val topics: List<Hex32> =
+            if (params.containsKey("topics")) {
+                when (val topics = params["topics"]) {
+                    is String ->
+                        try {
+                            listOf(Hex32.from(topics))
+                        } catch (t: Throwable) {
+                            log.debug("Ignore invalid topic: $topics with error ${t.message}")
+                            emptyList()
+                        }
+                    is Collection<*> ->
+                        topics.mapNotNull {
+                            try {
+                                Hex32.from(it.toString())
+                            } catch (t: Throwable) {
+                                log.debug("Ignore invalid topic: $topics with error ${t.message}")
+                                null
+                            }
+                        }
+                    else -> throw IllegalArgumentException("Invalid type of topics field. Must be string or list of strings")
                 }
-                is Collection<*> -> topics.mapNotNull {
-                    try {
-                        Hex32.from(it.toString())
-                    } catch (t: Throwable) {
-                        log.debug("Ignore invalid topic: $topics with error ${t.message}")
-                        null
-                    }
-                }
-                else -> throw IllegalArgumentException("Invalid type of topics field. Must be string or list of strings")
+            } else {
+                emptyList()
             }
-        } else {
-            emptyList()
-        }
         return LogsRequest(addresses, topics)
     }
 }

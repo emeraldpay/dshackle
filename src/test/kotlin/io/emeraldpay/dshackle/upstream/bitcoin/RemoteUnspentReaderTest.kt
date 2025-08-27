@@ -16,59 +16,66 @@ import org.bitcoinj.params.MainNetParams
 import reactor.core.publisher.Flux
 import java.time.Duration
 
-class RemoteUnspentReaderTest : ShouldSpec({
+class RemoteUnspentReaderTest :
+    ShouldSpec({
 
-    should("Create a request") {
-        val ups = mockk<BitcoinMultistream>()
-        every { ups.chain } returns Chain.BITCOIN
-        val reader = RemoteUnspentReader(ups)
+        should("Create a request") {
+            val ups = mockk<BitcoinMultistream>()
+            every { ups.chain } returns Chain.BITCOIN
+            val reader = RemoteUnspentReader(ups)
 
-        val act = reader.createRequest(Address.fromString(MainNetParams.get(), "38XnPvu9PmonFU9WouPXUjYbW91wa5MerL"))
+            val act = reader.createRequest(Address.fromString(MainNetParams.get(), "38XnPvu9PmonFU9WouPXUjYbW91wa5MerL"))
 
-        act.asset.chain.name shouldBe "CHAIN_BITCOIN"
-        act.includeUtxo shouldBe true
-        act.address.addrTypeCase shouldBe Common.AnyAddress.AddrTypeCase.ADDRESS_SINGLE
-        act.address.addressSingle.address shouldBe "38XnPvu9PmonFU9WouPXUjYbW91wa5MerL"
-    }
-
-    should("Read from remote") {
-        val ups = mockk<BitcoinMultistream>()
-        every { ups.chain } returns Chain.BITCOIN
-        val reader = RemoteUnspentReader(ups)
-
-        val up = mockk<BitcoinGrpcUpstream>()
-        every { up.remote } returns mockk() {
-            every { getBalance(any() as BalanceRequest) } returns Flux.fromIterable(
-                listOf(
-                    AddressBalance.newBuilder()
-                        .addAllUtxo(
-                            listOf(
-                                Utxo.newBuilder()
-                                    .setTxId("cb46a01a257194ecf7d6a1f7e1bee8ac4f0a6687ec13bb0bba8942377b64a6c4")
-                                    .setIndex(0)
-                                    .setBalance("102030")
-                                    .build(),
-                                Utxo.newBuilder()
-                                    .setTxId("c742a3e4257194ecf7d6a1f7e1bee8ac4b066a51ec13bb0bba8942377b64a6c4")
-                                    .setIndex(1)
-                                    .setBalance("123")
-                                    .build()
-                            )
-                        )
-                        .build()
-                )
-            )
+            act.asset.chain.name shouldBe "CHAIN_BITCOIN"
+            act.includeUtxo shouldBe true
+            act.address.addrTypeCase shouldBe Common.AnyAddress.AddrTypeCase.ADDRESS_SINGLE
+            act.address.addressSingle.address shouldBe "38XnPvu9PmonFU9WouPXUjYbW91wa5MerL"
         }
 
-        val act = reader.readFromUpstream(up, Address.fromString(MainNetParams.get(), "38XnPvu9PmonFU9WouPXUjYbW91wa5MerL"))
-            .block(Duration.ofSeconds(1))
+        should("Read from remote") {
+            val ups = mockk<BitcoinMultistream>()
+            every { ups.chain } returns Chain.BITCOIN
+            val reader = RemoteUnspentReader(ups)
 
-        act shouldHaveSize 2
-        act[0].txid shouldBe "cb46a01a257194ecf7d6a1f7e1bee8ac4f0a6687ec13bb0bba8942377b64a6c4"
-        act[0].vout shouldBe 0
-        act[0].value shouldBe 102030
-        act[1].txid shouldBe "c742a3e4257194ecf7d6a1f7e1bee8ac4b066a51ec13bb0bba8942377b64a6c4"
-        act[1].vout shouldBe 1
-        act[1].value shouldBe 123
-    }
-})
+            val up = mockk<BitcoinGrpcUpstream>()
+            every { up.remote } returns
+                mockk {
+                    every { getBalance(any() as BalanceRequest) } returns
+                        Flux.fromIterable(
+                            listOf(
+                                AddressBalance
+                                    .newBuilder()
+                                    .addAllUtxo(
+                                        listOf(
+                                            Utxo
+                                                .newBuilder()
+                                                .setTxId("cb46a01a257194ecf7d6a1f7e1bee8ac4f0a6687ec13bb0bba8942377b64a6c4")
+                                                .setIndex(0)
+                                                .setBalance("102030")
+                                                .build(),
+                                            Utxo
+                                                .newBuilder()
+                                                .setTxId("c742a3e4257194ecf7d6a1f7e1bee8ac4b066a51ec13bb0bba8942377b64a6c4")
+                                                .setIndex(1)
+                                                .setBalance("123")
+                                                .build(),
+                                        ),
+                                    ).build(),
+                            ),
+                        )
+                }
+
+            val act =
+                reader
+                    .readFromUpstream(up, Address.fromString(MainNetParams.get(), "38XnPvu9PmonFU9WouPXUjYbW91wa5MerL"))
+                    .block(Duration.ofSeconds(1))
+
+            act shouldHaveSize 2
+            act[0].txid shouldBe "cb46a01a257194ecf7d6a1f7e1bee8ac4f0a6687ec13bb0bba8942377b64a6c4"
+            act[0].vout shouldBe 0
+            act[0].value shouldBe 102030
+            act[1].txid shouldBe "c742a3e4257194ecf7d6a1f7e1bee8ac4b066a51ec13bb0bba8942377b64a6c4"
+            act[1].vout shouldBe 1
+            act[1].value shouldBe 123
+        }
+    })

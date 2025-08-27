@@ -22,21 +22,21 @@ import java.util.concurrent.atomic.AtomicLong
  * A wrapper for a potentially too frequent event that limits its rate to max withing the specified duration.
  */
 class RateLimitedAction(
-    period: Duration
+    period: Duration,
 ) {
-
     private val lastRun = AtomicLong(0)
     private val runRate = period.toMillis()
 
     fun execute(block: () -> Unit) {
         val now = System.currentTimeMillis()
-        val lock = lastRun.updateAndGet { prev ->
-            if (prev + runRate <= now) {
-                now
-            } else {
-                prev
+        val lock =
+            lastRun.updateAndGet { prev ->
+                if (prev + runRate <= now) {
+                    now
+                } else {
+                    prev
+                }
             }
-        }
         if (lock == now) {
             block.invoke()
         }

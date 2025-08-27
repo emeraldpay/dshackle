@@ -24,7 +24,6 @@ import java.time.Instant
 import java.util.UUID
 
 class AccessRecord {
-
     companion object {
         private val log = LoggerFactory.getLogger(AccessRecord::class.java)
     }
@@ -33,7 +32,7 @@ class AccessRecord {
     abstract class Base(
         val id: UUID,
         val method: String,
-        val channel: Channel
+        val channel: Channel,
     ) {
         val version = "accesslog/v1beta2"
         var ts = Instant.now()
@@ -43,20 +42,20 @@ class AccessRecord {
     data class RequestDetails(
         val id: UUID,
         val start: Instant,
-        val remote: Remote? = null
+        val remote: Remote? = null,
     )
 
     data class Remote(
         val ips: List<String>,
         val ip: String,
-        val userAgent: String
+        val userAgent: String,
     )
 
     abstract class ChainBase(
         val blockchain: Chain,
         method: String,
         id: UUID,
-        channel: Channel
+        channel: Channel,
     ) : Base(id, method, channel)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -66,7 +65,7 @@ class AccessRecord {
         // initial request details
         val request: RequestDetails,
         // index of the current response
-        val index: Int
+        val index: Int,
     ) : ChainBase(blockchain, "SubscribeHead", id, Channel.DSHACKLE)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -79,7 +78,7 @@ class AccessRecord {
         val balanceRequest: BalanceRequest,
         val addressBalance: AddressBalance,
         // index of the current response
-        val index: Int
+        val index: Int,
     ) : ChainBase(blockchain, if (subscribe) "SubscribeBalance" else "GetBalance", id, Channel.DSHACKLE)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -92,7 +91,7 @@ class AccessRecord {
         val addressAllowanceRequest: AddressAllowanceRequest,
         val addressAllowance: AddressAllowance,
         // index of the current response
-        val index: Int
+        val index: Int,
     ) : ChainBase(blockchain, if (subscribe) "SubscribeAddressAllowance" else "GetAddressAllowance", id, Channel.DSHACKLE)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -103,15 +102,15 @@ class AccessRecord {
         val txStatusRequest: TxStatusRequest,
         val txStatus: TxStatusResponse,
         // index of the current response
-        val index: Int
+        val index: Int,
     ) : ChainBase(blockchain, "SubscribeTxStatus", id, Channel.DSHACKLE)
 
     data class TxStatusRequest(
-        val txId: String
+        val txId: String,
     )
 
     data class TxStatusResponse(
-        val confirmations: Int
+        val confirmations: Int,
     )
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -119,7 +118,6 @@ class AccessRecord {
         blockchain: Chain,
         id: UUID,
         channel: Channel,
-
         // info about the initial request, that may include several native calls
         val request: RequestDetails,
         // total native calls passes within the initial request
@@ -129,7 +127,6 @@ class AccessRecord {
         val selector: String? = null,
         val quorum: Long? = null,
         val minAvailability: String? = null,
-
         val succeed: Boolean,
         val rpcError: Int? = null,
         val payloadSizeBytes: Long,
@@ -137,7 +134,7 @@ class AccessRecord {
         val responseBody: String? = null,
         val errorMessage: String? = null,
         val nonce: Long? = null,
-        val signature: String? = null
+        val signature: String? = null,
     ) : ChainBase(blockchain, "NativeCall", id, channel)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -145,7 +142,6 @@ class AccessRecord {
         blockchain: Chain,
         id: UUID,
         channel: Channel,
-
         // info about the initial request, that may include several native calls
         val request: RequestDetails,
         val payloadSizeBytes: Long,
@@ -156,14 +152,14 @@ class AccessRecord {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class Describe(
         id: UUID,
-        val request: RequestDetails
+        val request: RequestDetails,
     ) : Base(id, "Describe", Channel.DSHACKLE)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class Status(
         blockchain: Chain,
         id: UUID,
-        val request: RequestDetails
+        val request: RequestDetails,
     ) : ChainBase(blockchain, "Status", id, Channel.DSHACKLE)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -171,7 +167,7 @@ class AccessRecord {
         blockchain: Chain,
         id: UUID,
         val request: RequestDetails,
-        val estimateFee: EstimateFeeDetails
+        val estimateFee: EstimateFeeDetails,
     ) : ChainBase(blockchain, "EstimateFee", id, Channel.DSHACKLE)
 
     data class NativeCallItemDetails(
@@ -179,46 +175,46 @@ class AccessRecord {
         val id: Int,
         val payloadSizeBytes: Long,
         val nonce: Long,
-        val requestParams: String? = null
+        val requestParams: String? = null,
     )
 
     data class NativeCallReplyDetails(
         val id: Int,
         val succeed: Boolean,
         val replySizeBytes: Long,
-        val ts: Instant = Instant.now()
+        val ts: Instant = Instant.now(),
     )
 
     data class NativeSubscribeItemDetails(
         val method: String,
-        val payloadSizeBytes: Long
+        val payloadSizeBytes: Long,
     )
 
     data class NativeSubscribeReplyDetails(
         val replySizeBytes: Long,
-        val ts: Instant = Instant.now()
+        val ts: Instant = Instant.now(),
     )
 
     data class BalanceRequest(
         val asset: String,
-        val addressType: String
+        val addressType: String,
     )
 
     data class AddressBalance(
         val asset: String,
-        val address: String
+        val address: String,
     )
 
     data class AddressAllowanceRequest(
-        val addressType: String
+        val addressType: String,
     )
 
     data class AddressAllowance(
-        val address: String
+        val address: String,
     )
 
     data class EstimateFeeDetails(
         val mode: String,
-        val blocks: Int
+        val blocks: Int,
     )
 }

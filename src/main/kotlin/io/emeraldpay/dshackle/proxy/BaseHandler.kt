@@ -31,7 +31,6 @@ abstract class BaseHandler(
     private val nativeCall: NativeCall,
     private val requestMetrics: ProxyServer.RequestMetricsFactory,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(BaseHandler::class.java)
     }
@@ -40,7 +39,7 @@ abstract class BaseHandler(
         chain: Chain,
         call: ProxyCall,
         handler: AccessLogHandlerHttp.RequestHandler,
-        preserveBatchOrder: Boolean = false
+        preserveBatchOrder: Boolean = false,
     ): Publisher<String> {
         // return empty response for empty request
         if (call.items.isEmpty()) {
@@ -62,13 +61,16 @@ abstract class BaseHandler(
                     } else {
                         it
                     }
-                }
-                .transform(writeRpcJson.toJsons(call))
+                }.transform(writeRpcJson.toJsons(call))
                 .transform(writeRpcJson.asArray())
         }
     }
 
-    fun execute(chain: Chain, items: List<BlockchainOuterClass.NativeCallItem>, handler: AccessLogHandlerHttp.RequestHandler): Flux<NativeCall.CallResult> {
+    fun execute(
+        chain: Chain,
+        items: List<BlockchainOuterClass.NativeCallItem>,
+        handler: AccessLogHandlerHttp.RequestHandler,
+    ): Flux<NativeCall.CallResult> {
         val startTime = System.currentTimeMillis()
         // during the execution we know only ID of the call, so we use it to find the origin call and associated metrics
         val metricById = { id: Int ->
@@ -76,10 +78,12 @@ abstract class BaseHandler(
                 requestMetrics.get(chain, item.method)
             }
         }
-        val request = BlockchainOuterClass.NativeCallRequest.newBuilder()
-            .setChain(Common.ChainRef.forNumber(chain.id))
-            .addAllItems(items)
-            .build()
+        val request =
+            BlockchainOuterClass.NativeCallRequest
+                .newBuilder()
+                .setChain(Common.ChainRef.forNumber(chain.id))
+                .addAllItems(items)
+                .build()
         handler.onRequest(request)
         return nativeCall
             .nativeCallResult(Mono.just(request))
@@ -92,8 +96,7 @@ abstract class BaseHandler(
                     }
                 }
                 handler.onResponse(it)
-            }
-            .doOnError {
+            }.doOnError {
                 // when error happened the whole flux is stopped and no result is produced, so we should mark all the requests as failed
                 items.forEach { item ->
                     requestMetrics.get(chain, item.method).failMetric.increment()
@@ -106,10 +109,13 @@ abstract class BaseHandler(
      * Note that it's highly inefficient because it requires keeping all the responses in memory until last one is processes, so should be used only if
      * a client is unable to reference responses by their IDs.
      */
-    fun reorderByRequest(items: List<BlockchainOuterClass.NativeCallItem>): java.util.function.Function<Flux<NativeCall.CallResult>, Flux<NativeCall.CallResult>> {
+    fun reorderByRequest(
+        items: List<BlockchainOuterClass.NativeCallItem>,
+    ): java.util.function.Function<Flux<NativeCall.CallResult>, Flux<NativeCall.CallResult>> {
         val order = items.map { it.id }
         return java.util.function.Function { src ->
-            src.collectList()
+            src
+                .collectList()
                 .map { results ->
                     order.map { id ->
                         results.find { it.id == id }
@@ -118,8 +124,7 @@ abstract class BaseHandler(
                             // At this case, if we found a gap in responses, we put a default response with an error
                             ?: NativeCall.CallResult(id, null, null, NativeCall.CallError(id, "No response", null), null)
                     }
-                }
-                .flatMapMany {
+                }.flatMapMany {
                     Flux.fromIterable(it)
                 }
         }

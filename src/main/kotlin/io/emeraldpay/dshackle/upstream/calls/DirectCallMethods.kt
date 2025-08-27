@@ -23,30 +23,21 @@ import io.emeraldpay.dshackle.quorum.CallQuorum
  * Configuration that uses [AlwaysQuorum] for all available methods. The methods list itself
  * is provided in constructor (or empty otherwise)
  */
-open class DirectCallMethods(private val methods: Set<String>) : CallMethods {
-
+open class DirectCallMethods(
+    private val methods: Set<String>,
+) : CallMethods {
     constructor() : this(emptySet())
     constructor(methods: Collection<String>) : this(methods.toSet())
 
-    override fun createQuorumFor(method: String): CallQuorum {
-        return AlwaysQuorum()
-    }
+    override fun createQuorumFor(method: String): CallQuorum = AlwaysQuorum()
 
-    override fun isCallable(method: String): Boolean {
-        return methods.contains(method)
-    }
+    override fun isCallable(method: String): Boolean = methods.contains(method)
 
-    override fun getSupportedMethods(): Set<String> {
-        return methods
-    }
+    override fun getSupportedMethods(): Set<String> = methods
 
-    override fun isHardcoded(method: String): Boolean {
-        return false
-    }
+    override fun isHardcoded(method: String): Boolean = false
 
-    override fun executeHardcoded(method: String): ByteArray {
-        return "unsupported".toByteArray()
-    }
+    override fun executeHardcoded(method: String): ByteArray = "unsupported".toByteArray()
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -57,7 +48,5 @@ open class DirectCallMethods(private val methods: Set<String>) : CallMethods {
         return true
     }
 
-    override fun hashCode(): Int {
-        return methods.hashCode()
-    }
+    override fun hashCode(): Int = methods.hashCode()
 }

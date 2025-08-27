@@ -18,9 +18,8 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 
 class WsConnectionSinglePool(
-    private val connection: WsConnection
+    private val connection: WsConnection,
 ) : WsConnectionPool() {
-
     override fun connect() {
         if (!connection.isConnected) {
             connection.connect()
@@ -35,9 +34,7 @@ class WsConnectionSinglePool(
         }
     }
 
-    override fun getConnection(): WsConnection {
-        return connection
-    }
+    override fun getConnection(): WsConnection = connection
 
     override fun close() {
         connection.close()

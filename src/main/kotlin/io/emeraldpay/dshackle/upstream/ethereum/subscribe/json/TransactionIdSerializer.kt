@@ -22,12 +22,15 @@ import io.emeraldpay.etherjar.domain.TransactionId
 import org.slf4j.LoggerFactory
 
 class TransactionIdSerializer : JsonSerializer<TransactionId>() {
-
     companion object {
         private val log = LoggerFactory.getLogger(TransactionIdSerializer::class.java)
     }
 
-    override fun serialize(value: TransactionId?, gen: JsonGenerator, serializers: SerializerProvider) {
+    override fun serialize(
+        value: TransactionId?,
+        gen: JsonGenerator,
+        serializers: SerializerProvider,
+    ) {
         if (value == null) {
             gen.writeNull()
             return

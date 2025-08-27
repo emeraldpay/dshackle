@@ -29,14 +29,13 @@ class RekeyingReader<K, K1, D>(
     /**
      * Actual reader
      */
-    private val reader: Reader<K1, D>
+    private val reader: Reader<K1, D>,
 ) : Reader<K, D> {
-
-    override fun read(key: K): Mono<D> {
-        return Mono.just(key)
+    override fun read(key: K): Mono<D> =
+        Mono
+            .just(key)
             .map(rekey)
             .flatMap {
                 reader.read(it)
             }
-    }
 }

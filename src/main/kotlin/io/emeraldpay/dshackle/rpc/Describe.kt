@@ -29,22 +29,23 @@ import reactor.core.publisher.Mono
 @Service
 class Describe(
     @Autowired private val multistreamHolder: MultistreamHolder,
-    @Autowired private val subscribeStatus: SubscribeStatus
+    @Autowired private val subscribeStatus: SubscribeStatus,
 ) {
-
-    fun describe(requestMono: Mono<BlockchainOuterClass.DescribeRequest>): Mono<BlockchainOuterClass.DescribeResponse> {
-        return requestMono.map { _ ->
+    fun describe(requestMono: Mono<BlockchainOuterClass.DescribeRequest>): Mono<BlockchainOuterClass.DescribeResponse> =
+        requestMono.map { _ ->
             val resp = BlockchainOuterClass.DescribeResponse.newBuilder()
             multistreamHolder.getAvailable().forEach { chain ->
                 multistreamHolder.getUpstream(chain)?.let { chainUpstreams ->
                     val status = subscribeStatus.chainStatus(chain, chainUpstreams.getStatus(), chainUpstreams)
                     val targets = chainUpstreams.getMethods().getSupportedMethods()
                     val capabilities: MutableSet<Capability> = mutableSetOf()
-                    val chainDescription = BlockchainOuterClass.DescribeChain.newBuilder()
-                        .setChain(Common.ChainRef.forNumber(chain.id))
-                        .addAllSupportedMethods(targets)
-                        .addAllSupportedSubscriptions(chainUpstreams.getEgressSubscription().getAvailableTopics())
-                        .setStatus(status)
+                    val chainDescription =
+                        BlockchainOuterClass.DescribeChain
+                            .newBuilder()
+                            .setChain(Common.ChainRef.forNumber(chain.id))
+                            .addAllSupportedMethods(targets)
+                            .addAllSupportedSubscriptions(chainUpstreams.getEgressSubscription().getAvailableTopics())
+                            .setStatus(status)
                     chainUpstreams.getAll().let { ups ->
                         ups.forEach { up ->
                             val nodes = QuorumForLabels()
@@ -52,16 +53,19 @@ class Describe(
                                 nodes.add(up.getQuorumByLabel())
                             }
                             nodes.getAll().forEach { node ->
-                                val nodeDetails = BlockchainOuterClass.NodeDetails.newBuilder()
-                                    .setQuorum(node.quorum)
-                                    .addAllLabels(
-                                        node.labels.entries.map { label ->
-                                            BlockchainOuterClass.Label.newBuilder()
-                                                .setName(label.key)
-                                                .setValue(label.value)
-                                                .build()
-                                        }
-                                    )
+                                val nodeDetails =
+                                    BlockchainOuterClass.NodeDetails
+                                        .newBuilder()
+                                        .setQuorum(node.quorum)
+                                        .addAllLabels(
+                                            node.labels.entries.map { label ->
+                                                BlockchainOuterClass.Label
+                                                    .newBuilder()
+                                                    .setName(label.key)
+                                                    .setValue(label.value)
+                                                    .build()
+                                            },
+                                        )
                                 chainDescription.addNodes(nodeDetails)
                             }
                             capabilities.addAll(up.getCapabilities())
@@ -74,12 +78,11 @@ class Describe(
                                 Capability.BALANCE -> BlockchainOuterClass.Capabilities.CAP_BALANCE
                                 Capability.ALLOWANCE -> BlockchainOuterClass.Capabilities.CAP_ALLOWANCE
                             }
-                        }
+                        },
                     )
                     resp.addChains(chainDescription.build())
                 }
             }
             resp.build()
         }
-    }
 }

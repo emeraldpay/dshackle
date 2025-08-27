@@ -33,63 +33,73 @@ import reactor.core.publisher.Mono
 
 @Service
 open class NativeSubscribe(
-    @Autowired private val multistreamHolder: MultistreamHolder
+    @Autowired private val multistreamHolder: MultistreamHolder,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(NativeSubscribe::class.java)
     }
 
     private val objectMapper = Global.objectMapper
 
-    fun nativeSubscribe(request: Mono<BlockchainOuterClass.NativeSubscribeRequest>): Flux<BlockchainOuterClass.NativeSubscribeReplyItem> {
-        return request
+    fun nativeSubscribe(request: Mono<BlockchainOuterClass.NativeSubscribeRequest>): Flux<BlockchainOuterClass.NativeSubscribeReplyItem> =
+        request
             .flatMapMany(this@NativeSubscribe::start)
             .map(this@NativeSubscribe::convertToProto)
             .onErrorMap(this@NativeSubscribe::convertToStatus)
-    }
 
     fun start(request: BlockchainOuterClass.NativeSubscribeRequest): Publisher<out Any> {
         val chain = Chain.byId(request.chainValue)
         val method = request.method
-        val params: Any? = request.payload?.let { payload ->
-            if (payload.size() > 0) {
-                objectMapper.readValue(payload.newInput(), Map::class.java)
-            } else {
-                null
+        val params: Any? =
+            request.payload?.let { payload ->
+                if (payload.size() > 0) {
+                    objectMapper.readValue(payload.newInput(), Map::class.java)
+                } else {
+                    null
+                }
             }
-        }
         return subscribe(chain, method, params)
     }
 
-    fun convertToStatus(t: Throwable) = when (t) {
-        is SilentException.UnsupportedBlockchain -> StatusException(
-            Status.UNAVAILABLE.withDescription("BLOCKCHAIN UNAVAILABLE: ${t.blockchainId}")
-        )
-        is UnsupportedOperationException -> StatusException(
-            Status.UNIMPLEMENTED.withDescription(t.message)
-        )
-        else -> {
-            log.warn("Unhandled error", t)
-            StatusException(
-                Status.INTERNAL.withDescription(t.message)
-            )
+    fun convertToStatus(t: Throwable) =
+        when (t) {
+            is SilentException.UnsupportedBlockchain ->
+                StatusException(
+                    Status.UNAVAILABLE.withDescription("BLOCKCHAIN UNAVAILABLE: ${t.blockchainId}"),
+                )
+            is UnsupportedOperationException ->
+                StatusException(
+                    Status.UNIMPLEMENTED.withDescription(t.message),
+                )
+            else -> {
+                log.warn("Unhandled error", t)
+                StatusException(
+                    Status.INTERNAL.withDescription(t.message),
+                )
+            }
         }
-    }
 
-    open fun subscribe(chain: Chain, method: String, params: Any?): Flux<out Any> {
-        val up = multistreamHolder.getUpstream(chain) as? HasEgressSubscription ?: return Flux.error(SilentException.UnsupportedBlockchain(chain))
+    open fun subscribe(
+        chain: Chain,
+        method: String,
+        params: Any?,
+    ): Flux<out Any> {
+        val up =
+            multistreamHolder.getUpstream(chain) as? HasEgressSubscription
+                ?: return Flux.error(SilentException.UnsupportedBlockchain(chain))
         return up
             .getEgressSubscription()
             .subscribe(method, params)
     }
 
     fun convertToProto(value: Any): BlockchainOuterClass.NativeSubscribeReplyItem {
-        val result = when (value) {
-            is ByteArray -> value
-            else -> objectMapper.writeValueAsBytes(value)
-        }
-        return BlockchainOuterClass.NativeSubscribeReplyItem.newBuilder()
+        val result =
+            when (value) {
+                is ByteArray -> value
+                else -> objectMapper.writeValueAsBytes(value)
+            }
+        return BlockchainOuterClass.NativeSubscribeReplyItem
+            .newBuilder()
             .setPayload(ByteString.copyFrom(result))
             .build()
     }

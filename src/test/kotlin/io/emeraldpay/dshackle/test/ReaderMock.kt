@@ -5,14 +5,16 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
 class ReaderMock<K, D> : Reader<K, D> {
-
     companion object {
         private val log = LoggerFactory.getLogger(ReaderMock::class.java)
     }
 
     private val mapping = mutableMapOf<K, D>()
 
-    fun with(key: K, data: D): ReaderMock<K, D> {
+    fun with(
+        key: K,
+        data: D,
+    ): ReaderMock<K, D> {
         mapping[key] = data
         return this
     }

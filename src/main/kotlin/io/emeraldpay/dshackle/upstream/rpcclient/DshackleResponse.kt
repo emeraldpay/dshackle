@@ -7,13 +7,11 @@ data class DshackleResponse(
     val id: Int,
     val result: ByteArray?,
     val error: JsonRpcError?,
-
     /**
      * When making a request through Dshackle protocol a remote may provide its signature with the response, which we keep here
      */
-    val providedSignature: ResponseSigner.Signature? = null
+    val providedSignature: ResponseSigner.Signature? = null,
 ) {
-
     constructor(id: Int, result: ByteArray) : this(id, result, null)
     constructor(id: Int, error: JsonRpcError) : this(id, null, error)
 
@@ -40,19 +38,17 @@ data class DshackleResponse(
             }
         }
 
-    fun requireResult(): Mono<ByteArray> {
-        return if (error != null) {
+    fun requireResult(): Mono<ByteArray> =
+        if (error != null) {
             Mono.error(error.asException(JsonRpcResponse.NumberId(id)))
         } else {
             Mono.just(resultOrEmpty)
         }
-    }
 
-    fun requireStringResult(): Mono<String> {
-        return if (error != null) {
+    fun requireStringResult(): Mono<String> =
+        if (error != null) {
             Mono.error(error.asException(JsonRpcResponse.NumberId(id)))
         } else {
             Mono.just(resultAsProcessedString)
         }
-    }
 }

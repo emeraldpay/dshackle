@@ -36,9 +36,8 @@ class UpstreamChange(
     /**
      * Type of the change
      */
-    val type: ChangeType
+    val type: ChangeType,
 ) : CachesEnabled {
-
     enum class ChangeType {
         /**
          * Upstream just added

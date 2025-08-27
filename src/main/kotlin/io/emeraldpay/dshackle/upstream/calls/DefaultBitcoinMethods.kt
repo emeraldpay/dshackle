@@ -25,43 +25,54 @@ import io.emeraldpay.etherjar.rpc.RpcException
 import java.util.Collections
 
 class DefaultBitcoinMethods : CallMethods {
-
-    private val networkinfo = Global.objectMapper.writeValueAsBytes(
-        mapOf(
-            "version" to 210100,
-            "subversion" to "/EmeraldDshackle:${Global.version}/"
+    private val networkinfo =
+        Global.objectMapper.writeValueAsBytes(
+            mapOf(
+                "version" to 210100,
+                "subversion" to "/EmeraldDshackle:${Global.version}/",
+            ),
         )
-    )
 
-    private val freshMethods = listOf(
-        "getblock",
-        "gettransaction", "gettxout",
-        "getmemorypool",
-        "getrawmempool"
-    ).sorted()
+    private val freshMethods =
+        listOf(
+            "getblock",
+            "gettransaction",
+            "gettxout",
+            "getmemorypool",
+            "getrawmempool",
+        ).sorted()
 
-    private val anyResponseMethods = listOf(
-        "getblockhash", "getrawtransaction"
-    ).sorted()
+    private val anyResponseMethods =
+        listOf(
+            "getblockhash",
+            "getrawtransaction",
+        ).sorted()
 
-    private val headVerifiedMethods = listOf(
-        "getbestblockhash", "getblocknumber", "getblockcount",
-        "listunspent", "getreceivedbyaddress"
-    ).sorted()
+    private val headVerifiedMethods =
+        listOf(
+            "getbestblockhash",
+            "getblocknumber",
+            "getblockcount",
+            "listunspent",
+            "getreceivedbyaddress",
+        ).sorted()
 
-    private val hardcodedMethods = listOf(
-        "getconnectioncount", "getnetworkinfo"
-    ).sorted()
+    private val hardcodedMethods =
+        listOf(
+            "getconnectioncount",
+            "getnetworkinfo",
+        ).sorted()
 
-    private val broadcastMethods = listOf(
-        "sendrawtransaction"
-    ).sorted()
+    private val broadcastMethods =
+        listOf(
+            "sendrawtransaction",
+        ).sorted()
 
     private val allowedMethods =
         (freshMethods + anyResponseMethods + headVerifiedMethods + broadcastMethods).sorted()
 
-    override fun createQuorumFor(method: String): CallQuorum {
-        return when {
+    override fun createQuorumFor(method: String): CallQuorum =
+        when {
             Collections.binarySearch(hardcodedMethods, method) >= 0 -> AlwaysQuorum()
             Collections.binarySearch(anyResponseMethods, method) >= 0 -> NonEmptyQuorum()
             Collections.binarySearch(freshMethods, method) >= 0 -> NotLaggingQuorum(2)
@@ -69,25 +80,17 @@ class DefaultBitcoinMethods : CallMethods {
             Collections.binarySearch(broadcastMethods, method) >= 0 -> BroadcastQuorum()
             else -> AlwaysQuorum()
         }
-    }
 
-    override fun isCallable(method: String): Boolean {
-        return Collections.binarySearch(allowedMethods, method) >= 0
-    }
+    override fun isCallable(method: String): Boolean = Collections.binarySearch(allowedMethods, method) >= 0
 
-    override fun getSupportedMethods(): Set<String> {
-        return allowedMethods.plus(hardcodedMethods).toSortedSet()
-    }
+    override fun getSupportedMethods(): Set<String> = allowedMethods.plus(hardcodedMethods).toSortedSet()
 
-    override fun isHardcoded(method: String): Boolean {
-        return Collections.binarySearch(hardcodedMethods, method) >= 0
-    }
+    override fun isHardcoded(method: String): Boolean = Collections.binarySearch(hardcodedMethods, method) >= 0
 
-    override fun executeHardcoded(method: String): ByteArray {
-        return when (method) {
+    override fun executeHardcoded(method: String): ByteArray =
+        when (method) {
             "getconnectioncount" -> "42".toByteArray()
             "getnetworkinfo" -> networkinfo
             else -> throw RpcException(-32601, "Method not found")
         }
-    }
 }

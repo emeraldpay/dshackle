@@ -34,9 +34,8 @@ import java.util.concurrent.locks.ReentrantLock
 
 open class CachingMempoolData(
     private val api: DshackleRpcReader,
-    private val head: AtomicReference<Head>
+    private val head: AtomicReference<Head>,
 ) : Lifecycle {
-
     companion object {
         private val log = LoggerFactory.getLogger(CachingMempoolData::class.java)
         private val TTL = Duration.ofSeconds(15)
@@ -66,34 +65,39 @@ open class CachingMempoolData(
 
     @Suppress("UNCHECKED_CAST")
     fun fetchFromUpstream(): Mono<List<String>> {
-        val request = DshackleRequest(
-            id = 1,
-            method = "getrawmempool",
-            params = emptyList(),
-            matcher = Selector.CapabilityMatcher(Capability.RPC)
-        )
-        return api.read(request)
+        val request =
+            DshackleRequest(
+                id = 1,
+                method = "getrawmempool",
+                params = emptyList(),
+                matcher = Selector.CapabilityMatcher(Capability.RPC),
+            )
+        return api
+            .read(request)
             .flatMap(DshackleResponse::requireResult)
             .map { objectMapper.readValue(it, List::class.java) as List<String> }
     }
 
-    class Container(val since: Instant, val value: List<String>) {
+    class Container(
+        val since: Instant,
+        val value: List<String>,
+    ) {
         companion object {
-            fun empty(): Container {
-                return Container(Instant.MIN, emptyList())
-            }
+            fun empty(): Container = Container(Instant.MIN, emptyList())
         }
     }
 
-    override fun isRunning(): Boolean {
-        return headListener != null
-    }
+    override fun isRunning(): Boolean = headListener != null
 
     override fun start() {
         headListener?.dispose()
-        headListener = head.get().getFlux().doOnNext {
-            current.set(Container.empty())
-        }.subscribe()
+        headListener =
+            head
+                .get()
+                .getFlux()
+                .doOnNext {
+                    current.set(Container.empty())
+                }.subscribe()
     }
 
     override fun stop() {

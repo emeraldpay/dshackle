@@ -25,13 +25,10 @@ import java.time.Instant
 import java.util.UUID
 
 class RequestRecord {
-
     companion object {
         private val log = LoggerFactory.getLogger(RequestRecord::class.java)
 
-        fun newBuilder(): Builder {
-            return Builder()
-        }
+        fun newBuilder(): Builder = Builder()
     }
 
     @JsonPropertyOrder("version", "id", "success", "upstream", "request", "jsonrpc")
@@ -41,29 +38,28 @@ class RequestRecord {
         val request: RequestDetails,
         val blockchain: Chain? = null,
         val jsonrpc: JsonRpcDetails?,
-
         // null for subscription responses
         val execute: Instant?,
         val complete: Instant,
-
         val upstream: UpstreamDetails?,
-
         val success: Boolean,
         val responseSize: Int = 0,
         val error: ErrorDetails? = null,
     ) {
         val version = "requestlog/v1alpha"
 
-        val queueTime: Double = if (execute != null) {
-            (execute.nano - request.start.nano).coerceAtLeast(0) / 1_000_000.0
-        } else {
-            (complete.nano - request.start.nano).coerceAtLeast(0) / 1_000_000.0
-        }
-        val requestTime: Double? = if (execute != null) {
-            (complete.nano - execute.nano).coerceAtLeast(0) / 1_000_000.0
-        } else {
-            null
-        }
+        val queueTime: Double =
+            if (execute != null) {
+                (execute.nano - request.start.nano).coerceAtLeast(0) / 1_000_000.0
+            } else {
+                (complete.nano - request.start.nano).coerceAtLeast(0) / 1_000_000.0
+            }
+        val requestTime: Double? =
+            if (execute != null) {
+                (complete.nano - execute.nano).coerceAtLeast(0) / 1_000_000.0
+            } else {
+                null
+            }
     }
 
     @JsonPropertyOrder("source", "id", "start")
@@ -71,7 +67,7 @@ class RequestRecord {
     data class RequestDetails(
         val id: UUID,
         val start: Instant,
-        val source: Source
+        val source: Source,
     )
 
     data class UpstreamDetails(
@@ -83,7 +79,6 @@ class RequestRecord {
     data class Builder(
         val ts: Instant = Instant.now(),
         val source: Source = Source.UNSET,
-
         // Reference to the source request. In most cases it's the id of the request to the Dshackle, but for internal
         // requests such as a health check, it's a new random id.
         val requestId: UUID? = null,
@@ -97,9 +92,10 @@ class RequestRecord {
         val blockchain: Chain = Chain.UNSPECIFIED,
         val responseSize: Int = 0,
     ) {
-
-        fun requested(method: String, params: String?): Builder =
-            this.copy(rpc = JsonRpcDetails(method, params))
+        fun requested(
+            method: String,
+            params: String?,
+        ): Builder = this.copy(rpc = JsonRpcDetails(method, params))
 
         fun build(): BlockchainRequest {
             requireNotNull(channel)
@@ -116,7 +112,7 @@ class RequestRecord {
                 success = error == null,
                 error = error,
                 responseSize = responseSize,
-                blockchain = blockchain
+                blockchain = blockchain,
             )
         }
     }
@@ -128,18 +124,17 @@ class RequestRecord {
         val params: String? = null,
         val id: Int? = null,
     ) {
-        fun updateFrom(another: JsonRpcDetails): JsonRpcDetails {
-            return JsonRpcDetails(
+        fun updateFrom(another: JsonRpcDetails): JsonRpcDetails =
+            JsonRpcDetails(
                 another.method ?: this.method,
                 another.params ?: this.params,
-                another.id ?: this.id
+                another.id ?: this.id,
             )
-        }
     }
 
     data class ErrorDetails(
         val code: Int,
-        val message: String? = null
+        val message: String? = null,
     )
 
     enum class Source {

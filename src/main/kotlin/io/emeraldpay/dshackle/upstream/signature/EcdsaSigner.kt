@@ -10,14 +10,17 @@ class EcdsaSigner(
     private val privateKey: ECPrivateKey,
     val keyId: Long,
 ) : ResponseSigner {
-
     companion object {
         const val SIGN_SCHEME = "SHA256withECDSA"
         const val MSG_PREFIX = "DSHACKLESIG"
         const val MSG_SEPARATOR = '/'
     }
 
-    override fun sign(nonce: Long, message: ByteArray, source: Upstream): ResponseSigner.Signature {
+    override fun sign(
+        nonce: Long,
+        message: ByteArray,
+        source: Upstream,
+    ): ResponseSigner.Signature {
         // Java 16 has removed SECP256K1, see https://bugs.openjdk.org/browse/JDK-8251547
         // So use Bounce Castle provider ("BC") as a default provider
         val sig = Signature.getInstance(SIGN_SCHEME, "BC")
@@ -26,7 +29,9 @@ class EcdsaSigner(
         sig.update(wrapped.toByteArray())
         val value = sig.sign()
         return ResponseSigner.Signature(
-            value, source.getId(), keyId
+            value,
+            source.getId(),
+            keyId,
         )
     }
 
@@ -44,11 +49,16 @@ class EcdsaSigner(
      * - second is the nonce value encode as decimal string
      * - third is SHA256 hash of the original message encoded as hex string
      */
-    fun wrapMessage(nonce: Long, message: ByteArray, source: Upstream): String {
+    fun wrapMessage(
+        nonce: Long,
+        message: ByteArray,
+        source: Upstream,
+    ): String {
         val sha256 = MessageDigest.getInstance("SHA-256")
         // we create it with max capacity that we expect for the result, which is total lengths of its parts
         val formatterMsg = StringBuilder(11 + 1 + 18 + 1 + 64 + 1 + 64)
-        formatterMsg.append(MSG_PREFIX)
+        formatterMsg
+            .append(MSG_PREFIX)
             .append(MSG_SEPARATOR)
             .append(nonce.toString())
             .append(MSG_SEPARATOR)

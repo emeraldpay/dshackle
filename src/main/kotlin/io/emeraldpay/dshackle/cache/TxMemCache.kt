@@ -29,20 +29,19 @@ import reactor.core.publisher.Mono
  */
 open class TxMemCache(
     // usually there is 100-150 tx per block on Ethereum, we keep data for about 32 blocks by default
-    private val maxSize: Int = 125 * 32
+    private val maxSize: Int = 125 * 32,
 ) : Reader<TxId, TxContainer> {
-
     companion object {
         private val log = LoggerFactory.getLogger(TxMemCache::class.java)
     }
 
-    private val mapping = Caffeine.newBuilder()
-        .maximumSize(maxSize.toLong())
-        .build<TxId, TxContainer>()
+    private val mapping =
+        Caffeine
+            .newBuilder()
+            .maximumSize(maxSize.toLong())
+            .build<TxId, TxContainer>()
 
-    override fun read(key: TxId): Mono<TxContainer> {
-        return Mono.justOrEmpty(mapping.getIfPresent(key))
-    }
+    override fun read(key: TxId): Mono<TxContainer> = Mono.justOrEmpty(mapping.getIfPresent(key))
 
     open fun evict(block: BlockContainer) {
         block.transactions.forEach {
@@ -51,9 +50,11 @@ open class TxMemCache(
     }
 
     open fun evict(block: BlockId) {
-        val ids = mapping.asMap()
-            .filter { it.value.blockId == block }
-            .map { it.key }
+        val ids =
+            mapping
+                .asMap()
+                .filter { it.value.blockId == block }
+                .map { it.key }
         mapping.invalidateAll(ids)
     }
 

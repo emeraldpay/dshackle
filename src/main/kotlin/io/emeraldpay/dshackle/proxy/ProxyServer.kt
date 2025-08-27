@@ -46,44 +46,51 @@ class ProxyServer(
     nativeCall: NativeCall,
     nativeSubscribe: NativeSubscribe,
     private val tlsSetup: TlsSetup,
-    accessHandler: AccessLogHandlerHttp.HandlerFactory
+    accessHandler: AccessLogHandlerHttp.HandlerFactory,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(ProxyServer::class.java)
     }
 
-    private val errorHandler: ChannelHandler = object : ChannelHandler {
-        override fun handlerAdded(p0: ChannelHandlerContext?) {
-        }
+    private val errorHandler: ChannelHandler =
+        object : ChannelHandler {
+            override fun handlerAdded(p0: ChannelHandlerContext?) {
+            }
 
-        override fun handlerRemoved(p0: ChannelHandlerContext?) {
-        }
+            override fun handlerRemoved(p0: ChannelHandlerContext?) {
+            }
 
-        override fun exceptionCaught(p0: ChannelHandlerContext?, p1: Throwable?) {
-            // HAProxy makes RST,ACK for health probe, which leads to error like:
-            // > 2020-22-09 23:46:34.077 | WARN  |          FluxReceive | [id: 0x228b9b97, L:/172.19.0.3:8545 - R:/172.19.0.5:34856] An exception has been observed post termination, use DEBUG level to see the full stack: io.netty.channel.unix.Errors$NativeIoException: syscall:read(..) failed: Connection reset by peer
-            // The error is just upsetting and nothing you can do about it, so ignore it.
-            // TODO the implementation makes text lookup, there must be a more optimal way to recognize that error
-            p1?.let { t ->
-                val reset = t.message?.contains("Connection reset by peer") ?: false
-                if (!reset) {
-                    log.warn("Connection error. ${p1.javaClass}: ${p1.message}")
+            override fun exceptionCaught(
+                p0: ChannelHandlerContext?,
+                p1: Throwable?,
+            ) {
+                // HAProxy makes RST,ACK for health probe, which leads to error like:
+                // > 2020-22-09 23:46:34.077 | WARN  |          FluxReceive | [id: 0x228b9b97, L:/172.19.0.3:8545 - R:/172.19.0.5:34856] An exception has been observed post termination, use DEBUG level to see the full stack: io.netty.channel.unix.Errors$NativeIoException: syscall:read(..) failed: Connection reset by peer
+                // The error is just upsetting and nothing you can do about it, so ignore it.
+                // TODO the implementation makes text lookup, there must be a more optimal way to recognize that error
+                p1?.let { t ->
+                    val reset = t.message?.contains("Connection reset by peer") ?: false
+                    if (!reset) {
+                        log.warn("Connection error. ${p1.javaClass}: ${p1.message}")
+                    }
                 }
             }
         }
-    }
 
-    private val requestMetrics: RequestMetricsFactory = if (Global.metricsExtended) {
-        ExtendedRequestMetrics()
-    } else {
-        StandardRequestMetrics()
-    }
+    private val requestMetrics: RequestMetricsFactory =
+        if (Global.metricsExtended) {
+            ExtendedRequestMetrics()
+        } else {
+            StandardRequestMetrics()
+        }
 
     private val httpHandler = HttpHandler(config, readRpcJson, writeRpcJson, nativeCall, accessHandler, requestMetrics)
-    private val wsHandler: WebsocketHandler? = if (config.websocketEnabled) {
-        WebsocketHandler(readRpcJson, writeRpcJson, nativeCall, nativeSubscribe, accessHandler, requestMetrics)
-    } else null
+    private val wsHandler: WebsocketHandler? =
+        if (config.websocketEnabled) {
+            WebsocketHandler(readRpcJson, writeRpcJson, nativeCall, nativeSubscribe, accessHandler, requestMetrics)
+        } else {
+            null
+        }
 
     fun start() {
         if (!config.enabled) {
@@ -94,12 +101,13 @@ class ProxyServer(
         if (config.websocketEnabled) {
             log.info("Start Websocket JSON RPC Proxy on ${connectAddress("ws")}")
         }
-        var serverBuilder = HttpServer.create()
-            .doOnChannelInit { _, channel, _ ->
-                channel.pipeline().addFirst(errorHandler)
-            }
-            .host(config.host)
-            .port(config.port)
+        var serverBuilder =
+            HttpServer
+                .create()
+                .doOnChannelInit { _, channel, _ ->
+                    channel.pipeline().addFirst(errorHandler)
+                }.host(config.host)
+                .port(config.port)
 
         tlsSetup.setupServer("proxy", config.tls, false)?.let { sslContext ->
             serverBuilder = serverBuilder.secure { secure -> secure.sslContext(sslContext) }
@@ -127,7 +135,10 @@ class ProxyServer(
     }
 
     interface RequestMetricsFactory {
-        fun get(chain: Chain, method: String): RequestMetrics
+        fun get(
+            chain: Chain,
+            method: String,
+        ): RequestMetrics
     }
 
     /**
@@ -136,9 +147,10 @@ class ProxyServer(
     class StandardRequestMetrics : RequestMetricsFactory {
         private val current = EnumMap<Chain, RequestMetrics>(Chain::class.java)
 
-        override fun get(chain: Chain, method: String): RequestMetrics {
-            return current.getOrPut(chain) { RequestMetricsBasic(chain) }
-        }
+        override fun get(
+            chain: Chain,
+            method: String,
+        ): RequestMetrics = current.getOrPut(chain) { RequestMetricsBasic(chain) }
     }
 
     /**
@@ -149,7 +161,10 @@ class ProxyServer(
         private val current = HashMap<Ref, RequestMetrics>()
         private val lock = ReentrantReadWriteLock()
 
-        override fun get(chain: Chain, method: String): RequestMetrics {
+        override fun get(
+            chain: Chain,
+            method: String,
+        ): RequestMetrics {
             val ref = Ref(chain, method)
             lock.read {
                 val existing = current[ref]
@@ -168,7 +183,10 @@ class ProxyServer(
             }
         }
 
-        data class Ref(val chain: Chain, val method: String)
+        data class Ref(
+            val chain: Chain,
+            val method: String,
+        )
     }
 
     interface RequestMetrics {
@@ -178,41 +196,62 @@ class ProxyServer(
         val requestMetric: Counter
     }
 
-    class RequestMetricsBasic(chain: Chain) : RequestMetrics {
-        override val callMetric = Timer.builder("request.jsonrpc.call")
-            .description("Time to process a call")
-            .tags("chain", chain.chainCode)
-            .register(Metrics.globalRegistry)
-        override val errorMetric = Counter.builder("request.jsonrpc.err")
-            .description("Number of requests ended with an error response")
-            .tags("chain", chain.chainCode)
-            .register(Metrics.globalRegistry)
-        override val failMetric = Counter.builder("request.jsonrpc.fail")
-            .description("Number of requests failed to process")
-            .tags("chain", chain.chainCode)
-            .register(Metrics.globalRegistry)
-        override val requestMetric = Counter.builder("request.jsonrpc.request.total")
-            .description("Number of requests")
-            .tags("chain", chain.chainCode)
-            .register(Metrics.globalRegistry)
+    class RequestMetricsBasic(
+        chain: Chain,
+    ) : RequestMetrics {
+        override val callMetric =
+            Timer
+                .builder("request.jsonrpc.call")
+                .description("Time to process a call")
+                .tags("chain", chain.chainCode)
+                .register(Metrics.globalRegistry)
+        override val errorMetric =
+            Counter
+                .builder("request.jsonrpc.err")
+                .description("Number of requests ended with an error response")
+                .tags("chain", chain.chainCode)
+                .register(Metrics.globalRegistry)
+        override val failMetric =
+            Counter
+                .builder("request.jsonrpc.fail")
+                .description("Number of requests failed to process")
+                .tags("chain", chain.chainCode)
+                .register(Metrics.globalRegistry)
+        override val requestMetric =
+            Counter
+                .builder("request.jsonrpc.request.total")
+                .description("Number of requests")
+                .tags("chain", chain.chainCode)
+                .register(Metrics.globalRegistry)
     }
 
-    class RequestMetricsWithMethod(chain: Chain, method: String) : RequestMetrics {
-        override val callMetric = Timer.builder("request.jsonrpc.call")
-            .description("Time to process a call")
-            .tags("chain", chain.chainCode, "method", method)
-            .register(Metrics.globalRegistry)
-        override val errorMetric = Counter.builder("request.jsonrpc.err")
-            .description("Number of requests ended with an error response")
-            .tags("chain", chain.chainCode, "method", method)
-            .register(Metrics.globalRegistry)
-        override val failMetric = Counter.builder("request.jsonrpc.fail")
-            .description("Number of requests failed to process")
-            .tags("chain", chain.chainCode, "method", method)
-            .register(Metrics.globalRegistry)
-        override val requestMetric = Counter.builder("request.jsonrpc.request.total")
-            .description("Number of requests")
-            .tags("chain", chain.chainCode, "method", method)
-            .register(Metrics.globalRegistry)
+    class RequestMetricsWithMethod(
+        chain: Chain,
+        method: String,
+    ) : RequestMetrics {
+        override val callMetric =
+            Timer
+                .builder("request.jsonrpc.call")
+                .description("Time to process a call")
+                .tags("chain", chain.chainCode, "method", method)
+                .register(Metrics.globalRegistry)
+        override val errorMetric =
+            Counter
+                .builder("request.jsonrpc.err")
+                .description("Number of requests ended with an error response")
+                .tags("chain", chain.chainCode, "method", method)
+                .register(Metrics.globalRegistry)
+        override val failMetric =
+            Counter
+                .builder("request.jsonrpc.fail")
+                .description("Number of requests failed to process")
+                .tags("chain", chain.chainCode, "method", method)
+                .register(Metrics.globalRegistry)
+        override val requestMetric =
+            Counter
+                .builder("request.jsonrpc.request.total")
+                .description("Number of requests")
+                .tags("chain", chain.chainCode, "method", method)
+                .register(Metrics.globalRegistry)
     }
 }

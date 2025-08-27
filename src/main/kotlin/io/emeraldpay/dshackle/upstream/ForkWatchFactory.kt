@@ -27,7 +27,6 @@ import kotlin.concurrent.withLock
 class ForkWatchFactory(
     @Autowired private val currentMultistreamHolder: CurrentMultistreamHolder,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(ForkWatchFactory::class.java)
     }
@@ -35,29 +34,34 @@ class ForkWatchFactory(
     private val initialized = EnumMap<Chain, ForkWatch>(Chain::class.java)
     private val initializeLock = ReentrantLock()
 
-    private val posChains = listOf(
-        // at this moment (Aug 2022) it's still a PoW, but upgrade is coming in weeks, so it's better to configure everything in advance
-        Chain.ETHEREUM,
-        // those are upgraded to Merge
-        Chain.TESTNET_GOERLI, Chain.TESTNET_ROPSTEN, Chain.TESTNET_HOLESKY, Chain.TESTNET_SEPOLIA
-    )
+    private val posChains =
+        listOf(
+            // at this moment (Aug 2022) it's still a PoW, but upgrade is coming in weeks, so it's better to configure everything in advance
+            Chain.ETHEREUM,
+            // those are upgraded to Merge
+            Chain.TESTNET_GOERLI,
+            Chain.TESTNET_ROPSTEN,
+            Chain.TESTNET_HOLESKY,
+            Chain.TESTNET_SEPOLIA,
+        )
 
-    fun create(chain: Chain): ForkWatch {
-        return initializeLock.withLock {
+    fun create(chain: Chain): ForkWatch =
+        initializeLock.withLock {
             initialized.getOrPut(chain) {
-                val forkChoice = if (posChains.contains(chain)) {
-                    PriorityForkChoice().also {
-                        it.followUpstreams(
-                            currentMultistreamHolder.observeAddedUpstreams()
-                                .filter { it.t1 == chain }
-                                .map { it.t2 }
-                        )
+                val forkChoice =
+                    if (posChains.contains(chain)) {
+                        PriorityForkChoice().also {
+                            it.followUpstreams(
+                                currentMultistreamHolder
+                                    .observeAddedUpstreams()
+                                    .filter { it.t1 == chain }
+                                    .map { it.t2 },
+                            )
+                        }
+                    } else {
+                        DifficultyForkChoice()
                     }
-                } else {
-                    DifficultyForkChoice()
-                }
                 ForkWatch(forkChoice, chain)
             }
         }
-    }
 }

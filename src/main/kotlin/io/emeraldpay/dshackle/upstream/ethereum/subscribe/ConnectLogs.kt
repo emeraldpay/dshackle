@@ -29,7 +29,6 @@ open class ConnectLogs(
     upstream: EthereumMultistream,
     private val connectBlockUpdates: ConnectBlockUpdates,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(ConnectLogs::class.java)
 
@@ -41,11 +40,12 @@ open class ConnectLogs(
 
     private val produceLogs = ProduceLogs(upstream)
 
-    fun start(): Flux<LogMessage> {
-        return produceLogs.produce(connectBlockUpdates.connect())
-    }
+    fun start(): Flux<LogMessage> = produceLogs.produce(connectBlockUpdates.connect())
 
-    open fun create(addresses: List<Address>, topics: List<Hex32>): SubscriptionConnect<LogMessage> {
+    open fun create(
+        addresses: List<Address>,
+        topics: List<Hex32>,
+    ): SubscriptionConnect<LogMessage> {
         return object : SubscriptionConnect<LogMessage> {
             override fun connect(): Flux<LogMessage> {
                 // shortcut to the whole output if we don't have any filters
@@ -59,7 +59,10 @@ open class ConnectLogs(
         }
     }
 
-    fun filtered(addresses: List<Address>, topics: List<Hex32>): Function<Flux<LogMessage>, Flux<LogMessage>> {
+    fun filtered(
+        addresses: List<Address>,
+        topics: List<Hex32>,
+    ): Function<Flux<LogMessage>, Flux<LogMessage>> {
         // sort search criteria to use binary search later
         val sortedAddresses: List<Address> = addresses.sortedWith(ADDR_COMPARATOR)
         val sortedTopics: List<Hex32> = topics.sortedWith(TOPIC_COMPARATOR)
@@ -67,12 +70,15 @@ open class ConnectLogs(
             logs.filter {
                 val goodAddress =
                     sortedAddresses.isEmpty() || sortedAddresses.binarySearch(it.address, ADDR_COMPARATOR) >= 0
-                val goodTopic = sortedTopics.isEmpty() || (
-                    it.topics.isNotEmpty() && sortedTopics.binarySearch(
-                        it.topics[0],
-                        TOPIC_COMPARATOR
-                    ) >= 0
-                    )
+                val goodTopic =
+                    sortedTopics.isEmpty() ||
+                        (
+                            it.topics.isNotEmpty() &&
+                                sortedTopics.binarySearch(
+                                    it.topics[0],
+                                    TOPIC_COMPARATOR,
+                                ) >= 0
+                        )
                 goodAddress && goodTopic
             }
         }

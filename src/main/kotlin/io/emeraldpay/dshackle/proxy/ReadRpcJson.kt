@@ -34,7 +34,6 @@ import java.util.function.Function
  */
 @Service
 open class ReadRpcJson : Function<ByteArray, ProxyCall> {
-
     companion object {
         private val log = LoggerFactory.getLogger(ReadRpcJson::class.java)
         private val spaces = " \n\t".toByteArray()
@@ -54,20 +53,20 @@ open class ReadRpcJson : Function<ByteArray, ProxyCall> {
                     throw RpcException(
                         RpcResponseError.CODE_INVALID_REQUEST,
                         "jsonrpc version is not set",
-                        id?.let { JsonRpcResponse.Id.from(it) }
+                        id?.let { JsonRpcResponse.Id.from(it) },
                     )
                 }
                 throw RpcException(
                     RpcResponseError.CODE_INVALID_REQUEST,
                     "Unsupported JSON RPC version: " + json["jsonrpc"].toString(),
-                    id?.let { JsonRpcResponse.Id.from(it) }
+                    id?.let { JsonRpcResponse.Id.from(it) },
                 )
             }
             if (!(json["method"] != null && json["method"] is String)) {
                 throw RpcException(
                     RpcResponseError.CODE_INVALID_REQUEST,
                     "Method is not set",
-                    id?.let { JsonRpcResponse.Id.from(it) }
+                    id?.let { JsonRpcResponse.Id.from(it) },
                 )
             }
             // `params` MAY be omitted or set as `null`. It could be an object also, but we don't support it.
@@ -76,14 +75,14 @@ open class ReadRpcJson : Function<ByteArray, ProxyCall> {
                 throw RpcException(
                     RpcResponseError.CODE_INVALID_REQUEST,
                     "Params must be an array",
-                    id?.let { JsonRpcResponse.Id.from(it) }
+                    id?.let { JsonRpcResponse.Id.from(it) },
                 )
             }
             RequestJson<Any>(
                 json["method"].toString(),
                 // params MAY be omitted
                 (json["params"] ?: emptyList<Any>()) as List<*>,
-                id
+                id,
             )
         }
     }
@@ -110,11 +109,12 @@ open class ReadRpcJson : Function<ByteArray, ProxyCall> {
      */
     @Throws(IOException::class)
     fun getType(data: ByteArray): ProxyCall.RpcType {
-        val first = try {
-            getStartOfJson(data)
-        } catch (e: IllegalArgumentException) {
-            throw RpcException(RpcResponseError.CODE_INVALID_JSON, "Empty JSON")
-        }
+        val first =
+            try {
+                getStartOfJson(data)
+            } catch (e: IllegalArgumentException) {
+                throw RpcException(RpcResponseError.CODE_INVALID_JSON, "Empty JSON")
+            }
         if (first == '{'.code.toByte()) {
             return ProxyCall.RpcType.SINGLE
         } else if (first == '['.code.toByte()) {
@@ -140,8 +140,11 @@ open class ReadRpcJson : Function<ByteArray, ProxyCall> {
         }
     }
 
-    fun extract(type: ProxyCall.RpcType, data: ByteArray): List<Map<*, *>> {
-        return if (ProxyCall.RpcType.BATCH == type) {
+    fun extract(
+        type: ProxyCall.RpcType,
+        data: ByteArray,
+    ): List<Map<*, *>> =
+        if (ProxyCall.RpcType.BATCH == type) {
             objectMapper.readerFor(MutableList::class.java).readValue(data)
         } else {
             val list = ArrayList<Map<*, *>>(1)
@@ -149,26 +152,34 @@ open class ReadRpcJson : Function<ByteArray, ProxyCall> {
             list.add(json)
             list
         }
-    }
 
-    fun convertMapToNativeCall(type: ProxyCall.RpcType, list: List<Map<*, *>>): ProxyCall {
-        return convertToNativeCall(type, list.map(jsonExtractor))
-    }
+    fun convertMapToNativeCall(
+        type: ProxyCall.RpcType,
+        list: List<Map<*, *>>,
+    ): ProxyCall = convertToNativeCall(type, list.map(jsonExtractor))
 
-    fun convertToNativeCall(type: ProxyCall.RpcType, list: List<RequestJson<Any>>): ProxyCall {
+    fun convertToNativeCall(
+        type: ProxyCall.RpcType,
+        list: List<RequestJson<Any>>,
+    ): ProxyCall {
         val context = ProxyCall(type)
         val batch = convertToNativeCall(0, context, list)
         context.items.addAll(batch)
         return context
     }
 
-    fun convertToNativeCall(seqStart: Int, context: ProxyCall, items: List<RequestJson<Any>>): List<BlockchainOuterClass.NativeCallItem> {
+    fun convertToNativeCall(
+        seqStart: Int,
+        context: ProxyCall,
+        items: List<RequestJson<Any>>,
+    ): List<BlockchainOuterClass.NativeCallItem> {
         // internal ids for calls
         var seq = seqStart
         return items
             .map { json ->
                 context.ids.add(json.id)
-                BlockchainOuterClass.NativeCallItem.newBuilder()
+                BlockchainOuterClass.NativeCallItem
+                    .newBuilder()
                     .setId(context.ids.size - 1)
                     .setMethod(json.method)
                     .setPayload(ByteString.copyFrom(objectMapper.writeValueAsBytes(json.params)))

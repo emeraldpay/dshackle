@@ -8,32 +8,40 @@ import reactor.core.publisher.Mono
 import java.util.function.Predicate
 
 open class MethodSpecificReader : DshackleRpcReader {
-
     companion object {
         private val log = LoggerFactory.getLogger(MethodSpecificReader::class.java)
     }
 
     private val specific = mutableMapOf<String, MutableList<Delegate>>()
 
-    fun register(method: String, reader: DshackleRpcReader) {
+    fun register(
+        method: String,
+        reader: DshackleRpcReader,
+    ) {
         this.register(method, { true }, reader)
     }
 
-    fun register(method: String, params: Predicate<List<Any?>>, reader: DshackleRpcReader) {
-        val current: MutableList<Delegate> = if (specific.containsKey(method)) {
-            specific[method]!!
-        } else {
-            val created = mutableListOf<Delegate>()
-            specific[method] = created
-            created
-        }
+    fun register(
+        method: String,
+        params: Predicate<List<Any?>>,
+        reader: DshackleRpcReader,
+    ) {
+        val current: MutableList<Delegate> =
+            if (specific.containsKey(method)) {
+                specific[method]!!
+            } else {
+                val created = mutableListOf<Delegate>()
+                specific[method] = created
+                created
+            }
         current.add(Delegate(params, reader))
     }
 
     override fun read(key: DshackleRequest): Mono<DshackleResponse> {
-        val delegate = specific[key.method]?.find {
-            it.params.test(key.params)
-        }
+        val delegate =
+            specific[key.method]?.find {
+                it.params.test(key.params)
+            }
         if (delegate == null) {
             return Mono.empty()
         }

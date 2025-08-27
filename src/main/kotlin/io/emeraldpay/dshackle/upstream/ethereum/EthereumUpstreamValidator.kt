@@ -36,7 +36,7 @@ import java.util.concurrent.Executors
 
 open class EthereumUpstreamValidator(
     private val upstream: EthereumUpstream,
-    private val options: UpstreamsConfig.Options
+    private val options: UpstreamsConfig.Options,
 ) {
     companion object {
         private val log = LoggerFactory.getLogger(EthereumUpstreamValidator::class.java)
@@ -46,19 +46,17 @@ open class EthereumUpstreamValidator(
 
     private val objectMapper: ObjectMapper = Global.objectMapper
 
-    open fun validate(): Mono<UpstreamAvailability> {
-        return Mono.zip(
-            validateSyncing(),
-            validatePeers()
-        )
-            .map(::resolve)
+    open fun validate(): Mono<UpstreamAvailability> =
+        Mono
+            .zip(
+                validateSyncing(),
+                validatePeers(),
+            ).map(::resolve)
             .defaultIfEmpty(UpstreamAvailability.UNAVAILABLE)
             .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
-    }
 
-    fun resolve(results: Tuple2<UpstreamAvailability, UpstreamAvailability>): UpstreamAvailability {
-        return if (results.t1.isBetterTo(results.t2)) results.t2 else results.t1
-    }
+    fun resolve(results: Tuple2<UpstreamAvailability, UpstreamAvailability>): UpstreamAvailability =
+        if (results.t1.isBetterTo(results.t2)) results.t2 else results.t1
 
     fun validateSyncing(): Mono<UpstreamAvailability> {
         if (!options.validateSyncing) {
@@ -75,17 +73,16 @@ open class EthereumUpstreamValidator(
             .map { objectMapper.readValue(it, SyncingJson::class.java) }
             .timeout(
                 Defaults.timeoutInternal,
-                Mono.fromCallable { log.warn("No response for eth_syncing from ${upstream.getId()}") }
-                    .then(Mono.error(SilentException.Timeout("Validation timeout for Syncing")))
-            )
-            .map { value ->
+                Mono
+                    .fromCallable { log.warn("No response for eth_syncing from ${upstream.getId()}") }
+                    .then(Mono.error(SilentException.Timeout("Validation timeout for Syncing"))),
+            ).map { value ->
                 if (value.isSyncing) {
                     UpstreamAvailability.SYNCING
                 } else {
                     UpstreamAvailability.OK
                 }
-            }
-            .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
+            }.onErrorReturn(UpstreamAvailability.UNAVAILABLE)
     }
 
     fun validatePeers(): Mono<UpstreamAvailability> {
@@ -103,25 +100,24 @@ open class EthereumUpstreamValidator(
             .map(Integer::decode)
             .timeout(
                 Defaults.timeoutInternal,
-                Mono.fromCallable { log.warn("No response for net_peerCount from ${upstream.getId()}") }
-                    .then(Mono.error(SilentException.Timeout("Validation timeout for Peers")))
-            )
-            .map { count ->
+                Mono
+                    .fromCallable { log.warn("No response for net_peerCount from ${upstream.getId()}") }
+                    .then(Mono.error(SilentException.Timeout("Validation timeout for Peers"))),
+            ).map { count ->
                 val minPeers = options.minPeers ?: 1
                 if (count < minPeers) {
                     UpstreamAvailability.IMMATURE
                 } else {
                     UpstreamAvailability.OK
                 }
-            }
-            .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
+            }.onErrorReturn(UpstreamAvailability.UNAVAILABLE)
     }
 
-    fun start(): Flux<UpstreamAvailability> {
-        return Flux.interval(options.validationInterval)
+    fun start(): Flux<UpstreamAvailability> =
+        Flux
+            .interval(options.validationInterval)
             .subscribeOn(scheduler)
             .flatMap {
                 validate()
             }
-    }
 }

@@ -23,18 +23,21 @@ import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
 // creates instance of a Quorum based reader
 interface QuorumReaderFactory {
-
     companion object {
-        fun default(): QuorumReaderFactory {
-            return Default()
-        }
+        fun default(): QuorumReaderFactory = Default()
     }
 
-    fun create(apis: ApiSource, quorum: CallQuorum, signer: ResponseSigner?): Reader<JsonRpcRequest, QuorumRpcReader.Result>
+    fun create(
+        apis: ApiSource,
+        quorum: CallQuorum,
+        signer: ResponseSigner?,
+    ): Reader<JsonRpcRequest, QuorumRpcReader.Result>
 
     class Default : QuorumReaderFactory {
-        override fun create(apis: ApiSource, quorum: CallQuorum, signer: ResponseSigner?): Reader<JsonRpcRequest, QuorumRpcReader.Result> {
-            return QuorumRpcReader(apis, quorum, signer)
-        }
+        override fun create(
+            apis: ApiSource,
+            quorum: CallQuorum,
+            signer: ResponseSigner?,
+        ): Reader<JsonRpcRequest, QuorumRpcReader.Result> = QuorumRpcReader(apis, quorum, signer)
     }
 }

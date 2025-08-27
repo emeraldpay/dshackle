@@ -48,7 +48,6 @@ open class EthereumMultistream(
     caches: Caches,
     signer: ResponseSigner,
 ) : Multistream(chain, upstreams as MutableList<Upstream>, caches) {
-
     companion object {
         private val log = LoggerFactory.getLogger(EthereumMultistream::class.java)
     }
@@ -60,29 +59,45 @@ open class EthereumMultistream(
     private val normalizedReader = NormalizingReader(currentHead, caches, EthereumFullBlocksReader(dataReaders))
     private val ingressFinalReader = CompoundReader(normalizedReader, ingressReader)
 
-    private val reader = IntegralRpcReader(
-        VerifyingReader(callMethods),
-        HardcodedReader(callMethods),
-        ingressFinalReader
-    )
+    private val reader =
+        IntegralRpcReader(
+            VerifyingReader(callMethods),
+            HardcodedReader(callMethods),
+            ingressFinalReader,
+        )
 
     private var subscribe = EthereumEgressSubscription(this, NoPendingTxes())
 
-    private val supportsEIP1559 = when (chain) {
-        Chain.ETHEREUM, Chain.TESTNET_ROPSTEN, Chain.TESTNET_GOERLI, Chain.TESTNET_HOLESKY, Chain.TESTNET_SEPOLIA, Chain.TESTNET_RINKEBY -> true
-        else -> false
-    }
+    private val supportsEIP1559 =
+        when (chain) {
+            Chain.ETHEREUM,
+            Chain.TESTNET_ROPSTEN,
+            Chain.TESTNET_GOERLI,
+            Chain.TESTNET_HOLESKY,
+            Chain.TESTNET_SEPOLIA,
+            Chain.TESTNET_HOODI,
+            Chain.TESTNET_RINKEBY,
+            -> true
+            else -> false
+        }
 
-    private val isPos = when (chain) {
-        Chain.ETHEREUM, Chain.TESTNET_GOERLI, Chain.TESTNET_HOLESKY, Chain.TESTNET_SEPOLIA -> true
-        else -> false
-    }
+    private val isPos =
+        when (chain) {
+            Chain.ETHEREUM,
+            Chain.TESTNET_GOERLI,
+            Chain.TESTNET_HOLESKY,
+            Chain.TESTNET_HOODI,
+            Chain.TESTNET_SEPOLIA,
+            -> true
+            else -> false
+        }
 
-    private val feeEstimation = if (supportsEIP1559) {
-        EthereumPriorityFees(this, dataReaders, 256)
-    } else {
-        EthereumLegacyFees(this, dataReaders, 256)
-    }
+    private val feeEstimation =
+        if (supportsEIP1559) {
+            EthereumPriorityFees(this, dataReaders, 256)
+        } else {
+            EthereumLegacyFees(this, dataReaders, 256)
+        }
 
     init {
         this.init()
@@ -98,24 +113,23 @@ open class EthereumMultistream(
     override fun onUpstreamsUpdated() {
         super.onUpstreamsUpdated()
 
-        val pendingTxes: PendingTxesSource? = upstreams
-            .mapNotNull {
-                it.getIngressSubscription().getPendingTxes()
-            }.let {
-                if (it.isEmpty()) {
-                    null
-                } else if (it.size == 1) {
-                    it.first()
-                } else {
-                    AggregatedPendingTxes(it)
+        val pendingTxes: PendingTxesSource? =
+            upstreams
+                .mapNotNull {
+                    it.getIngressSubscription().getPendingTxes()
+                }.let {
+                    if (it.isEmpty()) {
+                        null
+                    } else if (it.size == 1) {
+                        it.first()
+                    } else {
+                        AggregatedPendingTxes(it)
+                    }
                 }
-            }
         subscribe = EthereumEgressSubscription(this, pendingTxes)
     }
 
-    override fun getHead(): Head {
-        return currentHead.get()
-    }
+    override fun getHead(): Head = currentHead.get()
 
     override fun setHead(head: Head) {
         this.currentHead.set(head)
@@ -125,32 +139,34 @@ open class EthereumMultistream(
     override fun updateHead(): Head {
         lagObserver?.stop()
         lagObserver = null
-        val head = if (upstreams.isEmpty()) {
-            log.warn("No upstreams set")
-            EmptyHead()
-        } else if (upstreams.size == 1) {
-            val upstream = upstreams.first()
-            upstream.setLag(0)
-            upstream.getHead().apply {
-                if (this is Lifecycle && !this.isRunning) {
-                    this.start()
+        val head =
+            if (upstreams.isEmpty()) {
+                log.warn("No upstreams set")
+                EmptyHead()
+            } else if (upstreams.size == 1) {
+                val upstream = upstreams.first()
+                upstream.setLag(0)
+                upstream.getHead().apply {
+                    if (this is Lifecycle && !this.isRunning) {
+                        this.start()
+                    }
                 }
-            }
-        } else {
-            val newHead = if (isPos) {
-                val heads = upstreams.map { Pair(it.getOptions().priority, it.getHead()) }
-                MergedPosHead(heads)
             } else {
-                val heads = upstreams.map { it.getHead() }
-                MergedPowHead(heads)
-            }.apply {
-                this.start()
+                val newHead =
+                    if (isPos) {
+                        val heads = upstreams.map { Pair(it.getOptions().priority, it.getHead()) }
+                        MergedPosHead(heads)
+                    } else {
+                        val heads = upstreams.map { it.getHead() }
+                        MergedPowHead(heads)
+                    }.apply {
+                        this.start()
+                    }
+                val lagObserver = EthereumHeadLagObserver(newHead, upstreams as Collection<Upstream>)
+                this.lagObserver = lagObserver
+                lagObserver.start()
+                newHead
             }
-            val lagObserver = EthereumHeadLagObserver(newHead, upstreams as Collection<Upstream>)
-            this.lagObserver = lagObserver
-            lagObserver.start()
-            newHead
-        }
         onHeadUpdated(head)
         return head
     }
@@ -163,15 +179,9 @@ open class EthereumMultistream(
         return this as T
     }
 
-    override fun read(key: DshackleRequest): Mono<DshackleResponse> {
-        return reader.read(key)
-    }
+    override fun read(key: DshackleRequest): Mono<DshackleResponse> = reader.read(key)
 
-    override fun getEgressSubscription(): EthereumEgressSubscription {
-        return subscribe
-    }
+    override fun getEgressSubscription(): EthereumEgressSubscription = subscribe
 
-    override fun getFeeEstimation(): ChainFees {
-        return feeEstimation
-    }
+    override fun getFeeEstimation(): ChainFees = feeEstimation
 }

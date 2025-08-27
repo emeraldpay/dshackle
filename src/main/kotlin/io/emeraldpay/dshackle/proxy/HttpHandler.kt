@@ -47,48 +47,48 @@ class HttpHandler(
     private val accessHandler: AccessLogHandlerHttp.HandlerFactory,
     private val requestMetrics: ProxyServer.RequestMetricsFactory,
 ) : BaseHandler(writeRpcJson, nativeCall, requestMetrics) {
-
     companion object {
         private val log = LoggerFactory.getLogger(HttpHandler::class.java)
     }
 
-    private fun addCorsHeadersIfSet(resp: HttpServerResponse): HttpServerResponse {
-        return config.corsOrigin?.let {
-            resp.addHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, it)
+    private fun addCorsHeadersIfSet(resp: HttpServerResponse): HttpServerResponse =
+        config.corsOrigin?.let {
+            resp
+                .addHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, it)
                 .addHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, config.corsAllowedHeaders)
         } ?: resp
-    }
 
-    fun preflight(): BiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>> {
-        return BiFunction { _, resp ->
+    fun preflight(): BiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>> =
+        BiFunction { _, resp ->
             addCorsHeadersIfSet(resp).send()
         }
-    }
 
-    fun proxy(routeConfig: ProxyConfig.Route): BiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>> {
-        return BiFunction { req, resp ->
+    fun proxy(routeConfig: ProxyConfig.Route): BiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>> =
+        BiFunction { req, resp ->
             // handle access events
             val requestId = UUID.randomUUID()
             val eventHandler = accessHandler.create(req, routeConfig.blockchain, requestId)
-            val request = req.receive()
-                .aggregate()
-                .asByteArray()
-            val results = processRequest(routeConfig.blockchain, request, eventHandler)
-                .contextWrite(Global.monitoring.egress.setRequest(AccessContext.Value(requestId, Instant.now())))
-                // make sure that the access log handler is closed at the end, so it can render the logs
-                .doFinally { eventHandler.close() }
+            val request =
+                req
+                    .receive()
+                    .aggregate()
+                    .asByteArray()
+            val results =
+                processRequest(routeConfig.blockchain, request, eventHandler)
+                    .contextWrite(Global.monitoring.egress.setRequest(AccessContext.Value(requestId, Instant.now())))
+                    // make sure that the access log handler is closed at the end, so it can render the logs
+                    .doFinally { eventHandler.close() }
             addCorsHeadersIfSet(resp)
                 .addHeader(HttpHeaders.CONTENT_TYPE, "application/json")
                 .send(results)
         }
-    }
 
     fun processRequest(
         chain: Chain,
         request: Mono<ByteArray>,
-        handler: AccessLogHandlerHttp.RequestHandler
-    ): Flux<ByteBuf> {
-        return request
+        handler: AccessLogHandlerHttp.RequestHandler,
+    ): Flux<ByteBuf> =
+        request
             .map(readRpcJson)
             .doOnError {
                 log.debug("Failed to process request JSON with: ${it.javaClass} ${it.message}")
@@ -96,18 +96,15 @@ class HttpHandler(
                 // but if we have an invalid JSON it stops here, and we cannot handle it in the main onErrorResume
                 // because it's going to be a duplicate call for other errors
                 requestMetrics.get(chain, "invalid_method").errorMetric.increment()
-            }
-            .flatMapMany { call ->
+            }.flatMapMany { call ->
                 execute(chain, call, handler, config.preserveBatchOrder)
-            }
-            .onErrorResume(RpcException::class.java) { err ->
-                val id = err.details?.let {
-                    if (it is JsonRpcResponse.Id) it else JsonRpcResponse.NumberId(-1)
-                } ?: JsonRpcResponse.NumberId(-1)
+            }.onErrorResume(RpcException::class.java) { err ->
+                val id =
+                    err.details?.let {
+                        if (it is JsonRpcResponse.Id) it else JsonRpcResponse.NumberId(-1)
+                    } ?: JsonRpcResponse.NumberId(-1)
 
                 val json = JsonRpcResponse.error(err.code, err.rpcMessage, id)
                 Mono.just(Global.objectMapper.writeValueAsString(json))
-            }
-            .map { Unpooled.wrappedBuffer(it.toByteArray()) }
-    }
+            }.map { Unpooled.wrappedBuffer(it.toByteArray()) }
 }

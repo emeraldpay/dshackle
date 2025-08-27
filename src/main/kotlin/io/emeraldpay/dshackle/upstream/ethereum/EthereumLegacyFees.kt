@@ -23,27 +23,30 @@ import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import java.util.function.Function
 
-class EthereumLegacyFees(upstreams: EthereumMultistream, reader: DataReaders, heightLimit: Int) :
-    EthereumFees(upstreams, reader, heightLimit) {
-
+class EthereumLegacyFees(
+    upstreams: EthereumMultistream,
+    reader: DataReaders,
+    heightLimit: Int,
+) : EthereumFees(upstreams, reader, heightLimit) {
     companion object {
         private val log = LoggerFactory.getLogger(EthereumLegacyFees::class.java)
     }
 
-    private val toGrpc: Function<EthereumFee, BlockchainOuterClass.EstimateFeeResponse> = Function {
-        BlockchainOuterClass.EstimateFeeResponse.newBuilder()
-            .setEthereumStd(
-                BlockchainOuterClass.EthereumStdFees.newBuilder()
-                    .setFee(it.paid.amount.toString())
-            )
-            .build()
-    }
+    private val toGrpc: Function<EthereumFee, BlockchainOuterClass.EstimateFeeResponse> =
+        Function {
+            BlockchainOuterClass.EstimateFeeResponse
+                .newBuilder()
+                .setEthereumStd(
+                    BlockchainOuterClass.EthereumStdFees
+                        .newBuilder()
+                        .setFee(it.paid.amount.toString()),
+                ).build()
+        }
 
-    override fun extractFee(block: BlockJson<TransactionRefJson>, tx: TransactionJson): EthereumFee {
-        return EthereumFee(tx.gasPrice, tx.gasPrice, tx.gasPrice, Wei.ZERO)
-    }
+    override fun extractFee(
+        block: BlockJson<TransactionRefJson>,
+        tx: TransactionJson,
+    ): EthereumFee = EthereumFee(tx.gasPrice, tx.gasPrice, tx.gasPrice, Wei.ZERO)
 
-    override fun getResponseBuilder(): Function<EthereumFee, BlockchainOuterClass.EstimateFeeResponse> {
-        return toGrpc
-    }
+    override fun getResponseBuilder(): Function<EthereumFee, BlockchainOuterClass.EstimateFeeResponse> = toGrpc
 }

@@ -21,31 +21,41 @@ import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.Metrics
 
 interface LogMetrics {
-
     var queue: DataQueue<*>?
 
     fun produced()
+
     fun collected()
+
     fun dropped()
 
-    class Enabled(category: String) : LogMetrics {
+    class Enabled(
+        category: String,
+    ) : LogMetrics {
         override var queue: DataQueue<*>? = null
 
-        private val produced = Counter.builder("monitoringLogs_produce")
-            .description("Log events produced by Dshackle")
-            .tag("type", category)
-            .register(Metrics.globalRegistry)
-        private val collected = Counter.builder("monitoringLogs_collect")
-            .description("Log events successfully sent to a storage")
-            .tag("type", category)
-            .register(Metrics.globalRegistry)
-        private val dropped = Counter.builder("monitoringLogs_drop")
-            .description("Log events dropped w/o sending")
-            .tag("type", category)
-            .register(Metrics.globalRegistry)
+        private val produced =
+            Counter
+                .builder("monitoringLogs_produce")
+                .description("Log events produced by Dshackle")
+                .tag("type", category)
+                .register(Metrics.globalRegistry)
+        private val collected =
+            Counter
+                .builder("monitoringLogs_collect")
+                .description("Log events successfully sent to a storage")
+                .tag("type", category)
+                .register(Metrics.globalRegistry)
+        private val dropped =
+            Counter
+                .builder("monitoringLogs_drop")
+                .description("Log events dropped w/o sending")
+                .tag("type", category)
+                .register(Metrics.globalRegistry)
 
         init {
-            Gauge.builder("monitoringLogs_queueSize") { queue?.size?.toDouble() ?: 0.0 }
+            Gauge
+                .builder("monitoringLogs_queueSize") { queue?.size?.toDouble() ?: 0.0 }
                 .description("Log events queue size")
                 .tag("type", category)
                 .register(Metrics.globalRegistry)
@@ -65,7 +75,6 @@ interface LogMetrics {
     }
 
     class None : LogMetrics {
-
         override var queue: DataQueue<*>? = null
 
         override fun produced() {

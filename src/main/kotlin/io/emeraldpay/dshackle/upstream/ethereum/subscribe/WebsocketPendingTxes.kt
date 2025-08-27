@@ -25,23 +25,22 @@ import reactor.core.publisher.Mono
 import java.time.Duration
 
 class WebsocketPendingTxes(
-    private val wsSubscriptions: WsSubscriptions
-) : DefaultPendingTxesSource(), SubscriptionConnect<TransactionId> {
-
+    private val wsSubscriptions: WsSubscriptions,
+) : DefaultPendingTxesSource(),
+    SubscriptionConnect<TransactionId> {
     companion object {
         private val log = LoggerFactory.getLogger(WebsocketPendingTxes::class.java)
     }
 
-    override fun createConnection(): Flux<TransactionId> {
-        return wsSubscriptions.subscribe(EthereumEgressSubscription.METHOD_PENDING_TXES)
+    override fun createConnection(): Flux<TransactionId> =
+        wsSubscriptions
+            .subscribe(EthereumEgressSubscription.METHOD_PENDING_TXES)
             .timeout(Duration.ofSeconds(60), Mono.empty())
             .map {
                 // comes as a JS string, i.e., within quotes
                 val value = ByteArray(it.size - 2)
                 System.arraycopy(it, 1, value, 0, value.size)
                 TransactionId.from(String(value))
-            }
-            .doOnError { t -> log.warn("Invalid pending transaction", t) }
+            }.doOnError { t -> log.warn("Invalid pending transaction", t) }
             .onErrorResume { Mono.empty() }
-    }
 }

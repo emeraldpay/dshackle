@@ -21,12 +21,14 @@ import io.emeraldpay.dshackle.data.BlockContainer
  * Decision for finding out a status of a head of the upstream considering the whole state of the blockchain
  */
 interface ForkChoice {
-
     /**
      * Submit the latest block on the upstream to find out the upstream status compared to other existing
      * upstreams on the same blockchain
      */
-    fun submit(block: BlockContainer, upstream: Upstream): Status
+    fun submit(
+        block: BlockContainer,
+        upstream: Upstream,
+    ): Status
 
     /**
      * The name of the fork choice implementation for logging purposes
@@ -58,7 +60,9 @@ interface ForkChoice {
         /**
          * The upstream has a block on a rejected chain
          */
-        REJECTED;
+        REJECTED,
+
+        ;
 
         /**
          * true if it's on the main chain

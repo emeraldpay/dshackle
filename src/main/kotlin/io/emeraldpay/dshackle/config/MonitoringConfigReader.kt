@@ -19,8 +19,9 @@ import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
 import java.io.InputStream
 
-class MonitoringConfigReader : YamlConfigReader(), ConfigReader<MonitoringConfig> {
-
+class MonitoringConfigReader :
+    YamlConfigReader(),
+    ConfigReader<MonitoringConfig> {
     companion object {
         private val log = LoggerFactory.getLogger(MonitoringConfigReader::class.java)
     }
@@ -30,9 +31,7 @@ class MonitoringConfigReader : YamlConfigReader(), ConfigReader<MonitoringConfig
         return read(configNode)
     }
 
-    override fun read(input: MappingNode?): MonitoringConfig {
-        return readInternal(getMapping(input, "monitoring"))
-    }
+    override fun read(input: MappingNode?): MonitoringConfig = readInternal(getMapping(input, "monitoring"))
 
     fun readInternal(input: MappingNode?): MonitoringConfig {
         if (input == null) {

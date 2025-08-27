@@ -22,8 +22,9 @@ import reactor.core.publisher.Flux
  * Base interface to tracking balance on a single blockchain
  */
 interface TrackAddress {
-
     fun isSupported(request: BlockchainOuterClass.BalanceRequest): Boolean
+
     fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance>
+
     fun subscribe(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance>
 }

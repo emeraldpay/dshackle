@@ -20,22 +20,23 @@ import io.emeraldpay.etherjar.rpc.RpcException
 class JsonRpcException(
     val id: JsonRpcResponse.Id,
     val error: JsonRpcError,
-    val statusCode: Int? = null
+    val statusCode: Int? = null,
 ) : Exception(error.message) {
-
     constructor(id: Int, message: String) : this(JsonRpcResponse.NumberId(id), JsonRpcError(-32005, message))
 
     companion object {
         fun from(err: RpcException): JsonRpcException {
-            val id = err.details?.let {
-                if (it is JsonRpcResponse.Id) {
-                    it
-                } else {
-                    JsonRpcResponse.NumberId(-3)
-                }
-            } ?: JsonRpcResponse.NumberId(-4)
+            val id =
+                err.details?.let {
+                    if (it is JsonRpcResponse.Id) {
+                        it
+                    } else {
+                        JsonRpcResponse.NumberId(-3)
+                    }
+                } ?: JsonRpcResponse.NumberId(-4)
             return JsonRpcException(
-                id, JsonRpcError.from(err)
+                id,
+                JsonRpcError.from(err),
             )
         }
     }

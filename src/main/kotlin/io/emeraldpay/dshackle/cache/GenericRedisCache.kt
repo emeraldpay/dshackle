@@ -15,7 +15,6 @@ class GenericRedisCache(
     private val type: String,
     private val redis: RedisReactiveCommands<String, ByteArray>,
 ) : Reader<String, ByteArray> {
-
     companion object {
         private val log = LoggerFactory.getLogger(GenericRedisCache::class.java)
         private val DEFAULT_CACHE_TIME = Duration.ofMinutes(60)
@@ -28,56 +27,51 @@ class GenericRedisCache(
         }
     }
 
-    override fun read(key: String): Mono<ByteArray> {
-        return redis.get(asRedisKey(key))
+    override fun read(key: String): Mono<ByteArray> =
+        redis
+            .get(asRedisKey(key))
             .map {
                 CachesProto.ValueContainer.parseFrom(it)
-            }
-            .filter {
+            }.filter {
                 it.type == CachesProto.ValueContainer.ValueType.GENERIC && it.hasGenericMeta() && it.genericMeta.type == type
-            }
-            .map { data ->
+            }.map { data ->
                 data.value.toByteArray()
-            }
-            .onErrorResume { t ->
+            }.onErrorResume { t ->
                 log.warn("Failed to read from Redis. ${t.javaClass} ${t.message}")
                 Mono.empty()
             }
-    }
 
-    fun asRedisKey(key: String): String {
-        return "generic:${chain.id}:$type:$key"
-    }
+    fun asRedisKey(key: String): String = "generic:${chain.id}:$type:$key"
 
-    fun put(key: String, value: ByteArray, ttl: Duration?): Mono<Void> {
-        return Mono.just(value)
+    fun put(
+        key: String,
+        value: ByteArray,
+        ttl: Duration?,
+    ): Mono<Void> =
+        Mono
+            .just(value)
             .flatMap {
                 val resultingTtl = (ttl ?: DEFAULT_CACHE_TIME).coerceAtMost(MAX_CACHE_TIME)
                 val proto = toProto(it)
                 redis.setex(asRedisKey(key), resultingTtl.seconds, proto.toByteArray())
-            }
-            .doOnError {
+            }.doOnError {
                 log.warn("Failed to save Generic Data $type to Redis: ${it.message}")
             }
             // if failed to cache, just continue without it
             .onErrorResume {
                 Mono.empty()
-            }
-            .then()
-    }
+            }.then()
 
-    fun evict(key: String): Mono<Void> {
-        return redis.del(asRedisKey(key)).then()
-    }
+    fun evict(key: String): Mono<Void> = redis.del(asRedisKey(key)).then()
 
-    fun toProto(value: ByteArray): CachesProto.ValueContainer {
-        return CachesProto.ValueContainer.newBuilder()
+    fun toProto(value: ByteArray): CachesProto.ValueContainer =
+        CachesProto.ValueContainer
+            .newBuilder()
             .setType(CachesProto.ValueContainer.ValueType.GENERIC)
             .setValue(ByteString.copyFrom(value))
             .setGenericMeta(
-                CachesProto.GenericMeta.newBuilder()
-                    .setType(type)
-            )
-            .build()
-    }
+                CachesProto.GenericMeta
+                    .newBuilder()
+                    .setType(type),
+            ).build()
 }

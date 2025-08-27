@@ -20,14 +20,11 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 
 class NoPendingTxes : PendingTxesSource {
-
     companion object {
         private val log = LoggerFactory.getLogger(NoPendingTxes::class.java)
 
         val DEFAULT = NoPendingTxes()
     }
 
-    override fun connect(): Flux<TransactionId> {
-        return Flux.empty()
-    }
+    override fun connect(): Flux<TransactionId> = Flux.empty()
 }

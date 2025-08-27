@@ -26,7 +26,6 @@ import kotlin.concurrent.write
  * Summary details over few upstream nodes. Provides aggregate quorum for nodes with particular label
  */
 class QuorumForLabels() {
-
     private val lock = ReentrantReadWriteLock()
     private val nodes = ArrayList<QuorumItem>()
 
@@ -53,9 +52,7 @@ class QuorumForLabels() {
         nodes.nodes.forEach { node -> this.add(node) }
     }
 
-    fun getAll(): List<QuorumItem> {
-        return Collections.unmodifiableList(nodes)
-    }
+    fun getAll(): List<QuorumItem> = Collections.unmodifiableList(nodes)
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -66,18 +63,17 @@ class QuorumForLabels() {
         return true
     }
 
-    override fun hashCode(): Int {
-        return nodes.hashCode()
-    }
+    override fun hashCode(): Int = nodes.hashCode()
 
     /**
      * Details for a single element (upstream, node or aggregation)
      */
-    class QuorumItem(val quorum: Int, val labels: UpstreamsConfig.Labels) {
+    class QuorumItem(
+        val quorum: Int,
+        val labels: UpstreamsConfig.Labels,
+    ) {
         companion object {
-            fun empty(): QuorumItem {
-                return QuorumItem(0, UpstreamsConfig.Labels())
-            }
+            fun empty(): QuorumItem = QuorumItem(0, UpstreamsConfig.Labels())
         }
 
         override fun equals(other: Any?): Boolean {

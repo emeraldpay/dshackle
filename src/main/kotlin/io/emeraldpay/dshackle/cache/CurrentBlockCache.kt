@@ -6,14 +6,14 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
 
 class CurrentBlockCache<K, D> : Reader<K, D> {
-
     private val cache = AtomicReference(ConcurrentHashMap<K, D>())
 
-    override fun read(key: K): Mono<D> {
-        return Mono.justOrEmpty(cache.get()[key])
-    }
+    override fun read(key: K): Mono<D> = Mono.justOrEmpty(cache.get()[key])
 
-    fun put(key: K, data: D) {
+    fun put(
+        key: K,
+        data: D,
+    ) {
         cache.get()[key] = data
     }
 

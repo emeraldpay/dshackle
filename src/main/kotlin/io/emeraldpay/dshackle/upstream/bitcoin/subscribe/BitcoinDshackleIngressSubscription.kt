@@ -26,13 +26,11 @@ class BitcoinDshackleIngressSubscription(
     private val blockchain: Chain,
     private val conn: ReactorBlockchainGrpc.ReactorBlockchainStub,
 ) : IngressSubscription {
-
     private val subscriptions: EnumMap<BitcoinZmqTopic, BitcoinDshackleSubscriptionSource> = EnumMap(BitcoinZmqTopic::class.java)
 
-    override fun getAvailableTopics(): List<String> {
-        return subscriptions.keys
+    override fun getAvailableTopics(): List<String> =
+        subscriptions.keys
             .map { it.id }
-    }
 
     @Suppress("UNCHECKED_CAST")
     override fun <T> get(topic: String): SubscriptionConnect<T>? {

@@ -30,9 +30,8 @@ import reactor.util.function.Tuples
 import java.util.concurrent.atomic.AtomicInteger
 
 open class XpubAddresses(
-    private val addressActiveCheck: AddressActiveCheck
+    private val addressActiveCheck: AddressActiveCheck,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(XpubAddresses::class.java)
         private val MAINNET = MainNetParams()
@@ -40,7 +39,11 @@ open class XpubAddresses(
         private val INACTIVE_LIMIT = 20
     }
 
-    open fun allAddresses(xpub: String, start: Int, limit: Int): Flux<Address> {
+    open fun allAddresses(
+        xpub: String,
+        start: Int,
+        limit: Int,
+    ): Flux<Address> {
         // versions:
         // https://electrum.readthedocs.io/en/latest/xpub_version_bytes.html
         // TODO doesn't support SH keys right now. should?
@@ -75,27 +78,31 @@ open class XpubAddresses(
             return Flux.error(t)
         }
 
-        return Flux.range(start, limit)
+        return Flux
+            .range(start, limit)
             .map { HDKeyDerivation.deriveChildKey(key, ChildNumber(it, false)) }
             .map { Address.fromKey(network, ECKey.fromPublicOnly(it.pubKey), type) }
     }
 
-    open fun activeAddresses(xpub: String, start: Int, limit: Int): Flux<Address> {
+    open fun activeAddresses(
+        xpub: String,
+        start: Int,
+        limit: Int,
+    ): Flux<Address> {
         val lastActive = AtomicInteger(0)
-        return this.allAddresses(xpub, start, limit)
+        return this
+            .allAddresses(xpub, start, limit)
             .zipWith(Flux.range(0, limit))
             .takeUntil {
                 it.t2 - lastActive.get() >= INACTIVE_LIMIT
-            }
-            .concatMap { toCheck ->
-                addressActiveCheck.isActive(toCheck.t1)
+            }.concatMap { toCheck ->
+                addressActiveCheck
+                    .isActive(toCheck.t1)
                     .doOnNext { active -> if (active) lastActive.set(toCheck.t2) }
                     .map { Tuples.of(toCheck.t1, it) }
-            }
-            .filter {
+            }.filter {
                 it.t2
-            }
-            .map {
+            }.map {
                 it.t1
             }
     }

@@ -33,15 +33,14 @@ abstract class BitcoinUpstream(
     role: UpstreamsConfig.UpstreamRole,
     callMethods: CallMethods,
     node: QuorumForLabels.QuorumItem,
-    val esploraClient: EsploraClient? = null
+    val esploraClient: EsploraClient? = null,
 ) : DefaultUpstream(id, chain, forkWatch, options, role, callMethods, node) {
-
     constructor(
         id: String,
         chain: Chain,
         forkWatch: ForkWatch,
         options: UpstreamsConfig.Options,
-        role: UpstreamsConfig.UpstreamRole
+        role: UpstreamsConfig.UpstreamRole,
     ) : this(id, chain, forkWatch, options, role, DefaultBitcoinMethods(), QuorumForLabels.QuorumItem.empty())
 
     companion object {

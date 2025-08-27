@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.monitoring
 
 enum class Channel {
-
-    DSHACKLE, JSONRPC, WSJSONRPC
+    DSHACKLE,
+    JSONRPC,
+    WSJSONRPC,
 }

@@ -12,9 +12,8 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
 class UnspentAsRpcReader(
-    private val unspentReader: UnspentReader
+    private val unspentReader: UnspentReader,
 ) : DshackleRpcReader {
-
     companion object {
         private val log = LoggerFactory.getLogger(UnspentAsRpcReader::class.java)
     }
@@ -46,8 +45,8 @@ class UnspentAsRpcReader(
         return Mono.error(SilentException("Invalid call to unspent"))
     }
 
-    fun convertUnspent(address: Address): (SimpleUnspent) -> RpcUnspent {
-        return { base ->
+    fun convertUnspent(address: Address): (SimpleUnspent) -> RpcUnspent =
+        { base ->
             RpcUnspent(
                 base.txid,
                 base.vout,
@@ -55,5 +54,4 @@ class UnspentAsRpcReader(
                 base.value,
             )
         }
-    }
 }

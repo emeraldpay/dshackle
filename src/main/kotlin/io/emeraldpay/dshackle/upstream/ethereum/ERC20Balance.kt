@@ -32,32 +32,41 @@ import java.math.BigInteger
  * Query for a ERC20 token balance for an address
  */
 open class ERC20Balance {
-
     companion object {
         private val log = LoggerFactory.getLogger(ERC20Balance::class.java)
     }
 
-    open fun getBalance(upstreams: EthereumMultistream, token: ERC20Token, address: Address): Mono<BigInteger> {
-        return upstreams
+    open fun getBalance(
+        upstreams: EthereumMultistream,
+        token: ERC20Token,
+        address: Address,
+    ): Mono<BigInteger> =
+        upstreams
             // use only up-to-date upstreams
             .getApiSource(Selector.HeightMatcher(upstreams.getHead().getCurrentHeight() ?: 0))
             .let { getBalance(it, token, address) }
-    }
 
-    open fun getBalance(apis: ApiSource, token: ERC20Token, address: Address): Mono<BigInteger> {
+    open fun getBalance(
+        apis: ApiSource,
+        token: ERC20Token,
+        address: Address,
+    ): Mono<BigInteger> {
         apis.request(1)
-        return Flux.from(apis)
+        return Flux
+            .from(apis)
             .flatMap {
                 getBalance(it.cast(EthereumUpstream::class.java), token, address)
-            }
-            .doOnNext {
+            }.doOnNext {
                 apis.resolve()
-            }
-            .next()
+            }.next()
     }
 
-    open fun getBalance(upstream: EthereumUpstream, token: ERC20Token, address: Address): Mono<BigInteger> {
-        return upstream
+    open fun getBalance(
+        upstream: EthereumUpstream,
+        token: ERC20Token,
+        address: Address,
+    ): Mono<BigInteger> =
+        upstream
             .getIngressReader()
             .read(prepareEthCall(token, address, upstream.getHead()))
             .flatMap(JsonRpcResponse::requireStringResult)
@@ -68,12 +77,16 @@ open class ERC20Balance {
                 // also for the money zero is the same as nothing.
                 HexQuantity.from(it)?.value ?: BigInteger.ZERO
             }
-    }
 
-    fun prepareEthCall(token: ERC20Token, target: Address, head: Head): JsonRpcRequest {
-        val call = token
-            .readBalanceOf(target)
-            .toJson()
+    fun prepareEthCall(
+        token: ERC20Token,
+        target: Address,
+        head: Head,
+    ): JsonRpcRequest {
+        val call =
+            token
+                .readBalanceOf(target)
+                .toJson()
         val height = head.getCurrentHeight()?.let { HexQuantity.from(it).toHex() } ?: "latest"
         return JsonRpcRequest("eth_call", listOf(call, height))
     }

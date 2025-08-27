@@ -20,9 +20,9 @@ import org.yaml.snakeyaml.nodes.MappingNode
 import java.util.Locale
 
 class LogTargetConfigReader(
-    private val defaultFile: LogTargetConfig.File
-) : YamlConfigReader(), ConfigReader<LogTargetConfig.Any> {
-
+    private val defaultFile: LogTargetConfig.File,
+) : YamlConfigReader(),
+    ConfigReader<LogTargetConfig.Any> {
     companion object {
         private val log = LoggerFactory.getLogger(LogTargetConfigReader::class.java)
     }
@@ -40,23 +40,26 @@ class LogTargetConfigReader(
                 return target
             }
             "socket" -> {
-                var target = LogTargetConfig.Socket(
-                    host = "127.0.0.1",
-                    port = getValueAsInt(input, "port").also {
-                        if (it == null) {
-                            log.error("Port must be specified for a Socket Log target")
-                        }
-                    }!!,
-                )
+                var target =
+                    LogTargetConfig.Socket(
+                        host = "127.0.0.1",
+                        port =
+                            getValueAsInt(input, "port").also {
+                                if (it == null) {
+                                    log.error("Port must be specified for a Socket Log target")
+                                }
+                            }!!,
+                    )
                 getValueAsString(input, "host")?.let {
                     target = target.copy(host = it)
                 }
                 getValueAsString(input, "encoding")?.let { encodingId ->
-                    val encoding = when (encodingId.lowercase(Locale.getDefault())) {
-                        "nl", "newline", "new-line", "new_line" -> LogTargetConfig.Encoding.NEW_LINE
-                        "prefix", "length", "length_prefix", "length-prefix" -> LogTargetConfig.Encoding.SIZE_PREFIX
-                        else -> null
-                    }
+                    val encoding =
+                        when (encodingId.lowercase(Locale.getDefault())) {
+                            "nl", "newline", "new-line", "new_line" -> LogTargetConfig.Encoding.NEW_LINE
+                            "prefix", "length", "length_prefix", "length-prefix" -> LogTargetConfig.Encoding.SIZE_PREFIX
+                            else -> null
+                        }
                     if (encoding != null) {
                         target = target.copy(encoding = encoding)
                     }

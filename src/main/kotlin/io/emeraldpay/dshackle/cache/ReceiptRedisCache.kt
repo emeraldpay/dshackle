@@ -24,18 +24,11 @@ import reactor.core.publisher.Mono
 
 open class ReceiptRedisCache(
     redis: RedisReactiveCommands<String, ByteArray>,
-    chain: Chain
+    chain: Chain,
 ) : OnTxRedisCache<ByteArray>(redis, chain, CachesProto.ValueContainer.ValueType.TX_RECEIPT) {
+    override fun deserializeValue(value: CachesProto.ValueContainer): ByteArray = value.value.toByteArray()
 
-    override fun deserializeValue(value: CachesProto.ValueContainer): ByteArray {
-        return value.value.toByteArray()
-    }
+    override fun serializeValue(value: ByteArray): ByteArray = value
 
-    override fun serializeValue(value: ByteArray): ByteArray {
-        return value
-    }
-
-    fun add(json: DefaultContainer<TransactionReceiptJson>): Mono<Void> {
-        return super.add(json.txId!!, json.json!!, null, json.height)
-    }
+    fun add(json: DefaultContainer<TransactionReceiptJson>): Mono<Void> = super.add(json.txId!!, json.json!!, null, json.height)
 }

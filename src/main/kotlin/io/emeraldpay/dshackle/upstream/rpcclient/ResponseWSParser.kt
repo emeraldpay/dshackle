@@ -21,7 +21,6 @@ import org.slf4j.LoggerFactory
 import java.io.IOException
 
 class ResponseWSParser : ResponseParser<ResponseWSParser.WsResponse>() {
-
     companion object {
         private val log = LoggerFactory.getLogger(ResponseWSParser::class.java)
         private val NULL_RESULT = "null".toByteArray()
@@ -33,7 +32,7 @@ class ResponseWSParser : ResponseParser<ResponseWSParser.WsResponse>() {
                 Type.RPC,
                 state.id!!,
                 if (state.nullResult) NULL_RESULT else state.result,
-                state.error
+                state.error,
             )
         }
         if (state.isSubReady) {
@@ -41,7 +40,7 @@ class ResponseWSParser : ResponseParser<ResponseWSParser.WsResponse>() {
                 Type.SUBSCRIPTION,
                 JsonRpcResponse.Id.from(state.subId!!),
                 if (state.nullResult) NULL_RESULT else state.result,
-                state.error
+                state.error,
             )
         }
         if (state.error != null) {
@@ -51,13 +50,18 @@ class ResponseWSParser : ResponseParser<ResponseWSParser.WsResponse>() {
                 Type.RPC,
                 state.id ?: JsonRpcResponse.Id.from(0),
                 null,
-                state.error
+                state.error,
             )
         }
         throw IllegalStateException("State is not ready")
     }
 
-    override fun process(parser: JsonParser, json: ByteArray, field: String, state: Preparsed): Preparsed {
+    override fun process(
+        parser: JsonParser,
+        json: ByteArray,
+        field: String,
+        state: Preparsed,
+    ): Preparsed {
         if ("method" == field) {
             parser.nextToken()
             val method = parser.valueAsString
@@ -91,7 +95,11 @@ class ResponseWSParser : ResponseParser<ResponseWSParser.WsResponse>() {
     }
 
     @Throws(IOException::class)
-    protected fun decodeSubscription(parser: JsonParser, json: ByteArray, stateOriginal: Preparsed): Preparsed {
+    protected fun decodeSubscription(
+        parser: JsonParser,
+        json: ByteArray,
+        stateOriginal: Preparsed,
+    ): Preparsed {
         var state = stateOriginal
         while (parser.nextToken() != JsonToken.END_OBJECT) {
             checkNotNull(parser.currentToken()) { "JSON finished before data received" }
@@ -106,13 +114,14 @@ class ResponseWSParser : ResponseParser<ResponseWSParser.WsResponse>() {
     }
 
     enum class Type {
-        SUBSCRIPTION, RPC
+        SUBSCRIPTION,
+        RPC,
     }
 
     data class WsResponse(
         val type: Type,
         val id: JsonRpcResponse.Id,
         val value: ByteArray?,
-        val error: JsonRpcError?
+        val error: JsonRpcError?,
     )
 }

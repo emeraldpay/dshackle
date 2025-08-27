@@ -20,9 +20,9 @@ class OptionalHead(
     /**
      * Real Head that would be used when this one is enabled
      */
-    private val delegate: Head
-) : Head, Lifecycle {
-
+    private val delegate: Head,
+) : Head,
+    Lifecycle {
     companion object {
         private val log = LoggerFactory.getLogger(OptionalHead::class.java)
     }
@@ -31,8 +31,11 @@ class OptionalHead(
     private var enabled = false
 
     private val currentSubscriptions = ConcurrentLinkedQueue<AtomicBoolean>()
-    private val onEnable = Sinks.many().multicast()
-        .directBestEffort<Boolean>()
+    private val onEnable =
+        Sinks
+            .many()
+            .multicast()
+            .directBestEffort<Boolean>()
 
     /**
      * Lifecycle Flag, used to synchronize the lifecycle with delegate
@@ -82,13 +85,15 @@ class OptionalHead(
 
     override fun getFlux(): Flux<BlockContainer> {
         // a postponed re-subscription to the same method
-        val restart = Mono.fromCallable { log.trace("Restart optional head to $delegate") }
-            .flatMapMany { getFlux() }
-            .subscribeOn(Schedulers.boundedElastic())
+        val restart =
+            Mono
+                .fromCallable { log.trace("Restart optional head to $delegate") }
+                .flatMapMany { getFlux() }
+                .subscribeOn(Schedulers.boundedElastic())
         return if (enabled) {
             Flux.concat(
                 getEnabledFlux(),
-                restart
+                restart,
             )
         } else {
             getDisabledFlux()
@@ -104,7 +109,9 @@ class OptionalHead(
     protected fun getEnabledFlux(): Flux<BlockContainer> {
         val control = AtomicBoolean(true)
         currentSubscriptions.offer(control)
-        return delegate.getFlux().subscribeOn(Schedulers.boundedElastic())
+        return delegate
+            .getFlux()
+            .subscribeOn(Schedulers.boundedElastic())
             .takeWhile { control.get() }
     }
 
@@ -112,12 +119,12 @@ class OptionalHead(
      * A mono for blocks when this head is disabled. Basically never produce anything, but completes when this head
      * gets enabled.
      */
-    protected fun getDisabledFlux(): Mono<Void> {
-        return Flux.from(onEnable.asFlux())
+    protected fun getDisabledFlux(): Mono<Void> =
+        Flux
+            .from(onEnable.asFlux())
             .filter { it }
             .next()
             .then()
-    }
 
     override fun onBeforeBlock(handler: Runnable) {
         delegate.onBeforeBlock(handler)
@@ -144,9 +151,8 @@ class OptionalHead(
         }
     }
 
-    override fun isRunning(): Boolean {
-        return enableLock.withLock {
+    override fun isRunning(): Boolean =
+        enableLock.withLock {
             started && (delegate !is Lifecycle || delegate.isRunning)
         }
-    }
 }

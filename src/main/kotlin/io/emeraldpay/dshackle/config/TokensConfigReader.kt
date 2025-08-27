@@ -21,8 +21,9 @@ import org.yaml.snakeyaml.nodes.MappingNode
 import java.io.InputStream
 import java.util.Locale
 
-class TokensConfigReader : YamlConfigReader(), ConfigReader<TokensConfig> {
-
+class TokensConfigReader :
+    YamlConfigReader(),
+    ConfigReader<TokensConfig> {
     private val log = LoggerFactory.getLogger(TokensConfigReader::class.java)
 
     fun read(input: InputStream): TokensConfig? {
@@ -31,32 +32,37 @@ class TokensConfigReader : YamlConfigReader(), ConfigReader<TokensConfig> {
     }
 
     override fun read(input: MappingNode?): TokensConfig? {
-        val tokens = getList<MappingNode>(input, "tokens")?.value?.map { node ->
-            val token = TokensConfig.Token()
-            token.id = getValueAsString(node, "id")
-            token.blockchain = getValueAsString(node, "blockchain")?.let {
-                Global.chainById(it)
-            }
-            token.address = getValueAsString(node, "address")
-            token.name = getValueAsString(node, "name")
-            token.type = getValueAsString(node, "type")?.let {
-                if (it.uppercase(Locale.getDefault()) == "ERC-20") {
-                    TokensConfig.Type.ERC20
-                } else {
-                    log.warn("Invalid token type: $it")
-                    null
+        val tokens =
+            getList<MappingNode>(input, "tokens")
+                ?.value
+                ?.map { node ->
+                    val token = TokensConfig.Token()
+                    token.id = getValueAsString(node, "id")
+                    token.blockchain =
+                        getValueAsString(node, "blockchain")?.let {
+                            Global.chainById(it)
+                        }
+                    token.address = getValueAsString(node, "address")
+                    token.name = getValueAsString(node, "name")
+                    token.type =
+                        getValueAsString(node, "type")?.let {
+                            if (it.uppercase(Locale.getDefault()) == "ERC-20") {
+                                TokensConfig.Type.ERC20
+                            } else {
+                                log.warn("Invalid token type: $it")
+                                null
+                            }
+                        }
+                    token
+                }?.filter { token ->
+                    val invalidField = token.validate()
+                    if (invalidField != null) {
+                        log.error("Failed to parse token ${token.id}. Invalid field: $invalidField")
+                        false
+                    } else {
+                        true
+                    }
                 }
-            }
-            token
-        }?.filter { token ->
-            val invalidField = token.validate()
-            if (invalidField != null) {
-                log.error("Failed to parse token ${token.id}. Invalid field: $invalidField")
-                false
-            } else {
-                true
-            }
-        }
         return tokens?.let {
             TokensConfig(it)
         }

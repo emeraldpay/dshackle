@@ -30,64 +30,68 @@ import io.emeraldpay.etherjar.rpc.RpcException
  * hardcoded results for base methods, such as `net_version`, `web3_clientVersion` and similar
  */
 class DefaultEthereumMethods(
-    private val chain: Chain
+    private val chain: Chain,
 ) : CallMethods {
-
     private val version = "\"EmeraldDshackle/${Global.version}\""
 
-    private val anyResponseMethods = listOf(
-        "eth_gasPrice",
-        "eth_call",
-        "eth_estimateGas"
-    )
+    private val anyResponseMethods =
+        listOf(
+            "eth_gasPrice",
+            "eth_call",
+            "eth_estimateGas",
+        )
 
-    private val firstValueMethods = listOf(
-        "eth_getBlockTransactionCountByHash",
-        "eth_getUncleCountByBlockHash",
-        "eth_getBlockByHash",
-        "eth_getTransactionByHash",
-        "eth_getTransactionByBlockHashAndIndex",
-        "eth_getStorageAt",
-        "eth_getCode",
-        "eth_getUncleByBlockHashAndIndex",
-        "eth_getLogs"
-    )
+    private val firstValueMethods =
+        listOf(
+            "eth_getBlockTransactionCountByHash",
+            "eth_getUncleCountByBlockHash",
+            "eth_getBlockByHash",
+            "eth_getTransactionByHash",
+            "eth_getTransactionByBlockHashAndIndex",
+            "eth_getStorageAt",
+            "eth_getCode",
+            "eth_getUncleByBlockHashAndIndex",
+            "eth_getLogs",
+        )
 
-    private val specialMethods = listOf(
-        "eth_getTransactionCount",
-        "eth_blockNumber",
-        "eth_getBalance",
-        "eth_sendRawTransaction"
-    )
+    private val specialMethods =
+        listOf(
+            "eth_getTransactionCount",
+            "eth_blockNumber",
+            "eth_getBalance",
+            "eth_sendRawTransaction",
+        )
 
-    private val headVerifiedMethods = listOf(
-        "eth_getBlockTransactionCountByNumber",
-        "eth_getUncleCountByBlockNumber",
-        "eth_getBlockByNumber",
-        "eth_getTransactionByBlockNumberAndIndex",
-        "eth_getTransactionReceipt",
-        "eth_getUncleByBlockNumberAndIndex",
-        "eth_feeHistory"
-    )
+    private val headVerifiedMethods =
+        listOf(
+            "eth_getBlockTransactionCountByNumber",
+            "eth_getUncleCountByBlockNumber",
+            "eth_getBlockByNumber",
+            "eth_getTransactionByBlockNumberAndIndex",
+            "eth_getTransactionReceipt",
+            "eth_getUncleByBlockNumberAndIndex",
+            "eth_feeHistory",
+        )
 
     private val allowedMethods = anyResponseMethods + firstValueMethods + specialMethods + headVerifiedMethods
 
-    private val hardcodedMethods = listOf(
-        "net_version",
-        "net_peerCount",
-        "net_listening",
-        "web3_clientVersion",
-        "eth_protocolVersion",
-        "eth_syncing",
-        "eth_coinbase",
-        "eth_mining",
-        "eth_hashrate",
-        "eth_accounts",
-        "eth_chainId"
-    )
+    private val hardcodedMethods =
+        listOf(
+            "net_version",
+            "net_peerCount",
+            "net_listening",
+            "web3_clientVersion",
+            "eth_protocolVersion",
+            "eth_syncing",
+            "eth_coinbase",
+            "eth_mining",
+            "eth_hashrate",
+            "eth_accounts",
+            "eth_chainId",
+        )
 
-    override fun createQuorumFor(method: String): CallQuorum {
-        return when {
+    override fun createQuorumFor(method: String): CallQuorum =
+        when {
             hardcodedMethods.contains(method) -> AlwaysQuorum()
             firstValueMethods.contains(method) -> AlwaysQuorum()
             anyResponseMethods.contains(method) -> NotLaggingQuorum(4)
@@ -103,129 +107,123 @@ class DefaultEthereumMethods(
             }
             else -> AlwaysQuorum()
         }
-    }
 
-    override fun isCallable(method: String): Boolean {
-        return allowedMethods.contains(method)
-    }
+    override fun isCallable(method: String): Boolean = allowedMethods.contains(method)
 
-    override fun isHardcoded(method: String): Boolean {
-        return hardcodedMethods.contains(method)
-    }
+    override fun isHardcoded(method: String): Boolean = hardcodedMethods.contains(method)
 
     override fun executeHardcoded(method: String): ByteArray {
         // note that the value is in json representation, i.e. if it's a string it should be with quotes,
         // that's why "\"0x0\"", "\"1\"", etc. But just "true" for a boolean, or "[]" for array.
-        val json = when (method) {
-            "net_version" -> {
-                when {
-                    Chain.ETHEREUM == chain -> {
-                        "\"1\""
+        val json =
+            when (method) {
+                "net_version" -> {
+                    when {
+                        Chain.ETHEREUM == chain -> {
+                            "\"1\""
+                        }
+                        Chain.ETHEREUM_CLASSIC == chain -> {
+                            "\"1\""
+                        }
+                        Chain.MATIC == chain -> {
+                            "\"137\""
+                        }
+                        Chain.TESTNET_MORDEN == chain -> {
+                            "\"2\""
+                        }
+                        Chain.TESTNET_ROPSTEN == chain -> {
+                            "\"3\""
+                        }
+                        Chain.TESTNET_RINKEBY == chain -> {
+                            "\"4\""
+                        }
+                        Chain.TESTNET_KOVAN == chain -> {
+                            "\"42\""
+                        }
+                        Chain.TESTNET_GOERLI == chain -> {
+                            "\"5\""
+                        }
+                        Chain.TESTNET_HOLESKY == chain -> {
+                            "\"17000\""
+                        }
+                        Chain.TESTNET_SEPOLIA == chain -> {
+                            "\"11155111\""
+                        }
+                        Chain.TESTNET_HOODI == chain -> {
+                            "\"560048\""
+                        }
+                        else -> throw RpcException(-32602, "Invalid chain")
                     }
-                    Chain.ETHEREUM_CLASSIC == chain -> {
-                        "\"1\""
-                    }
-                    Chain.MATIC == chain -> {
-                        "\"137\""
-                    }
-                    Chain.TESTNET_MORDEN == chain -> {
-                        "\"2\""
-                    }
-                    Chain.TESTNET_ROPSTEN == chain -> {
-                        "\"3\""
-                    }
-                    Chain.TESTNET_RINKEBY == chain -> {
-                        "\"4\""
-                    }
-                    Chain.TESTNET_KOVAN == chain -> {
-                        "\"42\""
-                    }
-                    Chain.TESTNET_GOERLI == chain -> {
-                        "\"5\""
-                    }
-                    Chain.TESTNET_HOLESKY == chain -> {
-                        "\"17000\""
-                    }
-                    Chain.TESTNET_SEPOLIA == chain -> {
-                        "\"11155111\""
-                    }
-                    Chain.TESTNET_HOODI == chain -> {
-                        "\"560048\""
-                    }
-                    else -> throw RpcException(-32602, "Invalid chain")
                 }
-            }
-            "eth_chainId" -> {
-                when {
-                    Chain.ETHEREUM == chain -> {
-                        "\"0x1\""
+                "eth_chainId" -> {
+                    when {
+                        Chain.ETHEREUM == chain -> {
+                            "\"0x1\""
+                        }
+                        Chain.MATIC == chain -> {
+                            "\"0x89\""
+                        }
+                        Chain.TESTNET_ROPSTEN == chain -> {
+                            "\"0x3\""
+                        }
+                        Chain.TESTNET_RINKEBY == chain -> {
+                            "\"0x4\""
+                        }
+                        Chain.ETHEREUM_CLASSIC == chain -> {
+                            "\"0x3d\""
+                        }
+                        Chain.TESTNET_MORDEN == chain -> {
+                            "\"0x3c\""
+                        }
+                        Chain.TESTNET_KOVAN == chain -> {
+                            "\"0x2a\""
+                        }
+                        Chain.TESTNET_GOERLI == chain -> {
+                            "\"0x5\""
+                        }
+                        Chain.TESTNET_HOLESKY == chain -> {
+                            "\"0x4268\""
+                        }
+                        Chain.TESTNET_SEPOLIA == chain -> {
+                            "\"0xaa36a7\""
+                        }
+                        Chain.TESTNET_HOODI == chain -> {
+                            "\"0x88bb0\""
+                        }
+                        else -> throw RpcException(-32602, "Invalid chain")
                     }
-                    Chain.MATIC == chain -> {
-                        "\"0x89\""
-                    }
-                    Chain.TESTNET_ROPSTEN == chain -> {
-                        "\"0x3\""
-                    }
-                    Chain.TESTNET_RINKEBY == chain -> {
-                        "\"0x4\""
-                    }
-                    Chain.ETHEREUM_CLASSIC == chain -> {
-                        "\"0x3d\""
-                    }
-                    Chain.TESTNET_MORDEN == chain -> {
-                        "\"0x3c\""
-                    }
-                    Chain.TESTNET_KOVAN == chain -> {
-                        "\"0x2a\""
-                    }
-                    Chain.TESTNET_GOERLI == chain -> {
-                        "\"0x5\""
-                    }
-                    Chain.TESTNET_HOLESKY == chain -> {
-                        "\"0x4268\""
-                    }
-                    Chain.TESTNET_SEPOLIA == chain -> {
-                        "\"0xaa36a7\""
-                    }
-                    Chain.TESTNET_HOODI == chain -> {
-                        "\"0x88bb0\""
-                    }
-                    else -> throw RpcException(-32602, "Invalid chain")
                 }
+                "net_peerCount" -> {
+                    "\"0x2a\""
+                }
+                "net_listening" -> {
+                    "true"
+                }
+                "web3_clientVersion" -> {
+                    version
+                }
+                "eth_protocolVersion" -> {
+                    "\"0x3f\""
+                }
+                "eth_syncing" -> {
+                    "false"
+                }
+                "eth_coinbase" -> {
+                    "\"0x0000000000000000000000000000000000000000\""
+                }
+                "eth_mining" -> {
+                    "false"
+                }
+                "eth_hashrate" -> {
+                    "\"0x0\""
+                }
+                "eth_accounts" -> {
+                    "[]"
+                }
+                else -> throw RpcException(-32601, "Method not found")
             }
-            "net_peerCount" -> {
-                "\"0x2a\""
-            }
-            "net_listening" -> {
-                "true"
-            }
-            "web3_clientVersion" -> {
-                version
-            }
-            "eth_protocolVersion" -> {
-                "\"0x3f\""
-            }
-            "eth_syncing" -> {
-                "false"
-            }
-            "eth_coinbase" -> {
-                "\"0x0000000000000000000000000000000000000000\""
-            }
-            "eth_mining" -> {
-                "false"
-            }
-            "eth_hashrate" -> {
-                "\"0x0\""
-            }
-            "eth_accounts" -> {
-                "[]"
-            }
-            else -> throw RpcException(-32601, "Method not found")
-        }
         return json.toByteArray()
     }
 
-    override fun getSupportedMethods(): Set<String> {
-        return allowedMethods.plus(hardcodedMethods).toSortedSet()
-    }
+    override fun getSupportedMethods(): Set<String> = allowedMethods.plus(hardcodedMethods).toSortedSet()
 }

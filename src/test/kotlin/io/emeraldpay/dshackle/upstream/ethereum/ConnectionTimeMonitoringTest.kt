@@ -24,31 +24,32 @@ import io.mockk.mockk
 import io.mockk.verify
 import java.time.Duration
 
-class ConnectionTimeMonitoringTest : ShouldSpec({
+class ConnectionTimeMonitoringTest :
+    ShouldSpec({
 
-    should("Update time on CONNECT") {
-        val monitoring = ConnectionTimeMonitoring(mockk())
+        should("Update time on CONNECT") {
+            val monitoring = ConnectionTimeMonitoring(mockk())
 
-        monitoring.connectionTime shouldBe null
-        monitoring.accept(WsConnection.ConnectionStatus.CONNECTED)
-        Thread.sleep(25)
-        monitoring.connectionTime shouldNotBe null
-        monitoring.connectionTime!! shouldBeGreaterThan Duration.ofMillis(20)
-    }
-
-    should("Record time on DISCONNECT") {
-        val rpc = mockk<RpcMetrics>(relaxed = true)
-        val monitoring = ConnectionTimeMonitoring(rpc)
-
-        monitoring.accept(WsConnection.ConnectionStatus.CONNECTED)
-        Thread.sleep(25)
-        monitoring.accept(WsConnection.ConnectionStatus.DISCONNECTED)
-
-        // erases the time after recording it
-        monitoring.connectionTime shouldBe null
-
-        verify {
-            rpc.recordConnectionTime(more(Duration.ofMillis(20)))
+            monitoring.connectionTime shouldBe null
+            monitoring.accept(WsConnection.ConnectionStatus.CONNECTED)
+            Thread.sleep(25)
+            monitoring.connectionTime shouldNotBe null
+            monitoring.connectionTime!! shouldBeGreaterThan Duration.ofMillis(20)
         }
-    }
-})
+
+        should("Record time on DISCONNECT") {
+            val rpc = mockk<RpcMetrics>(relaxed = true)
+            val monitoring = ConnectionTimeMonitoring(rpc)
+
+            monitoring.accept(WsConnection.ConnectionStatus.CONNECTED)
+            Thread.sleep(25)
+            monitoring.accept(WsConnection.ConnectionStatus.DISCONNECTED)
+
+            // erases the time after recording it
+            monitoring.connectionTime shouldBe null
+
+            verify {
+                rpc.recordConnectionTime(more(Duration.ofMillis(20)))
+            }
+        }
+    })

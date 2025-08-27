@@ -35,9 +35,10 @@ import java.util.concurrent.Executors
 class BitcoinRpcHead(
     private val api: StandardRpcReader,
     private val extractBlock: ExtractBlock,
-    private val interval: Duration = Duration.ofSeconds(15)
-) : Head, AbstractHead(), Lifecycle {
-
+    private val interval: Duration = Duration.ofSeconds(15),
+) : AbstractHead(),
+    Head,
+    Lifecycle {
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinRpcHead::class.java)
         val scheduler =
@@ -46,32 +47,32 @@ class BitcoinRpcHead(
 
     private var refreshSubscription: Disposable? = null
 
-    override fun isRunning(): Boolean {
-        return refreshSubscription != null
-    }
+    override fun isRunning(): Boolean = refreshSubscription != null
 
     override fun start() {
         if (refreshSubscription != null) {
             log.warn("Called to start when running")
             return
         }
-        val base = Flux.interval(interval)
-            .publishOn(scheduler)
-            .flatMap {
-                api.read(JsonRpcRequest("getbestblockhash", emptyList()))
-                    .flatMap(JsonRpcResponse::requireStringResult)
-                    .timeout(Defaults.timeout, Mono.error(SilentException.Timeout("Best block hash is not received")))
-            }
-            .distinctUntilChanged()
-            .flatMap { hash ->
-                api.read(JsonRpcRequest("getblock", listOf(hash)))
-                    .flatMap(JsonRpcResponse::requireResult)
-                    .map(extractBlock::extract)
-                    .timeout(Defaults.timeout, Mono.error(SilentException.Timeout("Block data is not received")))
-            }
-            .onErrorContinue { err, _ ->
-                log.debug("RPC error ${err.message}")
-            }
+        val base =
+            Flux
+                .interval(interval)
+                .publishOn(scheduler)
+                .flatMap {
+                    api
+                        .read(JsonRpcRequest("getbestblockhash", emptyList()))
+                        .flatMap(JsonRpcResponse::requireStringResult)
+                        .timeout(Defaults.timeout, Mono.error(SilentException.Timeout("Best block hash is not received")))
+                }.distinctUntilChanged()
+                .flatMap { hash ->
+                    api
+                        .read(JsonRpcRequest("getblock", listOf(hash)))
+                        .flatMap(JsonRpcResponse::requireResult)
+                        .map(extractBlock::extract)
+                        .timeout(Defaults.timeout, Mono.error(SilentException.Timeout("Block data is not received")))
+                }.onErrorContinue { err, _ ->
+                    log.debug("RPC error ${err.message}")
+                }
         refreshSubscription = super.follow(base)
     }
 

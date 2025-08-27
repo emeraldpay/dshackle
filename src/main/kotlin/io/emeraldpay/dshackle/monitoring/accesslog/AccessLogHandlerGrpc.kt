@@ -30,9 +30,8 @@ import java.util.UUID
 
 @Service
 class AccessLogHandlerGrpc(
-    @Autowired private val accessLogWriter: CurrentAccessLogWriter
+    @Autowired private val accessLogWriter: CurrentAccessLogWriter,
 ) : ServerInterceptor {
-
     companion object {
         private val log = LoggerFactory.getLogger(AccessLogHandlerGrpc::class.java)
     }
@@ -40,9 +39,8 @@ class AccessLogHandlerGrpc(
     override fun <ReqT : Any, RespT : Any> interceptCall(
         call: ServerCall<ReqT, RespT>,
         headers: Metadata,
-        next: ServerCallHandler<ReqT, RespT>
+        next: ServerCallHandler<ReqT, RespT>,
     ): ServerCall.Listener<ReqT> {
-
         val requestId = AccessContext.REQUEST_ID_GRPC_KEY.get().id
 
         return when (val method = call.methodDescriptor.bareMethodName) {
@@ -68,15 +66,18 @@ class AccessLogHandlerGrpc(
         call: ServerCall<ReqT, RespT>,
         headers: Metadata,
         next: ServerCallHandler<ReqT, RespT>,
-        builder: RecordBuilder.RequestReply<E, ReqT, RespT>
+        builder: RecordBuilder.RequestReply<E, ReqT, RespT>,
     ): ServerCall.Listener<ReqT> {
         builder.start(headers, call.attributes)
-        val callWrapper: ServerCall<ReqT, RespT> = StdCallResponse(
-            call, builder, accessLogWriter
-        )
+        val callWrapper: ServerCall<ReqT, RespT> =
+            StdCallResponse(
+                call,
+                builder,
+                accessLogWriter,
+            )
         return StdCallListener(
             next.startCall(callWrapper, headers),
-            builder
+            builder,
         )
     }
 
@@ -86,12 +87,13 @@ class AccessLogHandlerGrpc(
         headers: Metadata,
         next: ServerCallHandler<ReqT, RespT>,
         requestId: UUID,
-    ): ServerCall.Listener<ReqT> {
-        return process(
-            call, headers, next,
-            RecordBuilder.SubscribeHead(requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>
+    ): ServerCall.Listener<ReqT> =
+        process(
+            call,
+            headers,
+            next,
+            RecordBuilder.SubscribeHead(requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>,
         )
-    }
 
     @Suppress("UNCHECKED_CAST")
     private fun <ReqT : Any, RespT : Any> processSubscribeBalance(
@@ -100,12 +102,13 @@ class AccessLogHandlerGrpc(
         next: ServerCallHandler<ReqT, RespT>,
         subscribe: Boolean,
         requestId: UUID,
-    ): ServerCall.Listener<ReqT> {
-        return process(
-            call, headers, next,
-            RecordBuilder.SubscribeBalance(subscribe, requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>
+    ): ServerCall.Listener<ReqT> =
+        process(
+            call,
+            headers,
+            next,
+            RecordBuilder.SubscribeBalance(subscribe, requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>,
         )
-    }
 
     @Suppress("UNCHECKED_CAST")
     private fun <ReqT : Any, RespT : Any> processSubscribeAddressAllowance(
@@ -114,12 +117,13 @@ class AccessLogHandlerGrpc(
         next: ServerCallHandler<ReqT, RespT>,
         subscribe: Boolean,
         requestId: UUID,
-    ): ServerCall.Listener<ReqT> {
-        return process(
-            call, headers, next,
-            RecordBuilder.SubscribeAddressAllowance(subscribe, requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>
+    ): ServerCall.Listener<ReqT> =
+        process(
+            call,
+            headers,
+            next,
+            RecordBuilder.SubscribeAddressAllowance(subscribe, requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>,
         )
-    }
 
     @Suppress("UNCHECKED_CAST")
     private fun <ReqT : Any, RespT : Any> processSubscribeTxStatus(
@@ -127,12 +131,13 @@ class AccessLogHandlerGrpc(
         headers: Metadata,
         next: ServerCallHandler<ReqT, RespT>,
         requestId: UUID,
-    ): ServerCall.Listener<ReqT> {
-        return process(
-            call, headers, next,
-            RecordBuilder.TxStatus(requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>
+    ): ServerCall.Listener<ReqT> =
+        process(
+            call,
+            headers,
+            next,
+            RecordBuilder.TxStatus(requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>,
         )
-    }
 
     @Suppress("UNCHECKED_CAST")
     private fun <ReqT : Any, RespT : Any> processNativeCall(
@@ -140,12 +145,13 @@ class AccessLogHandlerGrpc(
         headers: Metadata,
         next: ServerCallHandler<ReqT, RespT>,
         requestId: UUID,
-    ): ServerCall.Listener<ReqT> {
-        return process(
-            call, headers, next,
-            RecordBuilder.NativeCall(requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>
+    ): ServerCall.Listener<ReqT> =
+        process(
+            call,
+            headers,
+            next,
+            RecordBuilder.NativeCall(requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>,
         )
-    }
 
     @Suppress("UNCHECKED_CAST")
     private fun <ReqT : Any, RespT : Any> processNativeSubscribe(
@@ -153,12 +159,13 @@ class AccessLogHandlerGrpc(
         headers: Metadata,
         next: ServerCallHandler<ReqT, RespT>,
         requestId: UUID,
-    ): ServerCall.Listener<ReqT> {
-        return process(
-            call, headers, next,
-            RecordBuilder.NativeSubscribe(Channel.DSHACKLE, requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>
+    ): ServerCall.Listener<ReqT> =
+        process(
+            call,
+            headers,
+            next,
+            RecordBuilder.NativeSubscribe(Channel.DSHACKLE, requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>,
         )
-    }
 
     @Suppress("UNCHECKED_CAST")
     private fun <ReqT : Any, RespT : Any> processDescribe(
@@ -166,12 +173,13 @@ class AccessLogHandlerGrpc(
         headers: Metadata,
         next: ServerCallHandler<ReqT, RespT>,
         requestId: UUID,
-    ): ServerCall.Listener<ReqT> {
-        return process(
-            call, headers, next,
-            RecordBuilder.Describe(requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>
+    ): ServerCall.Listener<ReqT> =
+        process(
+            call,
+            headers,
+            next,
+            RecordBuilder.Describe(requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>,
         )
-    }
 
     @Suppress("UNCHECKED_CAST")
     private fun <ReqT : Any, RespT : Any> processStatus(
@@ -179,12 +187,13 @@ class AccessLogHandlerGrpc(
         headers: Metadata,
         next: ServerCallHandler<ReqT, RespT>,
         requestId: UUID,
-    ): ServerCall.Listener<ReqT> {
-        return process(
-            call, headers, next,
-            RecordBuilder.Status(requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>
+    ): ServerCall.Listener<ReqT> =
+        process(
+            call,
+            headers,
+            next,
+            RecordBuilder.Status(requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>,
         )
-    }
 
     @Suppress("UNCHECKED_CAST")
     private fun <ReqT : Any, RespT : Any> processEstimateFee(
@@ -192,46 +201,39 @@ class AccessLogHandlerGrpc(
         headers: Metadata,
         next: ServerCallHandler<ReqT, RespT>,
         requestId: UUID,
-    ): ServerCall.Listener<ReqT> {
-        return process(
-            call, headers, next,
-            RecordBuilder.EstimateFee(requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>
+    ): ServerCall.Listener<ReqT> =
+        process(
+            call,
+            headers,
+            next,
+            RecordBuilder.EstimateFee(requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>,
         )
-    }
 
     open class StdCallListener<Req, EB : RecordBuilder.RequestReply<*, Req, *>>(
         val next: ServerCall.Listener<Req>,
-        val builder: EB
+        val builder: EB,
     ) : ForwardingServerCallListener<Req>() {
-
         override fun onMessage(message: Req) {
             builder.onRequest(message)
             super.onMessage(message)
         }
 
-        override fun delegate(): ServerCall.Listener<Req> {
-            return next
-        }
+        override fun delegate(): ServerCall.Listener<Req> = next
     }
 
     open class StdCallResponse<ReqT : Any, RespT : Any, EB : RecordBuilder.RequestReply<*, ReqT, RespT>>(
         val next: ServerCall<ReqT, RespT>,
         val builder: EB,
-        val accessLogWriter: CurrentAccessLogWriter
+        val accessLogWriter: CurrentAccessLogWriter,
     ) : ForwardingServerCall<ReqT, RespT>() {
+        override fun getMethodDescriptor(): MethodDescriptor<ReqT, RespT> = next.methodDescriptor
 
-        override fun getMethodDescriptor(): MethodDescriptor<ReqT, RespT> {
-            return next.methodDescriptor
-        }
-
-        override fun delegate(): ServerCall<ReqT, RespT> {
-            return next
-        }
+        override fun delegate(): ServerCall<ReqT, RespT> = next
 
         override fun sendMessage(message: RespT) {
             super.sendMessage(message)
             accessLogWriter.submit(
-                builder.onReply(message)!!
+                builder.onReply(message)!!,
             )
         }
     }

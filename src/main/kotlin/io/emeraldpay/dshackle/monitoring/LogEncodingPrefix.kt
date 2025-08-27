@@ -23,7 +23,6 @@ import java.nio.ByteBuffer
  */
 
 class LogEncodingPrefix : LogEncoding {
-
     companion object {
         private val log = LoggerFactory.getLogger(LogEncodingPrefix::class.java)
 

@@ -12,8 +12,8 @@ import java.util.function.Consumer
 class JsonRpcSwitchClient(
     private val primary: StandardRpcReader,
     private val secondary: StandardRpcReader,
-) : StandardRpcReader, WithHttpStatus {
-
+) : StandardRpcReader,
+    WithHttpStatus {
     companion object {
         private val log = LoggerFactory.getLogger(JsonRpcSwitchClient::class.java)
     }
@@ -22,22 +22,24 @@ class JsonRpcSwitchClient(
 
     init {
         if (primary is WithHttpStatus) {
-            primary.onHttpError = Consumer { code ->
-                onHttpError?.accept(code)
-            }
+            primary.onHttpError =
+                Consumer { code ->
+                    onHttpError?.accept(code)
+                }
         }
         if (secondary is WithHttpStatus) {
-            secondary.onHttpError = Consumer { code ->
-                onHttpError?.accept(code)
-            }
+            secondary.onHttpError =
+                Consumer { code ->
+                    onHttpError?.accept(code)
+                }
         }
     }
 
-    override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
-        return primary.read(key)
+    override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> =
+        primary
+            .read(key)
             .switchIfEmpty(Mono.error(IllegalStateException("No response from Primary Connection")))
             .onErrorResume {
                 secondary.read(key)
             }
-    }
 }

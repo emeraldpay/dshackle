@@ -30,115 +30,141 @@ import java.math.BigInteger
 
 private const val USDT = "0xdac17f958d2ee523a2206206994597c13d831ec7" // Tether: USDT Stablecoin
 
-class TrackERC20AddressTest : ShouldSpec({
+class TrackERC20AddressTest :
+    ShouldSpec({
 
-    should("supports any ethereum address") {
-        val trackERC20Address = trackERC20AddressWithEmptyConfig()
-        val request = balanceRequest("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D")
-        val actual = trackERC20Address.isSupported(request)
-        actual shouldBe true
-    }
-
-    should("track by contract address") {
-        val trackERC20Address = trackERC20AddressWithEmptyConfig()
-        val erc20Balance = mockkErc20Balance("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", "1234560000000000000000")
-        trackERC20Address.erc20Balance = erc20Balance
-
-        val request = balanceRequest("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D")
-
-        val balance = trackERC20Address.getBalance(request)
-            .single()
-            .block()
-
-        balance shouldBe balanceResponse("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", "1234560000000000000000")
-    }
-
-    should("subscribe by contract address") {
-        val subscriptionConnect = mockk<SubscriptionConnect<LogMessage>>()
-        every { subscriptionConnect.connect() } returns Flux.just(
-            LogMessage(
-                address = Address.from(USDT),
-                blockHash = BlockHash.from("0x0c0d2969c843d0b61fbab1b2302cf24d6681b2ae0a140a3c2908990d048f7631"), // no matter
-                blockNumber = 13668750, // no matter
-                data = HexData.from("0x000000000000000000000000000000000000000000000042ecf6330552400000"), // 1234560000000000000000
-
-                logIndex = 1,
-                topics = listOf(
-                    EventId.fromSignature("Transfer", "address", "address", "uint256"),
-                    Hex32.from("0x000000000000000000000000b02f1329d6a6acef07a763258f8509c2847a0a3e"), // no matter
-                    Hex32.from("0x0000000000000000000000007a250d5630B4cF539739dF2C5dAcb4c659F2488D")
-                ),
-                transactionHash = TransactionId.empty(), // no matter
-                transactionIndex = 1,
-                removed = false
-            )
-        )
-        val logs = mockk<ConnectLogs>()
-        every { logs.create(listOf(Address.from(USDT)), listOf(EventId.fromSignature("Transfer", "address", "address", "uint256"))) } returns subscriptionConnect
-
-        val subscription = mockk<EthereumEgressSubscription>()
-        every { subscription.logs } returns logs
-
-        val trackERC20Address = trackERC20AddressWithEmptyConfig { upstream ->
-            upstream.apply {
-                every { getEgressSubscription() } returns subscription
-            }
+        should("supports any ethereum address") {
+            val trackERC20Address = trackERC20AddressWithEmptyConfig()
+            val request = balanceRequest("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D")
+            val actual = trackERC20Address.isSupported(request)
+            actual shouldBe true
         }
-        val erc20Balance = mockkErc20Balance("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", "1234560000000000000000")
-        trackERC20Address.erc20Balance = erc20Balance
 
-        val request = balanceRequest("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D")
+        should("track by contract address") {
+            val trackERC20Address = trackERC20AddressWithEmptyConfig()
+            val erc20Balance = mockkErc20Balance("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", "1234560000000000000000")
+            trackERC20Address.erc20Balance = erc20Balance
 
-        val balance = trackERC20Address.subscribe(request)
-            .blockFirst()
+            val request = balanceRequest("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D")
 
-        balance shouldBe balanceResponse("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", "1234560000000000000000")
-    }
-})
+            val balance =
+                trackERC20Address
+                    .getBalance(request)
+                    .single()
+                    .block()
 
-private fun mockkErc20Balance(address: String, balance: String): ERC20Balance {
+            balance shouldBe balanceResponse("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", "1234560000000000000000")
+        }
+
+        should("subscribe by contract address") {
+            val subscriptionConnect = mockk<SubscriptionConnect<LogMessage>>()
+            every { subscriptionConnect.connect() } returns
+                Flux.just(
+                    LogMessage(
+                        address = Address.from(USDT),
+                        blockHash = BlockHash.from("0x0c0d2969c843d0b61fbab1b2302cf24d6681b2ae0a140a3c2908990d048f7631"), // no matter
+                        blockNumber = 13668750, // no matter
+                        data = HexData.from("0x000000000000000000000000000000000000000000000042ecf6330552400000"), // 1234560000000000000000
+                        logIndex = 1,
+                        topics =
+                            listOf(
+                                EventId.fromSignature("Transfer", "address", "address", "uint256"),
+                                Hex32.from("0x000000000000000000000000b02f1329d6a6acef07a763258f8509c2847a0a3e"), // no matter
+                                Hex32.from("0x0000000000000000000000007a250d5630B4cF539739dF2C5dAcb4c659F2488D"),
+                            ),
+                        transactionHash = TransactionId.empty(), // no matter
+                        transactionIndex = 1,
+                        removed = false,
+                    ),
+                )
+            val logs = mockk<ConnectLogs>()
+            every {
+                logs.create(
+                    listOf(Address.from(USDT)),
+                    listOf(EventId.fromSignature("Transfer", "address", "address", "uint256")),
+                )
+            } returns
+                subscriptionConnect
+
+            val subscription = mockk<EthereumEgressSubscription>()
+            every { subscription.logs } returns logs
+
+            val trackERC20Address =
+                trackERC20AddressWithEmptyConfig { upstream ->
+                    upstream.apply {
+                        every { getEgressSubscription() } returns subscription
+                    }
+                }
+            val erc20Balance = mockkErc20Balance("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", "1234560000000000000000")
+            trackERC20Address.erc20Balance = erc20Balance
+
+            val request = balanceRequest("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D")
+
+            val balance =
+                trackERC20Address
+                    .subscribe(request)
+                    .blockFirst()
+
+            balance shouldBe balanceResponse("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", "1234560000000000000000")
+        }
+    })
+
+private fun mockkErc20Balance(
+    address: String,
+    balance: String,
+): ERC20Balance {
     val erc20Balance = mockk<ERC20Balance>()
     every {
         erc20Balance.getBalance(
             any<EthereumMultistream>(),
             ERC20Token(Address.from(USDT)),
-            Address.from(address)
+            Address.from(address),
         )
     } returns Mono.just(BigInteger(balance))
     return erc20Balance
 }
 
-private fun balanceResponse(address: String, balance: String): AddressBalance? =
-    AddressBalance.newBuilder()
+private fun balanceResponse(
+    address: String,
+    balance: String,
+): AddressBalance? =
+    AddressBalance
+        .newBuilder()
         .setAddress(
-            Common.SingleAddress.newBuilder()
-                .setAddress(address.lowercase())
-        )
-        .setErc20Asset(
-            Common.Erc20Asset.newBuilder()
+            Common.SingleAddress
+                .newBuilder()
+                .setAddress(address.lowercase()),
+        ).setErc20Asset(
+            Common.Erc20Asset
+                .newBuilder()
                 .setChainValue(Chain.ETHEREUM.id)
-                .setContractAddress(USDT)
-        )
-        .setBalance(balance)
+                .setContractAddress(USDT),
+        ).setBalance(balance)
         .build()
 
 private fun balanceRequest(address: String): BalanceRequest =
-    BalanceRequest.newBuilder()
+    BalanceRequest
+        .newBuilder()
         .setAddress(
-            Common.AnyAddress.newBuilder()
+            Common.AnyAddress
+                .newBuilder()
                 .setAddressSingle(
-                    Common.SingleAddress.newBuilder()
-                        .setAddress(address)
-                )
-        )
-        .setErc20Asset(
-            Common.Erc20Asset.newBuilder()
+                    Common.SingleAddress
+                        .newBuilder()
+                        .setAddress(address),
+                ),
+        ).setErc20Asset(
+            Common.Erc20Asset
+                .newBuilder()
                 .setChainValue(Chain.ETHEREUM.id)
-                .setContractAddress(USDT)
-        )
-        .build()
+                .setContractAddress(USDT),
+        ).build()
 
-private fun trackERC20AddressWithEmptyConfig(upstreamInitializer: (EthereumMultistream) -> EthereumMultistream = { it }): TrackERC20Address {
+private fun trackERC20AddressWithEmptyConfig(
+    upstreamInitializer: (EthereumMultistream) -> EthereumMultistream = {
+        it
+    },
+): TrackERC20Address {
     var upstream = mockk<EthereumMultistream>()
     every { upstream.cast(EthereumMultistream::class.java) } returns upstream
     every { upstream.getHead() } returns EmptyHead()

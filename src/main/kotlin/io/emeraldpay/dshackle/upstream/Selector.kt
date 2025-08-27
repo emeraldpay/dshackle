@@ -22,53 +22,54 @@ import org.apache.commons.lang3.StringUtils
 import java.util.Collections
 
 class Selector {
-
     companion object {
-
         @JvmStatic
         val empty = EmptyMatcher()
 
         @JvmStatic
-        fun convertToMatcher(req: BlockchainOuterClass.Selector?): LabelSelectorMatcher {
-            return when {
+        fun convertToMatcher(req: BlockchainOuterClass.Selector?): LabelSelectorMatcher =
+            when {
                 req == null -> AnyLabelMatcher()
-                req.hasLabelSelector() -> req.labelSelector.let { selector ->
-                    if (StringUtils.isNotEmpty(selector.name)) {
-                        val values = selector.valueList
-                            .map { it?.trim() ?: "" }
-                            .filter { StringUtils.isNotEmpty(it) }
-                        if (values.isEmpty()) {
-                            ExistsMatcher(selector.name)
+                req.hasLabelSelector() ->
+                    req.labelSelector.let { selector ->
+                        if (StringUtils.isNotEmpty(selector.name)) {
+                            val values =
+                                selector.valueList
+                                    .map { it?.trim() ?: "" }
+                                    .filter { StringUtils.isNotEmpty(it) }
+                            if (values.isEmpty()) {
+                                ExistsMatcher(selector.name)
+                            } else {
+                                LabelMatcher(selector.name, selector.valueList)
+                            }
                         } else {
-                            LabelMatcher(selector.name, selector.valueList)
+                            AnyLabelMatcher()
                         }
-                    } else {
-                        AnyLabelMatcher()
                     }
-                }
-                req.hasAndSelector() -> AndMatcher(
-                    Collections.unmodifiableCollection(
-                        req.andSelector.selectorsList.map {
-                            convertToMatcher(
-                                it
-                            )
-                        }
+                req.hasAndSelector() ->
+                    AndMatcher(
+                        Collections.unmodifiableCollection(
+                            req.andSelector.selectorsList.map {
+                                convertToMatcher(
+                                    it,
+                                )
+                            },
+                        ),
                     )
-                )
-                req.hasOrSelector() -> OrMatcher(
-                    Collections.unmodifiableCollection(
-                        req.orSelector.selectorsList.map {
-                            convertToMatcher(
-                                it
-                            )
-                        }
+                req.hasOrSelector() ->
+                    OrMatcher(
+                        Collections.unmodifiableCollection(
+                            req.orSelector.selectorsList.map {
+                                convertToMatcher(
+                                    it,
+                                )
+                            },
+                        ),
                     )
-                )
                 req.hasNotSelector() -> NotMatcher(convertToMatcher(req.notSelector.selector))
                 req.hasExistsSelector() -> ExistsMatcher(req.existsSelector.name)
                 else -> AnyLabelMatcher()
             }
-        }
 
         @JvmStatic
         fun extractLabels(matcher: Matcher): LabelSelectorMatcher? {
@@ -113,9 +114,7 @@ class Selector {
             return this
         }
 
-        fun build(): Matcher {
-            return MultiMatcher(matchers)
-        }
+        fun build(): Matcher = MultiMatcher(matchers)
     }
 
     interface Matcher {
@@ -125,255 +124,199 @@ class Selector {
     }
 
     class MultiMatcher(
-        private val matchers: Collection<Matcher>
+        private val matchers: Collection<Matcher>,
     ) : Matcher {
-        override fun matches(up: Upstream): Boolean {
-            return matchers.all { it.matches(up) }
-        }
+        override fun matches(up: Upstream): Boolean = matchers.all { it.matches(up) }
 
-        fun getMatchers(): Collection<Matcher> {
-            return Collections.unmodifiableCollection(matchers)
-        }
+        fun getMatchers(): Collection<Matcher> = Collections.unmodifiableCollection(matchers)
 
         @Suppress("UNCHECKED_CAST")
-        fun <T : Matcher> getMatcher(type: Class<T>): T? {
-            return matchers.find { type.isAssignableFrom(it.javaClass) } as T?
-        }
+        fun <T : Matcher> getMatcher(type: Class<T>): T? = matchers.find { type.isAssignableFrom(it.javaClass) } as T?
 
-        override fun describeInternal(): String {
-            return if (matchers.size == 1) {
+        override fun describeInternal(): String =
+            if (matchers.size == 1) {
                 matchers.first().describeInternal()
             } else {
                 "ALLOF[" + matchers.joinToString(",") { it.describeInternal() } + "]"
             }
-        }
 
-        override fun toString(): String {
-            return "Matcher: ${describeInternal()}"
-        }
+        override fun toString(): String = "Matcher: ${describeInternal()}"
     }
 
     class MethodMatcher(
-        val method: String
+        val method: String,
     ) : Matcher {
-        override fun matches(up: Upstream): Boolean {
-            return up.getMethods().isCallable(method)
-        }
+        override fun matches(up: Upstream): Boolean = up.getMethods().isCallable(method)
 
-        override fun describeInternal(): String {
-            return "allow method $method"
-        }
+        override fun describeInternal(): String = "allow method $method"
 
-        override fun toString(): String {
-            return "Matcher: ${describeInternal()}"
-        }
+        override fun toString(): String = "Matcher: ${describeInternal()}"
     }
 
     abstract class LabelSelectorMatcher : Matcher {
-        override fun matches(up: Upstream): Boolean {
-            return up.getLabels().any(this::matches)
-        }
+        override fun matches(up: Upstream): Boolean = up.getLabels().any(this::matches)
 
         abstract fun matches(labels: UpstreamsConfig.Labels): Boolean
+
         abstract fun asProto(): BlockchainOuterClass.Selector?
     }
 
     class EmptyMatcher : Matcher {
-        override fun matches(up: Upstream): Boolean {
-            return true
-        }
+        override fun matches(up: Upstream): Boolean = true
 
-        override fun describeInternal(): String {
-            return "empty"
-        }
+        override fun describeInternal(): String = "empty"
 
-        override fun toString(): String {
-            return "Matcher: ${describeInternal()}"
-        }
+        override fun toString(): String = "Matcher: ${describeInternal()}"
     }
 
     class AnyLabelMatcher : LabelSelectorMatcher() {
+        override fun matches(labels: UpstreamsConfig.Labels): Boolean = true
 
-        override fun matches(labels: UpstreamsConfig.Labels): Boolean {
-            return true
-        }
+        override fun asProto(): BlockchainOuterClass.Selector? = null
 
-        override fun asProto(): BlockchainOuterClass.Selector? {
-            return null
-        }
+        override fun matches(up: Upstream): Boolean = true
 
-        override fun matches(up: Upstream): Boolean {
-            return true
-        }
+        override fun describeInternal(): String = "any label"
 
-        override fun describeInternal(): String {
-            return "any label"
-        }
-
-        override fun toString(): String {
-            return "Matcher: ${describeInternal()}"
-        }
+        override fun toString(): String = "Matcher: ${describeInternal()}"
     }
 
-    class LocalAndMatcher(vararg val matchers: Matcher) : Matcher {
+    class LocalAndMatcher(
+        vararg val matchers: Matcher,
+    ) : Matcher {
+        override fun matches(up: Upstream): Boolean = matchers.all { it.matches(up) }
 
-        override fun matches(up: Upstream): Boolean {
-            return matchers.all { it.matches(up) }
-        }
+        override fun describeInternal(): String = "local upstream"
 
-        override fun describeInternal(): String {
-            return "local upstream"
-        }
-
-        override fun toString(): String {
-            return "Matcher: ${describeInternal()}"
-        }
+        override fun toString(): String = "Matcher: ${describeInternal()}"
     }
 
-    class LabelMatcher(val name: String, val values: Collection<String>) : LabelSelectorMatcher() {
-        override fun matches(labels: UpstreamsConfig.Labels): Boolean {
-            return labels.get(name)?.let { labelValue ->
+    class LabelMatcher(
+        val name: String,
+        val values: Collection<String>,
+    ) : LabelSelectorMatcher() {
+        override fun matches(labels: UpstreamsConfig.Labels): Boolean =
+            labels.get(name)?.let { labelValue ->
                 values.any { it == labelValue }
             } ?: false
-        }
 
-        override fun asProto(): BlockchainOuterClass.Selector {
-            return BlockchainOuterClass.Selector.newBuilder().setLabelSelector(
-                BlockchainOuterClass.LabelSelector.newBuilder()
-                    .setName(name)
-                    .addAllValue(values)
-            ).build()
-        }
+        override fun asProto(): BlockchainOuterClass.Selector =
+            BlockchainOuterClass.Selector
+                .newBuilder()
+                .setLabelSelector(
+                    BlockchainOuterClass.LabelSelector
+                        .newBuilder()
+                        .setName(name)
+                        .addAllValue(values),
+                ).build()
 
-        override fun describeInternal(): String {
-            return "label '$name'=" + values.joinToString(",")
-        }
+        override fun describeInternal(): String = "label '$name'=" + values.joinToString(",")
 
-        override fun toString(): String {
-            return "Matcher: ${describeInternal()}"
-        }
+        override fun toString(): String = "Matcher: ${describeInternal()}"
     }
 
-    class OrMatcher(val matchers: Collection<LabelSelectorMatcher>) : LabelSelectorMatcher() {
-        override fun matches(labels: UpstreamsConfig.Labels): Boolean {
-            return matchers.any { matcher -> matcher.matches(labels) }
-        }
+    class OrMatcher(
+        val matchers: Collection<LabelSelectorMatcher>,
+    ) : LabelSelectorMatcher() {
+        override fun matches(labels: UpstreamsConfig.Labels): Boolean = matchers.any { matcher -> matcher.matches(labels) }
 
-        override fun asProto(): BlockchainOuterClass.Selector {
-            return BlockchainOuterClass.Selector.newBuilder().setOrSelector(
-                BlockchainOuterClass.OrSelector.newBuilder()
-                    .addAllSelectors(matchers.map { it.asProto() })
-                    .build()
-            ).build()
-        }
+        override fun asProto(): BlockchainOuterClass.Selector =
+            BlockchainOuterClass.Selector
+                .newBuilder()
+                .setOrSelector(
+                    BlockchainOuterClass.OrSelector
+                        .newBuilder()
+                        .addAllSelectors(matchers.map { it.asProto() })
+                        .build(),
+                ).build()
 
-        override fun describeInternal(): String {
-            return "ALLOF[" + matchers.joinToString(",") { it.describeInternal() } + "]"
-        }
+        override fun describeInternal(): String = "ALLOF[" + matchers.joinToString(",") { it.describeInternal() } + "]"
 
-        override fun toString(): String {
-            return "Matcher: ${describeInternal()}"
-        }
+        override fun toString(): String = "Matcher: ${describeInternal()}"
     }
 
-    class AndMatcher(val matchers: Collection<LabelSelectorMatcher>) : LabelSelectorMatcher() {
-        override fun matches(labels: UpstreamsConfig.Labels): Boolean {
-            return matchers.all { matcher -> matcher.matches(labels) }
-        }
+    class AndMatcher(
+        val matchers: Collection<LabelSelectorMatcher>,
+    ) : LabelSelectorMatcher() {
+        override fun matches(labels: UpstreamsConfig.Labels): Boolean = matchers.all { matcher -> matcher.matches(labels) }
 
-        override fun asProto(): BlockchainOuterClass.Selector {
-            return BlockchainOuterClass.Selector.newBuilder().setAndSelector(
-                BlockchainOuterClass.AndSelector.newBuilder()
-                    .addAllSelectors(matchers.map { it.asProto() })
-                    .build()
-            ).build()
-        }
+        override fun asProto(): BlockchainOuterClass.Selector =
+            BlockchainOuterClass.Selector
+                .newBuilder()
+                .setAndSelector(
+                    BlockchainOuterClass.AndSelector
+                        .newBuilder()
+                        .addAllSelectors(matchers.map { it.asProto() })
+                        .build(),
+                ).build()
 
-        override fun describeInternal(): String {
-            return "ALLOF[" + matchers.joinToString(",") { it.describeInternal() } + "]"
-        }
+        override fun describeInternal(): String = "ALLOF[" + matchers.joinToString(",") { it.describeInternal() } + "]"
 
-        override fun toString(): String {
-            return "Matcher: ${describeInternal()}"
-        }
+        override fun toString(): String = "Matcher: ${describeInternal()}"
     }
 
-    class NotMatcher(val matcher: LabelSelectorMatcher) : LabelSelectorMatcher() {
-        override fun matches(labels: UpstreamsConfig.Labels): Boolean {
-            return !matcher.matches(labels)
-        }
+    class NotMatcher(
+        val matcher: LabelSelectorMatcher,
+    ) : LabelSelectorMatcher() {
+        override fun matches(labels: UpstreamsConfig.Labels): Boolean = !matcher.matches(labels)
 
-        override fun asProto(): BlockchainOuterClass.Selector {
-            return BlockchainOuterClass.Selector.newBuilder().setNotSelector(
-                BlockchainOuterClass.NotSelector.newBuilder()
-                    .setSelector(matcher.asProto())
-                    .build()
-            ).build()
-        }
+        override fun asProto(): BlockchainOuterClass.Selector =
+            BlockchainOuterClass.Selector
+                .newBuilder()
+                .setNotSelector(
+                    BlockchainOuterClass.NotSelector
+                        .newBuilder()
+                        .setSelector(matcher.asProto())
+                        .build(),
+                ).build()
 
-        override fun describeInternal(): String {
-            return "NOT[${matcher.describeInternal()}]"
-        }
+        override fun describeInternal(): String = "NOT[${matcher.describeInternal()}]"
 
-        override fun toString(): String {
-            return "Matcher: ${describeInternal()}"
-        }
+        override fun toString(): String = "Matcher: ${describeInternal()}"
     }
 
-    class ExistsMatcher(val name: String) : LabelSelectorMatcher() {
-        override fun matches(labels: UpstreamsConfig.Labels): Boolean {
-            return labels.containsKey(name)
-        }
+    class ExistsMatcher(
+        val name: String,
+    ) : LabelSelectorMatcher() {
+        override fun matches(labels: UpstreamsConfig.Labels): Boolean = labels.containsKey(name)
 
-        override fun asProto(): BlockchainOuterClass.Selector {
-            return BlockchainOuterClass.Selector.newBuilder().setExistsSelector(
-                BlockchainOuterClass.ExistsSelector.newBuilder()
-                    .setName(name)
-                    .build()
-            ).build()
-        }
+        override fun asProto(): BlockchainOuterClass.Selector =
+            BlockchainOuterClass.Selector
+                .newBuilder()
+                .setExistsSelector(
+                    BlockchainOuterClass.ExistsSelector
+                        .newBuilder()
+                        .setName(name)
+                        .build(),
+                ).build()
 
-        override fun describeInternal(): String {
-            return "label '$name' exists"
-        }
+        override fun describeInternal(): String = "label '$name' exists"
 
-        override fun toString(): String {
-            return "Matcher: ${describeInternal()}"
-        }
+        override fun toString(): String = "Matcher: ${describeInternal()}"
     }
 
-    class CapabilityMatcher(val capability: Capability) : Matcher {
-        override fun matches(up: Upstream): Boolean {
-            return up.getCapabilities().contains(capability)
-        }
+    class CapabilityMatcher(
+        val capability: Capability,
+    ) : Matcher {
+        override fun matches(up: Upstream): Boolean = up.getCapabilities().contains(capability)
 
-        override fun describeInternal(): String {
-            return "provides $capability API"
-        }
+        override fun describeInternal(): String = "provides $capability API"
 
-        override fun toString(): String {
-            return "Matcher: ${describeInternal()}"
-        }
+        override fun toString(): String = "Matcher: ${describeInternal()}"
     }
 
     class GrpcMatcher : Matcher {
-        override fun matches(up: Upstream): Boolean {
-            return up.isGrpc()
-        }
+        override fun matches(up: Upstream): Boolean = up.isGrpc()
 
-        override fun describeInternal(): String {
-            return "is gRPC"
-        }
+        override fun describeInternal(): String = "is gRPC"
 
-        override fun toString(): String {
-            return "Matcher: ${describeInternal()}"
-        }
+        override fun toString(): String = "Matcher: ${describeInternal()}"
     }
 
-    class HeightMatcher(val height: Long) : Matcher {
-        override fun matches(up: Upstream): Boolean {
-            return (up.getHead().getCurrentHeight() ?: 0) >= height
-        }
+    class HeightMatcher(
+        val height: Long,
+    ) : Matcher {
+        override fun matches(up: Upstream): Boolean = (up.getHead().getCurrentHeight() ?: 0) >= height
 
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -384,16 +327,10 @@ class Selector {
             return true
         }
 
-        override fun hashCode(): Int {
-            return height.hashCode()
-        }
+        override fun hashCode(): Int = height.hashCode()
 
-        override fun describeInternal(): String {
-            return "height $height"
-        }
+        override fun describeInternal(): String = "height $height"
 
-        override fun toString(): String {
-            return "Matcher: ${describeInternal()}"
-        }
+        override fun toString(): String = "Matcher: ${describeInternal()}"
     }
 }

@@ -23,36 +23,46 @@ import java.security.spec.PKCS8EncodedKeySpec
 
 @Service @Lazy
 open class ResponseSignerFactory(
-    @Autowired private val signatureConfig: SignatureConfig
+    @Autowired private val signatureConfig: SignatureConfig,
 ) : FactoryBean<ResponseSigner> {
-
     companion object {
         private val log = LoggerFactory.getLogger(ResponseSignerFactory::class.java)
     }
 
-    fun readKey(algorithm: SignatureConfig.Algorithm, keyPath: String): Pair<ECPrivateKey, Long> {
+    fun readKey(
+        algorithm: SignatureConfig.Algorithm,
+        keyPath: String,
+    ): Pair<ECPrivateKey, Long> {
         val reader = PemReader(Files.newBufferedReader(Path.of(keyPath)))
         return readKey(algorithm, reader.readPemObject())
     }
 
-    private fun readKey(algorithm: SignatureConfig.Algorithm, pem: PemObject): Pair<ECPrivateKey, Long> {
+    private fun readKey(
+        algorithm: SignatureConfig.Algorithm,
+        pem: PemObject,
+    ): Pair<ECPrivateKey, Long> {
         val keyFactory = KeyFactory.getInstance("EC")
-        val key = when (algorithm) {
-            SignatureConfig.Algorithm.SECP256K1, SignatureConfig.Algorithm.NIST_P256 -> {
-                val keySpec = PKCS8EncodedKeySpec(pem.content)
-                keyFactory.generatePrivate(keySpec)
+        val key =
+            when (algorithm) {
+                SignatureConfig.Algorithm.SECP256K1, SignatureConfig.Algorithm.NIST_P256 -> {
+                    val keySpec = PKCS8EncodedKeySpec(pem.content)
+                    keyFactory.generatePrivate(keySpec)
+                }
             }
-        }
 
         if (key !is ECPrivateKey) {
             throw IllegalStateException("Only EC keys are allowed")
         }
 
-        if (algorithm == SignatureConfig.Algorithm.SECP256K1 && key.params.toString().indexOf(SignatureConfig.Algorithm.SECP256K1.getCurveName()) < 0) {
+        if (algorithm == SignatureConfig.Algorithm.SECP256K1 &&
+            key.params.toString().indexOf(SignatureConfig.Algorithm.SECP256K1.getCurveName()) < 0
+        ) {
             throw IllegalStateException("Key is not SECP256K1, generate SECP256K1 or use another algorithm")
         }
 
-        if (algorithm == SignatureConfig.Algorithm.NIST_P256 && key.params.toString().indexOf(SignatureConfig.Algorithm.NIST_P256.getCurveName()) < 0) {
+        if (algorithm == SignatureConfig.Algorithm.NIST_P256 &&
+            key.params.toString().indexOf(SignatureConfig.Algorithm.NIST_P256.getCurveName()) < 0
+        ) {
             throw IllegalStateException("Key is not NIST P256, generate NIST P256 or use another algorithm")
         }
 
@@ -62,7 +72,11 @@ open class ResponseSignerFactory(
         return Pair(key, id)
     }
 
-    fun extractPublicKey(keyFactory: KeyFactory, privateKey: ECPrivateKey, algorithm: SignatureConfig.Algorithm): PublicKey {
+    fun extractPublicKey(
+        keyFactory: KeyFactory,
+        privateKey: ECPrivateKey,
+        algorithm: SignatureConfig.Algorithm,
+    ): PublicKey {
         val ecSpec = ECNamedCurveTable.getParameterSpec(algorithm.getCurveName())
         val q: ECPoint = ecSpec.g.multiply(privateKey.s)
         return keyFactory.generatePublic(ECPublicKeySpec(q, ecSpec))
@@ -87,7 +101,5 @@ open class ResponseSignerFactory(
         return EcdsaSigner(key.first, key.second)
     }
 
-    override fun getObjectType(): Class<*>? {
-        return ResponseSigner::class.java
-    }
+    override fun getObjectType(): Class<*>? = ResponseSigner::class.java
 }

@@ -16,7 +16,6 @@
 package io.emeraldpay.dshackle.monitoring
 
 class NoLogWriter<T> : LogWriter<T> {
-
     private var started: Boolean = false
 
     override fun submit(event: T) {
@@ -33,7 +32,5 @@ class NoLogWriter<T> : LogWriter<T> {
         started = false
     }
 
-    override fun isRunning(): Boolean {
-        return started
-    }
+    override fun isRunning(): Boolean = started
 }

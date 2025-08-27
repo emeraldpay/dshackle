@@ -10,20 +10,18 @@ class CurrentUnspentReader(
     upstreams: BitcoinMultistream,
     esploraClient: EsploraClient?,
 ) : UnspentReader {
-
     companion object {
         private val log = LoggerFactory.getLogger(CurrentUnspentReader::class.java)
     }
 
-    private val delegate: UnspentReader = if (esploraClient != null) {
-        EsploraUnspentReader(esploraClient)
-    } else if (upstreams.upstreams.any { it.isGrpc() && it.getCapabilities().contains(Capability.BALANCE) }) {
-        RemoteUnspentReader(upstreams)
-    } else {
-        RpcUnspentReader(upstreams)
-    }
+    private val delegate: UnspentReader =
+        if (esploraClient != null) {
+            EsploraUnspentReader(esploraClient)
+        } else if (upstreams.upstreams.any { it.isGrpc() && it.getCapabilities().contains(Capability.BALANCE) }) {
+            RemoteUnspentReader(upstreams)
+        } else {
+            RpcUnspentReader(upstreams)
+        }
 
-    override fun read(key: Address): Mono<List<SimpleUnspent>> {
-        return delegate.read(key)
-    }
+    override fun read(key: Address): Mono<List<SimpleUnspent>> = delegate.read(key)
 }

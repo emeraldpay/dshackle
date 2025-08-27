@@ -22,20 +22,21 @@ import io.emeraldpay.etherjar.domain.TransactionId
 import reactor.core.publisher.Flux
 import java.time.Duration
 
-abstract class DefaultPendingTxesSource : SubscriptionConnect<TransactionId>, PendingTxesSource {
+abstract class DefaultPendingTxesSource :
+    SubscriptionConnect<TransactionId>,
+    PendingTxesSource {
+    private val connectionSource =
+        DurableFlux
+            .newBuilder()
+            .using(::createConnection)
+            .backoffOnError(Duration.ofMillis(100), 1.5, Duration.ofSeconds(60))
+            .build()
+    private val holder =
+        SharedFluxHolder<TransactionId>(
+            connectionSource::connect,
+        )
 
-    private val connectionSource = DurableFlux
-        .newBuilder()
-        .using(::createConnection)
-        .backoffOnError(Duration.ofMillis(100), 1.5, Duration.ofSeconds(60))
-        .build()
-    private val holder = SharedFluxHolder<TransactionId>(
-        connectionSource::connect
-    )
-
-    override fun connect(): Flux<TransactionId> {
-        return holder.get()
-    }
+    override fun connect(): Flux<TransactionId> = holder.get()
 
     abstract fun createConnection(): Flux<TransactionId>
 }

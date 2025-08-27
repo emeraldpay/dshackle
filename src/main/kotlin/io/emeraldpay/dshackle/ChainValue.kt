@@ -26,15 +26,12 @@ import kotlin.concurrent.write
  * Keeps a lazily created value associated with a Chain
  */
 class ChainValue<V>(
-    private val factory: (chain: Chain) -> V
+    private val factory: (chain: Chain) -> V,
 ) {
-
     private val values = EnumMap<Chain, V>(Chain::class.java)
     private val valuesInitLock = ReentrantReadWriteLock()
 
-    fun get(chain: Common.ChainRef): V {
-        return get(Chain.byId(chain.number))
-    }
+    fun get(chain: Common.ChainRef): V = get(Chain.byId(chain.number))
 
     fun get(chain: Chain): V {
         valuesInitLock.read {

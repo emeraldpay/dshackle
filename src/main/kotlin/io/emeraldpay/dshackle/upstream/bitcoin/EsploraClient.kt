@@ -37,9 +37,8 @@ import java.util.function.Consumer
 class EsploraClient(
     private val url: URI,
     basicAuth: AuthConfig.ClientBasicAuth? = null,
-    tlsCAAuth: ByteArray? = null
+    tlsCAAuth: ByteArray? = null,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(EsploraClient::class.java)
     }
@@ -47,12 +46,15 @@ class EsploraClient(
     private val httpClient: HttpClient
 
     init {
-        var build = HttpClient.create()
-            .resolver(DefaultAddressResolverGroup.INSTANCE)
+        var build =
+            HttpClient
+                .create()
+                .resolver(DefaultAddressResolverGroup.INSTANCE)
 
-        build = build.headers { h ->
-            h.add(HttpHeaderNames.CONTENT_TYPE, "application/json")
-        }
+        build =
+            build.headers { h ->
+                h.add(HttpHeaderNames.CONTENT_TYPE, "application/json")
+            }
 
         basicAuth?.let { auth ->
             val authString: String = auth.username + ":" + auth.password
@@ -79,49 +81,55 @@ class EsploraClient(
     }
 
     fun getUtxo(address: Address): Mono<List<EsploraUnspent>> {
-        val response = httpClient
-            .get()
-            .uri("$url/address/$address/utxo")
+        val response =
+            httpClient
+                .get()
+                .uri("$url/address/$address/utxo")
         val json = parseResponse(response)
 
         return json.map {
-            val parsed = Global.objectMapper.readerFor(EsploraUnspent::class.java)
-                .readValues<EsploraUnspent>(it)
+            val parsed =
+                Global.objectMapper
+                    .readerFor(EsploraUnspent::class.java)
+                    .readValues<EsploraUnspent>(it)
             parsed.readAll()
         }
     }
 
     fun getTransactions(address: Address): Mono<List<Map<String, Any>>> {
-        val response = httpClient
-            .get()
-            .uri("$url/address/$address/txs")
+        val response =
+            httpClient
+                .get()
+                .uri("$url/address/$address/txs")
         val json = parseResponse(response)
 
         return json.map {
-            val parsed = Global.objectMapper.readerFor(Map::class.java)
-                .readValues<Map<String, Any>>(it)
+            val parsed =
+                Global.objectMapper
+                    .readerFor(Map::class.java)
+                    .readValues<Map<String, Any>>(it)
             parsed.readAll()
         }
     }
 
-    private fun parseResponse(response: HttpClient.ResponseReceiver<*>): Mono<String> {
-        return response
+    private fun parseResponse(response: HttpClient.ResponseReceiver<*>): Mono<String> =
+        response
             .response { header, bytes ->
                 if (header.status().code() != 200) {
                     Mono.error(
                         EsploraException(
                             "HTTP Code: ${
-                            header.status().code()
-                            } for ${url.scheme}://${url.host}${header.fullPath()}"
-                        )
+                                header.status().code()
+                            } for ${url.scheme}://${url.host}${header.fullPath()}",
+                        ),
                     )
                 } else {
                     bytes.aggregate().asByteArray()
                 }
-            }
-            .single()
+            }.single()
             .map { bytes -> String(bytes) }
-    }
 
-    class EsploraException(msg: String) : Exception(msg)
+    class EsploraException(
+        msg: String,
+    ) : Exception(msg)
 }

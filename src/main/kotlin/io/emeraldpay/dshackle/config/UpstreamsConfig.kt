@@ -42,11 +42,10 @@ open class UpstreamsConfig {
         var priority: Int,
         var validatePeers: Boolean,
         var minPeers: Int,
-        var validateSyncing: Boolean
+        var validateSyncing: Boolean,
     )
 
     open class PartialOptions {
-
         var disableValidation: Boolean? = null
         var validationInterval: Int? = null
             set(value) {
@@ -91,11 +90,14 @@ open class UpstreamsConfig {
             return copy
         }
 
-        fun build(): Options {
-            return Options(
+        fun build(): Options =
+            Options(
                 disableValidation = ObjectUtils.firstNonNull(this.disableValidation, false)!!,
-                validationInterval = ObjectUtils.firstNonNull(this.validationInterval, DEFAULT_VALIDATION_INTERVAL)!!
-                    .toLong().let(Duration::ofSeconds),
+                validationInterval =
+                    ObjectUtils
+                        .firstNonNull(this.validationInterval, DEFAULT_VALIDATION_INTERVAL)!!
+                        .toLong()
+                        .let(Duration::ofSeconds),
                 timeout = ObjectUtils.firstNonNull(this.timeout?.toLong()?.let(Duration::ofSeconds), Defaults.timeout)!!,
                 providesBalance = ObjectUtils.firstNonNull(this.providesBalance, false)!!,
                 priority = ObjectUtils.firstNonNull(this.priority, DEFAULT_PRIORITY)!!,
@@ -103,7 +105,6 @@ open class UpstreamsConfig {
                 minPeers = ObjectUtils.firstNonNull(this.minPeers, 1)!!,
                 validateSyncing = ObjectUtils.firstNonNull(this.validateSyncing, true)!!,
             )
-        }
 
         companion object {
             @JvmStatic
@@ -143,7 +144,7 @@ open class UpstreamsConfig {
     enum class UpstreamRole {
         PRIMARY,
         SECONDARY,
-        FALLBACK
+        FALLBACK,
     }
 
     open class UpstreamConnection
@@ -176,13 +177,17 @@ open class UpstreamsConfig {
         val topics: List<String>,
     )
 
-    class HttpEndpoint(val url: URI) {
+    class HttpEndpoint(
+        val url: URI,
+    ) {
         var basicAuth: AuthConfig.ClientBasicAuth? = null
         var tls: AuthConfig.ClientTlsAuth? = null
         var compress: Boolean? = null
     }
 
-    class WsEndpoint(val url: URI) {
+    class WsEndpoint(
+        val url: URI,
+    ) {
         var origin: URI? = null
         var basicAuth: AuthConfig.ClientBasicAuth? = null
         var frameSize: Int? = null
@@ -193,7 +198,6 @@ open class UpstreamsConfig {
 
     // TODO make it unmodifiable after initial load
     class Labels : HashMap<String, String>() {
-
         companion object {
             @JvmStatic
             fun fromMap(map: Map<String, String>): Labels {
@@ -212,16 +216,17 @@ open class UpstreamsConfig {
             return this.size == other.size && this.entries == other.entries
         }
 
-        override fun toString(): String {
-            return "[" + this.entries.joinToString(", ") { "${it.key}=${it.value}" } + "]"
-        }
+        override fun toString(): String = "[" + this.entries.joinToString(", ") { "${it.key}=${it.value}" } + "]"
     }
 
-    enum class UpstreamType(vararg code: String) {
+    enum class UpstreamType(
+        vararg code: String,
+    ) {
         ETHEREUM_JSON_RPC("ethereum"),
         BITCOIN_JSON_RPC("bitcoin"),
         DSHACKLE("dshackle", "grpc"),
-        UNKNOWN("unknown");
+        UNKNOWN("unknown"),
+        ;
 
         private val code: Array<out String>
 
@@ -231,7 +236,6 @@ open class UpstreamsConfig {
         }
 
         companion object {
-
             fun byName(code: String): UpstreamType {
                 val cleanCode = code.lowercase(Locale.getDefault())
                 for (t in UpstreamType.values()) {
@@ -246,12 +250,12 @@ open class UpstreamsConfig {
 
     class Methods(
         val enabled: Set<Method>,
-        val disabled: Set<Method>
+        val disabled: Set<Method>,
     )
 
     class Method(
         val name: String,
         val quorum: String? = null,
-        val static: String? = null
+        val static: String? = null,
     )
 }

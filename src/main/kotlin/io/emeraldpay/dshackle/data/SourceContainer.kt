@@ -18,9 +18,8 @@ package io.emeraldpay.dshackle.data
 
 abstract class SourceContainer(
     val json: ByteArray?,
-    private val parsed: Any?
+    private val parsed: Any?,
 ) {
-
     @Suppress("UNCHECKED_CAST")
     fun <T> getParsed(clazz: Class<T>): T? {
         if (parsed == null) {
@@ -39,12 +38,12 @@ abstract class SourceContainer(
         if (json != null) {
             if (other.json == null) return false
             if (!json.contentEquals(other.json)) return false
-        } else if (other.json != null) return false
+        } else if (other.json != null) {
+            return false
+        }
 
         return true
     }
 
-    override fun hashCode(): Int {
-        return json?.contentHashCode() ?: 0
-    }
+    override fun hashCode(): Int = json?.contentHashCode() ?: 0
 }

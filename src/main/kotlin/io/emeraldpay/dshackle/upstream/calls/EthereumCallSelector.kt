@@ -30,20 +30,20 @@ import java.util.Collections
  * The implementation is specific for Ethereum.
  */
 class EthereumCallSelector(
-    private val heightReader: Reader<BlockId, Long>
+    private val heightReader: Reader<BlockId, Long>,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(EthereumCallSelector::class.java)
 
         // ref https://eth.wiki/json-rpc/API#the-default-block-parameter
-        private val TAG_METHODS = listOf(
-            "eth_getBalance",
-            "eth_getCode",
-            "eth_getTransactionCount",
-            // no "eth_getStorageAt" because it has different structure, and therefore separate logic
-            "eth_call"
-        ).sorted()
+        private val TAG_METHODS =
+            listOf(
+                "eth_getBalance",
+                "eth_getCode",
+                "eth_getTransactionCount",
+                // no "eth_getStorageAt" because it has different structure, and therefore separate logic
+                "eth_call",
+            ).sorted()
     }
 
     private val objectMapper = Global.objectMapper
@@ -52,7 +52,11 @@ class EthereumCallSelector(
      * @param method JSON RPC name
      * @param params JSON-encoded list of parameters for the method
      */
-    fun getMatcher(method: String, params: String, head: Head): Mono<Selector.Matcher> {
+    fun getMatcher(
+        method: String,
+        params: String,
+        head: Head,
+    ): Mono<Selector.Matcher> {
         if (Collections.binarySearch(TAG_METHODS, method) >= 0) {
             return blockTagSelector(params, 1, head)
         } else if (method == "eth_getStorageAt") {
@@ -61,40 +65,46 @@ class EthereumCallSelector(
         return Mono.empty()
     }
 
-    private fun blockTagSelector(params: String, pos: Int, head: Head): Mono<Selector.Matcher> {
+    private fun blockTagSelector(
+        params: String,
+        pos: Int,
+        head: Head,
+    ): Mono<Selector.Matcher> {
         val list = objectMapper.readerFor(Any::class.java).readValues<Any>(params).readAll()
         if (list.size < pos + 1) {
             log.debug("Tag is not specified. Ignoring")
             return Mono.empty()
         }
         // integer block number, a string "latest", "earliest" or "pending", or an object with block reference
-        val minHeight: Long? = when (val tag = list[pos].toString()) {
-            "latest" -> head.getCurrentHeight()
-            // for earliest it doesn't nothing, we expect to have 0 block
-            "earliest" -> 0L
-            else -> if (tag.startsWith("0x")) {
-                return if (tag.length == 66) { // 32-byte hash is represented as 0x + 64 characters
-                    blockByHash(tag, head)
-                } else {
-                    blockByHeight(tag)
-                }
-            } else if (tag.startsWith("{") && list[pos] is Map<*, *>) {
-                // see https://eips.ethereum.org/EIPS/eip-1898
-                val obj = list[pos] as Map<*, *>
-                when {
-                    obj.containsKey("blockNumber") -> {
-                        return blockByHeight(obj["blockNumber"].toString())
+        val minHeight: Long? =
+            when (val tag = list[pos].toString()) {
+                "latest" -> head.getCurrentHeight()
+                // for earliest it doesn't nothing, we expect to have 0 block
+                "earliest" -> 0L
+                else ->
+                    if (tag.startsWith("0x")) {
+                        return if (tag.length == 66) { // 32-byte hash is represented as 0x + 64 characters
+                            blockByHash(tag, head)
+                        } else {
+                            blockByHeight(tag)
+                        }
+                    } else if (tag.startsWith("{") && list[pos] is Map<*, *>) {
+                        // see https://eips.ethereum.org/EIPS/eip-1898
+                        val obj = list[pos] as Map<*, *>
+                        when {
+                            obj.containsKey("blockNumber") -> {
+                                return blockByHeight(obj["blockNumber"].toString())
+                            }
+                            obj.containsKey("blockHash") -> {
+                                return blockByHash(obj["blockHash"].toString(), head)
+                            }
+                            else -> null
+                        }
+                    } else {
+                        log.debug("Invalid tag: $tag")
+                        null
                     }
-                    obj.containsKey("blockHash") -> {
-                        return blockByHash(obj["blockHash"].toString(), head)
-                    }
-                    else -> null
-                }
-            } else {
-                log.debug("Invalid tag: $tag")
-                null
             }
-        }
         return if (minHeight != null && minHeight >= 0) {
             Mono.just(Selector.HeightMatcher(minHeight))
         } else {
@@ -102,24 +112,26 @@ class EthereumCallSelector(
         }
     }
 
-    private fun blockByHeight(blockNumber: String): Mono<Selector.Matcher> {
-        return try {
+    private fun blockByHeight(blockNumber: String): Mono<Selector.Matcher> =
+        try {
             Mono.just(Selector.HeightMatcher(HexQuantity.from(blockNumber).value.longValueExact()))
         } catch (t: Throwable) {
             log.warn("Invalid blockNumber: $blockNumber")
             Mono.empty<Selector.Matcher>()
         }
-    }
 
-    private fun blockByHash(blockHash: String, head: Head): Mono<Selector.Matcher> {
-        return try {
+    private fun blockByHash(
+        blockHash: String,
+        head: Head,
+    ): Mono<Selector.Matcher> =
+        try {
             val blockId = BlockId.from(blockHash)
-            heightReader.read(blockId)
+            heightReader
+                .read(blockId)
                 .switchIfEmpty(Mono.justOrEmpty(head.getCurrentHeight()))
                 .map { Selector.HeightMatcher(it) }
         } catch (t: Throwable) {
             log.warn("Invalid blockHash: $blockHash")
             Mono.empty<Selector.Matcher>()
         }
-    }
 }

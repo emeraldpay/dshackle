@@ -27,7 +27,6 @@ abstract class BufferingLogWriter<T>(
     val queueLimit: Int = 4096,
     private val metrics: LogMetrics = LogMetrics.None(),
 ) : LogWriter<T> {
-
     companion object {
         private val log = LoggerFactory.getLogger(BufferingLogWriter::class.java)
     }
@@ -62,43 +61,42 @@ abstract class BufferingLogWriter<T>(
         events.forEach { _ -> metrics.produced() }
     }
 
-    fun next(limit: Int): List<T> {
-        return queue.request(limit)
-    }
+    fun next(limit: Int): List<T> = queue.request(limit)
 
-    fun returnBack(index: Int, events: List<T>) {
+    fun returnBack(
+        index: Int,
+        events: List<T>,
+    ) {
         queue.offer(events.drop(index))
         // don't fire the metrics update because it's they were already counted
     }
 
     fun encode(event: T): ByteBuffer? {
-        val line = try {
-            serializer?.apply(event)
-        } catch (t: Throwable) {
-            errors.execute {
-                log.warn("Failed to serialize event: ${t.message}")
-            }
-            return null
-        } ?: return null
+        val line =
+            try {
+                serializer?.apply(event)
+            } catch (t: Throwable) {
+                errors.execute {
+                    log.warn("Failed to serialize event: ${t.message}")
+                }
+                return null
+            } ?: return null
 
-        val encoded = try {
-            encoding.write(line)
-        } catch (t: Throwable) {
-            errors.execute {
-                log.warn("Failed to serialize event: ${t.message}")
+        val encoded =
+            try {
+                encoding.write(line)
+            } catch (t: Throwable) {
+                errors.execute {
+                    log.warn("Failed to serialize event: ${t.message}")
+                }
+                null
             }
-            null
-        }
         return encoded
     }
 
-    fun isEmpty(): Boolean {
-        return queue.size <= 0
-    }
+    fun isEmpty(): Boolean = queue.size <= 0
 
-    fun size(): Int {
-        return queue.size
-    }
+    fun size(): Int = queue.size
 
     override fun stop() {
         queue.close()

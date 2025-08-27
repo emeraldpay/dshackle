@@ -4,10 +4,9 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import reactor.core.publisher.Mono
 
 interface ChainFees {
-
     companion object {
-        fun extractMode(req: BlockchainOuterClass.EstimateFeeRequest): Mode? {
-            return when (req.mode!!) {
+        fun extractMode(req: BlockchainOuterClass.EstimateFeeRequest): Mode? =
+            when (req.mode!!) {
                 BlockchainOuterClass.FeeEstimationMode.INVALID -> null
                 BlockchainOuterClass.FeeEstimationMode.AVG_LAST -> Mode.AVG_LAST
                 BlockchainOuterClass.FeeEstimationMode.AVG_T5 -> Mode.AVG_T5
@@ -18,10 +17,12 @@ interface ChainFees {
                 BlockchainOuterClass.FeeEstimationMode.AVG_TOP -> Mode.AVG_TOP
                 BlockchainOuterClass.FeeEstimationMode.UNRECOGNIZED -> null
             }
-        }
     }
 
-    fun estimate(mode: Mode, blocks: Int): Mono<BlockchainOuterClass.EstimateFeeResponse>
+    fun estimate(
+        mode: Mode,
+        blocks: Int,
+    ): Mono<BlockchainOuterClass.EstimateFeeResponse>
 
     enum class Mode {
         AVG_LAST,
@@ -30,6 +31,6 @@ interface ChainFees {
         AVG_T50,
         MIN_ALWAYS,
         AVG_MIDDLE,
-        AVG_TOP
+        AVG_TOP,
     }
 }

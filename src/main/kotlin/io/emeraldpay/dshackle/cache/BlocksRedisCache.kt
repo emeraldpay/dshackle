@@ -33,10 +33,9 @@ import java.time.Instant
  */
 class BlocksRedisCache(
     redis: RedisReactiveCommands<String, ByteArray>,
-    chain: Chain
-) : Reader<BlockId, BlockContainer>,
-    OnBlockRedisCache<BlockContainer>(redis, chain, CachesProto.ValueContainer.ValueType.BLOCK) {
-
+    chain: Chain,
+) : OnBlockRedisCache<BlockContainer>(redis, chain, CachesProto.ValueContainer.ValueType.BLOCK),
+    Reader<BlockId, BlockContainer> {
     companion object {
         private val log = LoggerFactory.getLogger(BlocksRedisCache::class.java)
     }
@@ -49,9 +48,7 @@ class BlocksRedisCache(
         return meta
     }
 
-    override fun serializeValue(value: BlockContainer): ByteArray {
-        return value.json!!
-    }
+    override fun serializeValue(value: BlockContainer): ByteArray = value.json!!
 
     override fun deserializeValue(value: CachesProto.ValueContainer): BlockContainer {
         if (!value.hasBlockMeta()) {
@@ -69,7 +66,7 @@ class BlocksRedisCache(
             null,
             meta.txHashesList.map {
                 TxId(it.toByteArray())
-            }
+            },
         )
     }
 

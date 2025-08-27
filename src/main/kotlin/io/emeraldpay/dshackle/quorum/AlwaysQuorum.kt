@@ -23,7 +23,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
 open class AlwaysQuorum : CallQuorum {
-
     private var resolved = false
     private var result: ByteArray? = null
     private var rpcError: JsonRpcError? = null
@@ -36,26 +35,28 @@ open class AlwaysQuorum : CallQuorum {
     override fun setTotalUpstreams(total: Int) {
     }
 
-    override fun isResolved(): Boolean {
-        return resolved
-    }
+    override fun isResolved(): Boolean = resolved
 
-    override fun isFailed(): Boolean {
-        return rpcError != null
-    }
+    override fun isFailed(): Boolean = rpcError != null
 
-    override fun getSignature(): ResponseSigner.Signature? {
-        return sig
-    }
+    override fun getSignature(): ResponseSigner.Signature? = sig
 
-    override fun record(response: ByteArray, signature: ResponseSigner.Signature?, upstream: Upstream): Boolean {
+    override fun record(
+        response: ByteArray,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+    ): Boolean {
         result = response
         resolved = true
         sig = signature
         return true
     }
 
-    override fun record(error: JsonRpcException, signature: ResponseSigner.Signature?, upstream: Upstream) {
+    override fun record(
+        error: JsonRpcException,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+    ) {
         if (CallQuorum.isConnectionUnavailable(error)) {
             // keep the connection error but don't use it until all upstreams are exhausted
             tempRpcError = error.error
@@ -65,13 +66,9 @@ open class AlwaysQuorum : CallQuorum {
         sig = signature
     }
 
-    override fun getResult(): ByteArray? {
-        return result
-    }
+    override fun getResult(): ByteArray? = result
 
-    override fun getError(): JsonRpcError? {
-        return rpcError
-    }
+    override fun getError(): JsonRpcError? = rpcError
 
     override fun close() {
         if (result == null && tempRpcError != null && rpcError == null) {
@@ -79,7 +76,5 @@ open class AlwaysQuorum : CallQuorum {
         }
     }
 
-    override fun toString(): String {
-        return "Quorum: Accept Any"
-    }
+    override fun toString(): String = "Quorum: Accept Any"
 }

@@ -25,44 +25,46 @@ data class JsonRpcRequest(
     val method: String,
     val params: List<Any?>,
     val id: Int,
-    val nonce: Long?
+    val nonce: Long?,
 ) {
-
-    @JvmOverloads constructor(method: String, params: List<Any?>, nonce: Long? = null) : this(method, params, 1, nonce)
+    @JvmOverloads
+    constructor(method: String, params: List<Any?>, nonce: Long? = null) : this(method, params, 1, nonce)
 
     fun toJson(): ByteArray {
-        val json = mapOf(
-            "jsonrpc" to "2.0",
-            "id" to id,
-            "method" to method,
-            "params" to params
-        )
+        val json =
+            mapOf(
+                "jsonrpc" to "2.0",
+                "id" to id,
+                "method" to method,
+                "params" to params,
+            )
         return Global.objectMapper.writeValueAsBytes(json)
     }
 
-    override fun toString(): String {
-        return String(this.toJson())
-    }
+    override fun toString(): String = String(this.toJson())
 
     class Deserializer : JsonDeserializer<JsonRpcRequest>() {
-
-        override fun deserialize(p: JsonParser, ctxt: DeserializationContext): JsonRpcRequest {
+        override fun deserialize(
+            p: JsonParser,
+            ctxt: DeserializationContext,
+        ): JsonRpcRequest {
             val node: JsonNode = p.readValueAsTree()
             val id = node.get("id").intValue()
             val method = node.get("method").textValue()
-            val params = node.get("params").map {
-                if (it.isNumber) {
-                    it.asInt()
-                } else if (it.isTextual) {
-                    it.textValue()
-                } else if (it.isBoolean) {
-                    it.booleanValue()
-                } else if (it.isNull) {
-                    null
-                } else {
-                    throw IllegalStateException("Unsupported param type: ${it.asToken()}")
+            val params =
+                node.get("params").map {
+                    if (it.isNumber) {
+                        it.asInt()
+                    } else if (it.isTextual) {
+                        it.textValue()
+                    } else if (it.isBoolean) {
+                        it.booleanValue()
+                    } else if (it.isNull) {
+                        null
+                    } else {
+                        throw IllegalStateException("Unsupported param type: ${it.asToken()}")
+                    }
                 }
-            }
             return JsonRpcRequest(method, params, id, null)
         }
     }

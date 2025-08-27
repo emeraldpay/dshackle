@@ -35,9 +35,8 @@ open class GrpcServer(
     @Autowired val rpcs: List<io.grpc.BindableService>,
     @Autowired val mainConfig: MainConfig,
     @Autowired val tlsSetup: TlsSetup,
-    @Autowired val accessHandler: AccessLogHandlerGrpc
+    @Autowired val accessHandler: AccessLogHandlerGrpc,
 ) {
-
     private val log = LoggerFactory.getLogger(GrpcServer::class.java)
 
     private var server: Server? = null
@@ -47,23 +46,24 @@ open class GrpcServer(
         log.info("Starting gRPC Server...")
         log.debug("Running with DEBUG LOGGING")
         log.info("Listening Native gRPC on ${mainConfig.host}:${mainConfig.port}")
-        val serverBuilder = NettyServerBuilder
-            .forAddress(InetSocketAddress(mainConfig.host, mainConfig.port))
-            .let {
-                if (mainConfig.accessLogConfig.enabled) {
-                    it.intercept(accessHandler)
-                } else {
-                    it
-                }
-                if (mainConfig.compress) {
-                    // standard registry supports only GZip compression
-                    it.compressorRegistry(CompressorRegistry.getDefaultInstance())
-                        .decompressorRegistry(DecompressorRegistry.getDefaultInstance())
-                } else {
-                    it
-                }
-            }
-            .intercept(GenerateRequestId())
+        val serverBuilder =
+            NettyServerBuilder
+                .forAddress(InetSocketAddress(mainConfig.host, mainConfig.port))
+                .let {
+                    if (mainConfig.accessLogConfig.enabled) {
+                        it.intercept(accessHandler)
+                    } else {
+                        it
+                    }
+                    if (mainConfig.compress) {
+                        // standard registry supports only GZip compression
+                        it
+                            .compressorRegistry(CompressorRegistry.getDefaultInstance())
+                            .decompressorRegistry(DecompressorRegistry.getDefaultInstance())
+                    } else {
+                        it
+                    }
+                }.intercept(GenerateRequestId())
 
         tlsSetup.setupServer("Native gRPC", mainConfig.tls, true)?.let {
             serverBuilder.sslContext(it)

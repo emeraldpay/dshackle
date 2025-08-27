@@ -29,16 +29,17 @@ import reactor.core.publisher.Mono
  */
 open class ReceiptMemCache(
     // how many blocks to keeps in memory
-    val blocks: Int = 6
+    val blocks: Int = 6,
 ) : Reader<TxId, ByteArray> {
-
     companion object {
         private val log = LoggerFactory.getLogger(ReceiptMemCache::class.java)
     }
 
-    private val mapping = Caffeine.newBuilder()
-        .maximumSize(blocks * 200L)
-        .build<TxId, ByteArray>()
+    private val mapping =
+        Caffeine
+            .newBuilder()
+            .maximumSize(blocks * 200L)
+            .build<TxId, ByteArray>()
 
     open fun evict(block: BlockContainer) {
         block.transactions.forEach {
@@ -46,9 +47,7 @@ open class ReceiptMemCache(
         }
     }
 
-    override fun read(key: TxId): Mono<ByteArray> {
-        return mapping.getIfPresent(key)?.let { Mono.just(it) } ?: Mono.empty()
-    }
+    override fun read(key: TxId): Mono<ByteArray> = mapping.getIfPresent(key)?.let { Mono.just(it) } ?: Mono.empty()
 
     open fun add(receipt: DefaultContainer<TransactionReceiptJson>): Mono<Void> {
         if (receipt.txId != null && receipt.json != null) {
@@ -57,7 +56,5 @@ open class ReceiptMemCache(
         return Mono.empty()
     }
 
-    open fun acceptsRecentBlocks(heightDelta: Long): Boolean {
-        return blocks <= heightDelta && heightDelta >= 0
-    }
+    open fun acceptsRecentBlocks(heightDelta: Long): Boolean = blocks <= heightDelta && heightDelta >= 0
 }

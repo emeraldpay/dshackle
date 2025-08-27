@@ -25,17 +25,17 @@ class BitcoinDshackleSubscriptionSource(
     private val conn: ReactorBlockchainGrpc.ReactorBlockchainStub,
     topic: BitcoinZmqTopic,
 ) : BitcoinSubscriptionConnect<ByteArray>(topic) {
+    private val request =
+        BlockchainOuterClass.NativeSubscribeRequest
+            .newBuilder()
+            .setChainValue(blockchain.id)
+            .setMethod(topic.id)
+            .build()
 
-    private val request = BlockchainOuterClass.NativeSubscribeRequest.newBuilder()
-        .setChainValue(blockchain.id)
-        .setMethod(topic.id)
-        .build()
-
-    override fun createConnection(): Flux<ByteArray> {
-        return conn
+    override fun createConnection(): Flux<ByteArray> =
+        conn
             .nativeSubscribe(request)
             .map(::readResponse)
-    }
 
     private fun readResponse(resp: BlockchainOuterClass.NativeSubscribeReplyItem): ByteArray {
         // comes as a string, so cut off the quotes

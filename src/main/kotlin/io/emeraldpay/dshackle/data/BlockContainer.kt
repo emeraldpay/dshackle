@@ -31,9 +31,8 @@ class BlockContainer(
     val includesFullTransactions: Boolean,
     json: ByteArray?,
     val parsed: Any?,
-    val transactions: List<TxId> = emptyList()
+    val transactions: List<TxId> = emptyList(),
 ) : SourceContainer(json, parsed) {
-
     constructor(height: Long, hash: BlockId, difficulty: BigInteger, timestamp: Instant) :
         this(height, hash, null, difficulty, timestamp, false, null, null)
 
@@ -42,7 +41,10 @@ class BlockContainer(
 
     companion object {
         @JvmStatic
-        fun from(block: BlockJson<*>, raw: ByteArray): BlockContainer {
+        fun from(
+            block: BlockJson<*>,
+            raw: ByteArray,
+        ): BlockContainer {
             val hasTransactions = (block.transactions?.filterIsInstance<TransactionJson>()?.count() ?: 0) > 0
             return BlockContainer(
                 block.number,
@@ -53,14 +55,12 @@ class BlockContainer(
                 hasTransactions,
                 raw,
                 block,
-                block.transactions?.map { TxId.from(it.hash) } ?: emptyList()
+                block.transactions?.map { TxId.from(it.hash) } ?: emptyList(),
             )
         }
 
         @JvmStatic
-        fun from(block: BlockJson<*>): BlockContainer {
-            return from(block, Global.objectMapper.writeValueAsBytes(block))
-        }
+        fun from(block: BlockJson<*>): BlockContainer = from(block, Global.objectMapper.writeValueAsBytes(block))
 
         @JvmStatic
         fun fromEthereumJson(raw: ByteArray): BlockContainer {
@@ -69,9 +69,7 @@ class BlockContainer(
         }
     }
 
-    override fun toString(): String {
-        return "Block $height = $hash"
-    }
+    override fun toString(): String = "Block $height = $hash"
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

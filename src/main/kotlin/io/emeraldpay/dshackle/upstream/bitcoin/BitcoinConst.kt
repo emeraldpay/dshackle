@@ -19,7 +19,6 @@ import java.math.BigDecimal
 import java.math.BigInteger
 
 class BitcoinConst {
-
     companion object {
         val COIN: BigInteger = BigInteger.TEN.pow(8)
         val COIN_DEC: BigDecimal = COIN.toBigDecimal()

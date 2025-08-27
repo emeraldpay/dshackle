@@ -20,9 +20,8 @@ import io.emeraldpay.api.Chain
 import io.emeraldpay.etherjar.domain.Address
 
 class TokensConfig(
-    val tokens: List<Token>
+    val tokens: List<Token>,
 ) {
-
     class Token {
         // reference id, used by get balance and others
         var id: String? = null
@@ -37,8 +36,8 @@ class TokensConfig(
          *  Validate the config, and if it is not valid, then returns the name of the field that is invalid.
          *
          */
-        fun validate(): String? {
-            return when {
+        fun validate(): String? =
+            when {
                 id.isNullOrBlank() -> "id"
                 blockchain == null -> "blockchain"
                 name.isNullOrBlank() -> "name"
@@ -49,10 +48,9 @@ class TokensConfig(
                     !Address.isValidAddress(address) -> "address"
                 else -> null
             }
-        }
     }
 
     enum class Type {
-        ERC20
+        ERC20,
     }
 }

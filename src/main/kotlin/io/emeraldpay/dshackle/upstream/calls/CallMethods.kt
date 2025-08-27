@@ -22,7 +22,6 @@ import io.emeraldpay.dshackle.quorum.CallQuorum
  * Configuration for upstream calls
  */
 interface CallMethods {
-
     /**
      * For a stateful CallQuorum it _MUST CREATE_ a new instance of each time to avoid using a shared state between different requests
      *
@@ -57,7 +56,5 @@ interface CallMethods {
     /**
      * Check if the method is available either by an upstream or as a hardcoded response
      */
-    fun isAvailable(method: String): Boolean {
-        return isCallable(method) || isHardcoded(method)
-    }
+    fun isAvailable(method: String): Boolean = isCallable(method) || isHardcoded(method)
 }

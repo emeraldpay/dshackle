@@ -23,24 +23,21 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
 class HeightByHashMemCache(
-    maxSize: Int = 256
+    maxSize: Int = 256,
 ) : Reader<BlockId, Long> {
-
     companion object {
         private val log = LoggerFactory.getLogger(HeightByHashMemCache::class.java)
     }
 
-    private val heights = Caffeine.newBuilder()
-        .maximumSize(maxSize.toLong())
-        .build<BlockId, Long>()
+    private val heights =
+        Caffeine
+            .newBuilder()
+            .maximumSize(maxSize.toLong())
+            .build<BlockId, Long>()
 
-    override fun read(key: BlockId): Mono<Long> {
-        return Mono.justOrEmpty(heights.getIfPresent(key))
-    }
+    override fun read(key: BlockId): Mono<Long> = Mono.justOrEmpty(heights.getIfPresent(key))
 
-    fun get(key: BlockId): Long? {
-        return heights.getIfPresent(key)
-    }
+    fun get(key: BlockId): Long? = heights.getIfPresent(key)
 
     fun add(block: BlockContainer) {
         heights.put(block.hash, block.height)

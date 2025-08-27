@@ -17,24 +17,35 @@ import java.time.Duration
  * @see reactor.netty.http.MicrometerHttpMetricsRecorder
  */
 class ConnectionMetrics(
-    tags: Iterable<Tag>
+    tags: Iterable<Tag>,
 ) : ChannelMetricsRecorder {
+    private val dataReceived =
+        DistributionSummary
+            .builder("netty.client.data.received")
+            .tags(tags)
+            .register(Metrics.globalRegistry)
+    private val dataSent =
+        DistributionSummary
+            .builder("netty.client.data.sent")
+            .tags(tags)
+            .register(Metrics.globalRegistry)
+    private val errors =
+        Counter
+            .builder("netty.client.errors")
+            .tags(tags)
+            .register(Metrics.globalRegistry)
 
-    private val dataReceived = DistributionSummary.builder("netty.client.data.received")
-        .tags(tags)
-        .register(Metrics.globalRegistry)
-    private val dataSent = DistributionSummary.builder("netty.client.data.sent")
-        .tags(tags)
-        .register(Metrics.globalRegistry)
-    private val errors = Counter.builder("netty.client.errors")
-        .tags(tags)
-        .register(Metrics.globalRegistry)
-
-    override fun recordDataReceived(remoteAddress: SocketAddress, bytes: Long) {
+    override fun recordDataReceived(
+        remoteAddress: SocketAddress,
+        bytes: Long,
+    ) {
         dataReceived.record(bytes.toDouble())
     }
 
-    override fun recordDataSent(remoteAddress: SocketAddress, bytes: Long) {
+    override fun recordDataSent(
+        remoteAddress: SocketAddress,
+        bytes: Long,
+    ) {
         dataSent.record(bytes.toDouble())
     }
 
@@ -42,12 +53,24 @@ class ConnectionMetrics(
         errors.increment()
     }
 
-    override fun recordTlsHandshakeTime(remoteAddress: SocketAddress, time: Duration, status: String) {
+    override fun recordTlsHandshakeTime(
+        remoteAddress: SocketAddress,
+        time: Duration,
+        status: String,
+    ) {
     }
 
-    override fun recordConnectTime(remoteAddress: SocketAddress, time: Duration, status: String) {
+    override fun recordConnectTime(
+        remoteAddress: SocketAddress,
+        time: Duration,
+        status: String,
+    ) {
     }
 
-    override fun recordResolveAddressTime(remoteAddress: SocketAddress, time: Duration, status: String) {
+    override fun recordResolveAddressTime(
+        remoteAddress: SocketAddress,
+        time: Duration,
+        status: String,
+    ) {
     }
 }

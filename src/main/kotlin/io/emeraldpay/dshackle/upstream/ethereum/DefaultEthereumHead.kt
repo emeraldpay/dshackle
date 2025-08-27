@@ -32,24 +32,24 @@ import java.util.function.Function
 
 open class DefaultEthereumHead(
     private val blockchain: Chain,
-) : Head, AbstractHead() {
-
+) : AbstractHead(),
+    Head {
     companion object {
         private val log = LoggerFactory.getLogger(DefaultEthereumHead::class.java)
     }
 
-    fun getLatestBlock(api: StandardRpcReader): Mono<BlockContainer> {
-        return getBlockNumber(api)
+    fun getLatestBlock(api: StandardRpcReader): Mono<BlockContainer> =
+        getBlockNumber(api)
             .transform(getBlockDetails(api))
             .onErrorResume { err ->
                 log.debug("Failed to fetch latest block: ${err.message}")
                 Mono.empty()
             }
-    }
 
     private fun getBlockNumber(api: StandardRpcReader): Mono<HexQuantity> {
         val request = JsonRpcRequest("eth_blockNumber", emptyList())
-        return api.read(request)
+        return api
+            .read(request)
             .subscribeOn(EthereumRpcHead.scheduler)
             .timeout(Defaults.timeout, Mono.error(SilentException.Timeout("Block number not received")))
             .contextWrite(Global.monitoring.ingress.withBlockchain(blockchain))
@@ -65,23 +65,22 @@ open class DefaultEthereumHead(
             }
     }
 
-    private fun getBlockDetails(api: StandardRpcReader): Function<Mono<HexQuantity>, Mono<BlockContainer>> {
-        return Function { numberResponse ->
+    private fun getBlockDetails(api: StandardRpcReader): Function<Mono<HexQuantity>, Mono<BlockContainer>> =
+        Function { numberResponse ->
             numberResponse
                 .flatMap { number ->
                     // fetching by Block Height here, critical to use the same upstream as in previous call,
                     // b/c different upstreams may have different blocks on the same height
                     val request = JsonRpcRequest("eth_getBlockByNumber", listOf(number.toHex(), false))
-                    api.read(request)
+                    api
+                        .read(request)
                         .subscribeOn(EthereumRpcHead.scheduler)
                         .timeout(Defaults.timeout, Mono.error(SilentException.Timeout("Block data not received")))
                         .contextWrite(Global.monitoring.ingress.withBlockchain(blockchain))
                         .contextWrite(Global.monitoring.ingress.withRequest(request))
                         .contextWrite(Global.monitoring.ingress.startCall(RequestRecord.Source.INTERNAL))
-                }
-                .map {
+                }.map {
                     BlockContainer.fromEthereumJson(it.resultOrEmpty)
                 }
         }
-    }
 }

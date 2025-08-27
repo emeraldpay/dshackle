@@ -19,6 +19,5 @@ import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 
 interface EthereumIngressSubscription : IngressSubscription {
-
     fun getPendingTxes(): PendingTxesSource?
 }

@@ -17,22 +17,24 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 
 import io.emeraldpay.etherjar.rpc.RpcException
 
-class JsonRpcError(val code: Int, val message: String, val details: Any?) {
-
+class JsonRpcError(
+    val code: Int,
+    val message: String,
+    val details: Any?,
+) {
     constructor(code: Int, message: String) : this(code, message, null)
 
     companion object {
         @JvmStatic
-        fun from(err: RpcException): JsonRpcError {
-            return JsonRpcError(
-                err.code, err.rpcMessage, err.details
+        fun from(err: RpcException): JsonRpcError =
+            JsonRpcError(
+                err.code,
+                err.rpcMessage,
+                err.details,
             )
-        }
     }
 
-    fun asException(id: JsonRpcResponse.Id?): JsonRpcException {
-        return JsonRpcException(id ?: JsonRpcResponse.NumberId(-1), this)
-    }
+    fun asException(id: JsonRpcResponse.Id?): JsonRpcException = JsonRpcException(id ?: JsonRpcResponse.NumberId(-1), this)
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -52,7 +54,5 @@ class JsonRpcError(val code: Int, val message: String, val details: Any?) {
         return result
     }
 
-    override fun toString(): String {
-        return "JsonRpcError(code=$code, message='$message', details=$details)"
-    }
+    override fun toString(): String = "JsonRpcError(code=$code, message='$message', details=$details)"
 }

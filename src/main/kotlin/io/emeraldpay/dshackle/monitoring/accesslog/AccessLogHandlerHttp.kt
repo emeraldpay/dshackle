@@ -23,9 +23,8 @@ import kotlin.concurrent.withLock
 @Service
 class AccessLogHandlerHttp(
     @Autowired private val mainConfig: MainConfig,
-    @Autowired accessLogWriter: CurrentAccessLogWriter
+    @Autowired accessLogWriter: CurrentAccessLogWriter,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(AccessLogHandlerHttp::class.java)
 
@@ -36,54 +35,77 @@ class AccessLogHandlerHttp(
     /**
      * Use factory since we need a different behaviour for situation when log is configured and when is not
      */
-    val factory: HandlerFactory = if (mainConfig.accessLogConfig.enabled) {
-        StandardFactory(accessLogWriter)
-    } else {
-        NoOpFactory()
-    }
+    val factory: HandlerFactory =
+        if (mainConfig.accessLogConfig.enabled) {
+            StandardFactory(accessLogWriter)
+        } else {
+            NoOpFactory()
+        }
 
     interface HandlerFactory {
-        fun create(req: HttpServerRequest, blockchain: Chain, requestId: UUID): RequestHandler
-        fun start(req: WebsocketInbound, blockchain: Chain): WsHandlerFactory
+        fun create(
+            req: HttpServerRequest,
+            blockchain: Chain,
+            requestId: UUID,
+        ): RequestHandler
+
+        fun start(
+            req: WebsocketInbound,
+            blockchain: Chain,
+        ): WsHandlerFactory
     }
 
     interface WsHandlerFactory {
         fun call(requestId: UUID): RequestHandler
+
         fun subscribe(requestId: UUID): SubscriptionHandler
     }
 
     class NoOpFactory : HandlerFactory {
-        override fun create(req: HttpServerRequest, blockchain: Chain, requestId: UUID): RequestHandler {
-            return NO_REQUEST
-        }
+        override fun create(
+            req: HttpServerRequest,
+            blockchain: Chain,
+            requestId: UUID,
+        ): RequestHandler = NO_REQUEST
 
-        override fun start(req: WebsocketInbound, blockchain: Chain): WsHandlerFactory {
-            return NO_REQUEST
-        }
+        override fun start(
+            req: WebsocketInbound,
+            blockchain: Chain,
+        ): WsHandlerFactory = NO_REQUEST
     }
 
-    class StandardFactory(val accessLogWriter: CurrentAccessLogWriter) : HandlerFactory {
-        override fun create(req: HttpServerRequest, blockchain: Chain, requestId: UUID): RequestHandler {
-            return StandardHandler(accessLogWriter, req, blockchain, requestId)
-        }
+    class StandardFactory(
+        val accessLogWriter: CurrentAccessLogWriter,
+    ) : HandlerFactory {
+        override fun create(
+            req: HttpServerRequest,
+            blockchain: Chain,
+            requestId: UUID,
+        ): RequestHandler = StandardHandler(accessLogWriter, req, blockchain, requestId)
 
-        override fun start(req: WebsocketInbound, blockchain: Chain): WsHandlerFactory {
-            return StandardWsHandlerFactory(accessLogWriter, req, blockchain)
-        }
+        override fun start(
+            req: WebsocketInbound,
+            blockchain: Chain,
+        ): WsHandlerFactory = StandardWsHandlerFactory(accessLogWriter, req, blockchain)
     }
 
     interface RequestHandler {
         fun close()
+
         fun onRequest(request: BlockchainOuterClass.NativeCallRequest)
+
         fun onResponse(callResult: NativeCall.CallResult)
     }
 
     interface SubscriptionHandler {
         fun onRequest(request: Pair<String, ByteArray?>)
+
         fun onResponse(msgSize: Long)
     }
 
-    class NoOpHandler : RequestHandler, WsHandlerFactory {
+    class NoOpHandler :
+        RequestHandler,
+        WsHandlerFactory {
         override fun close() {
         }
 
@@ -93,13 +115,9 @@ class AccessLogHandlerHttp(
         override fun onResponse(callResult: NativeCall.CallResult) {
         }
 
-        override fun call(requestId: UUID): RequestHandler {
-            return this
-        }
+        override fun call(requestId: UUID): RequestHandler = this
 
-        override fun subscribe(requestId: UUID): SubscriptionHandler {
-            return NO_SUBSCRIBE
-        }
+        override fun subscribe(requestId: UUID): SubscriptionHandler = NO_SUBSCRIBE
     }
 
     class NoOnSubscriptionHandler : SubscriptionHandler {
@@ -113,21 +131,17 @@ class AccessLogHandlerHttp(
     class StandardWsHandlerFactory(
         private val accessLogWriter: CurrentAccessLogWriter,
         private val wsRequest: WebsocketInbound,
-        private val blockchain: Chain
+        private val blockchain: Chain,
     ) : WsHandlerFactory {
+        override fun call(requestId: UUID): RequestHandler = WsRequestHandler(accessLogWriter, wsRequest, blockchain, requestId)
 
-        override fun call(requestId: UUID): RequestHandler {
-            return WsRequestHandler(accessLogWriter, wsRequest, blockchain, requestId)
-        }
-
-        override fun subscribe(requestId: UUID): SubscriptionHandler {
-            return WsSubscriptionHandler(accessLogWriter, wsRequest, blockchain, requestId)
-        }
+        override fun subscribe(requestId: UUID): SubscriptionHandler =
+            WsSubscriptionHandler(accessLogWriter, wsRequest, blockchain, requestId)
     }
 
     abstract class AbstractRequestHandler(
         private val accessLogWriter: CurrentAccessLogWriter,
-        private val channel: Channel
+        private val channel: Channel,
     ) : RequestHandler {
         protected var request: BlockchainOuterClass.NativeCallRequest? = null
         protected val responses = ArrayList<NativeCall.CallResult>()
@@ -151,8 +165,7 @@ class AccessLogHandlerHttp(
                         // since for JSON RPC you get a single response then the timestamp of all items included in it must have the same timestamp
                         item.ts = responseTime
                     }
-                }
-                .let(accessLogWriter::submitAll)
+                }.let(accessLogWriter::submitAll)
         }
     }
 
@@ -161,8 +174,8 @@ class AccessLogHandlerHttp(
         private val httpRequest: HttpServerRequest,
         private val blockchain: Chain,
         private val requestId: UUID,
-    ) : RequestHandler, AbstractRequestHandler(accessLogWriter, Channel.JSONRPC) {
-
+    ) : AbstractRequestHandler(accessLogWriter, Channel.JSONRPC),
+        RequestHandler {
         override fun close() {
             if (request == null) {
                 return
@@ -180,8 +193,8 @@ class AccessLogHandlerHttp(
         private val wsRequest: WebsocketInbound,
         private val blockchain: Chain,
         private val requestId: UUID,
-    ) : RequestHandler, AbstractRequestHandler(accessLogWriter, Channel.WSJSONRPC) {
-
+    ) : AbstractRequestHandler(accessLogWriter, Channel.WSJSONRPC),
+        RequestHandler {
         override fun close() {
             if (request == null) {
                 return
@@ -200,7 +213,6 @@ class AccessLogHandlerHttp(
         private val blockchain: Chain,
         private val requestId: UUID,
     ) : SubscriptionHandler {
-
         private var builder: RecordBuilder.NativeSubscribeHttp? = null
 
         override fun onRequest(request: Pair<String, ByteArray?>) {

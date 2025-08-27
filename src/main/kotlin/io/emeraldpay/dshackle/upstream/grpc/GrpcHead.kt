@@ -48,9 +48,9 @@ class GrpcHead(
     /**
      * Populate block data with all missing details, of any
      */
-    private val enhancer: Function<BlockContainer, Publisher<BlockContainer>>?
-) : AbstractHead(), Lifecycle {
-
+    private val enhancer: Function<BlockContainer, Publisher<BlockContainer>>?,
+) : AbstractHead(),
+    Lifecycle {
     companion object {
         private val log = LoggerFactory.getLogger(GrpcHead::class.java)
     }
@@ -67,39 +67,42 @@ class GrpcHead(
         }
         log.debug("Start Head subscription to ${parent.getId()}")
 
-        val blocks = DurableFlux(
-            { connect(remote) },
-            ExponentialBackOff(100, 1.5),
-            log,
-            shouldBeRunning,
-        )
+        val blocks =
+            DurableFlux(
+                { connect(remote) },
+                ExponentialBackOff(100, 1.5),
+                log,
+                shouldBeRunning,
+            )
         headSubscription = super.follow(blocks.connect())
     }
 
     private fun connect(remote: ReactorBlockchainGrpc.ReactorBlockchainStub): Flux<BlockContainer> {
-        val chainRef = Common.Chain.newBuilder()
-            .setTypeValue(chain.id)
-            .build()
-        return remote.subscribeHead(chainRef)
+        val chainRef =
+            Common.Chain
+                .newBuilder()
+                .setTypeValue(chain.id)
+                .build()
+        return remote
+            .subscribeHead(chainRef)
             // if nothing returned for a relatively long period it's probably because of a broken connection, so in this case we force to drop the connection
             .timeout(
                 expectEventsTime(),
-                Mono.fromCallable { log.info("No events received from ${parent.getId()}. Reconnecting...") }
-                    .then(Mono.error(SilentException.Timeout("No Events")))
-            )
-            .doOnError { err ->
+                Mono
+                    .fromCallable { log.info("No events received from ${parent.getId()}. Reconnecting...") }
+                    .then(Mono.error(SilentException.Timeout("No Events"))),
+            ).doOnError { err ->
                 if (err !is SilentException) {
                     log.warn("Disconnected $chain from ${parent.getId()}: ${err.message}")
                 }
                 parent.setStatus(UpstreamAvailability.UNAVAILABLE)
-            }
-            .map(converter)
+            }.map(converter)
             .distinctUntilChanged(BlockContainer::hash)
             .transform(enhanced())
     }
 
-    private fun expectEventsTime(): Duration {
-        return try {
+    private fun expectEventsTime(): Duration =
+        try {
             when (BlockchainType.from(chain)) {
                 BlockchainType.BITCOIN -> Duration.ofHours(1)
                 BlockchainType.ETHEREUM -> Duration.ofMinutes(5)
@@ -107,19 +110,15 @@ class GrpcHead(
         } catch (e: IllegalArgumentException) {
             Duration.ofMinutes(15)
         }
-    }
 
-    private fun enhanced(): Function<Flux<BlockContainer>, Flux<BlockContainer>> {
-        return if (enhancer != null) {
+    private fun enhanced(): Function<Flux<BlockContainer>, Flux<BlockContainer>> =
+        if (enhancer != null) {
             Function { blocks -> blocks.flatMap(enhancer) }
         } else {
             Function.identity()
         }
-    }
 
-    override fun isRunning(): Boolean {
-        return !(headSubscription?.isDisposed ?: true)
-    }
+    override fun isRunning(): Boolean = !(headSubscription?.isDisposed ?: true)
 
     override fun start() {
         headSubscription?.dispose()

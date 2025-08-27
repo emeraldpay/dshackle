@@ -23,10 +23,10 @@ class BitcoinZmqSubscriptionHexSource(
     topic: BitcoinZmqTopic,
     private val server: ZMQServer,
 ) : BitcoinSubscriptionConnect<String>(topic) {
-
     override fun createConnection(): Flux<String> {
         server.start()
-        return server.getFlux()
+        return server
+            .getFlux()
             .map { Hex.encodeHexString(it) }
     }
 }

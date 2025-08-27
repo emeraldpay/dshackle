@@ -11,7 +11,6 @@ class GenericRedisCacheFactory(
     private val redis: RedisReactiveCommands<String, ByteArray>,
     private val blockchain: Chain,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(GenericRedisCacheFactory::class.java)
     }

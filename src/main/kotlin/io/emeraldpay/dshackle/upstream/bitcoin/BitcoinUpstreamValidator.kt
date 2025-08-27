@@ -30,9 +30,8 @@ import java.util.concurrent.Executors
 
 class BitcoinUpstreamValidator(
     private val api: StandardRpcReader,
-    private val options: UpstreamsConfig.Options
+    private val options: UpstreamsConfig.Options,
 ) {
-
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinUpstreamValidator::class.java)
         val scheduler =
@@ -46,7 +45,8 @@ class BitcoinUpstreamValidator(
         if (!options.validatePeers || options.minPeers == 0) {
             return Mono.just(UpstreamAvailability.OK)
         }
-        return api.read(JsonRpcRequest("getconnectioncount", emptyList()))
+        return api
+            .read(JsonRpcRequest("getconnectioncount", emptyList()))
             .flatMap(JsonRpcResponse::requireResult)
             .map { Integer.parseInt(String(it)) }
             .map { count ->
@@ -55,15 +55,14 @@ class BitcoinUpstreamValidator(
                 } else {
                     UpstreamAvailability.OK
                 }
-            }
-            .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
+            }.onErrorReturn(UpstreamAvailability.UNAVAILABLE)
     }
 
-    fun start(): Flux<UpstreamAvailability> {
-        return Flux.interval(Duration.ofSeconds(15))
+    fun start(): Flux<UpstreamAvailability> =
+        Flux
+            .interval(Duration.ofSeconds(15))
             .subscribeOn(scheduler)
             .flatMap {
                 validate()
             }
-    }
 }

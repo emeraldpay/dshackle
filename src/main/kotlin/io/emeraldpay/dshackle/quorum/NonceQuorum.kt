@@ -25,9 +25,9 @@ import kotlin.concurrent.withLock
 import kotlin.math.min
 
 open class NonceQuorum(
-    maxTries: Int = 3
-) : CallQuorum, ValueAwareQuorum<String>(String::class.java) {
-
+    maxTries: Int = 3,
+) : ValueAwareQuorum<String>(String::class.java),
+    CallQuorum {
     private val lock = ReentrantLock()
     private var resultValue = 0L
     private var result: ByteArray? = null
@@ -49,17 +49,20 @@ open class NonceQuorum(
         }
     }
 
-    override fun isFailed(): Boolean {
-        return errors >= tries
-    }
-    override fun getSignature(): ResponseSigner.Signature? {
-        return sig
-    }
+    override fun isFailed(): Boolean = errors >= tries
 
-    override fun recordValue(response: ByteArray, responseValue: String?, signature: ResponseSigner.Signature?, upstream: Upstream) {
-        val value = responseValue?.let { str ->
-            HexQuantity.from(str).value.toLong()
-        }
+    override fun getSignature(): ResponseSigner.Signature? = sig
+
+    override fun recordValue(
+        response: ByteArray,
+        responseValue: String?,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+    ) {
+        val value =
+            responseValue?.let { str ->
+                HexQuantity.from(str).value.toLong()
+            }
         lock.withLock {
             receivedTimes++
             if (value != null && value > resultValue) {
@@ -73,15 +76,16 @@ open class NonceQuorum(
         }
     }
 
-    override fun getResult(): ByteArray? {
-        return result
-    }
+    override fun getResult(): ByteArray? = result
 
-    override fun recordError(response: ByteArray?, errorMessage: String?, signature: ResponseSigner.Signature?, upstream: Upstream) {
+    override fun recordError(
+        response: ByteArray?,
+        errorMessage: String?,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+    ) {
         errors++
     }
 
-    override fun toString(): String {
-        return "Quorum: Confirm with $tries upstreams"
-    }
+    override fun toString(): String = "Quorum: Confirm with $tries upstreams"
 }

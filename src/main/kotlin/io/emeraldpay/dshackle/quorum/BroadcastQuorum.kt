@@ -22,9 +22,9 @@ import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import kotlin.math.min
 
 open class BroadcastQuorum(
-    maxQuorum: Int = 3
-) : CallQuorum, ValueAwareQuorum<String>(String::class.java) {
-
+    maxQuorum: Int = 3,
+) : ValueAwareQuorum<String>(String::class.java),
+    CallQuorum {
     private var result: ByteArray? = null
     private var txid: String? = null
     private var calls = 0
@@ -41,23 +41,20 @@ open class BroadcastQuorum(
         quorum = min(total, quorum).coerceAtLeast(1)
     }
 
-    override fun isResolved(): Boolean {
-        return isQuorumReached && txid != null
-    }
+    override fun isResolved(): Boolean = isQuorumReached && txid != null
 
-    override fun isFailed(): Boolean {
-        return isQuorumReached && !isResolved()
-    }
+    override fun isFailed(): Boolean = isQuorumReached && !isResolved()
 
-    override fun getResult(): ByteArray? {
-        return result
-    }
+    override fun getResult(): ByteArray? = result
 
-    override fun getSignature(): ResponseSigner.Signature? {
-        return sig
-    }
+    override fun getSignature(): ResponseSigner.Signature? = sig
 
-    override fun recordValue(response: ByteArray, responseValue: String?, signature: ResponseSigner.Signature?, upstream: Upstream) {
+    override fun recordValue(
+        response: ByteArray,
+        responseValue: String?,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+    ) {
         calls++
         if (txid == null && responseValue != null) {
             txid = responseValue
@@ -66,7 +63,12 @@ open class BroadcastQuorum(
         }
     }
 
-    override fun recordError(response: ByteArray?, errorMessage: String?, signature: ResponseSigner.Signature?, upstream: Upstream) {
+    override fun recordError(
+        response: ByteArray?,
+        errorMessage: String?,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+    ) {
         // can be "message: known transaction: TXID", "Transaction with the same hash was already imported" or "message: Nonce too low"
         calls++
         if (result == null) {
@@ -75,7 +77,5 @@ open class BroadcastQuorum(
         }
     }
 
-    override fun toString(): String {
-        return "Quorum: Broadcast to $quorum upstreams"
-    }
+    override fun toString(): String = "Quorum: Broadcast to $quorum upstreams"
 }

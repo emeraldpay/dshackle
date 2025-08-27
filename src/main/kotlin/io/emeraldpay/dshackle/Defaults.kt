@@ -19,7 +19,6 @@ package io.emeraldpay.dshackle
 import java.time.Duration
 
 class Defaults {
-
     companion object {
         val timeout: Duration = Duration.ofSeconds(60)
         val timeoutInternal: Duration = timeout.dividedBy(4)

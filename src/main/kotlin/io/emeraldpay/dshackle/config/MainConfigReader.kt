@@ -21,9 +21,9 @@ import org.yaml.snakeyaml.nodes.MappingNode
 import java.io.InputStream
 
 class MainConfigReader(
-    fileResolver: FileResolver
-) : YamlConfigReader(), ConfigReader<MainConfig> {
-
+    fileResolver: FileResolver,
+) : YamlConfigReader(),
+    ConfigReader<MainConfig> {
     companion object {
         private val log = LoggerFactory.getLogger(MainConfigReader::class.java)
     }

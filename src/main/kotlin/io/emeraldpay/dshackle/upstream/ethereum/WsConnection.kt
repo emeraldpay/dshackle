@@ -23,16 +23,18 @@ import reactor.core.publisher.Mono
 import java.util.function.Consumer
 
 interface WsConnection : AutoCloseable {
-
     val isConnected: Boolean
 
     fun onConnectionChange(handler: Consumer<ConnectionStatus>?)
+
     fun getSubscribeResponses(): Flux<JsonRpcWsMessage>
+
     fun callRpc(originalRequest: JsonRpcRequest): Mono<JsonRpcResponse>
+
     fun connect()
 
     enum class ConnectionStatus {
         CONNECTED,
-        DISCONNECTED
+        DISCONNECTED,
     }
 }

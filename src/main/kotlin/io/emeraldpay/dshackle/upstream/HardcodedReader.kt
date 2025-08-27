@@ -11,7 +11,6 @@ import java.util.concurrent.atomic.AtomicReference
 class HardcodedReader(
     private val methods: AtomicReference<CallMethods>,
 ) : DshackleRpcReader {
-
     companion object {
         private val log = LoggerFactory.getLogger(HardcodedReader::class.java)
     }
@@ -19,7 +18,8 @@ class HardcodedReader(
     override fun read(key: DshackleRequest): Mono<DshackleResponse> {
         val current = methods.get()
         if (current.isHardcoded(key.method)) {
-            return Mono.just(current.executeHardcoded(key.method))
+            return Mono
+                .just(current.executeHardcoded(key.method))
                 .map { DshackleResponse(key.id, it, null) }
         }
         return Mono.empty()

@@ -26,7 +26,6 @@ import org.slf4j.LoggerFactory
 import java.io.IOException
 
 abstract class ResponseParser<T> {
-
     companion object {
         private val log = LoggerFactory.getLogger(ResponseParser::class.java)
     }
@@ -35,9 +34,7 @@ abstract class ResponseParser<T> {
 
     abstract fun build(state: Preparsed): T
 
-    fun parse(json: ByteArray): T {
-        return build(parseInternal(json))
-    }
+    fun parse(json: ByteArray): T = build(parseInternal(json))
 
     private fun parseInternal(json: ByteArray): Preparsed {
         var state = Preparsed()
@@ -46,10 +43,11 @@ abstract class ResponseParser<T> {
             parser.nextToken()
             if (parser.currentToken != JsonToken.START_OBJECT) {
                 return Preparsed(
-                    error = JsonRpcError(
-                        RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
-                        "Invalid JSON: not an Object"
-                    )
+                    error =
+                        JsonRpcError(
+                            RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
+                            "Invalid JSON: not an Object",
+                        ),
                 )
             }
             while (parser.nextToken() != JsonToken.END_OBJECT) {
@@ -65,22 +63,29 @@ abstract class ResponseParser<T> {
             log.debug("Failed to parse `${StringUtils.abbreviateMiddle(String(json), "...", 200)}` JSON")
             state.copy(
                 result = null,
-                error = JsonRpcError(
-                    RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
-                    "Invalid JSON structure: never finalized"
-                )
+                error =
+                    JsonRpcError(
+                        RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
+                        "Invalid JSON structure: never finalized",
+                    ),
             )
         }
     }
 
-    open fun process(parser: JsonParser, json: ByteArray, field: String, state: Preparsed): Preparsed {
+    open fun process(
+        parser: JsonParser,
+        json: ByteArray,
+        field: String,
+        state: Preparsed,
+    ): Preparsed {
         if (field == "jsonrpc") {
             if (!parser.nextToken().isScalarValue) {
                 return state.copy(
-                    error = JsonRpcError(
-                        RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
-                        "Invalid JSON (jsonrpc value)"
-                    )
+                    error =
+                        JsonRpcError(
+                            RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
+                            "Invalid JSON (jsonrpc value)",
+                        ),
                 )
             }
             // just skip the field
@@ -128,7 +133,10 @@ abstract class ResponseParser<T> {
         return parser.intValue
     }
 
-    fun readResult(json: ByteArray, parser: JsonParser): ByteArray? {
+    fun readResult(
+        json: ByteArray,
+        parser: JsonParser,
+    ): ByteArray? {
         val value = parser.nextToken()
         val start = parser.tokenLocation
         if (value.isScalarValue) {
@@ -184,16 +192,17 @@ abstract class ResponseParser<T> {
         val nullResult: Boolean = false,
         val error: JsonRpcError? = null,
         val subMethod: String? = null,
-        val subId: String? = null
+        val subId: String? = null,
     ) {
-
         private val isResultSet = result != null || nullResult
 
-        val isRpcReady: Boolean = id != null &&
-            (error != null || isResultSet)
+        val isRpcReady: Boolean =
+            id != null &&
+                (error != null || isResultSet)
 
-        val isSubReady: Boolean = subId != null &&
-            isResultSet
+        val isSubReady: Boolean =
+            subId != null &&
+                isResultSet
 
         val isReady: Boolean = isRpcReady || isSubReady
     }

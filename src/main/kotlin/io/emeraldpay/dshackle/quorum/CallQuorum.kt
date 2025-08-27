@@ -23,9 +23,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
 interface CallQuorum {
-
     companion object {
-
         fun isConnectionUnavailable(statusCode: Int): Boolean {
             //
             // The problem is that some servers respond with 4xx/5xx in normal cases telling that the input data
@@ -48,9 +46,8 @@ interface CallQuorum {
             return statusCode == 429 || statusCode == 401 || statusCode in 502..504
         }
 
-        fun isConnectionUnavailable(error: JsonRpcException): Boolean {
-            return error.statusCode != null && isConnectionUnavailable(error.statusCode)
-        }
+        fun isConnectionUnavailable(error: JsonRpcException): Boolean =
+            error.statusCode != null && isConnectionUnavailable(error.statusCode)
     }
 
     /**
@@ -60,14 +57,28 @@ interface CallQuorum {
     fun close() {}
 
     fun init(head: Head)
+
     fun setTotalUpstreams(total: Int)
 
     fun isResolved(): Boolean
+
     fun isFailed(): Boolean
 
-    fun record(response: ByteArray, signature: ResponseSigner.Signature?, upstream: Upstream): Boolean
-    fun record(error: JsonRpcException, signature: ResponseSigner.Signature?, upstream: Upstream)
+    fun record(
+        response: ByteArray,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+    ): Boolean
+
+    fun record(
+        error: JsonRpcException,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+    )
+
     fun getSignature(): ResponseSigner.Signature?
+
     fun getResult(): ByteArray?
+
     fun getError(): JsonRpcError?
 }

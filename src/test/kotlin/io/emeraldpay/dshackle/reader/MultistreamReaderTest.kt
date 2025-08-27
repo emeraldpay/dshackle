@@ -15,74 +15,81 @@ import io.kotest.matchers.types.instanceOf
 import io.mockk.every
 import io.mockk.mockk
 
-class MultistreamReaderTest : ShouldSpec({
+class MultistreamReaderTest :
+    ShouldSpec({
 
-    should("always match an RPC upstream") {
-        val reader = MultistreamReader(mockk(), NoSigner())
+        should("always match an RPC upstream") {
+            val reader = MultistreamReader(mockk(), NoSigner())
 
-        val matcher = reader.createMatcher(
-            DshackleRequest("eth_test", emptyList()),
-            AlwaysQuorum()
-        )
+            val matcher =
+                reader.createMatcher(
+                    DshackleRequest("eth_test", emptyList()),
+                    AlwaysQuorum(),
+                )
 
-        matcher shouldBe instanceOf<Selector.MultiMatcher>()
+            matcher shouldBe instanceOf<Selector.MultiMatcher>()
 
-        val act = (matcher as Selector.MultiMatcher).getMatchers().filterIsInstance<Selector.CapabilityMatcher>()
-        act shouldHaveSize 1
-        act.first().capability shouldBe Capability.RPC
-    }
-
-    should("always match method name") {
-        val reader = MultistreamReader(mockk(), NoSigner())
-
-        val matcher = reader.createMatcher(
-            DshackleRequest("eth_test", emptyList()),
-            AlwaysQuorum()
-        )
-
-        matcher shouldBe instanceOf<Selector.MultiMatcher>()
-
-        val act = (matcher as Selector.MultiMatcher).getMatchers().filterIsInstance<Selector.MethodMatcher>()
-        act shouldHaveSize 1
-        act.first().method shouldBe "eth_test"
-    }
-
-    should("should match height for NotLaggingQuorum") {
-        val up = mockk<Multistream>()
-        every { up.getHead() } returns mockk<Head>() {
-            every { getCurrentHeight() } returns 123L
+            val act = (matcher as Selector.MultiMatcher).getMatchers().filterIsInstance<Selector.CapabilityMatcher>()
+            act shouldHaveSize 1
+            act.first().capability shouldBe Capability.RPC
         }
 
-        val reader = MultistreamReader(up, NoSigner())
+        should("always match method name") {
+            val reader = MultistreamReader(mockk(), NoSigner())
 
-        val matcher = reader.createMatcher(
-            DshackleRequest("eth_test", emptyList()),
-            NotLaggingQuorum(1)
-        )
+            val matcher =
+                reader.createMatcher(
+                    DshackleRequest("eth_test", emptyList()),
+                    AlwaysQuorum(),
+                )
 
-        matcher shouldBe instanceOf<Selector.MultiMatcher>()
+            matcher shouldBe instanceOf<Selector.MultiMatcher>()
 
-        val act = (matcher as Selector.MultiMatcher).getMatchers().filterIsInstance<Selector.HeightMatcher>()
-        act shouldHaveSize 1
-        act.first().height shouldBe 122
-    }
-
-    should("should not match height for AlwaysQuorum") {
-        val up = mockk<Multistream>()
-        every { up.getHead() } returns mockk<Head>() {
-            every { getCurrentHeight() } returns 123L
+            val act = (matcher as Selector.MultiMatcher).getMatchers().filterIsInstance<Selector.MethodMatcher>()
+            act shouldHaveSize 1
+            act.first().method shouldBe "eth_test"
         }
 
-        val reader = MultistreamReader(up, NoSigner())
+        should("should match height for NotLaggingQuorum") {
+            val up = mockk<Multistream>()
+            every { up.getHead() } returns
+                mockk<Head> {
+                    every { getCurrentHeight() } returns 123L
+                }
 
-        val matcher = reader.createMatcher(
-            DshackleRequest("eth_test", emptyList()),
-            AlwaysQuorum()
-        )
+            val reader = MultistreamReader(up, NoSigner())
 
-        matcher shouldBe instanceOf<Selector.MultiMatcher>()
+            val matcher =
+                reader.createMatcher(
+                    DshackleRequest("eth_test", emptyList()),
+                    NotLaggingQuorum(1),
+                )
 
-        val act = (matcher as Selector.MultiMatcher).getMatchers().any { it is Selector.HeightMatcher }
-        act shouldBe false
-    }
-})
+            matcher shouldBe instanceOf<Selector.MultiMatcher>()
+
+            val act = (matcher as Selector.MultiMatcher).getMatchers().filterIsInstance<Selector.HeightMatcher>()
+            act shouldHaveSize 1
+            act.first().height shouldBe 122
+        }
+
+        should("should not match height for AlwaysQuorum") {
+            val up = mockk<Multistream>()
+            every { up.getHead() } returns
+                mockk<Head> {
+                    every { getCurrentHeight() } returns 123L
+                }
+
+            val reader = MultistreamReader(up, NoSigner())
+
+            val matcher =
+                reader.createMatcher(
+                    DshackleRequest("eth_test", emptyList()),
+                    AlwaysQuorum(),
+                )
+
+            matcher shouldBe instanceOf<Selector.MultiMatcher>()
+
+            val act = (matcher as Selector.MultiMatcher).getMatchers().any { it is Selector.HeightMatcher }
+            act shouldBe false
+        }
+    })

@@ -27,12 +27,12 @@ import javax.annotation.PreDestroy
 
 @Repository
 class CurrentAccessLogWriter(
-    @Autowired mainConfig: MainConfig
+    @Autowired mainConfig: MainConfig,
 ) : CurrentLogWriter<Any>(
-    Category.ACCESS, LogJsonSerializer(),
-    FileOptions(startSleep = START_SLEEP, flushSleep = FLUSH_SLEEP, batchLimit = WRITE_BATCH_LIMIT)
-) {
-
+        Category.ACCESS,
+        LogJsonSerializer(),
+        FileOptions(startSleep = START_SLEEP, flushSleep = FLUSH_SLEEP, batchLimit = WRITE_BATCH_LIMIT),
+    ) {
     companion object {
         private val log = LoggerFactory.getLogger(CurrentAccessLogWriter::class.java)
         private const val WRITE_BATCH_LIMIT = 5000

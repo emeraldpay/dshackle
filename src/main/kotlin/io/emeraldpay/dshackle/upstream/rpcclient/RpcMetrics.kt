@@ -34,37 +34,40 @@ class RpcMetrics(
     val timer: Timer,
     val fails: Counter,
     val responseSize: DistributionSummary,
-
     // A standard Metrics Recorder supported by Reactor Netty, so pass it to the connections responsible for RPC operations
     val connectionMetrics: ChannelMetricsRecorder,
 ) {
-
-    private val connectionTime = Timer.builder("netty.client.connection_time")
-        .tags(tags)
-        .register(Metrics.globalRegistry)
+    private val connectionTime =
+        Timer
+            .builder("netty.client.connection_time")
+            .tags(tags)
+            .register(Metrics.globalRegistry)
 
     private val queueSize = AtomicInteger(0)
 
     val onChannelInit: ChannelPipelineConfigurer
-        get() = ChannelPipelineConfigurer { connectionObserver, channel, remoteAddress ->
-            // See reactor.netty.transport.TransportConfig$TransportChannelInitializer
-            // By default it creates a bunch of other metrics to monitor memory allocation, connection pool, connection time, etc.,
-            // which are not very applicable to the Dshackle usage scenarios.
-            // But we only register a basic ChannelMetricsRecorder with metrics and tags specific to Dshackle
-            ChannelOperations.addMetricsHandler(channel, connectionMetrics, remoteAddress, false)
-        }
+        get() =
+            ChannelPipelineConfigurer { connectionObserver, channel, remoteAddress ->
+                // See reactor.netty.transport.TransportConfig$TransportChannelInitializer
+                // By default it creates a bunch of other metrics to monitor memory allocation, connection pool, connection time, etc.,
+                // which are not very applicable to the Dshackle usage scenarios.
+                // But we only register a basic ChannelMetricsRecorder with metrics and tags specific to Dshackle
+                ChannelOperations.addMetricsHandler(channel, connectionMetrics, remoteAddress, false)
+            }
 
     val processResponseSize: Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>>
-        get() = java.util.function.Function {
-            it.doOnNext { response ->
-                if (response.hasResult()) {
-                    responseSize.record(response.resultOrEmpty.size.toDouble())
+        get() =
+            java.util.function.Function {
+                it.doOnNext { response ->
+                    if (response.hasResult()) {
+                        responseSize.record(response.resultOrEmpty.size.toDouble())
+                    }
                 }
             }
-        }
 
     init {
-        Gauge.builder("upstream.rpc.queue_size", queueSize.get()::toDouble)
+        Gauge
+            .builder("upstream.rpc.queue_size", queueSize.get()::toDouble)
             .tags(tags)
             .register(Metrics.globalRegistry)
     }

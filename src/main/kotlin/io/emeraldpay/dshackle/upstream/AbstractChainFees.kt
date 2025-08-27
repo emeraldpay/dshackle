@@ -12,9 +12,8 @@ import java.util.function.Function
 abstract class AbstractChainFees<FEE, BLK, TXID, TRX>(
     private val heightLimit: Int,
     private val upstreams: Multistream,
-    extractTx: (BLK) -> List<TXID>?
+    extractTx: (BLK) -> List<TXID>?,
 ) : ChainFees {
-
     companion object {
         private val log = LoggerFactory.getLogger(AbstractChainFees::class.java)
     }
@@ -31,25 +30,33 @@ abstract class AbstractChainFees<FEE, BLK, TXID, TRX>(
         txSource[ChainFees.Mode.AVG_T50] = TxAtPos(extractTx, 50)
     }
 
-    override fun estimate(mode: ChainFees.Mode, blocks: Int): Mono<BlockchainOuterClass.EstimateFeeResponse> {
-        return usingBlocks(blocks)
+    override fun estimate(
+        mode: ChainFees.Mode,
+        blocks: Int,
+    ): Mono<BlockchainOuterClass.EstimateFeeResponse> =
+        usingBlocks(blocks)
             .flatMap { readFeesAt(it, mode) }
             .transform(feeAggregation(mode))
             .next()
             .map(getResponseBuilder())
-    }
 
     // ---
 
-    private val feeCache = Caffeine.newBuilder()
-        .expireAfterWrite(Duration.ofMinutes(60))
-        .build<Pair<Long, ChainFees.Mode>, FEE>()
+    private val feeCache =
+        Caffeine
+            .newBuilder()
+            .expireAfterWrite(Duration.ofMinutes(60))
+            .build<Pair<Long, ChainFees.Mode>, FEE>()
 
     fun usingBlocks(exp: Int): Flux<Long> {
         val useBlocks = exp.coerceAtMost(heightLimit).coerceAtLeast(1)
 
-        val height = upstreams.getHead().getCurrentHeight()
-            ?: return Mono.fromCallable { log.warn("Upstream is not ready. No current height") }.thenMany(Mono.empty()) // TODO or throw an exception to build a gRPC error?
+        val height =
+            upstreams.getHead().getCurrentHeight()
+                ?: return Mono
+                    .fromCallable {
+                        log.warn("Upstream is not ready. No current height")
+                    }.thenMany(Mono.empty()) // TODO or throw an exception to build a gRPC error?
         val startBlock: Int = height.toInt() - useBlocks + 1
         if (startBlock < 0) {
             log.warn("Blockchain doesn't have enough blocks. Height: $height")
@@ -59,7 +66,10 @@ abstract class AbstractChainFees<FEE, BLK, TXID, TRX>(
         return Flux.range(startBlock, useBlocks).map { it.toLong() }
     }
 
-    fun readFeesAt(height: Long, mode: ChainFees.Mode): Mono<FEE> {
+    fun readFeesAt(
+        height: Long,
+        mode: ChainFees.Mode,
+    ): Mono<FEE> {
         val current = feeCache.getIfPresent(Pair(height, mode))
         if (current != null) {
             return Mono.just(current)
@@ -71,15 +81,21 @@ abstract class AbstractChainFees<FEE, BLK, TXID, TRX>(
         }
     }
 
-    open fun txSourceFor(mode: ChainFees.Mode): TxAt<BLK, TXID> {
-        return txSource[mode] ?: throw IllegalStateException("No TS Source for mode $mode")
-    }
+    open fun txSourceFor(mode: ChainFees.Mode): TxAt<BLK, TXID> =
+        txSource[mode] ?: throw IllegalStateException("No TS Source for mode $mode")
 
-    abstract fun readFeesAt(height: Long, selector: TxAt<BLK, TXID>): Mono<FEE>
+    abstract fun readFeesAt(
+        height: Long,
+        selector: TxAt<BLK, TXID>,
+    ): Mono<FEE>
+
     abstract fun feeAggregation(mode: ChainFees.Mode): Function<Flux<FEE>, Mono<FEE>>
+
     abstract fun getResponseBuilder(): Function<FEE, BlockchainOuterClass.EstimateFeeResponse>
 
-    abstract class TxAt<LOCK, TXID>(private val extractTx: Function<LOCK, List<TXID>?>) {
+    abstract class TxAt<LOCK, TXID>(
+        private val extractTx: Function<LOCK, List<TXID>?>,
+    ) {
         fun get(block: LOCK): TXID? {
             val txes = extractTx.apply(block) ?: return null
             return get(txes)
@@ -88,8 +104,10 @@ abstract class AbstractChainFees<FEE, BLK, TXID, TRX>(
         abstract fun get(transactions: List<TXID>): TXID?
     }
 
-    class TxAtPos<BLK, TXID>(extractTx: Function<BLK, List<TXID>?>, private val pos: Int) : TxAt<BLK, TXID>(extractTx) {
-
+    class TxAtPos<BLK, TXID>(
+        extractTx: Function<BLK, List<TXID>?>,
+        private val pos: Int,
+    ) : TxAt<BLK, TXID>(extractTx) {
         override fun get(transactions: List<TXID>): TXID? {
             val index = pos.coerceAtMost(transactions.size - 1)
             if (index < 0) {
@@ -99,7 +117,9 @@ abstract class AbstractChainFees<FEE, BLK, TXID, TRX>(
         }
     }
 
-    class TxAtTop<BLK, TXID>(extractTx: Function<BLK, List<TXID>?>) : TxAt<BLK, TXID>(extractTx) {
+    class TxAtTop<BLK, TXID>(
+        extractTx: Function<BLK, List<TXID>?>,
+    ) : TxAt<BLK, TXID>(extractTx) {
         override fun get(transactions: List<TXID>): TXID? {
             if (transactions.isEmpty()) {
                 return null
@@ -108,7 +128,9 @@ abstract class AbstractChainFees<FEE, BLK, TXID, TRX>(
         }
     }
 
-    class TxAtBottom<BLK, TXID>(extractTx: Function<BLK, List<TXID>?>) : TxAt<BLK, TXID>(extractTx) {
+    class TxAtBottom<BLK, TXID>(
+        extractTx: Function<BLK, List<TXID>?>,
+    ) : TxAt<BLK, TXID>(extractTx) {
         override fun get(transactions: List<TXID>): TXID? {
             if (transactions.isEmpty()) {
                 return null
@@ -117,7 +139,9 @@ abstract class AbstractChainFees<FEE, BLK, TXID, TRX>(
         }
     }
 
-    class TxAtMiddle<BLK, TXID>(extractTx: Function<BLK, List<TXID>?>) : TxAt<BLK, TXID>(extractTx) {
+    class TxAtMiddle<BLK, TXID>(
+        extractTx: Function<BLK, List<TXID>?>,
+    ) : TxAt<BLK, TXID>(extractTx) {
         override fun get(transactions: List<TXID>): TXID? {
             if (transactions.isEmpty()) {
                 return null

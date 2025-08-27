@@ -68,8 +68,8 @@ open class WsConnectionImpl(
     private val origin: URI,
     private val basicAuth: AuthConfig.ClientBasicAuth?,
     private val rpcMetrics: RpcMetrics?,
-) : AutoCloseable, WsConnection {
-
+) : AutoCloseable,
+    WsConnection {
     companion object {
         private val log = LoggerFactory.getLogger(WsConnectionImpl::class.java)
 
@@ -93,28 +93,32 @@ open class WsConnectionImpl(
     // Some upstreams fail to connect if compression is enabled
     var compress: Boolean = false
 
-    private var reconnectBackoff: BackOff = ExponentialBackOff().also {
-        it.initialInterval = Duration.ofMillis(100).toMillis()
-        it.maxInterval = Duration.ofMinutes(5).toMillis()
-    }
+    private var reconnectBackoff: BackOff =
+        ExponentialBackOff().also {
+            it.initialInterval = Duration.ofMillis(100).toMillis()
+            it.maxInterval = Duration.ofMinutes(5).toMillis()
+        }
     private var currentBackOff = reconnectBackoff.start()
 
     private val parser = ResponseWSParser()
 
-    private val subscriptionResponses = Sinks
-        .many()
-        .multicast()
-        .directBestEffort<JsonRpcWsMessage>()
+    private val subscriptionResponses =
+        Sinks
+            .many()
+            .multicast()
+            .directBestEffort<JsonRpcWsMessage>()
 
-    private var rpcSend = Sinks
-        .many()
-        .unicast()
-        .onBackpressureBuffer<JsonRpcRequest>()
+    private var rpcSend =
+        Sinks
+            .many()
+            .unicast()
+            .onBackpressureBuffer<JsonRpcRequest>()
 
-    private val disconnects = Sinks
-        .many()
-        .multicast()
-        .directBestEffort<Instant>()
+    private val disconnects =
+        Sinks
+            .many()
+            .multicast()
+            .directBestEffort<Instant>()
 
     // keeps current in-flight request so a received response can propagate it to the original sender (as Sinks.One)
     private val currentRequests = ConcurrentHashMap<Int, Sinks.One<JsonRpcResponse>>()
@@ -134,18 +138,18 @@ open class WsConnectionImpl(
     override val isConnected: Boolean
         get() = connection != null && !reconnecting.get() && active
 
-    private fun defaultOnConnectionChange(): Consumer<WsConnection.ConnectionStatus> {
-        return rpcMetrics?.let {
+    private fun defaultOnConnectionChange(): Consumer<WsConnection.ConnectionStatus> =
+        rpcMetrics?.let {
             ConnectionTimeMonitoring(it)
         } ?: Consumer { }
-    }
 
     override fun onConnectionChange(handler: Consumer<WsConnection.ConnectionStatus>?) {
-        this.onConnectionChange = if (handler != null) {
-            handler.andThen(defaultOnConnectionChange())
-        } else {
-            defaultOnConnectionChange()
-        }
+        this.onConnectionChange =
+            if (handler != null) {
+                handler.andThen(defaultOnConnectionChange())
+            } else {
+                defaultOnConnectionChange()
+            }
     }
 
     fun setReconnectIntervalSeconds(value: Long) {
@@ -169,10 +173,11 @@ open class WsConnectionImpl(
         // rpcSend is already CANCELLED, since the subscription owned by the previous connection is gone
         // so we need to create a new Sink. Emit Complete is probably useless, and just in case
         rpcSend.tryEmitComplete()
-        rpcSend = Sinks
-            .many()
-            .unicast()
-            .onBackpressureBuffer<JsonRpcRequest>()
+        rpcSend =
+            Sinks
+                .many()
+                .unicast()
+                .onBackpressureBuffer<JsonRpcRequest>()
         val retryInterval = currentBackOff.nextBackOff()
         if (retryInterval == BackOffExecution.STOP) {
             log.warn("Reconnect backoff exhausted. Permanently closing the connection")
@@ -184,7 +189,8 @@ open class WsConnectionImpl(
                 reconnecting.set(false)
                 connectInternal()
             },
-            retryInterval, TimeUnit.MILLISECONDS
+            retryInterval,
+            TimeUnit.MILLISECONDS,
         )
     }
 
@@ -194,147 +200,148 @@ open class WsConnectionImpl(
             "Invalid WebSocket URI: $uri"
         }
         connection?.dispose()
-        connection = HttpClient
-            // It maybe not necessary but it seems it sometimes tries to reuse the same connection which was broken before
-            .create(ConnectionProvider.newConnection())
-            // NODELAY and QUICKACK flags make it working a big faster in a load intensive environment (like ~10% for a 99-perc, though it's hard to measure it correctly)
-            // and, in general, as a load balancer it supposed to send/receive data as fast as it possible, so it makes sense to have them by default
-            .option(ChannelOption.TCP_NODELAY, true)
-            .let {
-                if (Epoll.isAvailable()) {
-                    it.option(EpollChannelOption.TCP_QUICKACK, true)
-                } else {
-                    it
-                }
-            }
-            .resolver(DefaultAddressResolverGroup.INSTANCE)
-            .doOnDisconnected {
-                active = false
-                disconnects.tryEmitNext(Instant.now())
-                this.onConnectionChange.accept(WsConnection.ConnectionStatus.DISCONNECTED)
-                log.info("Disconnected from $uri")
-                if (keepConnection) {
-                    tryReconnectLater()
-                }
-            }
-            .let {
-                if (rpcMetrics != null) {
-                    it.doOnChannelInit(rpcMetrics.onChannelInit)
-                } else {
-                    it
-                }
-            }
-            .doOnError(
-                { _, t ->
-                    log.warn("Failed to connect to $uri. Error: ${t.message}")
-                    // going to try to reconnect later
-                    tryReconnectLater()
-                },
-                { _, t ->
-                    log.warn("Failed to process response from $uri. Error: ${t.message}")
-                }
-            )
-            .headers { headers ->
-                headers.add(HttpHeaderNames.ORIGIN, origin)
-                basicAuth?.let { auth ->
-                    val tmp: String = auth.username + ":" + auth.password
-                    val base64password = Base64.getEncoder().encodeToString(tmp.toByteArray())
-                    headers.add(HttpHeaderNames.AUTHORIZATION, "Basic $base64password")
-                }
-            }
-            .let {
-                if (uri.scheme == "wss") it.secure() else it
-            }
-            .websocket(
-                WebsocketClientSpec.builder()
-                    .handlePing(true)
-                    .compress(compress)
-                    .maxFramePayloadLength(frameSize)
-                    .build()
-            )
-            .uri(uri)
-            .handle { inbound, outbound ->
-                this.onConnectionChange.accept(WsConnection.ConnectionStatus.CONNECTED)
-                // mark as active once connected, because the actual message wouldn't come until a request is sent
-                active = true
-                handle(inbound, outbound)
-            }
-            .onErrorResume { t ->
-                log.debug("Dropping WS connection to {}. Error: {}", uri, t.message)
-                Mono.empty<Void>()
-            }
-            .subscribe()
+        connection =
+            HttpClient
+                // It maybe not necessary but it seems it sometimes tries to reuse the same connection which was broken before
+                .create(ConnectionProvider.newConnection())
+                // NODELAY and QUICKACK flags make it working a big faster in a load intensive environment (like ~10% for a 99-perc, though it's hard to measure it correctly)
+                // and, in general, as a load balancer it supposed to send/receive data as fast as it possible, so it makes sense to have them by default
+                .option(ChannelOption.TCP_NODELAY, true)
+                .let {
+                    if (Epoll.isAvailable()) {
+                        it.option(EpollChannelOption.TCP_QUICKACK, true)
+                    } else {
+                        it
+                    }
+                }.resolver(DefaultAddressResolverGroup.INSTANCE)
+                .doOnDisconnected {
+                    active = false
+                    disconnects.tryEmitNext(Instant.now())
+                    this.onConnectionChange.accept(WsConnection.ConnectionStatus.DISCONNECTED)
+                    log.info("Disconnected from $uri")
+                    if (keepConnection) {
+                        tryReconnectLater()
+                    }
+                }.let {
+                    if (rpcMetrics != null) {
+                        it.doOnChannelInit(rpcMetrics.onChannelInit)
+                    } else {
+                        it
+                    }
+                }.doOnError(
+                    { _, t ->
+                        log.warn("Failed to connect to $uri. Error: ${t.message}")
+                        // going to try to reconnect later
+                        tryReconnectLater()
+                    },
+                    { _, t ->
+                        log.warn("Failed to process response from $uri. Error: ${t.message}")
+                    },
+                ).headers { headers ->
+                    headers.add(HttpHeaderNames.ORIGIN, origin)
+                    basicAuth?.let { auth ->
+                        val tmp: String = auth.username + ":" + auth.password
+                        val base64password = Base64.getEncoder().encodeToString(tmp.toByteArray())
+                        headers.add(HttpHeaderNames.AUTHORIZATION, "Basic $base64password")
+                    }
+                }.let {
+                    if (uri.scheme == "wss") it.secure() else it
+                }.websocket(
+                    WebsocketClientSpec
+                        .builder()
+                        .handlePing(true)
+                        .compress(compress)
+                        .maxFramePayloadLength(frameSize)
+                        .build(),
+                ).uri(uri)
+                .handle { inbound, outbound ->
+                    this.onConnectionChange.accept(WsConnection.ConnectionStatus.CONNECTED)
+                    // mark as active once connected, because the actual message wouldn't come until a request is sent
+                    active = true
+                    handle(inbound, outbound)
+                }.onErrorResume { t ->
+                    log.debug("Dropping WS connection to {}. Error: {}", uri, t.message)
+                    Mono.empty<Void>()
+                }.subscribe()
     }
 
-    fun handle(inbound: WebsocketInbound, outbound: WebsocketOutbound): Publisher<Void> {
+    fun handle(
+        inbound: WebsocketInbound,
+        outbound: WebsocketOutbound,
+    ): Publisher<Void> {
         var read = false
-        val consumer = inbound
-            .aggregateFrames(msgSizeLimit)
-            .receiveFrames()
-            .map { ByteBufInputStream(it.content()).readAllBytes() }
-            .filter { it.isNotEmpty() }
-            .flatMap {
-                // just make sure it's in active state
-                active = true
-                try {
-                    rpcMetrics?.responseSize?.record(it.size.toDouble())
-                    val msg = parser.parse(it)
-                    if (!read) {
-                        if (msg.error != null) {
-                            log.warn("Received error ${msg.error.code} from $uri: ${msg.error.message}")
-                        } else {
-                            // restart backoff only after a successful read from the connection,
-                            // otherwise it may restart it even if the connection is faulty or responds only with error
-                            currentBackOff = reconnectBackoff.start()
-                            read = true
+        val consumer =
+            inbound
+                .aggregateFrames(msgSizeLimit)
+                .receiveFrames()
+                .map { ByteBufInputStream(it.content()).readAllBytes() }
+                .filter { it.isNotEmpty() }
+                .flatMap {
+                    // just make sure it's in active state
+                    active = true
+                    try {
+                        rpcMetrics?.responseSize?.record(it.size.toDouble())
+                        val msg = parser.parse(it)
+                        if (!read) {
+                            if (msg.error != null) {
+                                log.warn("Received error ${msg.error.code} from $uri: ${msg.error.message}")
+                            } else {
+                                // restart backoff only after a successful read from the connection,
+                                // otherwise it may restart it even if the connection is faulty or responds only with error
+                                currentBackOff = reconnectBackoff.start()
+                                read = true
+                            }
                         }
+                        onMessage(msg)
+                    } catch (t: Throwable) {
+                        log.warn("Failed to process WS message. ${t.javaClass}: ${t.message}")
+                        Mono.empty()
                     }
-                    onMessage(msg)
-                } catch (t: Throwable) {
-                    log.warn("Failed to process WS message. ${t.javaClass}: ${t.message}")
+                }.onErrorResume { t ->
+                    // do not expect any new message processed with the current connection until reconnect
+                    active = false
+                    log.warn("Connection dropped to $uri. Error: ${t.message}", t)
+                    // going to try to reconnect later
+                    tryReconnectLater()
+                    // completes current outbound flow
                     Mono.empty()
                 }
-            }
-            .onErrorResume { t ->
-                // do not expect any new message processed with the current connection until reconnect
-                active = false
-                log.warn("Connection dropped to $uri. Error: ${t.message}", t)
-                // going to try to reconnect later
-                tryReconnectLater()
-                // completes current outbound flow
-                Mono.empty()
-            }
 
-        val calls = rpcSend
-            .asFlux()
-            .map {
-                Unpooled.wrappedBuffer(it.toJson())
-            }
+        val calls =
+            rpcSend
+                .asFlux()
+                .map {
+                    Unpooled.wrappedBuffer(it.toJson())
+                }
 
         return outbound.send(
             Flux.merge(
                 calls.subscribeOn(Schedulers.boundedElastic()),
-                consumer.then(Mono.empty<ByteBuf>()).subscribeOn(Schedulers.boundedElastic())
-            )
+                consumer.then(Mono.empty<ByteBuf>()).subscribeOn(Schedulers.boundedElastic()),
+            ),
         )
     }
 
-    fun onMessage(msg: ResponseWSParser.WsResponse): Mono<Void> {
-        return Mono.fromCallable {
-            when (msg.type) {
-                ResponseWSParser.Type.RPC -> onMessageRpc(msg)
-                ResponseWSParser.Type.SUBSCRIPTION -> onMessageSubscription(msg)
-            }
-        }
-            .doOnError { t -> log.warn("Failed to process WS message. ${t.javaClass}: ${t.message}") }
+    fun onMessage(msg: ResponseWSParser.WsResponse): Mono<Void> =
+        Mono
+            .fromCallable {
+                when (msg.type) {
+                    ResponseWSParser.Type.RPC -> onMessageRpc(msg)
+                    ResponseWSParser.Type.SUBSCRIPTION -> onMessageSubscription(msg)
+                }
+            }.doOnError { t -> log.warn("Failed to process WS message. ${t.javaClass}: ${t.message}") }
             .onErrorComplete()
             .then()
-    }
 
     fun onMessageRpc(msg: ResponseWSParser.WsResponse) {
-        val rpcResponse = JsonRpcResponse(
-            msg.value, msg.error, msg.id, 200, null
-        )
+        val rpcResponse =
+            JsonRpcResponse(
+                msg.value,
+                msg.error,
+                msg.id,
+                200,
+                null,
+            )
         val sender = currentRequests.remove(msg.id.asNumber().toInt())
         if (sender == null) {
             log.warn("Unknown response received for ${msg.id}")
@@ -351,9 +358,12 @@ open class WsConnectionImpl(
     }
 
     fun onMessageSubscription(msg: ResponseWSParser.WsResponse) {
-        val subscription = JsonRpcWsMessage(
-            msg.value, msg.error, msg.id.asString(),
-        )
+        val subscription =
+            JsonRpcWsMessage(
+                msg.value,
+                msg.error,
+                msg.id.asString(),
+            )
         val status = subscriptionResponses.tryEmitNext(subscription)
         if (status.isFailure) {
             if (status == Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
@@ -364,25 +374,24 @@ open class WsConnectionImpl(
         }
     }
 
-    override fun getSubscribeResponses(): Flux<JsonRpcWsMessage> {
-        return Flux.from(subscriptionResponses.asFlux())
+    override fun getSubscribeResponses(): Flux<JsonRpcWsMessage> =
+        Flux
+            .from(subscriptionResponses.asFlux())
             // make sure to complete the subscription when the connection is closed,
             // because even if it reconnects later a new subscription must be created
             .takeUntilOther(disconnects.asFlux())
-    }
 
     override fun callRpc(originalRequest: JsonRpcRequest): Mono<JsonRpcResponse> {
         // use an internal id sequence, to avoid id conflicts with user calls
         val internalId = sendIdSeq.getAndIncrement()
-        return Mono.fromCallable {
-            val timer = StopWatch.createStarted()
-            val originalId = originalRequest.id
-            Tuples.of(originalRequest.copy(id = internalId), originalId, timer)
-        }
-            .flatMap { request ->
+        return Mono
+            .fromCallable {
+                val timer = StopWatch.createStarted()
+                val originalId = originalRequest.id
+                Tuples.of(originalRequest.copy(id = internalId), originalId, timer)
+            }.flatMap { request ->
                 waitForResponse(request.t1, request.t2, request.t3)
-            }
-            .contextWrite(Global.monitoring.ingress.setRpcId(internalId))
+            }.contextWrite(Global.monitoring.ingress.setRpcId(internalId))
     }
 
     private fun sendRpc(request: JsonRpcRequest) {
@@ -395,45 +404,53 @@ open class WsConnectionImpl(
         }
     }
 
-    fun waitForResponse(request: JsonRpcRequest, originalId: Int, timer: StopWatch): Mono<JsonRpcResponse> {
+    fun waitForResponse(
+        request: JsonRpcRequest,
+        originalId: Int,
+        timer: StopWatch,
+    ): Mono<JsonRpcResponse> {
         val internalId = request.id.toLong()
         val onResponse = Sinks.one<JsonRpcResponse>()
         currentRequests[internalId.toInt()] = onResponse
         rpcMetrics?.onMessageEnqueued()
 
         // a default response when nothing is received back from WS after a timeout
-        val noResponse = JsonRpcException(
-            JsonRpcResponse.Id.from(originalId),
-            JsonRpcError(
-                RpcResponseError.CODE_INTERNAL_ERROR,
-                "Response not received from WebSocket"
+        val noResponse =
+            JsonRpcException(
+                JsonRpcResponse.Id.from(originalId),
+                JsonRpcError(
+                    RpcResponseError.CODE_INTERNAL_ERROR,
+                    "Response not received from WebSocket",
+                ),
             )
-        )
 
         // Immediate stop if WS got disconnected
-        val failOnDisconnect = Mono.from(disconnects.asFlux())
-            .flatMap {
-                Mono.error<JsonRpcResponse>(
-                    JsonRpcException(
-                        JsonRpcResponse.Id.from(originalId),
-                        JsonRpcError(
-                            RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
-                            "Disconnected from WebSocket"
-                        )
+        val failOnDisconnect =
+            Mono
+                .from(disconnects.asFlux())
+                .flatMap {
+                    Mono.error<JsonRpcResponse>(
+                        JsonRpcException(
+                            JsonRpcResponse.Id.from(originalId),
+                            JsonRpcError(
+                                RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
+                                "Disconnected from WebSocket",
+                            ),
+                        ),
                     )
-                )
-            }
+                }
 
-        return Mono.from(onResponse.asMono()).or(failOnDisconnect)
+        return Mono
+            .from(onResponse.asMono())
+            .or(failOnDisconnect)
             .doOnSubscribe { sendRpc(request) }
             .take(Defaults.timeout)
             .doOnNext { rpcMetrics?.timer?.record(timer.nanoTime, TimeUnit.NANOSECONDS) }
             .doOnError { rpcMetrics?.fails?.increment() }
             .map { it.copyWithId(JsonRpcResponse.Id.from(originalId)) }
             .switchIfEmpty(
-                Mono.fromCallable { log.warn("No response for ${request.method} ${request.params}") }.then(Mono.error(noResponse))
-            )
-            .doFinally {
+                Mono.fromCallable { log.warn("No response for ${request.method} ${request.params}") }.then(Mono.error(noResponse)),
+            ).doFinally {
                 currentRequests.remove(internalId.toInt())
                 rpcMetrics?.onMessageFinished()
             }
