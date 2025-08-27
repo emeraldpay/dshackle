@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.api.Chain
+import io.emeraldpay.dshackle.ChainOptions
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.reader.CompoundReader
 import io.emeraldpay.dshackle.reader.MultistreamReader
@@ -68,32 +69,8 @@ open class EthereumMultistream(
 
     private var subscribe = EthereumEgressSubscription(this, NoPendingTxes())
 
-    private val supportsEIP1559 =
-        when (chain) {
-            Chain.ETHEREUM,
-            Chain.TESTNET_ROPSTEN,
-            Chain.TESTNET_GOERLI,
-            Chain.TESTNET_HOLESKY,
-            Chain.TESTNET_SEPOLIA,
-            Chain.TESTNET_HOODI,
-            Chain.TESTNET_RINKEBY,
-            -> true
-            else -> false
-        }
-
-    private val isPos =
-        when (chain) {
-            Chain.ETHEREUM,
-            Chain.TESTNET_GOERLI,
-            Chain.TESTNET_HOLESKY,
-            Chain.TESTNET_HOODI,
-            Chain.TESTNET_SEPOLIA,
-            -> true
-            else -> false
-        }
-
     private val feeEstimation =
-        if (supportsEIP1559) {
+        if (ChainOptions.supportsEIP1559(chain)) {
             EthereumPriorityFees(this, dataReaders, 256)
         } else {
             EthereumLegacyFees(this, dataReaders, 256)
@@ -153,7 +130,7 @@ open class EthereumMultistream(
                 }
             } else {
                 val newHead =
-                    if (isPos) {
+                    if (ChainOptions.isPos(chain)) {
                         val heads = upstreams.map { Pair(it.getOptions().priority, it.getHead()) }
                         MergedPosHead(heads)
                     } else {

@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.api.Chain
+import io.emeraldpay.dshackle.ChainOptions
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -34,22 +35,11 @@ class ForkWatchFactory(
     private val initialized = EnumMap<Chain, ForkWatch>(Chain::class.java)
     private val initializeLock = ReentrantLock()
 
-    private val posChains =
-        listOf(
-            // at this moment (Aug 2022) it's still a PoW, but upgrade is coming in weeks, so it's better to configure everything in advance
-            Chain.ETHEREUM,
-            // those are upgraded to Merge
-            Chain.TESTNET_GOERLI,
-            Chain.TESTNET_ROPSTEN,
-            Chain.TESTNET_HOLESKY,
-            Chain.TESTNET_SEPOLIA,
-        )
-
     fun create(chain: Chain): ForkWatch =
         initializeLock.withLock {
             initialized.getOrPut(chain) {
                 val forkChoice =
-                    if (posChains.contains(chain)) {
+                    if (ChainOptions.isPos(chain)) {
                         PriorityForkChoice().also {
                             it.followUpstreams(
                                 currentMultistreamHolder
