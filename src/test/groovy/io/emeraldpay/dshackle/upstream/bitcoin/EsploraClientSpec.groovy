@@ -22,7 +22,7 @@ import org.bitcoinj.params.TestNet3Params
 import org.mockserver.integration.ClientAndServer
 import org.mockserver.model.HttpRequest
 import org.mockserver.model.HttpResponse
-import org.springframework.util.SocketUtils
+import org.springframework.test.util.TestSocketUtils
 import reactor.test.StepVerifier
 import spock.lang.Specification
 
@@ -35,7 +35,7 @@ class EsploraClientSpec extends Specification {
     int port = 23001
 
     def setup() {
-        port = SocketUtils.findAvailableTcpPort(23001)
+        port = TestSocketUtils.findAvailableTcpPort()
         mockServer = ClientAndServer.startClientAndServer(port);
     }
 

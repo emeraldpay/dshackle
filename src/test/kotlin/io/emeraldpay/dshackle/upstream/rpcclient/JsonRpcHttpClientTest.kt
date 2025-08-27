@@ -19,7 +19,6 @@ import org.mockserver.model.Delay
 import org.mockserver.model.HttpRequest
 import org.mockserver.model.HttpResponse
 import org.mockserver.model.MediaType
-import org.springframework.util.SocketUtils
 import reactor.core.Exceptions
 import reactor.core.scheduler.Schedulers
 import java.time.Duration
@@ -27,10 +26,11 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import org.springframework.test.util.TestSocketUtils
 
 class JsonRpcHttpClientTest : ShouldSpec({
 
-    val port = SocketUtils.findAvailableTcpPort(20000)
+    val port = TestSocketUtils.findAvailableTcpPort()
     val metrics = RpcMetrics(
         emptyList<Tag>(),
         Timer.builder("test1").register(TestingCommonsKotlin.meterRegistry),

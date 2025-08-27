@@ -31,8 +31,8 @@ group = 'io.emeraldpay.dshackle'
 version = '0.16.0-SNAPSHOT'
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 repositories {
@@ -149,18 +149,20 @@ dependencies {
     testImplementation "io.kotest:kotest-runner-junit5:5.9.1"
     testImplementation "io.kotest:kotest-framework-datatest:5.9.1"
     testImplementation "io.mockk:mockk:1.14.5"
+    testImplementation "org.springframework:spring-test:$springVersion"
+
 
     detektPlugins "io.gitlab.arturbosch.detekt:detekt-formatting:$detektVersion"
 }
 
 compileKotlin {
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "21"
     }
 }
 compileTestKotlin {
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "21"
     }
 }
 
@@ -193,7 +195,7 @@ application {
 
 jib {
     from {
-        image = 'azul/zulu-openjdk-debian:17'
+        image = 'azul/zulu-openjdk-debian:21'
     }
     to {
         // by default publish as:
@@ -313,7 +315,7 @@ jacocoTestReport {
     }
 }
 jacoco {
-    toolVersion = "0.8.7"
+    toolVersion = "0.8.13"
 }
 
 detekt {
@@ -336,5 +338,5 @@ detekt {
 }
 
 tasks.withType(Detekt).configureEach {
-    jvmTarget = "17"
+    jvmTarget = "21"
 }

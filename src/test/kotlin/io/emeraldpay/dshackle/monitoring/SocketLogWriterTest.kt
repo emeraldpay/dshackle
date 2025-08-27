@@ -4,11 +4,11 @@ import io.kotest.core.spec.style.ShouldSpec
 import io.kotest.matchers.collections.shouldHaveAtLeastSize
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
-import org.springframework.util.SocketUtils
 import java.net.ServerSocket
 import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import org.springframework.test.util.TestSocketUtils
 
 class SocketLogWriterTest : ShouldSpec({
 
@@ -62,7 +62,7 @@ class SocketLogWriterTest : ShouldSpec({
     }
 
     should("Send to a socket") {
-        val port = SocketUtils.findAvailableTcpPort(19000)
+        val port = TestSocketUtils.findAvailableTcpPort()
 
         val server = MockServer(port, 1, messageSize = "Hello World!".length + 1)
         server.launch()
@@ -80,7 +80,7 @@ class SocketLogWriterTest : ShouldSpec({
     }
 
     should("Reconnect if disconnected") {
-        val port = SocketUtils.findAvailableTcpPort(19000)
+        val port = TestSocketUtils.findAvailableTcpPort()
 
         val server1 = MockServer(port, 10)
         val server2 = MockServer(port, 10)
