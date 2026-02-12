@@ -19,6 +19,7 @@ import com.fasterxml.jackson.core.JsonFactory
 import com.fasterxml.jackson.core.JsonParseException
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonToken
+import com.fasterxml.jackson.core.StreamReadConstraints
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import org.apache.commons.lang3.StringUtils
@@ -30,7 +31,9 @@ abstract class ResponseParser<T> {
         private val log = LoggerFactory.getLogger(ResponseParser::class.java)
     }
 
-    private val jsonFactory = JsonFactory()
+    private val jsonFactory = JsonFactory.builder()
+        .streamReadConstraints(StreamReadConstraints.builder().maxNestingDepth(10_000).build())
+        .build()
 
     abstract fun build(state: Preparsed): T
 
