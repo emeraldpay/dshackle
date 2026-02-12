@@ -935,6 +935,9 @@ Defaults is `1`
 | Enable compression for WebSocket connection (i.e., `permessage-deflate`). May not work with some servers.
 Defaults is `false`
 
+| `ws.disable-methods`
+| A list of RPC methods that should _not_ be sent via WebSocket connection, even if it's available. The HTTP JSON RPC will be used instead. Ex. large `trace_` calls that overload the WebSocket connection. Default is empty list.
+
 |===
 
 ==== Bitcoin Connection Options

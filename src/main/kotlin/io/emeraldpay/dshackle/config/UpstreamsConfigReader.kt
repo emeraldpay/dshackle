@@ -139,6 +139,9 @@ class UpstreamsConfigReader(
                             getValueAsBool(node, "compress")?.let {
                                 ws.compress = it
                             }
+                            getListOfString(node, "disabled-methods", "disable-methods")?.let {
+                                ws.disabledMethods = it
+                            }
                         }
                     }
                 } else {

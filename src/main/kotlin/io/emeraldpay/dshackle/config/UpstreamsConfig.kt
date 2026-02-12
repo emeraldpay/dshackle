@@ -194,6 +194,7 @@ open class UpstreamsConfig {
         var msgSize: Int? = null
         var connections: Int = 1
         var compress: Boolean? = null
+        var disabledMethods: List<String> = emptyList()
     }
 
     // TODO make it unmodifiable after initial load

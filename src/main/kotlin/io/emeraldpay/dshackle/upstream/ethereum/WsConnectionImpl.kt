@@ -68,6 +68,7 @@ open class WsConnectionImpl(
     private val origin: URI,
     private val basicAuth: AuthConfig.ClientBasicAuth?,
     private val rpcMetrics: RpcMetrics?,
+    private val disabledMethods: List<String> = emptyList(),
 ) : AutoCloseable,
     WsConnection {
     companion object {
@@ -382,6 +383,9 @@ open class WsConnectionImpl(
             .takeUntilOther(disconnects.asFlux())
 
     override fun callRpc(originalRequest: JsonRpcRequest): Mono<JsonRpcResponse> {
+        if (disabledMethods.contains(originalRequest.method)) {
+            return Mono.empty()
+        }
         // use an internal id sequence, to avoid id conflicts with user calls
         val internalId = sendIdSeq.getAndIncrement()
         return Mono

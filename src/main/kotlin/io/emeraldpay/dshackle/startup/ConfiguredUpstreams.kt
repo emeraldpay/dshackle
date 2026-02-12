@@ -259,6 +259,7 @@ open class ConfiguredUpstreams(
                         chain,
                         endpoint.url,
                         endpoint.origin ?: URI("http://localhost"),
+                        endpoint.disabledMethods,
                     )
                 wsApi.config = endpoint
                 endpoint.basicAuth?.let { auth ->

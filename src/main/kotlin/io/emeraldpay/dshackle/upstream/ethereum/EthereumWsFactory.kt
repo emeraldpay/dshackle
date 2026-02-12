@@ -33,6 +33,7 @@ open class EthereumWsFactory(
     private val chain: Chain,
     private val uri: URI,
     private val origin: URI,
+    private val disabledMethods: List<String>,
 ) {
     var basicAuth: AuthConfig.ClientBasicAuth? = null
     var config: UpstreamsConfig.WsEndpoint? = null
@@ -73,7 +74,7 @@ open class EthereumWsFactory(
         }
 
     open fun create(onConnectionChange: Consumer<WsConnection.ConnectionStatus>?): WsConnection =
-        WsConnectionImpl(uri, origin, basicAuth, metrics).also { ws ->
+        WsConnectionImpl(uri, origin, basicAuth, metrics, disabledMethods).also { ws ->
             ws.onConnectionChange(onConnectionChange)
             config?.frameSize?.let {
                 ws.frameSize = it
