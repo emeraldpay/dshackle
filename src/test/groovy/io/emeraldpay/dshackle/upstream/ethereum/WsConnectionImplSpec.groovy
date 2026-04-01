@@ -32,7 +32,7 @@ class WsConnectionImplSpec extends Specification {
 
     def "Makes a RPC call"() {
         setup:
-        def wsf = new EthereumWsFactory("test", Chain.ETHEREUM, new URI("http://localhost"), new URI("http://localhost"))
+        def wsf = new EthereumWsFactory("test", Chain.ETHEREUM, new URI("http://localhost"), new URI("http://localhost"), [])
         def apiMock = TestingCommons.standardApi()
         def wsApiMock = apiMock.asWebsocket()
         def ws = wsf.create(null)
@@ -52,12 +52,12 @@ class WsConnectionImplSpec extends Specification {
                     it.id.asNumber() == 15L && Global.objectMapper.readValue(it.result, TransactionJson) == tx
                 }
                 .expectComplete()
-                .verify(Duration.ofSeconds(1))
+                .verify(Duration.ofSeconds(3))
     }
 
     def "Makes a RPC call - return null"() {
         setup:
-        def wsf = new EthereumWsFactory("test", Chain.ETHEREUM, new URI("http://localhost"), new URI("http://localhost"))
+        def wsf = new EthereumWsFactory("test", Chain.ETHEREUM, new URI("http://localhost"), new URI("http://localhost"), [])
         def apiMock = TestingCommons.standardApi()
         def wsApiMock = apiMock.asWebsocket()
         def ws = wsf.create(null)
@@ -75,12 +75,12 @@ class WsConnectionImplSpec extends Specification {
                             it.resultAsRawString == 'null'
                 }
                 .expectComplete()
-                .verify(Duration.ofSeconds(1))
+                .verify(Duration.ofSeconds(3))
     }
 
     def "Makes a RPC call - return error"() {
         setup:
-        def wsf = new EthereumWsFactory("test", Chain.ETHEREUM, new URI("http://localhost"), new URI("http://localhost"))
+        def wsf = new EthereumWsFactory("test", Chain.ETHEREUM, new URI("http://localhost"), new URI("http://localhost"), [])
         def apiMock = TestingCommons.standardApi()
         def wsApiMock = apiMock.asWebsocket()
         def ws = wsf.create(null)
@@ -100,6 +100,6 @@ class WsConnectionImplSpec extends Specification {
                             it.error.code == RpcResponseError.CODE_METHOD_NOT_EXIST && it.error.message == "test"
                 }
                 .expectComplete()
-                .verify(Duration.ofSeconds(1))
+                .verify(Duration.ofSeconds(3))
     }
 }

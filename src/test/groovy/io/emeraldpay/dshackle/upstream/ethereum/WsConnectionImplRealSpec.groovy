@@ -31,7 +31,7 @@ class WsConnectionImplRealSpec extends Specification {
         server = new MockWSServer(port)
         server.start()
         Thread.sleep(SLEEP)
-        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI())
+        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI(), [])
                 .create(null) as WsConnectionImpl
     }
 
@@ -103,7 +103,7 @@ class WsConnectionImplRealSpec extends Specification {
             _ * getId() >> "test"
         }
         WsConnection.ConnectionStatus result = null
-        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI())
+        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI(), [])
                 .create({ result = it  })
         when:
         conn.connect()
