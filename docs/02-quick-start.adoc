@@ -1,6 +1,6 @@
 == Quick Start
-:version: 0.16.0
-:version-short: 0.16
+:version: 0.17.0
+:version-short: 0.17
 
 === Prerequisites
 
