@@ -144,7 +144,7 @@ dependencies {
     testImplementation "org.java-websocket:Java-WebSocket:1.5.3"
     testImplementation "nl.jqno.equalsverifier:equalsverifier:3.15.4"
     testImplementation "org.apache.groovy:groovy:$groovyVersion"
-    testImplementation "org.testcontainers:spock:1.21.3"
+    testImplementation "org.testcontainers:spock:1.21.4"
     testImplementation "org.junit.jupiter:junit-jupiter-engine:5.9.1"
     testImplementation "io.kotest:kotest-runner-junit5:5.9.1"
     testImplementation "io.kotest:kotest-framework-datatest:5.9.1"
