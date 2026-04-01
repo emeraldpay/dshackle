@@ -31,9 +31,11 @@ abstract class ResponseParser<T> {
         private val log = LoggerFactory.getLogger(ResponseParser::class.java)
     }
 
-    private val jsonFactory = JsonFactory.builder()
-        .streamReadConstraints(StreamReadConstraints.builder().maxNestingDepth(10_000).build())
-        .build()
+    private val jsonFactory =
+        JsonFactory
+            .builder()
+            .streamReadConstraints(StreamReadConstraints.builder().maxNestingDepth(10_000).build())
+            .build()
 
     abstract fun build(state: Preparsed): T
 
