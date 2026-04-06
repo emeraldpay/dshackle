@@ -25,6 +25,8 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 dunce = "1.0"
 jiff = "0.2"
+regex = "1.11"
+serde_yaml = "0.9"
 shadow-rs = "1.1"
 anyhow = { version = "1.0", features = ["backtrace"] }
 bytes = "1.11"

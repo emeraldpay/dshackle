@@ -15,6 +15,7 @@
 //! Emerald Dshackle — Fault Tolerant Load Balancer for Blockchain API.
 
 mod config;
+mod global;
 
 use clap::Parser;
 use shadow_rs::shadow;
@@ -79,4 +80,15 @@ fn main() {
     };
 
     info!("Using config: {}", config_path.display());
+
+    let main_config = match config::read_config(&config_path) {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            error!("Failed to read config: {e:#}");
+            std::process::exit(1);
+        }
+    };
+
+    global::set_config(main_config).expect("CONFIG already initialized");
+    info!("Configuration loaded successfully");
 }

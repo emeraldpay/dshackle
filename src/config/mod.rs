@@ -12,7 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Configuration file discovery and loading.
+//! Configuration file discovery, parsing, and data types.
+
+pub mod bytes;
+pub mod cache;
+pub mod env;
+pub mod health;
+pub mod log;
+pub mod main_config;
+pub mod monitoring;
+pub mod proxy;
+pub mod signature;
+pub mod tls;
+pub mod tokens;
+pub mod upstreams;
+
+pub use main_config::{read_config, MainConfig};
 
 use std::path::{Path, PathBuf};
 
@@ -96,7 +111,6 @@ mod tests {
 
         let result = resolve_config_path(Some(&config_file));
         assert!(result.is_ok());
-        // canonicalize resolves to the same file
         assert_eq!(
             result.unwrap(),
             dunce::canonicalize(&config_file).unwrap()
@@ -114,8 +128,6 @@ mod tests {
 
     #[test]
     fn fails_when_no_config_found() {
-        // With no explicit path and assuming neither default location exists in CI,
-        // this should fail. We can only test this reliably if neither default exists.
         if !is_accessible(Path::new(DEFAULT_CONFIG))
             && !is_accessible(Path::new(LOCAL_CONFIG))
         {
