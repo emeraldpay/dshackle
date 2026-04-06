@@ -1,0 +1,36 @@
+[package]
+name = "dshackle"
+version = "0.18.0-dev"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.6", features = ["derive", "string"] }
+serde = { version = "1.0" , features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.50", features = ["fs", "rt-multi-thread", "macros"] }
+tokio-retry2 = { version = "0.9", features = ["jitter"] }
+tokio-util = { version = "0.7" , features = ["io", "io-util"] }
+tonic = { version = "0.14", features = ["tls-ring", "tls-native-roots", "gzip"] }
+futures = "0.3"
+async-trait = "0.1"
+ginepro = { git = "https://github.com/dmarteau/ginepro", branch = "tonic-0.14-support"}
+emerald-api = { git = "https://github.com/emeraldpay/emerald-api-rs", features = ["server-blockchain"] }
+enum-display-derive = "0.1"
+futures-util = "0.3"
+lazy_static = "1.5"
+alloy = { version = "1.8", features = ["rpc-types"] }
+hex = "0.4.3"
+shutdown = "0.5"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = { version = "1.0", features = ["backtrace"] }
+bytes = "1.11"
+itertools = "0.14"
+prometheus = "0.14"
+warp = { version = "0.4", features = ["server"] }
+
+[dev-dependencies]
+testcontainers = "0.27"
+rand = "0.10"
+
+

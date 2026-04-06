@@ -1,6 +1,3 @@
-.gradle/
-build/
-out/
 ./dshackle.yaml
 ./upstream.yaml
 testsetup/
@@ -13,3 +10,8 @@ testsetup/
 
 # nix
 env
+
+
+# Added by cargo
+
+/target
