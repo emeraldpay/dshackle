@@ -15,6 +15,7 @@
 //! JSON-RPC 2.0 wire types for communicating with upstream blockchain nodes.
 
 use serde::{Deserialize, Serialize};
+use serde_json::value::RawValue;
 
 /// Outgoing JSON-RPC 2.0 request sent to an upstream node.
 #[derive(Debug, Serialize)]
@@ -37,11 +38,15 @@ impl JsonRpcRequest {
 }
 
 /// Incoming JSON-RPC 2.0 response from an upstream node.
+///
+/// The `result` field is kept as raw JSON bytes (`RawValue`) to avoid
+/// deserializing and re-serializing upstream data — preserving it exactly
+/// as the upstream returned it.
 #[derive(Debug, Deserialize)]
 pub struct JsonRpcResponse {
     #[allow(dead_code)]
     pub id: serde_json::Value,
-    pub result: Option<serde_json::Value>,
+    pub result: Option<Box<RawValue>>,
     pub error: Option<JsonRpcError>,
 }
 
@@ -92,7 +97,8 @@ mod tests {
         let raw = r#"{"jsonrpc":"2.0","id":1,"result":"0x72fa5e0181"}"#;
         let resp: JsonRpcResponse = serde_json::from_str(raw).unwrap();
         assert!(resp.error.is_none());
-        assert_eq!(resp.result.unwrap(), "0x72fa5e0181");
+        // RawValue preserves the exact JSON text including quotes
+        assert_eq!(resp.result.unwrap().get(), r#""0x72fa5e0181""#);
     }
 
     #[test]
@@ -123,5 +129,199 @@ mod tests {
             data: None,
         };
         assert_eq!(err.to_string(), "JSON-RPC error -32601: Method not found");
+    }
+
+    // ── Response parsing tests (ported from legacy ResponseRpcParserTest) ──
+
+    #[test]
+    fn parse_string_result() {
+        let json = r#"{"jsonrpc": "2.0", "id": 1, "result": "Hello world!"}"#;
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.error.is_none());
+        assert_eq!(resp.result.unwrap().get(), r#""Hello world!""#);
+    }
+
+    #[test]
+    fn parse_string_result_when_result_first() {
+        let json = r#"{"result": "Hello world!", "jsonrpc": "2.0", "id": 1}"#;
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.error.is_none());
+        assert_eq!(resp.result.unwrap().get(), r#""Hello world!""#);
+    }
+
+    #[test]
+    fn parse_bool_result() {
+        let json = r#"{"jsonrpc": "2.0", "id": 1, "result": false}"#;
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.error.is_none());
+        assert_eq!(resp.result.unwrap().get(), "false");
+    }
+
+    #[test]
+    fn parse_bool_result_when_id_last() {
+        let json = r#"{"jsonrpc": "2.0", "result": false, "id": 1}"#;
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.error.is_none());
+        assert_eq!(resp.result.unwrap().get(), "false");
+    }
+
+    #[test]
+    fn parse_int_result() {
+        let json = r#"{"jsonrpc": "2.0", "id": 1, "result": 100}"#;
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.error.is_none());
+        assert_eq!(resp.result.unwrap().get(), "100");
+    }
+
+    #[test]
+    fn parse_null_result() {
+        // With Option<Box<RawValue>>, "result": null deserializes to None.
+        // Our native_call layer handles this by returning b"null" payload.
+        let json = r#"{"jsonrpc": "2.0", "id": 1, "result": null}"#;
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.error.is_none());
+        assert!(resp.result.is_none());
+    }
+
+    #[test]
+    fn parse_object_result() {
+        let json = r#"{"jsonrpc": "2.0", "id": 1, "result": {"hash": "0x00000", "foo": false, "bar": 1}}"#;
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.error.is_none());
+        assert_eq!(
+            resp.result.unwrap().get(),
+            r#"{"hash": "0x00000", "foo": false, "bar": 1}"#
+        );
+    }
+
+    #[test]
+    fn parse_object_result_with_null_error() {
+        let json = r#"{"jsonrpc": "2.0", "id": 1, "result": {"hash": "0x00000", "foo": false, "bar": 1}, "error": null}"#;
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.error.is_none());
+        assert_eq!(
+            resp.result.unwrap().get(),
+            r#"{"hash": "0x00000", "foo": false, "bar": 1}"#
+        );
+    }
+
+    #[test]
+    fn parse_object_result_when_null_error_first() {
+        let json = r#"{"jsonrpc": "2.0", "id": 1, "error": null, "result": {"hash": "0x00000", "foo": false, "bar": 1}}"#;
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.error.is_none());
+        assert_eq!(
+            resp.result.unwrap().get(),
+            r#"{"hash": "0x00000", "foo": false, "bar": 1}"#
+        );
+    }
+
+    #[test]
+    fn parse_object_result_preserves_whitespace() {
+        let json = r#"{"jsonrpc": "2.0", "result"  :   {"hash": "0x00000", "foo": false , "bar":1}  , "id": 1}"#;
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.error.is_none());
+        // RawValue preserves the exact whitespace from the original JSON
+        assert_eq!(
+            resp.result.unwrap().get(),
+            r#"{"hash": "0x00000", "foo": false , "bar":1}"#
+        );
+    }
+
+    #[test]
+    fn parse_complex_nested_object_result() {
+        let json = r#"{"jsonrpc": "2.0", "id": 1, "result": {"hash": "0x00000", "foo": {"bar": 1, "baz": 2}}}"#;
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.error.is_none());
+        assert_eq!(
+            resp.result.unwrap().get(),
+            r#"{"hash": "0x00000", "foo": {"bar": 1, "baz": 2}}"#
+        );
+    }
+
+    #[test]
+    fn parse_array_result() {
+        let json = r#"{"jsonrpc": "2.0", "id": 1, "result": [1, 2, false]}"#;
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.error.is_none());
+        assert_eq!(resp.result.unwrap().get(), "[1, 2, false]");
+    }
+
+    #[test]
+    fn parse_error_with_null_result() {
+        let json = r#"{"jsonrpc": "2.0", "id": 1, "result": null, "error": {"code": -1111, "message": "test"}}"#;
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.result.is_none());
+        let err = resp.error.unwrap();
+        assert_eq!(err.code, -1111);
+        assert_eq!(err.message, "test");
+    }
+
+    #[test]
+    fn parse_error_without_result_field() {
+        let json = r#"{"jsonrpc": "2.0", "id": 1, "error": {"code": -1111, "message": "test"}}"#;
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.result.is_none());
+        let err = resp.error.unwrap();
+        assert_eq!(err.code, -1111);
+        assert_eq!(err.message, "test");
+    }
+
+    #[test]
+    fn parse_error_with_string_data() {
+        let json = r#"{"jsonrpc": "2.0", "id": 1, "result": null, "error": {"code": -1111, "message": "test", "data": "just data"}}"#;
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        let err = resp.error.unwrap();
+        assert_eq!(err.code, -1111);
+        assert_eq!(err.message, "test");
+        assert_eq!(err.data.unwrap(), "just data");
+    }
+
+    #[test]
+    fn parse_error_with_object_data() {
+        let json = r#"{"jsonrpc": "2.0", "id": 1, "result": null, "error": {"code": -1111, "message": "test", "data": {"foo": "just data", "bar": 1}}}"#;
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        let err = resp.error.unwrap();
+        assert_eq!(err.code, -1111);
+        let data = err.data.unwrap();
+        assert_eq!(data["foo"], "just data");
+        assert_eq!(data["bar"], 1);
+    }
+
+    #[test]
+    fn reject_non_json() {
+        let result = serde_json::from_str::<JsonRpcResponse>("NOT JSON");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn reject_incomplete_json() {
+        let result = serde_json::from_str::<JsonRpcResponse>(r#"{"jsonrpc": "2.0", "id": 1}"#);
+        // serde accepts this — result and error are both None (all fields optional)
+        let resp = result.unwrap();
+        assert!(resp.result.is_none());
+        assert!(resp.error.is_none());
+    }
+
+    #[test]
+    fn reject_broken_json() {
+        let result = serde_json::from_str::<JsonRpcResponse>(r#"{"jsonrpc": "2.0", "id": 101, "resu'"#);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_json_with_leading_spaces() {
+        let json = r#"  {"result": "Hello world!", "jsonrpc": "2.0", "id": 1}"#;
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.error.is_none());
+        assert_eq!(resp.result.unwrap().get(), r#""Hello world!""#);
+    }
+
+    #[test]
+    fn parse_json_with_leading_newline() {
+        let json = "\n{\"result\": \"Hello world!\", \"jsonrpc\": \"2.0\", \"id\": 1}";
+        let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.error.is_none());
+        assert_eq!(resp.result.unwrap().get(), r#""Hello world!""#);
     }
 }

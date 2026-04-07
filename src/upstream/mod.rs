@@ -20,6 +20,7 @@ pub mod traits;
 
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
 use ethereum::http::EthereumHttpUpstream;
+use ethereum::ws::EthereumWsUpstream;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -34,8 +35,8 @@ pub struct UpstreamManager {
 impl UpstreamManager {
     /// Build upstreams from the parsed configuration.
     ///
-    /// For now only Ethereum HTTP upstreams are supported; all others are
-    /// skipped with a warning.
+    /// For Ethereum connections: prefers WebSocket when available, falls back to
+    /// HTTP. Bitcoin and Dshackle gRPC connections are not yet supported.
     pub fn from_config(config: &UpstreamsConfig) -> anyhow::Result<Self> {
         let mut upstreams: HashMap<i32, Arc<dyn RpcUpstream>> = HashMap::new();
 
@@ -63,32 +64,40 @@ impl UpstreamManager {
 
             match &upstream.connection {
                 UpstreamConnection::Ethereum(eth) => {
-                    let rpc = match &eth.rpc {
-                        Some(endpoint) => endpoint,
-                        None => {
-                            tracing::warn!("Upstream {} has no HTTP RPC configured, skipping", upstream.id);
-                            continue;
+                    let reader: Arc<dyn RpcUpstream> = if let Some(ws) = &eth.ws {
+                        // Prefer WebSocket when configured
+                        if ws.basic_auth.is_some() {
+                            tracing::warn!("Upstream {}: WS basic auth not yet supported, ignoring", upstream.id);
                         }
+                        tracing::info!(
+                            "Registered Ethereum WS upstream '{}' at {} for {}",
+                            upstream.id, ws.url, blockchain_name,
+                        );
+                        Arc::new(EthereumWsUpstream::new(
+                            upstream.id.clone(),
+                            ws.url.clone(),
+                        ))
+                    } else if let Some(rpc) = &eth.rpc {
+                        if rpc.basic_auth.is_some() {
+                            tracing::warn!("Upstream {}: basic auth not yet supported, ignoring", upstream.id);
+                        }
+                        if rpc.tls.is_some() {
+                            tracing::warn!("Upstream {}: client TLS not yet supported, ignoring", upstream.id);
+                        }
+                        tracing::info!(
+                            "Registered Ethereum HTTP upstream '{}' at {} for {}",
+                            upstream.id, rpc.url, blockchain_name,
+                        );
+                        Arc::new(EthereumHttpUpstream::new(
+                            upstream.id.clone(),
+                            rpc.url.clone(),
+                        ))
+                    } else {
+                        tracing::warn!("Upstream {} has no RPC or WS configured, skipping", upstream.id);
+                        continue;
                     };
 
-                    if rpc.basic_auth.is_some() {
-                        tracing::warn!("Upstream {}: basic auth not yet supported, ignoring", upstream.id);
-                    }
-                    if rpc.tls.is_some() {
-                        tracing::warn!("Upstream {}: client TLS not yet supported, ignoring", upstream.id);
-                    }
-
-                    let reader = EthereumHttpUpstream::new(
-                        upstream.id.clone(),
-                        rpc.url.clone(),
-                    );
-                    tracing::info!(
-                        "Registered Ethereum HTTP upstream '{}' at {} for {}",
-                        upstream.id,
-                        rpc.url,
-                        blockchain_name,
-                    );
-                    upstreams.insert(chain as i32, Arc::new(reader));
+                    upstreams.insert(chain as i32, reader);
                 }
                 UpstreamConnection::Bitcoin(_) => {
                     tracing::warn!("Upstream {}: Bitcoin not yet supported, skipping", upstream.id);

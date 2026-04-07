@@ -41,11 +41,14 @@ pub async fn execute_native_call(
     };
 
     let request = JsonRpcRequest::new(item.id, item.method.clone(), params);
+    tracing::trace!(id = item.id, method = %item.method, "executing native call item");
 
     match upstream.call(&request).await {
         Ok(resp) => {
             if let Some(result) = resp.result {
-                let payload = serde_json::to_vec(&result).unwrap_or_default();
+                // Forward the raw JSON bytes as-is, without re-serialization
+                let payload = result.get().as_bytes().to_vec();
+                tracing::trace!(id = item.id, method = %item.method, bytes = payload.len(), "call succeeded");
                 NativeCallReplyItem {
                     id: item.id,
                     succeed: true,
@@ -54,6 +57,7 @@ pub async fn execute_native_call(
                     signature: None,
                 }
             } else if let Some(err) = resp.error {
+                tracing::trace!(id = item.id, method = %item.method, error = %err, "call returned rpc error");
                 NativeCallReplyItem {
                     id: item.id,
                     succeed: false,
@@ -63,6 +67,7 @@ pub async fn execute_native_call(
                 }
             } else {
                 // Neither result nor error — treat as null result
+                tracing::trace!(id = item.id, method = %item.method, "call returned null result");
                 NativeCallReplyItem {
                     id: item.id,
                     succeed: true,
@@ -72,13 +77,16 @@ pub async fn execute_native_call(
                 }
             }
         }
-        Err(e) => NativeCallReplyItem {
-            id: item.id,
-            succeed: false,
-            payload: Vec::new(),
-            error_message: e.to_string(),
-            signature: None,
-        },
+        Err(e) => {
+            tracing::trace!(id = item.id, method = %item.method, error = %e, "call failed");
+            NativeCallReplyItem {
+                id: item.id,
+                succeed: false,
+                payload: Vec::new(),
+                error_message: e.to_string(),
+                signature: None,
+            }
+        }
     }
 }
 

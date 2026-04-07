@@ -35,6 +35,8 @@ impl EthereumHttpUpstream {
 #[async_trait::async_trait]
 impl RpcUpstream for EthereumHttpUpstream {
     async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
+        tracing::trace!(upstream = %self.id, method = %request.method, "HTTP request");
+
         let resp = self
             .client
             .post(&self.url)
@@ -46,6 +48,7 @@ impl RpcUpstream for EthereumHttpUpstream {
 
         let status = resp.status().as_u16();
         if status != 200 {
+            tracing::trace!(upstream = %self.id, status, "HTTP non-200 response");
             return Err(UpstreamError::HttpStatus(status));
         }
 
@@ -53,6 +56,8 @@ impl RpcUpstream for EthereumHttpUpstream {
             .bytes()
             .await
             .map_err(|e| UpstreamError::Transport(e.to_string()))?;
+
+        tracing::trace!(upstream = %self.id, bytes = body.len(), "HTTP response received");
 
         serde_json::from_slice::<JsonRpcResponse>(&body)
             .map_err(|e| UpstreamError::InvalidResponse(e.to_string()))

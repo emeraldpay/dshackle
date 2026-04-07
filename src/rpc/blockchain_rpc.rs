@@ -57,11 +57,13 @@ impl Blockchain for BlockchainRpcService {
         request: tonic::Request<NativeCallRequest>,
     ) -> Result<tonic::Response<Self::NativeCallStream>, tonic::Status> {
         let req = request.into_inner();
+        tracing::trace!(chain = req.chain, items = req.items.len(), "native_call request");
 
         let upstream = self
             .upstreams
             .get(req.chain)
             .ok_or_else(|| {
+                tracing::trace!(chain = req.chain, "no upstream for chain");
                 tonic::Status::unavailable(format!(
                     "no upstream available for chain {}",
                     req.chain
@@ -77,6 +79,7 @@ impl Blockchain for BlockchainRpcService {
             results.push(Ok(reply));
         }
 
+        tracing::trace!(chain = req.chain, items = results.len(), "native_call done");
         let stream = tokio_stream::iter(results);
         Ok(tonic::Response::new(Box::pin(stream)))
     }
