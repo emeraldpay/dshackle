@@ -16,11 +16,15 @@
 
 mod config;
 mod global;
+mod jsonrpc;
+mod rpc;
+mod server;
+mod upstream;
 
 use clap::Parser;
 use shadow_rs::shadow;
 use std::path::PathBuf;
-use tracing::{error, info};
+use std::sync::Arc;
 
 shadow!(build);
 
@@ -58,7 +62,8 @@ struct Cli {
     config_path: Option<PathBuf>,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
@@ -74,21 +79,48 @@ fn main() {
     let config_path = match config::resolve_config_path(cli.config_path.as_deref()) {
         Ok(path) => path,
         Err(e) => {
-            error!("{}", e);
+            tracing::error!("{}", e);
             std::process::exit(1);
         }
     };
 
-    info!("Using config: {}", config_path.display());
+    tracing::info!("Using config: {}", config_path.display());
 
     let main_config = match config::read_config(&config_path) {
         Ok(cfg) => cfg,
         Err(e) => {
-            error!("Failed to read config: {e:#}");
+            tracing::error!("Failed to read config: {e:#}");
             std::process::exit(1);
         }
     };
 
     global::set_config(main_config).expect("CONFIG already initialized");
-    info!("Configuration loaded successfully");
+    tracing::info!("Configuration loaded successfully");
+
+    let config = global::CONFIG.get().expect("CONFIG must be initialized");
+
+    // Build upstreams from configuration
+    let upstreams_config = match &config.upstreams {
+        Some(cfg) => cfg,
+        None => {
+            tracing::error!("No upstreams configured");
+            std::process::exit(1);
+        }
+    };
+
+    let upstreams = match upstream::UpstreamManager::from_config(upstreams_config) {
+        Ok(mgr) => Arc::new(mgr),
+        Err(e) => {
+            tracing::error!("Failed to build upstreams: {e:#}");
+            std::process::exit(1);
+        }
+    };
+
+    // Start gRPC server
+    let service = rpc::blockchain_rpc::BlockchainRpcService::new(upstreams);
+
+    if let Err(e) = server::start_grpc_server(&config.host, config.port, service).await {
+        tracing::error!("gRPC server failed: {e:#}");
+        std::process::exit(1);
+    }
 }
