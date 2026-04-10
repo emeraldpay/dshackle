@@ -64,6 +64,13 @@ struct Cli {
 
 #[tokio::main]
 async fn main() {
+    // Multiple deps enable both `ring` and `aws-lc-rs` features on rustls,
+    // so no automatic default is chosen. Install one explicitly before any
+    // TLS connection is attempted.
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install default TLS crypto provider");
+
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()

@@ -11,6 +11,7 @@ tokio = { version = "1.50", features = ["fs", "rt-multi-thread", "macros"] }
 tokio-retry2 = { version = "0.9", features = ["jitter"] }
 tokio-util = { version = "0.7" , features = ["io", "io-util"] }
 tonic = { version = "0.14", features = ["tls-ring", "tls-native-roots", "gzip"] }
+rustls = { version = "0.23", default-features = false }
 futures = "0.3"
 async-trait = "0.1"
 ginepro = { git = "https://github.com/dmarteau/ginepro", branch = "tonic-0.14-support"}
