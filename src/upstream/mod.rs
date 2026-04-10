@@ -26,7 +26,7 @@ pub mod traits;
 
 use crate::blockchain::TargetBlockchain;
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
-use ethereum::head::start_head_poller;
+use ethereum::head::{start_head_poller, start_ws_head};
 use ethereum::http::EthereumHttpUpstream;
 use ethereum::ws::EthereumWsUpstream;
 use multistream::Multistream;
@@ -74,6 +74,7 @@ impl UpstreamManager {
 
             match &upstream.connection {
                 UpstreamConnection::Ethereum(eth) => {
+                    // WS upstream gets head updates via newHeads subscription
                     let ws_upstream: Option<Arc<dyn RpcUpstream>> = eth.ws.as_ref().map(|ws| {
                         if ws.basic_auth.is_some() {
                             tracing::warn!("Upstream {}: WS basic auth not yet supported, ignoring", upstream.id);
@@ -82,14 +83,12 @@ impl UpstreamManager {
                             "Using Ethereum WS upstream '{}' at {} for {}",
                             upstream.id, ws.url, blockchain_name,
                         );
-                        let ws_up = EthereumWsUpstream::new(
+                        let ws_up = Arc::new(EthereumWsUpstream::new(
                             upstream.id.clone(),
                             ws.url.clone(),
-                        );
-                        let head_height = ws_up.head_height();
-                        let arc: Arc<dyn RpcUpstream> = Arc::new(ws_up);
-                        start_head_poller(upstream.id.clone(), Arc::clone(&arc), head_height);
-                        arc
+                        ));
+                        start_ws_head(Arc::clone(&ws_up));
+                        ws_up as Arc<dyn RpcUpstream>
                     });
 
                     let http_upstream: Option<Arc<dyn RpcUpstream>> = eth.rpc.as_ref().map(|rpc| {

@@ -17,6 +17,9 @@
 //! Maintains a persistent WebSocket connection with automatic reconnection
 //! and exponential backoff. Requests are matched to responses via an internal
 //! ID sequence, preserving the original caller IDs.
+//!
+//! Also supports `eth_subscribe`-style subscriptions via [`subscribe()`],
+//! which returns a channel of raw JSON notification payloads.
 
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
 use crate::upstream::availability::UpstreamAvailability;
@@ -24,6 +27,7 @@ use crate::upstream::head::{CurrentHeight, Head};
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use futures_util::{SinkExt, StreamExt};
+use serde_json::value::RawValue;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
@@ -57,6 +61,8 @@ pub struct EthereumWsUpstream {
 struct ConnectionState {
     /// Pending RPC requests waiting for a response, keyed by internal ID.
     pending: Mutex<HashMap<u32, oneshot::Sender<Result<JsonRpcResponse, UpstreamError>>>>,
+    /// Active subscriptions: node-assigned subscription ID → sender for notification payloads.
+    subscriptions: Mutex<HashMap<String, mpsc::UnboundedSender<Box<RawValue>>>>,
     /// Channel for sending serialized JSON-RPC messages to the write loop.
     outgoing: mpsc::Sender<String>,
     /// Monotonically increasing ID counter for request/response matching.
@@ -69,9 +75,12 @@ impl EthereumWsUpstream {
 
         let conn = Arc::new(ConnectionState {
             pending: Mutex::new(HashMap::new()),
+            subscriptions: Mutex::new(HashMap::new()),
             outgoing: outgoing_tx,
             next_id: AtomicU32::new(IDS_START),
         });
+
+        let head = Arc::new(CurrentHeight::new());
 
         // Spawn the background connection loop
         let bg_state = Arc::clone(&conn);
@@ -80,14 +89,41 @@ impl EthereumWsUpstream {
             connection_loop(bg_id, url, bg_state, outgoing_rx).await;
         });
 
-        let head = Arc::new(CurrentHeight::new());
         let upstream_state = Arc::new(UpstreamState::new());
         Self { id, conn, head, upstream_state }
     }
 
-    /// Shared reference to this upstream's head height, used to start the poller.
+    /// Shared reference to this upstream's head height tracker.
     pub fn head_height(&self) -> Arc<CurrentHeight> {
         Arc::clone(&self.head)
+    }
+
+    /// Subscribe to an `eth_subscribe` topic (e.g. `"newHeads"`).
+    ///
+    /// Sends `eth_subscribe` via the WS connection, waits for the subscription
+    /// ID, and returns a receiver that yields raw JSON payloads for each
+    /// notification. The receiver closes when the WS connection drops —
+    /// callers should re-subscribe after reconnection.
+    pub async fn subscribe(
+        &self,
+        topic: &str,
+    ) -> Result<mpsc::UnboundedReceiver<Box<RawValue>>, UpstreamError> {
+        let request = JsonRpcRequest::new(0, "eth_subscribe".into(), serde_json::json!([topic]));
+        let response = self.call(&request).await?;
+
+        let sub_id = response
+            .result
+            .ok_or_else(|| UpstreamError::InvalidResponse("eth_subscribe returned no result".into()))?;
+        let sub_id = sub_id.get().trim().trim_matches('"').to_string();
+
+        let (tx, rx) = mpsc::unbounded_channel();
+        {
+            let mut subs = self.conn.subscriptions.lock().expect("subscriptions lock poisoned");
+            subs.insert(sub_id.clone(), tx);
+        }
+
+        tracing::debug!(upstream = %self.id, sub_id = %sub_id, topic, "subscription active");
+        Ok(rx)
     }
 }
 
@@ -199,8 +235,8 @@ async fn connection_loop(
             }
         }
 
-        // Fail all pending requests — the connection is gone
-        fail_all_pending(&state, "WebSocket disconnected");
+        // Fail all pending requests and close all subscriptions
+        cleanup_on_disconnect(&state, "WebSocket disconnected");
 
         tracing::info!("Upstream {id}: reconnecting in {}ms", backoff.as_millis());
         tokio::time::sleep(backoff).await;
@@ -225,22 +261,17 @@ async fn connect_and_run(
 
     let (mut ws_write, mut ws_read) = ws_stream.split();
 
-    // Reset backoff will happen in the caller if we get here without error,
-    // but we also want to track whether we got at least one successful response
-    // to reset backoff (matching legacy behavior). For simplicity in MVP,
-    // we reset backoff implicitly by reaching this point.
-
     loop {
         tokio::select! {
             // Read incoming WS message
             msg = ws_read.next() => {
                 match msg {
                     Some(Ok(tungstenite::Message::Text(text))) => {
-                        handle_incoming_message(state, &text);
+                        handle_incoming_message(id, state, &text);
                     }
                     Some(Ok(tungstenite::Message::Binary(data))) => {
                         if let Ok(text) = std::str::from_utf8(&data) {
-                            handle_incoming_message(state, text);
+                            handle_incoming_message(id, state, text);
                         } else {
                             tracing::warn!("Upstream {id}: received non-UTF-8 binary WS message");
                         }
@@ -282,31 +313,48 @@ async fn connect_and_run(
     }
 }
 
-/// Parse an incoming WS text message and route it to the matching pending request.
-fn handle_incoming_message(state: &ConnectionState, text: &str) {
-    // Parse with RawValue so the result field is kept as raw JSON bytes
+/// Route an incoming WS message to either a pending RPC caller or a subscription.
+fn handle_incoming_message(upstream_id: &str, state: &ConnectionState, text: &str) {
+    // Try subscription notification first (has "method" field, no numeric "id")
+    if let Ok(notif) = serde_json::from_str::<SubscriptionNotification>(text) {
+        if notif.method == "eth_subscription" {
+            let mut subs = state.subscriptions.lock().expect("subscriptions lock poisoned");
+            if let Some(tx) = subs.get(&notif.params.subscription) {
+                if tx.send(notif.params.result).is_err() {
+                    tracing::debug!(
+                        "Upstream {upstream_id}: subscription receiver dropped for {}, removing",
+                        notif.params.subscription,
+                    );
+                    subs.remove(&notif.params.subscription);
+                }
+            }
+            return;
+        }
+    }
+
+    // Standard JSON-RPC response — route to the matching pending request
     let response: JsonRpcResponse = match serde_json::from_str(text) {
         Ok(r) => r,
         Err(e) => {
-            // Could be a subscription notification — skip silently for now
-            tracing::debug!("Ignoring unparseable WS message: {e}");
+            tracing::debug!("Upstream {upstream_id}: ignoring unparseable WS message: {e}");
             return;
         }
     };
 
-    // Extract the numeric ID to match against pending requests
-    let id = match response.id.as_u64() {
+    let msg_id = match response.id.as_u64() {
         Some(n) => n as u32,
         None => {
-            // Subscription responses have string IDs — not handled yet
-            tracing::debug!("Ignoring WS message with non-numeric id: {}", response.id);
+            tracing::debug!(
+                "Upstream {upstream_id}: ignoring WS message with non-numeric id: {}",
+                response.id
+            );
             return;
         }
     };
 
     let sender = {
         let mut pending = state.pending.lock().expect("pending lock poisoned");
-        pending.remove(&id)
+        pending.remove(&msg_id)
     };
 
     match sender {
@@ -314,15 +362,37 @@ fn handle_incoming_message(state: &ConnectionState, text: &str) {
             let _ = tx.send(Ok(response));
         }
         None => {
-            tracing::debug!("No pending request for WS response id={id}");
+            tracing::debug!("Upstream {upstream_id}: no pending request for WS response id={msg_id}");
         }
     }
 }
 
-/// Fail all pending requests with the given error message (called on disconnect).
-fn fail_all_pending(state: &ConnectionState, reason: &str) {
-    let mut pending = state.pending.lock().expect("pending lock poisoned");
-    for (_, tx) in pending.drain() {
-        let _ = tx.send(Err(UpstreamError::Transport(reason.to_string())));
+/// Fail all pending requests and close all subscription channels on disconnect.
+fn cleanup_on_disconnect(state: &ConnectionState, reason: &str) {
+    {
+        let mut pending = state.pending.lock().expect("pending lock poisoned");
+        for (_, tx) in pending.drain() {
+            let _ = tx.send(Err(UpstreamError::Transport(reason.to_string())));
+        }
     }
+    {
+        // Dropping senders closes the receivers, signalling disconnect to subscribers
+        let mut subs = state.subscriptions.lock().expect("subscriptions lock poisoned");
+        subs.clear();
+    }
+}
+
+// ─── Subscription notification wire types ───────────────────────────────────
+
+/// An `eth_subscription` notification from the node.
+#[derive(serde::Deserialize)]
+struct SubscriptionNotification {
+    method: String,
+    params: SubscriptionParams,
+}
+
+#[derive(serde::Deserialize)]
+struct SubscriptionParams {
+    subscription: String,
+    result: Box<RawValue>,
 }
