@@ -16,12 +16,14 @@
 //! access to them for the RPC layer.
 
 mod ethereum;
+mod multistream;
 mod switch;
 pub mod traits;
 
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
 use ethereum::http::EthereumHttpUpstream;
 use ethereum::ws::EthereumWsUpstream;
+use multistream::Multistream;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -41,7 +43,7 @@ impl UpstreamManager {
     /// a `SwitchClient` (WS primary, HTTP secondary). Otherwise uses whichever
     /// is available. Bitcoin and Dshackle gRPC connections are not yet supported.
     pub fn from_config(config: &UpstreamsConfig) -> anyhow::Result<Self> {
-        let mut upstreams: HashMap<i32, Arc<dyn RpcUpstream>> = HashMap::new();
+        let mut per_chain: HashMap<i32, Vec<Arc<dyn RpcUpstream>>> = HashMap::new();
 
         for upstream in &config.upstreams {
             if !upstream.enabled {
@@ -115,7 +117,7 @@ impl UpstreamManager {
                         }
                     };
 
-                    upstreams.insert(chain as i32, reader);
+                    per_chain.entry(chain as i32).or_default().push(reader);
                 }
                 UpstreamConnection::Bitcoin(_) => {
                     tracing::warn!("Upstream {}: Bitcoin not yet supported, skipping", upstream.id);
@@ -125,6 +127,22 @@ impl UpstreamManager {
                 }
             }
         }
+
+        let upstreams: HashMap<i32, Arc<dyn RpcUpstream>> = per_chain
+            .into_iter()
+            .map(|(chain, mut readers)| {
+                let upstream: Arc<dyn RpcUpstream> = if readers.len() == 1 {
+                    readers.remove(0)
+                } else {
+                    tracing::info!(
+                        "Chain {}: aggregating {} upstreams with round-robin",
+                        chain, readers.len(),
+                    );
+                    Arc::new(Multistream::new(readers))
+                };
+                (chain, upstream)
+            })
+            .collect();
 
         if upstreams.is_empty() {
             tracing::warn!("No usable upstreams were configured");
