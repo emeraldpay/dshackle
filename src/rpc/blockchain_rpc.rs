@@ -17,6 +17,7 @@
 //! Currently only `native_call` is implemented; all other methods return
 //! `UNIMPLEMENTED` status.
 
+use crate::blockchain::TargetBlockchain;
 use crate::rpc::native_call;
 use crate::upstream::UpstreamManager;
 use emerald_api::proto::blockchain::blockchain_server::Blockchain;
@@ -59,15 +60,17 @@ impl Blockchain for BlockchainRpcService {
         let req = request.into_inner();
         tracing::trace!(chain = req.chain, items = req.items.len(), "native_call request");
 
+        let chain = TargetBlockchain::try_from(req.chain).map_err(|id| {
+            tracing::trace!(chain = id, "unknown chain id");
+            tonic::Status::invalid_argument(format!("unknown chain id {id}"))
+        })?;
+
         let upstream = self
             .upstreams
-            .get(req.chain)
+            .get(&chain)
             .ok_or_else(|| {
-                tracing::trace!(chain = req.chain, "no upstream for chain");
-                tonic::Status::unavailable(format!(
-                    "no upstream available for chain {}",
-                    req.chain
-                ))
+                tracing::trace!(%chain, "no upstream for chain");
+                tonic::Status::unavailable(format!("no upstream available for chain {chain}"))
             })?
             .clone();
 

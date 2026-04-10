@@ -20,6 +20,7 @@ mod multistream;
 mod switch;
 pub mod traits;
 
+use crate::blockchain::TargetBlockchain;
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
 use ethereum::http::EthereumHttpUpstream;
 use ethereum::ws::EthereumWsUpstream;
@@ -30,10 +31,9 @@ use std::sync::Arc;
 use switch::SwitchClient;
 use traits::RpcUpstream;
 
-/// Holds all configured upstreams, indexed by chain ID.
+/// Holds all configured upstreams, indexed by target blockchain.
 pub struct UpstreamManager {
-    /// Map from `ChainRef` integer value to the upstream for that chain.
-    upstreams: HashMap<i32, Arc<dyn RpcUpstream>>,
+    upstreams: HashMap<TargetBlockchain, Arc<dyn RpcUpstream>>,
 }
 
 impl UpstreamManager {
@@ -43,7 +43,7 @@ impl UpstreamManager {
     /// a `SwitchClient` (WS primary, HTTP secondary). Otherwise uses whichever
     /// is available. Bitcoin and Dshackle gRPC connections are not yet supported.
     pub fn from_config(config: &UpstreamsConfig) -> anyhow::Result<Self> {
-        let mut per_chain: HashMap<i32, Vec<Arc<dyn RpcUpstream>>> = HashMap::new();
+        let mut per_chain: HashMap<TargetBlockchain, Vec<Arc<dyn RpcUpstream>>> = HashMap::new();
 
         for upstream in &config.upstreams {
             if !upstream.enabled {
@@ -59,7 +59,7 @@ impl UpstreamManager {
                 }
             };
 
-            let chain = match emerald_api::proto::common::ChainRef::from_str(blockchain_name) {
+            let chain: TargetBlockchain = match blockchain_name.parse() {
                 Ok(c) => c,
                 Err(_) => {
                     tracing::warn!("Unknown blockchain '{}' for upstream {}, skipping", blockchain_name, upstream.id);
@@ -117,7 +117,7 @@ impl UpstreamManager {
                         }
                     };
 
-                    per_chain.entry(chain as i32).or_default().push(reader);
+                    per_chain.entry(chain).or_default().push(reader);
                 }
                 UpstreamConnection::Bitcoin(_) => {
                     tracing::warn!("Upstream {}: Bitcoin not yet supported, skipping", upstream.id);
@@ -128,14 +128,14 @@ impl UpstreamManager {
             }
         }
 
-        let upstreams: HashMap<i32, Arc<dyn RpcUpstream>> = per_chain
+        let upstreams: HashMap<TargetBlockchain, Arc<dyn RpcUpstream>> = per_chain
             .into_iter()
             .map(|(chain, mut readers)| {
                 let upstream: Arc<dyn RpcUpstream> = if readers.len() == 1 {
                     readers.remove(0)
                 } else {
                     tracing::info!(
-                        "Chain {}: aggregating {} upstreams with round-robin",
+                        "{}: aggregating {} upstreams with round-robin",
                         chain, readers.len(),
                     );
                     Arc::new(Multistream::new(readers))
@@ -151,8 +151,8 @@ impl UpstreamManager {
         Ok(UpstreamManager { upstreams })
     }
 
-    /// Look up the upstream for a given chain (identified by its protobuf i32 value).
-    pub fn get(&self, chain: i32) -> Option<&Arc<dyn RpcUpstream>> {
-        self.upstreams.get(&chain)
+    /// Look up the upstream for a given blockchain.
+    pub fn get(&self, chain: &TargetBlockchain) -> Option<&Arc<dyn RpcUpstream>> {
+        self.upstreams.get(chain)
     }
 }
