@@ -16,6 +16,9 @@
 //! secondary if the primary fails or returns an empty result.
 
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
+use crate::upstream::availability::UpstreamAvailability;
+use crate::upstream::head::Head;
+use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use std::sync::Arc;
 
@@ -24,11 +27,40 @@ use std::sync::Arc;
 pub struct SwitchClient {
     primary: Arc<dyn RpcUpstream>,
     secondary: Arc<dyn RpcUpstream>,
+    head: BestHead,
+    state: Arc<UpstreamState>,
 }
 
 impl SwitchClient {
     pub fn new(primary: Arc<dyn RpcUpstream>, secondary: Arc<dyn RpcUpstream>) -> Self {
-        Self { primary, secondary }
+        let head = BestHead {
+            primary: Arc::clone(&primary),
+            secondary: Arc::clone(&secondary),
+        };
+        Self {
+            primary,
+            secondary,
+            head,
+            state: Arc::new(UpstreamState::new()),
+        }
+    }
+}
+
+/// Reports the best (highest) block height from either upstream.
+struct BestHead {
+    primary: Arc<dyn RpcUpstream>,
+    secondary: Arc<dyn RpcUpstream>,
+}
+
+impl Head for BestHead {
+    fn current_height(&self) -> Option<u64> {
+        match (
+            self.primary.head().current_height(),
+            self.secondary.head().current_height(),
+        ) {
+            (Some(a), Some(b)) => Some(a.max(b)),
+            (a, b) => a.or(b),
+        }
     }
 }
 
@@ -43,14 +75,39 @@ impl RpcUpstream for SwitchClient {
             }
         }
     }
+
+    fn id(&self) -> &str {
+        self.primary.id()
+    }
+
+    fn availability(&self) -> UpstreamAvailability {
+        // Best of the two — if primary is down, secondary might still be OK
+        std::cmp::min(self.primary.availability(), self.secondary.availability())
+    }
+
+    fn head(&self) -> &dyn Head {
+        &self.head
+    }
+
+    fn lag(&self) -> Option<u64> {
+        self.state.lag()
+    }
+
+    fn state(&self) -> &Arc<UpstreamState> {
+        &self.state
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::jsonrpc::JsonRpcResponse;
-    use serde_json::value::RawValue;
+    use crate::upstream::head::NoHead;
+    use lazy_static::lazy_static;
     use std::sync::atomic::{AtomicU32, Ordering};
+
+    lazy_static! {
+        static ref MOCK_STATE: Arc<UpstreamState> = Arc::new(UpstreamState::new());
+    }
 
     /// A mock upstream that always succeeds with a fixed result.
     struct SuccessUpstream {
@@ -78,6 +135,11 @@ mod tests {
             let raw = format!(r#"{{"jsonrpc":"2.0","id":1,"result":{}}}"#, self.value);
             Ok(serde_json::from_str(&raw).unwrap())
         }
+        fn id(&self) -> &str { "mock-success" }
+        fn availability(&self) -> UpstreamAvailability { UpstreamAvailability::Ok }
+        fn head(&self) -> &dyn Head { &NoHead }
+        fn lag(&self) -> Option<u64> { None }
+        fn state(&self) -> &Arc<UpstreamState> { &MOCK_STATE }
     }
 
     /// A mock upstream that always fails.
@@ -103,6 +165,11 @@ mod tests {
             self.calls.fetch_add(1, Ordering::Relaxed);
             Err(UpstreamError::Transport("mock failure".into()))
         }
+        fn id(&self) -> &str { "mock-fail" }
+        fn availability(&self) -> UpstreamAvailability { UpstreamAvailability::Ok }
+        fn head(&self) -> &dyn Head { &NoHead }
+        fn lag(&self) -> Option<u64> { None }
+        fn state(&self) -> &Arc<UpstreamState> { &MOCK_STATE }
     }
 
     fn dummy_request() -> JsonRpcRequest {

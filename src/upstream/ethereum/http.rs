@@ -15,20 +15,32 @@
 //! Ethereum upstream that communicates via HTTP JSON-RPC.
 
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
+use crate::upstream::availability::UpstreamAvailability;
+use crate::upstream::head::{CurrentHeight, Head};
+use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
+use std::sync::Arc;
 
 /// An Ethereum upstream node accessed over HTTP JSON-RPC.
 pub struct EthereumHttpUpstream {
-    #[allow(dead_code)]
     id: String,
     url: String,
     client: reqwest::Client,
+    head: Arc<CurrentHeight>,
+    state: Arc<UpstreamState>,
 }
 
 impl EthereumHttpUpstream {
     pub fn new(id: String, url: String) -> Self {
         let client = reqwest::Client::new();
-        Self { id, url, client }
+        let head = Arc::new(CurrentHeight::new());
+        let state = Arc::new(UpstreamState::new());
+        Self { id, url, client, head, state }
+    }
+
+    /// Shared reference to this upstream's head height, used to start the poller.
+    pub fn head_height(&self) -> Arc<CurrentHeight> {
+        Arc::clone(&self.head)
     }
 }
 
@@ -61,5 +73,25 @@ impl RpcUpstream for EthereumHttpUpstream {
 
         serde_json::from_slice::<JsonRpcResponse>(&body)
             .map_err(|e| UpstreamError::InvalidResponse(e.to_string()))
+    }
+
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn availability(&self) -> UpstreamAvailability {
+        self.state.availability()
+    }
+
+    fn head(&self) -> &dyn Head {
+        self.head.as_ref()
+    }
+
+    fn lag(&self) -> Option<u64> {
+        self.state.lag()
+    }
+
+    fn state(&self) -> &Arc<UpstreamState> {
+        &self.state
     }
 }

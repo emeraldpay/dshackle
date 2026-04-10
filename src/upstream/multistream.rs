@@ -20,6 +20,9 @@
 //! aggregation (see the legacy `Multistream.kt`).
 
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
+use crate::upstream::availability::UpstreamAvailability;
+use crate::upstream::head::{Head, NoHead};
+use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -28,6 +31,7 @@ use std::sync::Arc;
 pub struct Multistream {
     upstreams: Vec<Arc<dyn RpcUpstream>>,
     next: AtomicUsize,
+    state: Arc<UpstreamState>,
 }
 
 impl Multistream {
@@ -36,7 +40,13 @@ impl Multistream {
         Self {
             upstreams,
             next: AtomicUsize::new(0),
+            state: Arc::new(UpstreamState::new()),
         }
+    }
+
+    /// Returns a reference to the underlying upstreams for status reporting.
+    pub fn upstreams(&self) -> &[Arc<dyn RpcUpstream>] {
+        &self.upstreams
     }
 }
 
@@ -46,12 +56,42 @@ impl RpcUpstream for Multistream {
         let idx = self.next.fetch_add(1, Ordering::Relaxed) % self.upstreams.len();
         self.upstreams[idx].call(request).await
     }
+
+    fn id(&self) -> &str {
+        "multistream"
+    }
+
+    fn availability(&self) -> UpstreamAvailability {
+        self.upstreams
+            .iter()
+            .map(|u| u.availability())
+            .min()
+            .unwrap_or(UpstreamAvailability::Unavailable)
+    }
+
+    fn head(&self) -> &dyn Head {
+        &NoHead
+    }
+
+    fn lag(&self) -> Option<u64> {
+        None
+    }
+
+    fn state(&self) -> &Arc<UpstreamState> {
+        &self.state
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::upstream::head::NoHead;
+    use lazy_static::lazy_static;
     use std::sync::atomic::AtomicU32;
+
+    lazy_static! {
+        static ref MOCK_STATE: Arc<UpstreamState> = Arc::new(UpstreamState::new());
+    }
 
     struct MockUpstream {
         calls: AtomicU32,
@@ -81,6 +121,11 @@ mod tests {
             );
             Ok(serde_json::from_str(&raw).unwrap())
         }
+        fn id(&self) -> &str { &self.label }
+        fn availability(&self) -> UpstreamAvailability { UpstreamAvailability::Ok }
+        fn head(&self) -> &dyn Head { &NoHead }
+        fn lag(&self) -> Option<u64> { None }
+        fn state(&self) -> &Arc<UpstreamState> { &MOCK_STATE }
     }
 
     fn dummy_request() -> JsonRpcRequest {

@@ -15,18 +15,23 @@
 //! Upstream management: holds configured upstreams indexed by chain and provides
 //! access to them for the RPC layer.
 
+pub mod availability;
 mod ethereum;
+pub mod head;
 mod multistream;
+pub mod state;
+mod status;
 mod switch;
 pub mod traits;
 
 use crate::blockchain::TargetBlockchain;
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
+use ethereum::head::start_head_poller;
 use ethereum::http::EthereumHttpUpstream;
 use ethereum::ws::EthereumWsUpstream;
 use multistream::Multistream;
+use status::ChainStatus;
 use std::collections::HashMap;
-use std::str::FromStr;
 use std::sync::Arc;
 use switch::SwitchClient;
 use traits::RpcUpstream;
@@ -77,10 +82,14 @@ impl UpstreamManager {
                             "Using Ethereum WS upstream '{}' at {} for {}",
                             upstream.id, ws.url, blockchain_name,
                         );
-                        Arc::new(EthereumWsUpstream::new(
+                        let ws_up = EthereumWsUpstream::new(
                             upstream.id.clone(),
                             ws.url.clone(),
-                        )) as Arc<dyn RpcUpstream>
+                        );
+                        let head_height = ws_up.head_height();
+                        let arc: Arc<dyn RpcUpstream> = Arc::new(ws_up);
+                        start_head_poller(upstream.id.clone(), Arc::clone(&arc), head_height);
+                        arc
                     });
 
                     let http_upstream: Option<Arc<dyn RpcUpstream>> = eth.rpc.as_ref().map(|rpc| {
@@ -94,10 +103,14 @@ impl UpstreamManager {
                             "Using Ethereum HTTP upstream '{}' at {} for {}",
                             upstream.id, rpc.url, blockchain_name,
                         );
-                        Arc::new(EthereumHttpUpstream::new(
+                        let http_up = EthereumHttpUpstream::new(
                             upstream.id.clone(),
                             rpc.url.clone(),
-                        )) as Arc<dyn RpcUpstream>
+                        );
+                        let head_height = http_up.head_height();
+                        let arc: Arc<dyn RpcUpstream> = Arc::new(http_up);
+                        start_head_poller(upstream.id.clone(), Arc::clone(&arc), head_height);
+                        arc
                     });
 
                     let reader: Arc<dyn RpcUpstream> = match (ws_upstream, http_upstream) {
@@ -128,25 +141,33 @@ impl UpstreamManager {
             }
         }
 
-        let upstreams: HashMap<TargetBlockchain, Arc<dyn RpcUpstream>> = per_chain
-            .into_iter()
-            .map(|(chain, mut readers)| {
-                let upstream: Arc<dyn RpcUpstream> = if readers.len() == 1 {
-                    readers.remove(0)
-                } else {
-                    tracing::info!(
-                        "{}: aggregating {} upstreams with round-robin",
-                        chain, readers.len(),
-                    );
-                    Arc::new(Multistream::new(readers))
-                };
-                (chain, upstream)
-            })
-            .collect();
+        let mut upstreams: HashMap<TargetBlockchain, Arc<dyn RpcUpstream>> = HashMap::new();
+        let mut chain_statuses: Vec<ChainStatus> = Vec::new();
+
+        for (chain, mut readers) in per_chain {
+            let chain_status = ChainStatus {
+                chain,
+                upstreams: readers.clone(),
+            };
+            chain_statuses.push(chain_status);
+
+            let upstream: Arc<dyn RpcUpstream> = if readers.len() == 1 {
+                readers.remove(0)
+            } else {
+                tracing::info!(
+                    "{}: aggregating {} upstreams with round-robin",
+                    chain, readers.len(),
+                );
+                Arc::new(Multistream::new(readers))
+            };
+            upstreams.insert(chain, upstream);
+        }
 
         if upstreams.is_empty() {
             tracing::warn!("No usable upstreams were configured");
         }
+
+        status::start_status_reporter(chain_statuses);
 
         Ok(UpstreamManager { upstreams })
     }

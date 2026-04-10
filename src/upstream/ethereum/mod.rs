@@ -14,5 +14,6 @@
 
 //! Ethereum-specific upstream implementations.
 
+pub mod head;
 pub mod http;
 pub mod ws;

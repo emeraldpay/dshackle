@@ -17,12 +17,32 @@
 //! can work with them uniformly.
 
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
+use crate::upstream::availability::UpstreamAvailability;
+use crate::upstream::head::Head;
+use crate::upstream::state::UpstreamState;
+use std::sync::Arc;
 
 /// An upstream that can execute JSON-RPC calls.
 #[async_trait::async_trait]
 pub trait RpcUpstream: Send + Sync {
     /// Execute a single JSON-RPC request against this upstream.
     async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError>;
+
+    /// Unique identifier for this upstream (from config).
+    fn id(&self) -> &str;
+
+    /// Current availability status of this upstream.
+    fn availability(&self) -> UpstreamAvailability;
+
+    /// Access the head tracker for this upstream.
+    fn head(&self) -> &dyn Head;
+
+    /// How many blocks this upstream lags behind the best known head.
+    /// Returns `None` when lag is unknown or not yet measured.
+    fn lag(&self) -> Option<u64>;
+
+    /// Shared mutable state (lag, derived availability) updated by the status tracker.
+    fn state(&self) -> &Arc<UpstreamState>;
 }
 
 /// Errors that can occur when communicating with an upstream.

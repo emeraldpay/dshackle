@@ -19,6 +19,9 @@
 //! ID sequence, preserving the original caller IDs.
 
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
+use crate::upstream::availability::UpstreamAvailability;
+use crate::upstream::head::{CurrentHeight, Head};
+use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use futures_util::{SinkExt, StreamExt};
 use std::collections::HashMap;
@@ -44,9 +47,10 @@ const BACKOFF_MAX: std::time::Duration = std::time::Duration::from_secs(300);
 /// The connection is established in a background task on creation and
 /// automatically reconnects with exponential backoff on failure.
 pub struct EthereumWsUpstream {
-    #[allow(dead_code)]
     id: String,
-    state: Arc<ConnectionState>,
+    conn: Arc<ConnectionState>,
+    head: Arc<CurrentHeight>,
+    upstream_state: Arc<UpstreamState>,
 }
 
 /// Shared state between the call site and the background connection task.
@@ -63,27 +67,34 @@ impl EthereumWsUpstream {
     pub fn new(id: String, url: String) -> Self {
         let (outgoing_tx, outgoing_rx) = mpsc::channel::<String>(256);
 
-        let state = Arc::new(ConnectionState {
+        let conn = Arc::new(ConnectionState {
             pending: Mutex::new(HashMap::new()),
             outgoing: outgoing_tx,
             next_id: AtomicU32::new(IDS_START),
         });
 
         // Spawn the background connection loop
-        let bg_state = Arc::clone(&state);
+        let bg_state = Arc::clone(&conn);
         let bg_id = id.clone();
         tokio::spawn(async move {
             connection_loop(bg_id, url, bg_state, outgoing_rx).await;
         });
 
-        Self { id, state }
+        let head = Arc::new(CurrentHeight::new());
+        let upstream_state = Arc::new(UpstreamState::new());
+        Self { id, conn, head, upstream_state }
+    }
+
+    /// Shared reference to this upstream's head height, used to start the poller.
+    pub fn head_height(&self) -> Arc<CurrentHeight> {
+        Arc::clone(&self.head)
     }
 }
 
 #[async_trait::async_trait]
 impl RpcUpstream for EthereumWsUpstream {
     async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
-        let internal_id = self.state.next_id.fetch_add(1, Ordering::Relaxed);
+        let internal_id = self.conn.next_id.fetch_add(1, Ordering::Relaxed);
         tracing::trace!(upstream = %self.id, method = %request.method, internal_id, "WS request");
 
         let (tx, rx) = oneshot::channel();
@@ -91,7 +102,7 @@ impl RpcUpstream for EthereumWsUpstream {
         // Register the pending request before sending, so the read loop can
         // route the response even if it arrives very quickly.
         {
-            let mut pending = self.state.pending.lock().expect("pending lock poisoned");
+            let mut pending = self.conn.pending.lock().expect("pending lock poisoned");
             pending.insert(internal_id, tx);
         }
 
@@ -105,7 +116,7 @@ impl RpcUpstream for EthereumWsUpstream {
             }
         };
 
-        if self.state.outgoing.send(json).await.is_err() {
+        if self.conn.outgoing.send(json).await.is_err() {
             self.remove_pending(internal_id);
             return Err(UpstreamError::Transport("WebSocket connection is closed".into()));
         }
@@ -136,11 +147,31 @@ impl RpcUpstream for EthereumWsUpstream {
             }
         }
     }
+
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn availability(&self) -> UpstreamAvailability {
+        self.upstream_state.availability()
+    }
+
+    fn head(&self) -> &dyn Head {
+        self.head.as_ref()
+    }
+
+    fn lag(&self) -> Option<u64> {
+        self.upstream_state.lag()
+    }
+
+    fn state(&self) -> &Arc<UpstreamState> {
+        &self.upstream_state
+    }
 }
 
 impl EthereumWsUpstream {
     fn remove_pending(&self, id: u32) {
-        let mut pending = self.state.pending.lock().expect("pending lock poisoned");
+        let mut pending = self.conn.pending.lock().expect("pending lock poisoned");
         pending.remove(&id);
     }
 }
