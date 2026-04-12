@@ -21,7 +21,7 @@
 //!   Re-subscribes automatically when the connection drops and reconnects.
 
 use crate::jsonrpc::JsonRpcRequest;
-use crate::upstream::ethereum::ws::EthereumWsUpstream;
+use super::EthereumWsUpstream;
 use crate::upstream::head::CurrentHeight;
 use crate::upstream::traits::RpcUpstream;
 use std::sync::Arc;

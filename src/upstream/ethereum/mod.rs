@@ -16,4 +16,8 @@
 
 pub mod head;
 pub mod http;
-pub mod ws;
+mod ws_conn;
+mod ws_pool;
+mod ws_single;
+
+pub use ws_single::EthereumWsUpstream;

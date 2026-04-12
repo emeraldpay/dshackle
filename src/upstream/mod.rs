@@ -28,7 +28,7 @@ use crate::blockchain::TargetBlockchain;
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
 use ethereum::head::{start_head_poller, start_ws_head};
 use ethereum::http::EthereumHttpUpstream;
-use ethereum::ws::EthereumWsUpstream;
+use ethereum::EthereumWsUpstream;
 use multistream::Multistream;
 use status::ChainStatus;
 use std::collections::HashMap;
@@ -86,6 +86,7 @@ impl UpstreamManager {
                         let ws_up = Arc::new(EthereumWsUpstream::new(
                             upstream.id.clone(),
                             ws.url.clone(),
+                            ws.connections.unwrap_or(1),
                         ));
                         start_ws_head(Arc::clone(&ws_up));
                         ws_up as Arc<dyn RpcUpstream>
