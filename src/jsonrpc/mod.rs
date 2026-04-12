@@ -16,18 +16,111 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
+use std::fmt;
+use std::str::FromStr;
+
+// ─── RPC method name ───────────────────────────────────────────────────────
+
+/// A validated JSON-RPC method name (e.g. `eth_getBalance`, `net_version`).
+///
+/// Wraps a `String` with the guarantee that it is non-empty and contains only
+/// ASCII alphanumeric characters and underscores.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
+#[serde(transparent)]
+pub struct RpcMethod(String);
+
+impl RpcMethod {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for RpcMethod {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl FromStr for RpcMethod {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.is_empty() {
+            return Err("RPC method name must not be empty".into());
+        }
+        if !s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_') {
+            return Err(format!(
+                "RPC method name must contain only ASCII alphanumeric characters and underscores, got: {s}"
+            ));
+        }
+        Ok(RpcMethod(s.to_string()))
+    }
+}
+
+impl From<&str> for RpcMethod {
+    /// Creates an `RpcMethod` from a string slice.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the string is not a valid RPC method name.
+    /// Use [`FromStr`] for fallible conversion of runtime strings.
+    fn from(s: &str) -> Self {
+        s.parse().expect("invalid RPC method name")
+    }
+}
+
+impl From<String> for RpcMethod {
+    /// Creates an `RpcMethod` from a `String`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the string is not a valid RPC method name.
+    fn from(s: String) -> Self {
+        Self::from(s.as_str())
+    }
+}
+
+impl From<RpcMethod> for String {
+    fn from(m: RpcMethod) -> Self {
+        m.0
+    }
+}
+
+impl AsRef<str> for RpcMethod {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::borrow::Borrow<str> for RpcMethod {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for RpcMethod {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        s.parse().map_err(serde::de::Error::custom)
+    }
+}
+
+// ─── JSON-RPC request / response ──────────────────────────────────���────────
 
 /// Outgoing JSON-RPC 2.0 request sent to an upstream node.
 #[derive(Debug, Serialize)]
 pub struct JsonRpcRequest {
     pub jsonrpc: &'static str,
     pub id: u32,
-    pub method: String,
+    pub method: RpcMethod,
     pub params: serde_json::Value,
 }
 
 impl JsonRpcRequest {
-    pub fn new(id: u32, method: String, params: serde_json::Value) -> Self {
+    pub fn new(id: u32, method: RpcMethod, params: serde_json::Value) -> Self {
         Self {
             jsonrpc: "2.0",
             id,
@@ -68,11 +161,68 @@ impl std::fmt::Display for JsonRpcError {
 mod tests {
     use super::*;
 
+    // ── RpcMethod ─────────────────────────────────────────────────────
+
+    #[test]
+    fn rpc_method_accepts_valid_names() {
+        assert!("eth_getBalance".parse::<RpcMethod>().is_ok());
+        assert!("net_version".parse::<RpcMethod>().is_ok());
+        assert!("web3_clientVersion".parse::<RpcMethod>().is_ok());
+        assert!("eth_blockNumber".parse::<RpcMethod>().is_ok());
+        assert!("eth_sendRawTransaction".parse::<RpcMethod>().is_ok());
+        assert!("getblock".parse::<RpcMethod>().is_ok());
+    }
+
+    #[test]
+    fn rpc_method_rejects_empty() {
+        assert!("".parse::<RpcMethod>().is_err());
+    }
+
+    #[test]
+    fn rpc_method_rejects_spaces() {
+        assert!("eth getBalance".parse::<RpcMethod>().is_err());
+    }
+
+    #[test]
+    fn rpc_method_rejects_special_chars() {
+        assert!("eth.getBalance".parse::<RpcMethod>().is_err());
+        assert!("eth-getBalance".parse::<RpcMethod>().is_err());
+        assert!("eth/getBalance".parse::<RpcMethod>().is_err());
+    }
+
+    #[test]
+    fn rpc_method_display_and_as_str() {
+        let m: RpcMethod = "eth_getBalance".into();
+        assert_eq!(m.as_str(), "eth_getBalance");
+        assert_eq!(m.to_string(), "eth_getBalance");
+    }
+
+    #[test]
+    fn rpc_method_serialize_as_string() {
+        let m: RpcMethod = "eth_getBalance".into();
+        let json = serde_json::to_value(&m).unwrap();
+        assert_eq!(json, "eth_getBalance");
+    }
+
+    #[test]
+    fn rpc_method_deserialize_valid() {
+        let m: RpcMethod = serde_json::from_str("\"eth_getBalance\"").unwrap();
+        assert_eq!(m.as_str(), "eth_getBalance");
+    }
+
+    #[test]
+    fn rpc_method_deserialize_rejects_invalid() {
+        let result = serde_json::from_str::<RpcMethod>("\"eth getBalance\"");
+        assert!(result.is_err());
+    }
+
+    // ── JsonRpcRequest ──────────────────────────────────────────────
+
     #[test]
     fn serialize_request_with_params() {
         let req = JsonRpcRequest::new(
             1,
-            "eth_getBalance".to_string(),
+            "eth_getBalance".into(),
             serde_json::json!(["0xdead", "latest"]),
         );
         let json = serde_json::to_value(&req).unwrap();
@@ -85,7 +235,7 @@ mod tests {
 
     #[test]
     fn serialize_request_with_empty_params() {
-        let req = JsonRpcRequest::new(42, "eth_blockNumber".to_string(), serde_json::json!([]));
+        let req = JsonRpcRequest::new(42, "eth_blockNumber".into(), serde_json::json!([]));
         let json = serde_json::to_value(&req).unwrap();
         assert_eq!(json["id"], 42);
         assert_eq!(json["method"], "eth_blockNumber");

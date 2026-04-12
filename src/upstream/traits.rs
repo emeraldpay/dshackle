@@ -54,6 +54,8 @@ pub enum UpstreamError {
     HttpStatus(u16),
     /// The response body could not be parsed as valid JSON-RPC.
     InvalidResponse(String),
+    /// The requested RPC method is not supported by this upstream.
+    MethodNotAllowed(String),
 }
 
 impl std::fmt::Display for UpstreamError {
@@ -62,6 +64,7 @@ impl std::fmt::Display for UpstreamError {
             UpstreamError::Transport(msg) => write!(f, "transport error: {msg}"),
             UpstreamError::HttpStatus(code) => write!(f, "upstream returned HTTP {code}"),
             UpstreamError::InvalidResponse(msg) => write!(f, "invalid response: {msg}"),
+            UpstreamError::MethodNotAllowed(method) => write!(f, "method not allowed: {method}"),
         }
     }
 }

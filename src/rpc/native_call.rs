@@ -40,7 +40,7 @@ pub async fn execute_native_call(
         }
     };
 
-    let request = JsonRpcRequest::new(item.id, item.method.clone(), params);
+    let request = JsonRpcRequest::new(item.id, item.method.clone().into(), params);
     tracing::trace!(id = item.id, method = %item.method, "executing native call item");
 
     match upstream.call(&request).await {

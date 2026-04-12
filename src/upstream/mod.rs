@@ -18,6 +18,7 @@
 pub mod availability;
 mod ethereum;
 pub mod head;
+mod methods;
 mod multistream;
 pub mod state;
 mod status;
@@ -29,6 +30,9 @@ use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
 use ethereum::head::{start_head_poller, start_ws_head};
 use ethereum::http::EthereumHttpUpstream;
 use ethereum::EthereumWsUpstream;
+use methods::ethereum::EthereumMethods;
+use methods::HardcodedMethods;
+use methods::MethodFilter;
 use multistream::Multistream;
 use status::ChainStatus;
 use std::collections::HashMap;
@@ -129,6 +133,14 @@ impl UpstreamManager {
                             continue;
                         }
                     };
+
+                    // Wrap with method filtering and hardcoded responses
+                    let methods = EthereumMethods::new(chain);
+                    let (callable, hardcoded) = methods.into_parts();
+                    let reader: Arc<dyn RpcUpstream> =
+                        Arc::new(MethodFilter::new(reader, callable));
+                    let reader: Arc<dyn RpcUpstream> =
+                        Arc::new(HardcodedMethods::new(reader, hardcoded));
 
                     per_chain.entry(chain).or_default().push(reader);
                 }
