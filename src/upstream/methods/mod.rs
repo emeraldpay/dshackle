@@ -22,8 +22,9 @@
 //!   (e.g. `net_version`, `eth_chainId`) without hitting the node.
 //! - [`MethodFilter`] — rejects methods not in the allowed set.
 //!
-//! Chain-specific method configurations are in [`ethereum`].
+//! Chain-specific method configurations are in [`ethereum`] and [`bitcoin`].
 
+pub mod bitcoin;
 pub mod ethereum;
 mod filter;
 mod hardcoded;

@@ -70,3 +70,55 @@ impl std::fmt::Display for UpstreamError {
 }
 
 impl std::error::Error for UpstreamError {}
+
+/// Sanitize an HTTP error response body for safe logging.
+///
+/// Keeps only printable ASCII (0x20..=0x7E) and truncates to 1024 characters.
+pub fn sanitize_error_body(body: &str) -> String {
+    body.chars()
+        .filter(|c| ('\x20'..='\x7E').contains(c))
+        .take(1024)
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sanitize_keeps_printable_ascii() {
+        assert_eq!(sanitize_error_body("hello world"), "hello world");
+    }
+
+    #[test]
+    fn sanitize_strips_control_chars() {
+        assert_eq!(sanitize_error_body("error\x00\x01\x02msg"), "errormsg");
+    }
+
+    #[test]
+    fn sanitize_strips_newlines_and_tabs() {
+        assert_eq!(sanitize_error_body("line1\nline2\ttab"), "line1line2tab");
+    }
+
+    #[test]
+    fn sanitize_strips_non_ascii() {
+        assert_eq!(sanitize_error_body("café résumé"), "caf rsum");
+    }
+
+    #[test]
+    fn sanitize_truncates_to_1024() {
+        let long = "a".repeat(2000);
+        assert_eq!(sanitize_error_body(&long).len(), 1024);
+    }
+
+    #[test]
+    fn sanitize_empty_input() {
+        assert_eq!(sanitize_error_body(""), "");
+    }
+
+    #[test]
+    fn sanitize_preserves_json() {
+        let json = r#"{"error":"Internal Server Error","code":500}"#;
+        assert_eq!(sanitize_error_body(json), json);
+    }
+}

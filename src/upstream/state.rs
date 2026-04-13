@@ -26,13 +26,25 @@ const NO_LAG: i64 = -1;
 pub struct UpstreamState {
     lag: AtomicI64,
     availability: AtomicU8,
+    /// Lag threshold above which the upstream is considered syncing.
+    /// Ethereum uses 6 (blocks come every ~12s), Bitcoin uses 2 (blocks every ~10min).
+    syncing_lag: u64,
 }
 
 impl UpstreamState {
+    /// Creates a new state with the default syncing threshold of 6 (suitable for Ethereum).
     pub fn new() -> Self {
+        Self::with_syncing_lag(6)
+    }
+
+    /// Creates a new state with a custom syncing lag threshold.
+    ///
+    /// When the upstream's lag exceeds this value it is marked as `Syncing`.
+    pub fn with_syncing_lag(syncing_lag: u64) -> Self {
         Self {
             lag: AtomicI64::new(NO_LAG),
             availability: AtomicU8::new(UpstreamAvailability::Ok as u8),
+            syncing_lag,
         }
     }
 
@@ -51,7 +63,7 @@ impl UpstreamState {
     /// freshly started nodes still at block 0).
     pub fn update(&self, lag: u64, height: Option<u64>) {
         self.lag.store(lag as i64, Ordering::Relaxed);
-        let avail = availability_from_lag(lag, height);
+        let avail = availability_from_lag(lag, height, self.syncing_lag);
         self.availability.store(avail as u8, Ordering::Relaxed);
     }
 
@@ -64,11 +76,14 @@ impl UpstreamState {
 
 /// Derives availability status from lag and height, matching the legacy
 /// `DefaultUpstream.statusByLag` / `getStatus` logic.
-fn availability_from_lag(lag: u64, height: Option<u64>) -> UpstreamAvailability {
+///
+/// `syncing_lag` is the threshold above which the upstream is marked as syncing
+/// (6 for Ethereum, 2 for Bitcoin).
+fn availability_from_lag(lag: u64, height: Option<u64>, syncing_lag: u64) -> UpstreamAvailability {
     if height == Some(0) {
         return UpstreamAvailability::Syncing;
     }
-    if lag > 6 {
+    if lag > syncing_lag {
         UpstreamAvailability::Syncing
     } else if lag > 1 {
         UpstreamAvailability::Lagging
@@ -80,6 +95,8 @@ fn availability_from_lag(lag: u64, height: Option<u64>) -> UpstreamAvailability 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── Default (Ethereum) threshold of 6 ──────────────────────────────
 
     #[test]
     fn starts_with_ok_and_no_lag() {
@@ -147,5 +164,28 @@ mod tests {
         s.set_unknown();
         assert_eq!(s.availability(), UpstreamAvailability::Ok);
         assert_eq!(s.lag(), None);
+    }
+
+    // ── Bitcoin threshold of 2 ─────────────────────────────────────────
+
+    #[test]
+    fn bitcoin_lag_2_is_lagging() {
+        let s = UpstreamState::with_syncing_lag(2);
+        s.update(2, Some(100));
+        assert_eq!(s.availability(), UpstreamAvailability::Lagging);
+    }
+
+    #[test]
+    fn bitcoin_lag_3_is_syncing() {
+        let s = UpstreamState::with_syncing_lag(2);
+        s.update(3, Some(100));
+        assert_eq!(s.availability(), UpstreamAvailability::Syncing);
+    }
+
+    #[test]
+    fn bitcoin_lag_1_is_ok() {
+        let s = UpstreamState::with_syncing_lag(2);
+        s.update(1, Some(100));
+        assert_eq!(s.availability(), UpstreamAvailability::Ok);
     }
 }

@@ -16,6 +16,7 @@
 //! access to them for the RPC layer.
 
 pub mod availability;
+mod bitcoin;
 mod ethereum;
 pub mod head;
 mod methods;
@@ -27,9 +28,12 @@ pub mod traits;
 
 use crate::blockchain::TargetBlockchain;
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
+use bitcoin::head::start_head_poller as start_btc_head_poller;
+use bitcoin::http::BitcoinHttpUpstream;
 use ethereum::head::{start_head_poller, start_ws_head};
 use ethereum::http::EthereumHttpUpstream;
 use ethereum::EthereumWsUpstream;
+use methods::bitcoin::BitcoinMethods;
 use methods::ethereum::EthereumMethods;
 use methods::HardcodedMethods;
 use methods::MethodFilter;
@@ -144,8 +148,50 @@ impl UpstreamManager {
 
                     per_chain.entry(chain).or_default().push(reader);
                 }
-                UpstreamConnection::Bitcoin(_) => {
-                    tracing::warn!("Upstream {}: Bitcoin not yet supported, skipping", upstream.id);
+                UpstreamConnection::Bitcoin(btc) => {
+                    let rpc = match &btc.rpc {
+                        Some(rpc) => rpc,
+                        None => {
+                            tracing::warn!("Upstream {} has no RPC configured, skipping", upstream.id);
+                            continue;
+                        }
+                    };
+
+                    if rpc.tls.is_some() {
+                        tracing::warn!("Upstream {}: client TLS not yet supported, ignoring", upstream.id);
+                    }
+
+                    let basic_auth = rpc.basic_auth.as_ref().map(|auth| {
+                        (auth.username.clone(), auth.password.clone())
+                    });
+
+                    tracing::info!(
+                        "Using Bitcoin HTTP upstream '{}' at {} for {}",
+                        upstream.id, rpc.url, blockchain_name,
+                    );
+
+                    let http_up = BitcoinHttpUpstream::new(
+                        upstream.id.clone(),
+                        rpc.url.clone(),
+                        basic_auth,
+                    );
+                    let head_height = http_up.head_height();
+                    let reader: Arc<dyn RpcUpstream> = Arc::new(http_up);
+                    start_btc_head_poller(
+                        upstream.id.clone(),
+                        Arc::clone(&reader),
+                        head_height,
+                    );
+
+                    // Wrap with method filtering and hardcoded responses
+                    let methods = BitcoinMethods::new();
+                    let (callable, hardcoded) = methods.into_parts();
+                    let reader: Arc<dyn RpcUpstream> =
+                        Arc::new(MethodFilter::new(reader, callable));
+                    let reader: Arc<dyn RpcUpstream> =
+                        Arc::new(HardcodedMethods::new(reader, hardcoded));
+
+                    per_chain.entry(chain).or_default().push(reader);
                 }
                 UpstreamConnection::Dshackle(_) => {
                     tracing::warn!("Upstream {}: Dshackle gRPC not yet supported, skipping", upstream.id);
