@@ -17,6 +17,7 @@
 
 pub mod availability;
 mod bitcoin;
+mod dshackle;
 mod ethereum;
 pub mod head;
 mod methods;
@@ -30,6 +31,11 @@ use crate::blockchain::TargetBlockchain;
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
 use bitcoin::head::start_head_poller as start_btc_head_poller;
 use bitcoin::http::BitcoinHttpUpstream;
+use dshackle::head::start_head_subscriber;
+use dshackle::DshackleUpstream;
+use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
+use emerald_api::proto::blockchain::DescribeRequest;
+use emerald_api::proto::common::ChainRef;
 use ethereum::head::{start_head_poller, start_ws_head};
 use ethereum::http::EthereumHttpUpstream;
 use ethereum::EthereumWsUpstream;
@@ -39,7 +45,7 @@ use methods::HardcodedMethods;
 use methods::MethodFilter;
 use multistream::Multistream;
 use status::ChainStatus;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use switch::SwitchClient;
 use traits::RpcUpstream;
@@ -54,8 +60,9 @@ impl UpstreamManager {
     ///
     /// For Ethereum connections with both WS and HTTP configured, wraps them in
     /// a `SwitchClient` (WS primary, HTTP secondary). Otherwise uses whichever
-    /// is available. Bitcoin and Dshackle gRPC connections are not yet supported.
-    pub fn from_config(config: &UpstreamsConfig) -> anyhow::Result<Self> {
+    /// is available. Dshackle gRPC upstreams discover chains dynamically via
+    /// the remote's `Describe` RPC.
+    pub async fn from_config(config: &UpstreamsConfig) -> anyhow::Result<Self> {
         let mut per_chain: HashMap<TargetBlockchain, Vec<Arc<dyn RpcUpstream>>> = HashMap::new();
 
         for upstream in &config.upstreams {
@@ -64,24 +71,14 @@ impl UpstreamManager {
                 continue;
             }
 
-            let blockchain_name = match &upstream.blockchain {
-                Some(name) => name,
-                None => {
-                    tracing::warn!("Upstream {} has no blockchain specified, skipping", upstream.id);
-                    continue;
-                }
-            };
-
-            let chain: TargetBlockchain = match blockchain_name.parse() {
-                Ok(c) => c,
-                Err(_) => {
-                    tracing::warn!("Unknown blockchain '{}' for upstream {}, skipping", blockchain_name, upstream.id);
-                    continue;
-                }
-            };
-
             match &upstream.connection {
                 UpstreamConnection::Ethereum(eth) => {
+                    let chain = match parse_required_chain(upstream) {
+                        Some(c) => c,
+                        None => continue,
+                    };
+                    let blockchain_name = upstream.blockchain.as_deref().unwrap_or("?");
+
                     // WS upstream gets head updates via newHeads subscription
                     let ws_upstream: Option<Arc<dyn RpcUpstream>> = eth.ws.as_ref().map(|ws| {
                         if ws.basic_auth.is_some() {
@@ -149,6 +146,12 @@ impl UpstreamManager {
                     per_chain.entry(chain).or_default().push(reader);
                 }
                 UpstreamConnection::Bitcoin(btc) => {
+                    let chain = match parse_required_chain(upstream) {
+                        Some(c) => c,
+                        None => continue,
+                    };
+                    let blockchain_name = upstream.blockchain.as_deref().unwrap_or("?");
+
                     let rpc = match &btc.rpc {
                         Some(rpc) => rpc,
                         None => {
@@ -193,8 +196,40 @@ impl UpstreamManager {
 
                     per_chain.entry(chain).or_default().push(reader);
                 }
-                UpstreamConnection::Dshackle(_) => {
-                    tracing::warn!("Upstream {}: Dshackle gRPC not yet supported, skipping", upstream.id);
+                UpstreamConnection::Dshackle(ds) => {
+                    let url = match resolve_dshackle_url(ds) {
+                        Some(u) => u,
+                        None => {
+                            tracing::warn!(
+                                "Upstream {}: no URL or host configured for Dshackle connection, skipping",
+                                upstream.id
+                            );
+                            continue;
+                        }
+                    };
+
+                    if ds.tls.is_some() {
+                        tracing::warn!("Upstream {}: Dshackle TLS not yet supported, ignoring", upstream.id);
+                    }
+
+                    tracing::info!(
+                        "Connecting to remote Dshackle '{}' at {}",
+                        upstream.id, url,
+                    );
+
+                    match connect_dshackle(&upstream.id, &url).await {
+                        Ok(discovered) => {
+                            for (chain, reader) in discovered {
+                                per_chain.entry(chain).or_default().push(reader);
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                "Upstream {}: failed to connect to Dshackle at {}: {}",
+                                upstream.id, url, e
+                            );
+                        }
+                    }
                 }
             }
         }
@@ -234,4 +269,134 @@ impl UpstreamManager {
     pub fn get(&self, chain: &TargetBlockchain) -> Option<&Arc<dyn RpcUpstream>> {
         self.upstreams.get(chain)
     }
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
+/// Parses the blockchain field from a configured upstream. Returns `None` and
+/// logs a warning if the field is missing or unrecognized.
+fn parse_required_chain(
+    upstream: &crate::config::upstreams::Upstream,
+) -> Option<TargetBlockchain> {
+    let name = match &upstream.blockchain {
+        Some(name) => name,
+        None => {
+            tracing::warn!("Upstream {} has no blockchain specified, skipping", upstream.id);
+            return None;
+        }
+    };
+    match name.parse() {
+        Ok(c) => Some(c),
+        Err(_) => {
+            tracing::warn!("Unknown blockchain '{}' for upstream {}, skipping", name, upstream.id);
+            None
+        }
+    }
+}
+
+/// Resolves the gRPC URL for a Dshackle connection from its config.
+fn resolve_dshackle_url(
+    ds: &crate::config::upstreams::DshackleConnection,
+) -> Option<String> {
+    if let Some(url) = &ds.url {
+        return Some(url.clone());
+    }
+    ds.host.as_ref().map(|host| {
+        let port = ds.port.unwrap_or(2448);
+        format!("http://{host}:{port}")
+    })
+}
+
+/// Returns the appropriate syncing lag threshold for a chain.
+fn syncing_lag_for(chain_ref: ChainRef) -> u64 {
+    match chain_ref {
+        ChainRef::ChainBitcoin | ChainRef::ChainTestnetBitcoin | ChainRef::ChainTestnetBitcoin4 => 2,
+        _ => 6,
+    }
+}
+
+/// Connects to a remote Dshackle instance, calls `Describe` to discover
+/// available chains, and creates a per-chain upstream for each.
+async fn connect_dshackle(
+    upstream_id: &str,
+    url: &str,
+) -> anyhow::Result<Vec<(TargetBlockchain, Arc<dyn RpcUpstream>)>> {
+    let endpoint = tonic::transport::Endpoint::from_shared(url.to_string())?;
+    let channel = endpoint.connect().await?;
+    let mut client = BlockchainClient::new(channel);
+
+    let describe_resp = client.describe(DescribeRequest {}).await?;
+    let chains = describe_resp.into_inner().chains;
+
+    if chains.is_empty() {
+        tracing::warn!("Dshackle '{}': remote reported no available chains", upstream_id);
+        return Ok(Vec::new());
+    }
+
+    let mut results = Vec::new();
+
+    for desc_chain in &chains {
+        let chain_ref = match ChainRef::try_from(desc_chain.chain) {
+            Ok(c) if c != ChainRef::ChainUnspecified => c,
+            _ => {
+                tracing::debug!(
+                    "Dshackle '{}': skipping unknown chain id {}",
+                    upstream_id, desc_chain.chain
+                );
+                continue;
+            }
+        };
+
+        let chain = TargetBlockchain::from(chain_ref);
+        let chain_id = format!("{}/{}", upstream_id, chain);
+        let syncing_lag = syncing_lag_for(chain_ref);
+
+        tracing::info!(
+            "Dshackle '{}': discovered chain {} ({} methods)",
+            upstream_id,
+            chain,
+            desc_chain.supported_methods.len(),
+        );
+
+        let ds_upstream = DshackleUpstream::new(
+            chain_id.clone(),
+            desc_chain.chain,
+            client.clone(),
+            syncing_lag,
+        );
+
+        // Start head tracking via SubscribeHead
+        start_head_subscriber(
+            chain_id.clone(),
+            desc_chain.chain,
+            ds_upstream.grpc_client(),
+            ds_upstream.head_height(),
+        );
+
+        let reader: Arc<dyn RpcUpstream> = Arc::new(ds_upstream);
+
+        // Use the supported methods from Describe as the allowed set.
+        // The remote Dshackle already handles hardcoded responses, so we
+        // only need a MethodFilter — no HardcodedMethods wrapper.
+        if !desc_chain.supported_methods.is_empty() {
+            let callable: HashSet<_> = desc_chain
+                .supported_methods
+                .iter()
+                .filter_map(|m| m.parse().ok())
+                .collect();
+            let reader = Arc::new(MethodFilter::new(reader, callable));
+            results.push((chain, reader as Arc<dyn RpcUpstream>));
+        } else {
+            // No method list — pass everything through
+            results.push((chain, reader));
+        }
+    }
+
+    tracing::info!(
+        "Dshackle '{}': connected with {} chain(s)",
+        upstream_id,
+        results.len(),
+    );
+
+    Ok(results)
 }
