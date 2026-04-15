@@ -37,14 +37,39 @@ pub use not_lagging::NotLaggingQuorum;
 
 use crate::jsonrpc::{JsonRpcResponse, RpcMethod};
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
+use serde_json::value::RawValue;
 
-/// Picks a `CallQuorum` strategy for each RPC method.
+/// Picks a `CallQuorum` strategy for each RPC method, and reports which
+/// methods the backing configuration considers callable or hardcoded.
 ///
 /// Concrete implementations live next to the per-chain method tables in
 /// [`crate::upstream::methods`], since the mapping is fundamentally a
-/// per-method configuration.
+/// per-method configuration. The `is_callable`/`is_hardcoded` methods let an
+/// aggregator (e.g. `AggregatedMethods`) pick a delegate that actually
+/// supports a method, mirroring the legacy `AggregatedCallMethods`.
 pub trait QuorumFactory: Send + Sync {
     fn quorum_for(&self, method: &RpcMethod) -> Box<dyn CallQuorum>;
+
+    /// Whether the method may be forwarded to an upstream through this config.
+    /// Defaults to `true` so backends without an explicit method list act as
+    /// pass-through (e.g. Dshackle gRPC remotes).
+    fn is_callable(&self, _method: &RpcMethod) -> bool {
+        true
+    }
+
+    /// Whether the method is answered from a hardcoded response rather than
+    /// forwarded to the upstream. Default derives from
+    /// [`hardcoded_response`](Self::hardcoded_response) so implementors only
+    /// override one.
+    fn is_hardcoded(&self, method: &RpcMethod) -> bool {
+        self.hardcoded_response(method).is_some()
+    }
+
+    /// The hardcoded response body for a method, if one is configured.
+    /// Returning `Some` means the method bypasses the upstream entirely.
+    fn hardcoded_response(&self, _method: &RpcMethod) -> Option<&RawValue> {
+        None
+    }
 }
 
 /// Decides when a request has gathered enough responses to be considered done.

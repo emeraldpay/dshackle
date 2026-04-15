@@ -16,7 +16,7 @@
 //! Bitcoin, Dshackle gRPC) will implement `RpcUpstream` so the call pipeline
 //! can work with them uniformly.
 
-use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
+use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
 use crate::upstream::state::UpstreamState;
@@ -43,6 +43,17 @@ pub trait RpcUpstream: Send + Sync {
 
     /// Shared mutable state (lag, derived availability) updated by the status tracker.
     fn state(&self) -> &Arc<UpstreamState>;
+
+    /// Whether this upstream will accept the given method.
+    ///
+    /// Used by `Multistream` to skip upstreams up front instead of discovering
+    /// the mismatch via a `MethodNotAllowed` error. The default returns `true`
+    /// because most transports don't know their allowed set; the
+    /// `MethodFilter` and `HardcodedMethods` wrappers override it to enforce
+    /// per-upstream method configs.
+    fn allows_method(&self, _method: &RpcMethod) -> bool {
+        true
+    }
 }
 
 /// Errors that can occur when communicating with an upstream.

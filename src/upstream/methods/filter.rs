@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Upstream wrapper that rejects calls to methods not in an allowed set.
+//! Upstream wrapper that rejects calls to methods not recognised by a
+//! [`QuorumFactory`] (callable or hardcoded).
 //!
 //! Sits between the hardcoded-response layer and the actual upstream transport,
 //! ensuring only known/supported methods reach the node.
@@ -20,28 +21,32 @@
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
+use crate::upstream::quorum::QuorumFactory;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
-use std::collections::HashSet;
 use std::sync::Arc;
 
-/// Filters RPC calls, rejecting methods not in the allowed set with
-/// [`UpstreamError::MethodNotAllowed`].
+/// Filters RPC calls, rejecting methods the underlying methods config does
+/// not recognise with [`UpstreamError::MethodNotAllowed`].
 pub struct MethodFilter {
     delegate: Arc<dyn RpcUpstream>,
-    allowed: HashSet<RpcMethod>,
+    methods: Arc<dyn QuorumFactory>,
 }
 
 impl MethodFilter {
-    pub fn new(delegate: Arc<dyn RpcUpstream>, allowed: HashSet<RpcMethod>) -> Self {
-        Self { delegate, allowed }
+    pub fn new(delegate: Arc<dyn RpcUpstream>, methods: Arc<dyn QuorumFactory>) -> Self {
+        Self { delegate, methods }
+    }
+
+    fn supported(&self, method: &RpcMethod) -> bool {
+        self.methods.is_callable(method) || self.methods.is_hardcoded(method)
     }
 }
 
 #[async_trait::async_trait]
 impl RpcUpstream for MethodFilter {
     async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
-        if !self.allowed.contains(&request.method) {
+        if !self.supported(&request.method) {
             return Err(UpstreamError::MethodNotAllowed(request.method.to_string()));
         }
         self.delegate.call(request).await
@@ -66,12 +71,20 @@ impl RpcUpstream for MethodFilter {
     fn state(&self) -> &Arc<UpstreamState> {
         self.delegate.state()
     }
+
+    fn allows_method(&self, method: &RpcMethod) -> bool {
+        self.supported(method) && self.delegate.allows_method(method)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::upstream::head::NoHead;
+    use crate::upstream::methods::config::ConfiguredMethods;
+    use crate::upstream::methods::LayeredMethods;
+    use crate::upstream::methods::DefaultMethods;
+    use crate::config::upstreams::{MethodConfig, MethodsConfig};
 
     static MOCK_STATE: std::sync::LazyLock<Arc<UpstreamState>> =
         std::sync::LazyLock::new(|| Arc::new(UpstreamState::new()));
@@ -95,28 +108,67 @@ mod tests {
         JsonRpcRequest::new(1, method.into(), serde_json::json!([]))
     }
 
+    fn layered_enabled(methods: &[&str]) -> Arc<dyn QuorumFactory> {
+        let enabled: Vec<MethodConfig> = methods
+            .iter()
+            .map(|m| MethodConfig { name: (*m).into(), quorum: None, static_value: None })
+            .collect();
+        let configured = Arc::new(ConfiguredMethods::from_config(Some(&MethodsConfig {
+            enabled,
+            disabled: vec![],
+        })));
+        Arc::new(LayeredMethods::new(
+            Arc::new(DefaultMethods) as Arc<dyn QuorumFactory>,
+            configured,
+        ))
+    }
+
     #[tokio::test]
     async fn allows_listed_method() {
-        let allowed = HashSet::from(["eth_blockNumber".into()]);
-        let filter = MethodFilter::new(Arc::new(StubUpstream), allowed);
-
+        // DefaultMethods considers everything callable by default.
+        let filter = MethodFilter::new(
+            Arc::new(StubUpstream),
+            Arc::new(DefaultMethods) as Arc<dyn QuorumFactory>,
+        );
         let resp = filter.call(&request("eth_blockNumber")).await;
         assert!(resp.is_ok());
     }
 
     #[tokio::test]
     async fn rejects_unlisted_method() {
-        let allowed = HashSet::from(["eth_blockNumber".into()]);
-        let filter = MethodFilter::new(Arc::new(StubUpstream), allowed);
+        // ConfiguredMethods alone claims only what the user enabled.
+        let methods = Arc::new(ConfiguredMethods::from_config(Some(&MethodsConfig {
+            enabled: vec![MethodConfig {
+                name: "eth_blockNumber".into(),
+                quorum: None,
+                static_value: None,
+            }],
+            disabled: vec![],
+        })));
+        let filter = MethodFilter::new(
+            Arc::new(StubUpstream),
+            methods as Arc<dyn QuorumFactory>,
+        );
 
         let err = filter.call(&request("debug_traceTransaction")).await.unwrap_err();
         assert!(matches!(err, UpstreamError::MethodNotAllowed(m) if m == "debug_traceTransaction"));
     }
 
     #[tokio::test]
+    async fn uses_layered_config_union() {
+        // Layered methods accept whatever is enabled by either layer.
+        let filter = MethodFilter::new(Arc::new(StubUpstream), layered_enabled(&["parity_trace"]));
+        // DefaultMethods claims everything callable, so any method passes —
+        // a more interesting test is below with ConfiguredMethods alone.
+        assert!(filter.call(&request("parity_trace")).await.is_ok());
+    }
+
+    #[tokio::test]
     async fn delegates_identity() {
-        let allowed = HashSet::new();
-        let filter = MethodFilter::new(Arc::new(StubUpstream), allowed);
+        let filter = MethodFilter::new(
+            Arc::new(StubUpstream),
+            Arc::new(DefaultMethods) as Arc<dyn QuorumFactory>,
+        );
 
         assert_eq!(filter.id(), "stub");
         assert_eq!(filter.availability(), UpstreamAvailability::Ok);

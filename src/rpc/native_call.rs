@@ -47,7 +47,7 @@ pub async fn execute_native_call(
     tracing::trace!(id = item.id, method = %item.method, "executing native call item");
 
     let quorum = multistream.quorum_for(&request.method);
-    let candidates = multistream.select_for(quorum.selector());
+    let candidates = multistream.select_for(quorum.selector(), &request.method);
     match router::route(candidates, quorum, &request).await {
         Ok(resp) => {
             if let Some(result) = resp.result {

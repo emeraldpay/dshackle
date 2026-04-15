@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Default Ethereum RPC method configuration.
+//! Chain-default Ethereum methods: the built-in allow-list, hardcoded
+//! responses, and per-method quorum mapping. This layer carries no
+//! user-supplied state; user overrides go into
+//! [`ConfiguredMethods`](super::ConfiguredMethods) and both layers are
+//! composed by [`LayeredMethods`](super::LayeredMethods).
 //!
-//! Defines which methods can be forwarded to an upstream, which are answered
-//! with predefined responses, and which `CallQuorum` strategy applies to
-//! each. Mirrors the legacy `DefaultEthereumMethods` Kotlin class.
-//!
-//! In the legacy code these decisions are configurable per blockchain and
-//! per upstream. This is the chain-default state — per-upstream overrides
-//! will plug in here later.
+//! Mirrors the legacy `DefaultEthereumMethods` Kotlin class.
 
 use crate::blockchain::TargetBlockchain;
 use crate::jsonrpc::RpcMethod;
@@ -31,20 +29,15 @@ use emerald_api::proto::common::ChainRef;
 use serde_json::value::RawValue;
 use std::collections::{HashMap, HashSet};
 
-/// Ethereum method configuration for a specific chain. Acts as both the
-/// source of allowed/hardcoded method sets and the per-method
-/// [`QuorumFactory`].
-///
-/// TODO: this currently produces a fixed chain-default config. Rewrite to
-/// accept per-blockchain and per-upstream overrides from the user's config
-/// (allowed methods, hardcoded responses, quorum strategy per method).
-pub struct EthereumMethods {
+/// Ethereum method defaults for one chain. Fixed at construction — layering
+/// with a user config happens elsewhere.
+pub struct DefaultEthereumMethods {
     callable: HashSet<RpcMethod>,
     hardcoded: HashMap<RpcMethod, Box<RawValue>>,
 }
 
-impl EthereumMethods {
-    /// Build method configuration for the given chain.
+impl DefaultEthereumMethods {
+    /// Build chain defaults.
     ///
     /// Chain-specific methods (`net_version`, `eth_chainId`) are only hardcoded
     /// for known chains; unknown chains let them pass through to the upstream.
@@ -54,12 +47,51 @@ impl EthereumMethods {
             hardcoded: build_hardcoded_map(chain),
         }
     }
+}
 
-    /// Consume self and return the two datasets:
-    /// - callable methods (for [`MethodFilter`](super::MethodFilter))
-    /// - hardcoded responses (for [`HardcodedMethods`](super::HardcodedMethods))
-    pub fn into_parts(self) -> (HashSet<RpcMethod>, HashMap<RpcMethod, Box<RawValue>>) {
-        (self.callable, self.hardcoded)
+impl Default for DefaultEthereumMethods {
+    /// Ethereum mainnet — a sane default for tests and examples where the
+    /// specific chain doesn't matter.
+    fn default() -> Self {
+        Self::new(TargetBlockchain::Standard(ChainRef::ChainEthereum))
+    }
+}
+
+impl QuorumFactory for DefaultEthereumMethods {
+    /// Default per-method quorum mapping. Mirrors
+    /// `DefaultEthereumMethods.createQuorumFor` from the legacy implementation.
+    fn quorum_for(&self, method: &RpcMethod) -> Box<dyn CallQuorum> {
+        match method.as_str() {
+            // Anything with `latest`/`pending` semantics needs the freshest
+            // possible state — pin to upstreams at the chain head.
+            "eth_blockNumber" | "eth_getBalance" => Box::new(NotLaggingQuorum::new(0)),
+            // Head-verified reads tolerate a single-block lag (the upstream
+            // might be one block behind the global best but still consistent).
+            "eth_getBlockTransactionCountByNumber"
+            | "eth_getUncleCountByBlockNumber"
+            | "eth_getBlockByNumber"
+            | "eth_getTransactionByBlockNumberAndIndex"
+            | "eth_getTransactionReceipt"
+            | "eth_getUncleByBlockNumberAndIndex"
+            | "eth_feeHistory" => Box::new(NotLaggingQuorum::new(1)),
+            // Gas-price / call / estimate are sensitive to network state but
+            // a few blocks of lag are still acceptable.
+            "eth_gasPrice" | "eth_call" | "eth_estimateGas" => Box::new(NotLaggingQuorum::new(4)),
+            // Mempool-sensitive: use the highest nonce seen across upstreams.
+            "eth_getTransactionCount" => Box::new(NonceQuorum::new()),
+            // Broadcast to multiple peers for redundancy.
+            "eth_sendRawTransaction" => Box::new(BroadcastQuorum::new()),
+            // Hash-keyed reads are content-addressed — first valid answer wins.
+            _ => Box::new(AlwaysQuorum::new()),
+        }
+    }
+
+    fn is_callable(&self, method: &RpcMethod) -> bool {
+        self.callable.contains(method)
+    }
+
+    fn hardcoded_response(&self, method: &RpcMethod) -> Option<&RawValue> {
+        self.hardcoded.get(method).map(|b| &**b)
     }
 }
 
@@ -178,40 +210,6 @@ fn net_version_for(chain: TargetBlockchain) -> Option<&'static str> {
     }
 }
 
-// ─── Quorum strategy per method ────────────────────────────────────────────
-
-/// Default per-method quorum mapping. Mirrors
-/// `DefaultEthereumMethods.createQuorumFor` from the legacy implementation.
-impl QuorumFactory for EthereumMethods {
-    fn quorum_for(&self, method: &RpcMethod) -> Box<dyn CallQuorum> {
-        match method.as_str() {
-            // Anything with `latest`/`pending` semantics needs the freshest
-            // possible state — pin to upstreams at the chain head.
-            "eth_blockNumber" | "eth_getBalance" => Box::new(NotLaggingQuorum::new(0)),
-            // Head-verified reads tolerate a single-block lag (the upstream
-            // might be one block behind the global best but still consistent).
-            "eth_getBlockTransactionCountByNumber"
-            | "eth_getUncleCountByBlockNumber"
-            | "eth_getBlockByNumber"
-            | "eth_getTransactionByBlockNumberAndIndex"
-            | "eth_getTransactionReceipt"
-            | "eth_getUncleByBlockNumberAndIndex"
-            | "eth_feeHistory" => Box::new(NotLaggingQuorum::new(1)),
-            // Gas-price / call / estimate are sensitive to network state but
-            // a few blocks of lag are still acceptable.
-            "eth_gasPrice" | "eth_call" | "eth_estimateGas" => Box::new(NotLaggingQuorum::new(4)),
-            // Mempool-sensitive: use the highest nonce seen across upstreams.
-            "eth_getTransactionCount" => Box::new(NonceQuorum::new()),
-            // Broadcast to multiple peers for redundancy.
-            "eth_sendRawTransaction" => Box::new(BroadcastQuorum::new()),
-            // Hash-keyed reads are content-addressed — first valid answer wins.
-            _ => Box::new(AlwaysQuorum::new()),
-        }
-    }
-}
-
-// ─── Hardcoded chain identity ──────────────────────────────────────────────
-
 fn chain_id_for(chain: TargetBlockchain) -> Option<&'static str> {
     match chain {
         TargetBlockchain::Standard(c) => match c {
@@ -239,51 +237,44 @@ mod tests {
         TargetBlockchain::Standard(ChainRef::ChainEthereum)
     }
 
-    fn sepolia_chain() -> TargetBlockchain {
-        TargetBlockchain::Standard(ChainRef::ChainSepolia)
-    }
-
     #[test]
     fn callable_includes_standard_methods() {
-        let methods = EthereumMethods::new(eth_chain());
-        let (callable, _) = methods.into_parts();
+        let methods = DefaultEthereumMethods::new(eth_chain());
 
-        assert!(callable.contains("eth_getBalance"));
-        assert!(callable.contains("eth_blockNumber"));
-        assert!(callable.contains("eth_getTransactionReceipt"));
-        assert!(callable.contains("eth_sendRawTransaction"));
-        assert!(callable.contains("eth_getLogs"));
+        assert!(methods.is_callable(&"eth_getBalance".into()));
+        assert!(methods.is_callable(&"eth_blockNumber".into()));
+        assert!(methods.is_callable(&"eth_getTransactionReceipt".into()));
+        assert!(methods.is_callable(&"eth_sendRawTransaction".into()));
+        assert!(methods.is_callable(&"eth_getLogs".into()));
     }
 
     #[test]
     fn callable_does_not_include_hardcoded() {
-        let methods = EthereumMethods::new(eth_chain());
-        let (callable, _) = methods.into_parts();
+        let methods = DefaultEthereumMethods::new(eth_chain());
 
-        assert!(!callable.contains("net_version"));
-        assert!(!callable.contains("eth_chainId"));
-        assert!(!callable.contains("web3_clientVersion"));
+        assert!(!methods.is_callable(&"net_version".into()));
+        assert!(!methods.is_callable(&"eth_chainId".into()));
+        assert!(!methods.is_callable(&"web3_clientVersion".into()));
     }
 
     #[test]
     fn callable_does_not_include_unknown() {
-        let methods = EthereumMethods::new(eth_chain());
-        let (callable, _) = methods.into_parts();
+        let methods = DefaultEthereumMethods::new(eth_chain());
 
-        assert!(!callable.contains("debug_traceTransaction"));
-        assert!(!callable.contains("eth_subscribe"));
+        assert!(!methods.is_callable(&"debug_traceTransaction".into()));
+        assert!(!methods.is_callable(&"eth_subscribe".into()));
     }
 
     #[test]
     fn hardcoded_ethereum_mainnet() {
-        let methods = EthereumMethods::new(eth_chain());
-        let (_, hardcoded) = methods.into_parts();
+        let methods = DefaultEthereumMethods::new(eth_chain());
 
-        assert_eq!(hardcoded["net_version"].get(), "\"1\"");
-        assert_eq!(hardcoded["eth_chainId"].get(), "\"0x1\"");
-        assert_eq!(hardcoded["eth_syncing"].get(), "false");
-        assert_eq!(hardcoded["eth_accounts"].get(), "[]");
-        assert_eq!(hardcoded["eth_mining"].get(), "false");
+        let lookup = |m: &str| methods.hardcoded_response(&m.into()).map(|r| r.get().to_string());
+        assert_eq!(lookup("net_version").as_deref(), Some("\"1\""));
+        assert_eq!(lookup("eth_chainId").as_deref(), Some("\"0x1\""));
+        assert_eq!(lookup("eth_syncing").as_deref(), Some("false"));
+        assert_eq!(lookup("eth_accounts").as_deref(), Some("[]"));
+        assert_eq!(lookup("eth_mining").as_deref(), Some("false"));
     }
 
     /// Data-driven test matching the legacy `DefaultEthereumMethodsSpec`
@@ -306,30 +297,24 @@ mod tests {
 
         for (chain_ref, expected_chain_id, expected_net_version) in cases {
             let chain = TargetBlockchain::Standard(chain_ref);
-            let methods = EthereumMethods::new(chain);
-            let (_, hardcoded) = methods.into_parts();
-
+            let methods = DefaultEthereumMethods::new(chain);
             assert_eq!(
-                hardcoded["eth_chainId"].get(),
-                expected_chain_id,
-                "eth_chainId mismatch for {:?}",
-                chain_ref,
+                methods.hardcoded_response(&"eth_chainId".into()).map(|r| r.get().to_string()).as_deref(),
+                Some(expected_chain_id),
+                "eth_chainId mismatch for {chain_ref:?}",
             );
             assert_eq!(
-                hardcoded["net_version"].get(),
-                expected_net_version,
-                "net_version mismatch for {:?}",
-                chain_ref,
+                methods.hardcoded_response(&"net_version".into()).map(|r| r.get().to_string()).as_deref(),
+                Some(expected_net_version),
+                "net_version mismatch for {chain_ref:?}",
             );
         }
     }
 
     #[test]
     fn hardcoded_version_string() {
-        let methods = EthereumMethods::new(eth_chain());
-        let (_, hardcoded) = methods.into_parts();
-
-        let version = hardcoded["web3_clientVersion"].get();
+        let methods = DefaultEthereumMethods::new(eth_chain());
+        let version = methods.hardcoded_response(&"web3_clientVersion".into()).unwrap().get();
         assert!(version.starts_with("\"EmeraldDshackle/"));
         assert!(version.ends_with('"'));
     }
@@ -337,16 +322,15 @@ mod tests {
     #[test]
     fn unknown_chain_omits_chain_specific_methods() {
         let chain = TargetBlockchain::Standard(ChainRef::ChainFantom);
-        let methods = EthereumMethods::new(chain);
-        let (_, hardcoded) = methods.into_parts();
+        let methods = DefaultEthereumMethods::new(chain);
 
         // Chain-independent methods still present
-        assert!(hardcoded.contains_key("eth_syncing"));
-        assert!(hardcoded.contains_key("web3_clientVersion"));
+        assert!(methods.hardcoded_response(&"eth_syncing".into()).is_some());
+        assert!(methods.hardcoded_response(&"web3_clientVersion".into()).is_some());
 
         // Chain-specific methods absent (will be forwarded to upstream)
-        assert!(!hardcoded.contains_key("net_version"));
-        assert!(!hardcoded.contains_key("eth_chainId"));
+        assert!(methods.hardcoded_response(&"net_version".into()).is_none());
+        assert!(methods.hardcoded_response(&"eth_chainId".into()).is_none());
     }
 
     // ── Quorum mapping ────────────────────────────────────────────────
@@ -354,7 +338,7 @@ mod tests {
     use crate::upstream::quorum::SelectorHint;
 
     fn selector_for(method: &str) -> SelectorHint {
-        EthereumMethods::new(eth_chain())
+        DefaultEthereumMethods::new(eth_chain())
             .quorum_for(&method.into())
             .selector()
     }

@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Upstream wrapper that intercepts configured methods with static JSON-RPC
-//! responses, without hitting the actual upstream node.
+//! Upstream wrapper that answers configured methods with a static JSON-RPC
+//! response taken from a [`QuorumFactory`] methods config, without hitting
+//! the actual upstream node.
 //!
 //! Used for methods like `net_version`, `eth_chainId`, `web3_clientVersion`
 //! whose answers are known at configuration time.
@@ -21,36 +22,32 @@
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
+use crate::upstream::quorum::QuorumFactory;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
-use serde_json::value::RawValue;
-use std::collections::HashMap;
 use std::sync::Arc;
 
-/// Returns predefined responses for configured methods, delegating
-/// everything else to the inner upstream.
+/// Returns predefined responses for methods the backing [`QuorumFactory`]
+/// knows as hardcoded, delegating everything else to the inner upstream.
 pub struct HardcodedMethods {
     delegate: Arc<dyn RpcUpstream>,
-    responses: HashMap<RpcMethod, Box<RawValue>>,
+    methods: Arc<dyn QuorumFactory>,
 }
 
 impl HardcodedMethods {
-    pub fn new(
-        delegate: Arc<dyn RpcUpstream>,
-        responses: HashMap<RpcMethod, Box<RawValue>>,
-    ) -> Self {
-        Self { delegate, responses }
+    pub fn new(delegate: Arc<dyn RpcUpstream>, methods: Arc<dyn QuorumFactory>) -> Self {
+        Self { delegate, methods }
     }
 }
 
 #[async_trait::async_trait]
 impl RpcUpstream for HardcodedMethods {
     async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
-        if let Some(result) = self.responses.get(&request.method) {
+        if let Some(result) = self.methods.hardcoded_response(&request.method) {
             tracing::trace!(upstream = self.delegate.id(), method = %request.method, "hardcoded response");
             return Ok(JsonRpcResponse {
                 id: serde_json::Value::from(request.id),
-                result: Some(result.clone()),
+                result: Some(result.to_owned()),
                 error: None,
             });
         }
@@ -76,12 +73,21 @@ impl RpcUpstream for HardcodedMethods {
     fn state(&self) -> &Arc<UpstreamState> {
         self.delegate.state()
     }
+
+    fn allows_method(&self, method: &RpcMethod) -> bool {
+        // A hardcoded response is always answerable here; otherwise fall
+        // through to whatever the delegate's own allow-list says.
+        self.methods.is_hardcoded(method) || self.delegate.allows_method(method)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::upstreams::{MethodConfig, MethodsConfig};
     use crate::upstream::head::NoHead;
+    use crate::upstream::methods::config::ConfiguredMethods;
+    use crate::upstream::methods::DefaultMethods;
 
     static MOCK_STATE: std::sync::LazyLock<Arc<UpstreamState>> =
         std::sync::LazyLock::new(|| Arc::new(UpstreamState::new()));
@@ -105,25 +111,33 @@ mod tests {
         JsonRpcRequest::new(1, method.into(), serde_json::json!([]))
     }
 
+    fn with_static(method: &str, value: &str) -> Arc<ConfiguredMethods> {
+        Arc::new(ConfiguredMethods::from_config(Some(&MethodsConfig {
+            enabled: vec![MethodConfig {
+                name: method.into(),
+                quorum: None,
+                static_value: Some(value.into()),
+            }],
+            disabled: vec![],
+        })))
+    }
+
     #[tokio::test]
     async fn returns_hardcoded_for_known_method() {
-        let mut responses = HashMap::new();
-        responses.insert(
-            "net_version".into(),
-            RawValue::from_string("\"1\"".into()).unwrap(),
-        );
-        let hc = HardcodedMethods::new(Arc::new(StubUpstream), responses);
+        let methods = with_static("net_version", "\"1\"");
+        let hc = HardcodedMethods::new(Arc::new(StubUpstream), methods as Arc<dyn QuorumFactory>);
 
         let resp = hc.call(&request("net_version")).await.unwrap();
         assert_eq!(resp.result.unwrap().get(), "\"1\"");
-        // id should match the request
         assert_eq!(resp.id, serde_json::Value::from(1u32));
     }
 
     #[tokio::test]
     async fn delegates_unknown_method_to_upstream() {
-        let responses = HashMap::new();
-        let hc = HardcodedMethods::new(Arc::new(StubUpstream), responses);
+        let hc = HardcodedMethods::new(
+            Arc::new(StubUpstream),
+            Arc::new(DefaultMethods) as Arc<dyn QuorumFactory>,
+        );
 
         let resp = hc.call(&request("eth_blockNumber")).await.unwrap();
         assert_eq!(resp.result.unwrap().get(), r#""0xfromupstream""#);
@@ -131,12 +145,8 @@ mod tests {
 
     #[tokio::test]
     async fn preserves_request_id_in_hardcoded_response() {
-        let mut responses = HashMap::new();
-        responses.insert(
-            "eth_chainId".into(),
-            RawValue::from_string("\"0x1\"".into()).unwrap(),
-        );
-        let hc = HardcodedMethods::new(Arc::new(StubUpstream), responses);
+        let methods = with_static("eth_chainId", "\"0x1\"");
+        let hc = HardcodedMethods::new(Arc::new(StubUpstream), methods as Arc<dyn QuorumFactory>);
 
         let req = JsonRpcRequest::new(42, "eth_chainId".into(), serde_json::json!([]));
         let resp = hc.call(&req).await.unwrap();
@@ -145,7 +155,10 @@ mod tests {
 
     #[tokio::test]
     async fn delegates_identity() {
-        let hc = HardcodedMethods::new(Arc::new(StubUpstream), HashMap::new());
+        let hc = HardcodedMethods::new(
+            Arc::new(StubUpstream),
+            Arc::new(DefaultMethods) as Arc<dyn QuorumFactory>,
+        );
 
         assert_eq!(hc.id(), "stub");
         assert_eq!(hc.availability(), UpstreamAvailability::Ok);

@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Default Bitcoin RPC method configuration.
+//! Chain-default Bitcoin methods: the built-in allow-list, hardcoded
+//! responses, and per-method quorum mapping. This layer carries no
+//! user-supplied state; user overrides go into
+//! [`ConfiguredMethods`](super::ConfiguredMethods) and both layers are
+//! composed by [`LayeredMethods`](super::LayeredMethods).
 //!
-//! Defines which methods can be forwarded to an upstream, which are answered
-//! with predefined responses, and which `CallQuorum` strategy applies to
-//! each. Mirrors the legacy `DefaultBitcoinMethods` Kotlin class.
-//!
-//! In the legacy code these decisions are configurable per blockchain and
-//! per upstream. This is the chain-default state — per-upstream overrides
-//! will plug in here later.
+//! Mirrors the legacy `DefaultBitcoinMethods` Kotlin class.
 
 use crate::jsonrpc::RpcMethod;
 use crate::upstream::quorum::{
@@ -29,31 +27,58 @@ use crate::upstream::quorum::{
 use serde_json::value::RawValue;
 use std::collections::{HashMap, HashSet};
 
-/// Bitcoin method configuration. Acts as both the source of allowed/hardcoded
-/// method sets and the per-method [`QuorumFactory`].
-///
-/// TODO: this currently produces a fixed chain-default config. Rewrite to
-/// accept per-blockchain and per-upstream overrides from the user's config
-/// (allowed methods, hardcoded responses, quorum strategy per method).
-pub struct BitcoinMethods {
+/// Bitcoin method defaults. Fixed at construction — layering with a user
+/// config happens elsewhere.
+pub struct DefaultBitcoinMethods {
     callable: HashSet<RpcMethod>,
     hardcoded: HashMap<RpcMethod, Box<RawValue>>,
 }
 
-impl BitcoinMethods {
-    /// Build method configuration for Bitcoin.
+impl DefaultBitcoinMethods {
     pub fn new() -> Self {
         Self {
             callable: build_callable_set(),
             hardcoded: build_hardcoded_map(),
         }
     }
+}
 
-    /// Consume self and return the two datasets:
-    /// - callable methods (for [`MethodFilter`](super::MethodFilter))
-    /// - hardcoded responses (for [`HardcodedMethods`](super::HardcodedMethods))
-    pub fn into_parts(self) -> (HashSet<RpcMethod>, HashMap<RpcMethod, Box<RawValue>>) {
-        (self.callable, self.hardcoded)
+impl Default for DefaultBitcoinMethods {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl QuorumFactory for DefaultBitcoinMethods {
+    /// Default per-method quorum mapping. Mirrors
+    /// `DefaultBitcoinMethods.createQuorumFor` from the legacy implementation.
+    fn quorum_for(&self, method: &RpcMethod) -> Box<dyn CallQuorum> {
+        match method.as_str() {
+            // Head-verified reads require the upstream to be at the tip.
+            "getbestblockhash"
+            | "getblocknumber"
+            | "getblockcount"
+            | "getreceivedbyaddress"
+            | "listunspent" => Box::new(NotLaggingQuorum::new(0)),
+            // Fresh data: tolerate a couple of blocks of lag (Bitcoin blocks
+            // are ~10 minutes apart, so the threshold maps to ~20 min).
+            "getblock" | "getmemorypool" | "getrawmempool" | "gettransaction" | "gettxout" => {
+                Box::new(NotLaggingQuorum::new(2))
+            }
+            // Some upstreams may not yet have the requested object — keep
+            // polling until one does.
+            "getblockhash" | "getrawtransaction" => Box::new(NonEmptyQuorum::new()),
+            "sendrawtransaction" => Box::new(BroadcastQuorum::new()),
+            _ => Box::new(AlwaysQuorum::new()),
+        }
+    }
+
+    fn is_callable(&self, method: &RpcMethod) -> bool {
+        self.callable.contains(method)
+    }
+
+    fn hardcoded_response(&self, method: &RpcMethod) -> Option<&RawValue> {
+        self.hardcoded.get(method).map(|b| &**b)
     }
 }
 
@@ -100,42 +125,12 @@ fn build_callable_set() -> HashSet<RpcMethod> {
 
 // ─── Hardcoded responses ───────────────────────────────────────────────────
 
-/// Helper to insert a raw JSON value into the map.
 fn insert_raw(map: &mut HashMap<RpcMethod, Box<RawValue>>, method: &str, json: &str) {
     map.insert(
         RpcMethod::from(method),
         RawValue::from_string(json.to_string()).expect("invalid hardcoded JSON"),
     );
 }
-
-// ─── Quorum strategy per method ────────────────────────────────────────────
-
-/// Default per-method quorum mapping. Mirrors
-/// `DefaultBitcoinMethods.createQuorumFor` from the legacy implementation.
-impl QuorumFactory for BitcoinMethods {
-    fn quorum_for(&self, method: &RpcMethod) -> Box<dyn CallQuorum> {
-        match method.as_str() {
-            // Head-verified reads require the upstream to be at the tip.
-            "getbestblockhash"
-            | "getblocknumber"
-            | "getblockcount"
-            | "getreceivedbyaddress"
-            | "listunspent" => Box::new(NotLaggingQuorum::new(0)),
-            // Fresh data: tolerate a couple of blocks of lag (Bitcoin blocks
-            // are ~10 minutes apart, so the threshold maps to ~20 min).
-            "getblock" | "getmemorypool" | "getrawmempool" | "gettransaction" | "gettxout" => {
-                Box::new(NotLaggingQuorum::new(2))
-            }
-            // Some upstreams may not yet have the requested object — keep
-            // polling until one does.
-            "getblockhash" | "getrawtransaction" => Box::new(NonEmptyQuorum::new()),
-            "sendrawtransaction" => Box::new(BroadcastQuorum::new()),
-            _ => Box::new(AlwaysQuorum::new()),
-        }
-    }
-}
-
-// ─── Hardcoded responses ───────────────────────────────────────────────────
 
 fn build_hardcoded_map() -> HashMap<RpcMethod, Box<RawValue>> {
     let mut m = HashMap::new();
@@ -159,50 +154,44 @@ mod tests {
 
     #[test]
     fn callable_includes_standard_methods() {
-        let methods = BitcoinMethods::new();
-        let (callable, _) = methods.into_parts();
+        let methods = DefaultBitcoinMethods::new();
 
-        assert!(callable.contains("getblock"));
-        assert!(callable.contains("getbestblockhash"));
-        assert!(callable.contains("getblockcount"));
-        assert!(callable.contains("sendrawtransaction"));
-        assert!(callable.contains("getrawtransaction"));
-        assert!(callable.contains("listunspent"));
-        assert!(callable.contains("gettxout"));
+        assert!(methods.is_callable(&"getblock".into()));
+        assert!(methods.is_callable(&"getbestblockhash".into()));
+        assert!(methods.is_callable(&"getblockcount".into()));
+        assert!(methods.is_callable(&"sendrawtransaction".into()));
+        assert!(methods.is_callable(&"getrawtransaction".into()));
+        assert!(methods.is_callable(&"listunspent".into()));
+        assert!(methods.is_callable(&"gettxout".into()));
     }
 
     #[test]
     fn callable_does_not_include_hardcoded() {
-        let methods = BitcoinMethods::new();
-        let (callable, _) = methods.into_parts();
-
-        assert!(!callable.contains("getconnectioncount"));
-        assert!(!callable.contains("getnetworkinfo"));
+        let methods = DefaultBitcoinMethods::new();
+        assert!(!methods.is_callable(&"getconnectioncount".into()));
+        assert!(!methods.is_callable(&"getnetworkinfo".into()));
     }
 
     #[test]
     fn callable_does_not_include_unknown() {
-        let methods = BitcoinMethods::new();
-        let (callable, _) = methods.into_parts();
-
-        assert!(!callable.contains("eth_getBalance"));
-        assert!(!callable.contains("getwalletinfo"));
+        let methods = DefaultBitcoinMethods::new();
+        assert!(!methods.is_callable(&"eth_getBalance".into()));
+        assert!(!methods.is_callable(&"getwalletinfo".into()));
     }
 
     #[test]
     fn hardcoded_connection_count() {
-        let methods = BitcoinMethods::new();
-        let (_, hardcoded) = methods.into_parts();
-
-        assert_eq!(hardcoded["getconnectioncount"].get(), "42");
+        let methods = DefaultBitcoinMethods::new();
+        assert_eq!(
+            methods.hardcoded_response(&"getconnectioncount".into()).unwrap().get(),
+            "42",
+        );
     }
 
     #[test]
     fn hardcoded_network_info() {
-        let methods = BitcoinMethods::new();
-        let (_, hardcoded) = methods.into_parts();
-
-        let info = hardcoded["getnetworkinfo"].get();
+        let methods = DefaultBitcoinMethods::new();
+        let info = methods.hardcoded_response(&"getnetworkinfo".into()).unwrap().get();
         assert!(info.contains("210100"), "should contain version");
         assert!(info.contains("EmeraldDshackle"), "should contain subversion");
     }
@@ -212,7 +201,7 @@ mod tests {
     use crate::upstream::quorum::SelectorHint;
 
     fn selector_for(method: &str) -> SelectorHint {
-        BitcoinMethods::new().quorum_for(&method.into()).selector()
+        DefaultBitcoinMethods::new().quorum_for(&method.into()).selector()
     }
 
     #[test]

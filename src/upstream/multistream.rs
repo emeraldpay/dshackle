@@ -59,11 +59,18 @@ impl Multistream {
         self.quorum_factory.quorum_for(method)
     }
 
-    /// Pick candidate upstreams matching the given selector hint.
-    pub fn select_for(&self, hint: SelectorHint) -> Vec<Arc<dyn RpcUpstream>> {
+    /// Pick candidate upstreams matching the given selector hint, filtered to
+    /// those that accept `method`. Upstreams that reject the method up front
+    /// are skipped so the router doesn't waste a round-trip just to learn
+    /// what the allow-list already knew.
+    pub fn select_for(
+        &self,
+        hint: SelectorHint,
+        method: &RpcMethod,
+    ) -> Vec<Arc<dyn RpcUpstream>> {
         match hint {
-            SelectorHint::Available => self.select_available(),
-            SelectorHint::NotLagging { max_lag } => self.select_not_lagging(max_lag),
+            SelectorHint::Available => self.select_available(method),
+            SelectorHint::NotLagging { max_lag } => self.select_not_lagging(method, max_lag),
         }
     }
 
@@ -79,21 +86,32 @@ impl Multistream {
     }
 
     /// Returns upstreams currently considered usable (`Ok`, `Lagging`, or
-    /// `Immature`), starting from the next round-robin position.
+    /// `Immature`) that accept `method`, starting from the next round-robin
+    /// position.
     ///
     /// `Syncing` and `Unavailable` upstreams are filtered out — they should
     /// not be tried for a normal call. The starting position is advanced by
     /// one on each call so that load spreads across upstreams over time.
-    pub fn select_available(&self) -> Vec<Arc<dyn RpcUpstream>> {
-        self.select_where(|u| u.availability() <= UpstreamAvailability::Immature)
+    pub fn select_available(&self, method: &RpcMethod) -> Vec<Arc<dyn RpcUpstream>> {
+        self.select_where(|u| {
+            u.availability() <= UpstreamAvailability::Immature && u.allows_method(method)
+        })
     }
 
-    /// Returns available upstreams whose lag is `<= max_lag`. Upstreams with
-    /// unknown lag (e.g. one that hasn't reported height yet) are included —
-    /// the matching quorum will re-check at record time.
-    pub fn select_not_lagging(&self, max_lag: u64) -> Vec<Arc<dyn RpcUpstream>> {
+    /// Returns available upstreams that accept `method` and whose lag is
+    /// `<= max_lag`. Upstreams with unknown lag (e.g. one that hasn't reported
+    /// height yet) are included — the matching quorum will re-check at record
+    /// time.
+    pub fn select_not_lagging(
+        &self,
+        method: &RpcMethod,
+        max_lag: u64,
+    ) -> Vec<Arc<dyn RpcUpstream>> {
         self.select_where(|u| {
             if u.availability() > UpstreamAvailability::Immature {
+                return false;
+            }
+            if !u.allows_method(method) {
                 return false;
             }
             match u.lag() {
@@ -195,7 +213,7 @@ mod tests {
             MockUpstream::new("c", UpstreamAvailability::Immature),
         ]);
 
-        assert_eq!(ms.select_available().len(), 3);
+        assert_eq!(ms.select_available(&"any".into()).len(), 3);
     }
 
     #[test]
@@ -206,7 +224,7 @@ mod tests {
             MockUpstream::new("c", UpstreamAvailability::Unavailable),
         ]);
 
-        assert_eq!(ids(&ms.select_available()), vec!["a"]);
+        assert_eq!(ids(&ms.select_available(&"any".into())), vec!["a"]);
     }
 
     #[test]
@@ -218,10 +236,10 @@ mod tests {
         ]);
 
         // Cursor starts at 0 — first call begins at "a".
-        assert_eq!(ids(&ms.select_available()), vec!["a", "b", "c"]);
-        assert_eq!(ids(&ms.select_available()), vec!["b", "c", "a"]);
-        assert_eq!(ids(&ms.select_available()), vec!["c", "a", "b"]);
-        assert_eq!(ids(&ms.select_available()), vec!["a", "b", "c"]);
+        assert_eq!(ids(&ms.select_available(&"any".into())), vec!["a", "b", "c"]);
+        assert_eq!(ids(&ms.select_available(&"any".into())), vec!["b", "c", "a"]);
+        assert_eq!(ids(&ms.select_available(&"any".into())), vec!["c", "a", "b"]);
+        assert_eq!(ids(&ms.select_available(&"any".into())), vec!["a", "b", "c"]);
     }
 
     #[test]
@@ -231,7 +249,7 @@ mod tests {
         let ms = ms_of(vec![a.clone(), b.clone()]);
 
         a.set_availability(UpstreamAvailability::Unavailable);
-        assert_eq!(ids(&ms.select_available()), vec!["b"]);
+        assert_eq!(ids(&ms.select_available(&"any".into())), vec!["b"]);
     }
 
     #[test]
@@ -241,7 +259,7 @@ mod tests {
             MockUpstream::new("b", UpstreamAvailability::Syncing),
         ]);
 
-        assert!(ms.select_available().is_empty());
+        assert!(ms.select_available(&"any".into()).is_empty());
     }
 
     #[test]
@@ -252,7 +270,7 @@ mod tests {
             MockUpstream::with_lag("ok", UpstreamAvailability::Lagging, Some(1)),
         ]);
 
-        let picked = ms.select_not_lagging(1);
+        let picked = ms.select_not_lagging(&"any".into(), 1);
         let labels: Vec<&str> = ids(&picked);
         assert!(labels.contains(&"fresh"));
         assert!(labels.contains(&"ok"));
@@ -266,7 +284,7 @@ mod tests {
             MockUpstream::with_lag("stale", UpstreamAvailability::Lagging, Some(5)),
         ]);
 
-        let picked = ms.select_not_lagging(0);
+        let picked = ms.select_not_lagging(&"any".into(), 0);
         assert_eq!(ids(&picked), vec!["unknown"]);
     }
 
@@ -277,7 +295,7 @@ mod tests {
             MockUpstream::with_lag("syncing", UpstreamAvailability::Syncing, Some(0)),
         ]);
 
-        let picked = ms.select_not_lagging(0);
+        let picked = ms.select_not_lagging(&"any".into(), 0);
         assert_eq!(ids(&picked), vec!["fresh"]);
     }
 
@@ -288,9 +306,9 @@ mod tests {
             MockUpstream::with_lag("b", UpstreamAvailability::Lagging, Some(3)),
         ]);
 
-        assert_eq!(ms.select_for(SelectorHint::Available).len(), 2);
+        assert_eq!(ms.select_for(SelectorHint::Available, &"any".into()).len(), 2);
         assert_eq!(
-            ids(&ms.select_for(SelectorHint::NotLagging { max_lag: 1 })),
+            ids(&ms.select_for(SelectorHint::NotLagging { max_lag: 1 }, &"any".into())),
             vec!["a"]
         );
     }
@@ -299,5 +317,65 @@ mod tests {
     #[should_panic(expected = "at least one upstream")]
     fn panics_on_empty() {
         let _ms = Multistream::new(vec![], Arc::new(DefaultMethods));
+    }
+
+    /// Mock upstream with a hardcoded allow-list, used to verify that the
+    /// selector skips upstreams that don't support the requested method.
+    struct MethodGatedUpstream {
+        label: String,
+        allows: Vec<String>,
+        state: Arc<UpstreamState>,
+    }
+
+    #[async_trait::async_trait]
+    impl RpcUpstream for MethodGatedUpstream {
+        async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
+            unimplemented!()
+        }
+        fn id(&self) -> &str { &self.label }
+        fn availability(&self) -> UpstreamAvailability { UpstreamAvailability::Ok }
+        fn head(&self) -> &dyn Head { &NoHead }
+        fn lag(&self) -> Option<u64> { Some(0) }
+        fn state(&self) -> &Arc<UpstreamState> { &self.state }
+        fn allows_method(&self, method: &RpcMethod) -> bool {
+            self.allows.iter().any(|m| m == method.as_str())
+        }
+    }
+
+    fn gated(label: &str, allows: &[&str]) -> Arc<MethodGatedUpstream> {
+        Arc::new(MethodGatedUpstream {
+            label: label.to_string(),
+            allows: allows.iter().map(|s| s.to_string()).collect(),
+            state: Arc::new(UpstreamState::new()),
+        })
+    }
+
+    #[test]
+    fn select_skips_upstreams_that_reject_method() {
+        let dyn_ups: Vec<Arc<dyn RpcUpstream>> = vec![
+            gated("a", &["eth_getBalance"]) as Arc<dyn RpcUpstream>,
+            gated("b", &["debug_traceTransaction"]) as Arc<dyn RpcUpstream>,
+            gated("c", &["eth_getBalance", "debug_traceTransaction"]) as Arc<dyn RpcUpstream>,
+        ];
+        let ms = Multistream::new(dyn_ups, Arc::new(DefaultMethods));
+
+        // `b` doesn't support eth_getBalance — it must not appear.
+        let picked = ms.select_available(&"eth_getBalance".into());
+        let labels = ids(&picked);
+        assert!(labels.contains(&"a"));
+        assert!(!labels.contains(&"b"));
+        assert!(labels.contains(&"c"));
+    }
+
+    #[test]
+    fn select_not_lagging_also_honours_method_filter() {
+        let dyn_ups: Vec<Arc<dyn RpcUpstream>> = vec![
+            gated("archive", &["debug_traceTransaction"]) as Arc<dyn RpcUpstream>,
+            gated("basic", &["eth_getBalance"]) as Arc<dyn RpcUpstream>,
+        ];
+        let ms = Multistream::new(dyn_ups, Arc::new(DefaultMethods));
+
+        let picked = ms.select_not_lagging(&"debug_traceTransaction".into(), 0);
+        assert_eq!(ids(&picked), vec!["archive"]);
     }
 }

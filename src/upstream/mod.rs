@@ -43,10 +43,13 @@ use emerald_api::proto::common::ChainRef;
 use ethereum::head::{start_head_poller, start_ws_head};
 use ethereum::http::EthereumHttpUpstream;
 use ethereum::EthereumWsUpstream;
-use methods::bitcoin::BitcoinMethods;
-use methods::ethereum::EthereumMethods;
+use methods::bitcoin::DefaultBitcoinMethods;
+use methods::ethereum::DefaultEthereumMethods;
+use methods::AggregatedMethods;
+use methods::ConfiguredMethods;
 use methods::DefaultMethods;
 use methods::HardcodedMethods;
+use methods::LayeredMethods;
 use methods::MethodFilter;
 use quorum::QuorumFactory;
 use status::ChainStatus;
@@ -72,6 +75,11 @@ impl UpstreamManager {
     /// the remote's `Describe` RPC.
     pub async fn from_config(config: &UpstreamsConfig) -> anyhow::Result<Self> {
         let mut per_chain: HashMap<TargetBlockchain, Vec<Arc<dyn RpcUpstream>>> = HashMap::new();
+        // Per-upstream method configs, collected alongside the readers so the
+        // chain-level factory can aggregate them. Order matches `per_chain`
+        // so "first delegate supporting the method" preserves config order.
+        let mut per_chain_methods: HashMap<TargetBlockchain, Vec<Arc<dyn QuorumFactory>>> =
+            HashMap::new();
 
         for upstream in &config.upstreams {
             if !upstream.enabled {
@@ -143,15 +151,25 @@ impl UpstreamManager {
                         }
                     };
 
-                    // Wrap with method filtering and hardcoded responses
-                    let methods = EthereumMethods::new(chain);
-                    let (callable, hardcoded) = methods.into_parts();
+                    // Compose the chain-default layer with the user's
+                    // configured overrides via `LayeredMethods`. The same
+                    // instance feeds the per-upstream wrappers and the
+                    // chain-level `AggregatedMethods` factory.
+                    let default_layer: Arc<dyn QuorumFactory> =
+                        Arc::new(DefaultEthereumMethods::new(chain));
+                    let configured_layer = Arc::new(ConfiguredMethods::from_config(
+                        upstream.methods.as_ref(),
+                    ));
+                    let methods: Arc<dyn QuorumFactory> =
+                        Arc::new(LayeredMethods::new(default_layer, configured_layer));
+
                     let reader: Arc<dyn RpcUpstream> =
-                        Arc::new(MethodFilter::new(reader, callable));
+                        Arc::new(MethodFilter::new(reader, Arc::clone(&methods)));
                     let reader: Arc<dyn RpcUpstream> =
-                        Arc::new(HardcodedMethods::new(reader, hardcoded));
+                        Arc::new(HardcodedMethods::new(reader, Arc::clone(&methods)));
 
                     per_chain.entry(chain).or_default().push(reader);
+                    per_chain_methods.entry(chain).or_default().push(methods);
                 }
                 UpstreamConnection::Bitcoin(btc) => {
                     let chain = match parse_required_chain(upstream) {
@@ -194,15 +212,23 @@ impl UpstreamManager {
                         head_height,
                     );
 
-                    // Wrap with method filtering and hardcoded responses
-                    let methods = BitcoinMethods::new();
-                    let (callable, hardcoded) = methods.into_parts();
+                    // See the Ethereum branch for why the same instance feeds
+                    // the wrappers and the aggregator.
+                    let default_layer: Arc<dyn QuorumFactory> =
+                        Arc::new(DefaultBitcoinMethods::new());
+                    let configured_layer = Arc::new(ConfiguredMethods::from_config(
+                        upstream.methods.as_ref(),
+                    ));
+                    let methods: Arc<dyn QuorumFactory> =
+                        Arc::new(LayeredMethods::new(default_layer, configured_layer));
+
                     let reader: Arc<dyn RpcUpstream> =
-                        Arc::new(MethodFilter::new(reader, callable));
+                        Arc::new(MethodFilter::new(reader, Arc::clone(&methods)));
                     let reader: Arc<dyn RpcUpstream> =
-                        Arc::new(HardcodedMethods::new(reader, hardcoded));
+                        Arc::new(HardcodedMethods::new(reader, Arc::clone(&methods)));
 
                     per_chain.entry(chain).or_default().push(reader);
+                    per_chain_methods.entry(chain).or_default().push(methods);
                 }
                 UpstreamConnection::Dshackle(ds) => {
                     let url = match resolve_dshackle_url(ds) {
@@ -229,6 +255,13 @@ impl UpstreamManager {
                         Ok(discovered) => {
                             for (chain, reader) in discovered {
                                 per_chain.entry(chain).or_default().push(reader);
+                                // Remote Dshackles handle their own quorum
+                                // internally; use `DefaultMethods` so the
+                                // aggregator treats their methods as callable.
+                                per_chain_methods
+                                    .entry(chain)
+                                    .or_default()
+                                    .push(Arc::new(DefaultMethods));
                             }
                         }
                         Err(e) => {
@@ -258,7 +291,12 @@ impl UpstreamManager {
                     chain, readers.len(),
                 );
             }
-            let factory = quorum_factory_for(chain);
+            let delegates = per_chain_methods.remove(&chain).unwrap_or_default();
+            let factory: Arc<dyn QuorumFactory> = if delegates.is_empty() {
+                quorum_factory_for(chain)
+            } else {
+                Arc::new(AggregatedMethods::new(delegates))
+            };
             upstreams.insert(chain, Arc::new(Multistream::new(readers, factory)));
         }
 
@@ -321,21 +359,16 @@ fn syncing_lag_for(chain_ref: ChainRef) -> u64 {
     }
 }
 
-/// Picks the chain-default methods config for the given chain. The returned
-/// value supplies the per-method [`QuorumFactory`] mapping for the chain's
-/// [`Multistream`].
-///
-/// A second instance of the same methods type is built per upstream by the
-/// from_config loop to derive callable/hardcoded sets for the wrappers.
-/// This duplication is acceptable while the methods config is a static
-/// default — once per-blockchain/per-upstream overrides land, both call
-/// sites will share the same instance.
+/// Fallback chain-default factory for when no per-upstream method config was
+/// collected (e.g. a chain whose only upstream is a Dshackle remote that
+/// hit a connection error). Normal flow aggregates the per-upstream factories
+/// collected by `from_config` instead.
 fn quorum_factory_for(chain: TargetBlockchain) -> Arc<dyn QuorumFactory> {
     match chain {
         TargetBlockchain::Standard(c) => match c {
             ChainRef::ChainBitcoin
             | ChainRef::ChainTestnetBitcoin
-            | ChainRef::ChainTestnetBitcoin4 => Arc::new(BitcoinMethods::new()),
+            | ChainRef::ChainTestnetBitcoin4 => Arc::new(DefaultBitcoinMethods::new()),
             ChainRef::ChainEthereum
             | ChainRef::ChainEthereumClassic
             | ChainRef::ChainFantom
@@ -348,7 +381,7 @@ fn quorum_factory_for(chain: TargetBlockchain) -> Arc<dyn QuorumFactory> {
             | ChainRef::ChainRinkeby
             | ChainRef::ChainHolesky
             | ChainRef::ChainSepolia
-            | ChainRef::ChainHoodi => Arc::new(EthereumMethods::new(chain)),
+            | ChainRef::ChainHoodi => Arc::new(DefaultEthereumMethods::new(chain)),
             _ => Arc::new(DefaultMethods),
         },
     }
@@ -423,7 +456,9 @@ async fn connect_dshackle(
                 .iter()
                 .filter_map(|m| m.parse().ok())
                 .collect();
-            let reader = Arc::new(MethodFilter::new(reader, callable));
+            let methods: Arc<dyn QuorumFactory> =
+                Arc::new(ConfiguredMethods::allowed_only(callable));
+            let reader = Arc::new(MethodFilter::new(reader, methods));
             results.push((chain, reader as Arc<dyn RpcUpstream>));
         } else {
             // No method list — pass everything through
