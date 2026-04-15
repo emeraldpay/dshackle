@@ -12,158 +12,292 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Round-robin aggregation of multiple upstreams serving the same blockchain.
+//! Per-blockchain aggregate of all configured upstreams.
 //!
-//! When several upstreams are configured for a single chain, `Multistream`
-//! distributes requests across them in a simple round-robin fashion. Future
-//! iterations may add health-aware routing, lag observation, and capability
-//! aggregation (see the legacy `Multistream.kt`).
+//! `Multistream` is a passive container — it does not route requests itself.
+//! Selectors return ordered candidate lists that the
+//! [`UpstreamRouter`](super::router) feeds into a `CallQuorum`.
+//!
+//! The round-robin cursor lives here so that, across requests, different
+//! upstreams take the lead position. This spreads the default-strategy load
+//! evenly without the router needing to know how many requests have come
+//! before.
 
-use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
+use crate::jsonrpc::RpcMethod;
 use crate::upstream::availability::UpstreamAvailability;
-use crate::upstream::head::{Head, NoHead};
-use crate::upstream::state::UpstreamState;
-use crate::upstream::traits::{RpcUpstream, UpstreamError};
+use crate::upstream::quorum::{CallQuorum, QuorumFactory, SelectorHint};
+use crate::upstream::traits::RpcUpstream;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
-/// Distributes JSON-RPC requests across multiple upstreams using round-robin.
+/// Holds every configured upstream for one blockchain and answers queries
+/// about which ones are usable for a given request.
 pub struct Multistream {
     upstreams: Vec<Arc<dyn RpcUpstream>>,
-    next: AtomicUsize,
-    state: Arc<UpstreamState>,
+    /// Round-robin cursor advanced on each selector call so that successive
+    /// requests start from different upstreams.
+    cursor: AtomicUsize,
+    /// Per-method quorum picker for this chain (Ethereum / Bitcoin / default).
+    quorum_factory: Arc<dyn QuorumFactory>,
 }
 
 impl Multistream {
-    pub fn new(upstreams: Vec<Arc<dyn RpcUpstream>>) -> Self {
+    pub fn new(
+        upstreams: Vec<Arc<dyn RpcUpstream>>,
+        quorum_factory: Arc<dyn QuorumFactory>,
+    ) -> Self {
         assert!(!upstreams.is_empty(), "Multistream requires at least one upstream");
         Self {
             upstreams,
-            next: AtomicUsize::new(0),
-            state: Arc::new(UpstreamState::new()),
+            cursor: AtomicUsize::new(0),
+            quorum_factory,
         }
     }
 
-    /// Returns a reference to the underlying upstreams for status reporting.
+    /// Build the `CallQuorum` strategy appropriate for the given RPC method.
+    pub fn quorum_for(&self, method: &RpcMethod) -> Box<dyn CallQuorum> {
+        self.quorum_factory.quorum_for(method)
+    }
+
+    /// Pick candidate upstreams matching the given selector hint.
+    pub fn select_for(&self, hint: SelectorHint) -> Vec<Arc<dyn RpcUpstream>> {
+        match hint {
+            SelectorHint::Available => self.select_available(),
+            SelectorHint::NotLagging { max_lag } => self.select_not_lagging(max_lag),
+        }
+    }
+
+    /// All configured upstreams, in their original (config) order. Used by
+    /// the status reporter and for diagnostic snapshots.
     pub fn upstreams(&self) -> &[Arc<dyn RpcUpstream>] {
         &self.upstreams
     }
-}
 
-#[async_trait::async_trait]
-impl RpcUpstream for Multistream {
-    async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
-        let idx = self.next.fetch_add(1, Ordering::Relaxed) % self.upstreams.len();
-        self.upstreams[idx].call(request).await
+    /// Total number of upstreams (including currently unavailable ones).
+    pub fn len(&self) -> usize {
+        self.upstreams.len()
     }
 
-    fn id(&self) -> &str {
-        "multistream"
+    /// Returns upstreams currently considered usable (`Ok`, `Lagging`, or
+    /// `Immature`), starting from the next round-robin position.
+    ///
+    /// `Syncing` and `Unavailable` upstreams are filtered out — they should
+    /// not be tried for a normal call. The starting position is advanced by
+    /// one on each call so that load spreads across upstreams over time.
+    pub fn select_available(&self) -> Vec<Arc<dyn RpcUpstream>> {
+        self.select_where(|u| u.availability() <= UpstreamAvailability::Immature)
     }
 
-    fn availability(&self) -> UpstreamAvailability {
-        self.upstreams
-            .iter()
-            .map(|u| u.availability())
-            .min()
-            .unwrap_or(UpstreamAvailability::Unavailable)
+    /// Returns available upstreams whose lag is `<= max_lag`. Upstreams with
+    /// unknown lag (e.g. one that hasn't reported height yet) are included —
+    /// the matching quorum will re-check at record time.
+    pub fn select_not_lagging(&self, max_lag: u64) -> Vec<Arc<dyn RpcUpstream>> {
+        self.select_where(|u| {
+            if u.availability() > UpstreamAvailability::Immature {
+                return false;
+            }
+            match u.lag() {
+                Some(l) => l <= max_lag,
+                None => true,
+            }
+        })
     }
 
-    fn head(&self) -> &dyn Head {
-        &NoHead
-    }
-
-    fn lag(&self) -> Option<u64> {
-        None
-    }
-
-    fn state(&self) -> &Arc<UpstreamState> {
-        &self.state
+    /// Generic selector: returns matching upstreams starting from the next
+    /// round-robin position. Used internally by `select_available` and
+    /// available for future strategy-specific selectors.
+    fn select_where<F>(&self, predicate: F) -> Vec<Arc<dyn RpcUpstream>>
+    where
+        F: Fn(&Arc<dyn RpcUpstream>) -> bool,
+    {
+        let n = self.upstreams.len();
+        let start = self.cursor.fetch_add(1, Ordering::Relaxed) % n;
+        let mut out = Vec::with_capacity(n);
+        for i in 0..n {
+            let u = &self.upstreams[(start + i) % n];
+            if predicate(u) {
+                out.push(Arc::clone(u));
+            }
+        }
+        out
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::upstream::head::NoHead;
-    use lazy_static::lazy_static;
-    use std::sync::atomic::AtomicU32;
-
-    lazy_static! {
-        static ref MOCK_STATE: Arc<UpstreamState> = Arc::new(UpstreamState::new());
-    }
+    use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
+    use crate::upstream::head::{Head, NoHead};
+    use crate::upstream::methods::DefaultMethods;
+    use crate::upstream::state::UpstreamState;
+    use crate::upstream::traits::UpstreamError;
+    use std::sync::atomic::AtomicU8;
 
     struct MockUpstream {
-        calls: AtomicU32,
         label: String,
+        availability: AtomicU8,
+        lag: Option<u64>,
+        state: Arc<UpstreamState>,
     }
 
     impl MockUpstream {
-        fn new(label: &str) -> Self {
-            Self {
-                calls: AtomicU32::new(0),
-                label: label.to_string(),
-            }
+        fn new(label: &str, availability: UpstreamAvailability) -> Arc<Self> {
+            Self::with_lag(label, availability, None)
         }
 
-        fn call_count(&self) -> u32 {
-            self.calls.load(Ordering::Relaxed)
+        fn with_lag(
+            label: &str,
+            availability: UpstreamAvailability,
+            lag: Option<u64>,
+        ) -> Arc<Self> {
+            Arc::new(Self {
+                label: label.to_string(),
+                availability: AtomicU8::new(availability as u8),
+                lag,
+                state: Arc::new(UpstreamState::new()),
+            })
+        }
+
+        fn set_availability(&self, a: UpstreamAvailability) {
+            self.availability.store(a as u8, Ordering::Relaxed);
         }
     }
 
     #[async_trait::async_trait]
     impl RpcUpstream for MockUpstream {
-        async fn call(&self, _request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
-            self.calls.fetch_add(1, Ordering::Relaxed);
-            let raw = format!(
-                r#"{{"jsonrpc":"2.0","id":1,"result":"{}"}}"#,
-                self.label
-            );
-            Ok(serde_json::from_str(&raw).unwrap())
+        async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
+            unimplemented!()
         }
         fn id(&self) -> &str { &self.label }
-        fn availability(&self) -> UpstreamAvailability { UpstreamAvailability::Ok }
+        fn availability(&self) -> UpstreamAvailability {
+            UpstreamAvailability::from_u8(self.availability.load(Ordering::Relaxed))
+        }
         fn head(&self) -> &dyn Head { &NoHead }
-        fn lag(&self) -> Option<u64> { None }
-        fn state(&self) -> &Arc<UpstreamState> { &MOCK_STATE }
+        fn lag(&self) -> Option<u64> { self.lag }
+        fn state(&self) -> &Arc<UpstreamState> { &self.state }
     }
 
-    fn dummy_request() -> JsonRpcRequest {
-        JsonRpcRequest::new(1, "eth_blockNumber".into(), serde_json::json!([]))
+    fn ms_of(upstreams: Vec<Arc<MockUpstream>>) -> Multistream {
+        let dyn_ups: Vec<Arc<dyn RpcUpstream>> =
+            upstreams.into_iter().map(|u| u as Arc<dyn RpcUpstream>).collect();
+        Multistream::new(dyn_ups, Arc::new(DefaultMethods))
     }
 
-    #[tokio::test]
-    async fn distributes_requests_round_robin() {
-        let a = Arc::new(MockUpstream::new("a"));
-        let b = Arc::new(MockUpstream::new("b"));
-        let c = Arc::new(MockUpstream::new("c"));
-
-        let ms = Multistream::new(vec![a.clone(), b.clone(), c.clone()]);
-
-        for _ in 0..6 {
-            ms.call(&dummy_request()).await.unwrap();
-        }
-
-        assert_eq!(a.call_count(), 2);
-        assert_eq!(b.call_count(), 2);
-        assert_eq!(c.call_count(), 2);
+    fn ids(items: &[Arc<dyn RpcUpstream>]) -> Vec<&str> {
+        items.iter().map(|u| u.id()).collect()
     }
 
-    #[tokio::test]
-    async fn single_upstream_always_called() {
-        let a = Arc::new(MockUpstream::new("only"));
-        let ms = Multistream::new(vec![a.clone()]);
+    #[test]
+    fn select_available_returns_all_when_healthy() {
+        let ms = ms_of(vec![
+            MockUpstream::new("a", UpstreamAvailability::Ok),
+            MockUpstream::new("b", UpstreamAvailability::Lagging),
+            MockUpstream::new("c", UpstreamAvailability::Immature),
+        ]);
 
-        for _ in 0..3 {
-            ms.call(&dummy_request()).await.unwrap();
-        }
+        assert_eq!(ms.select_available().len(), 3);
+    }
 
-        assert_eq!(a.call_count(), 3);
+    #[test]
+    fn select_available_filters_syncing_and_unavailable() {
+        let ms = ms_of(vec![
+            MockUpstream::new("a", UpstreamAvailability::Ok),
+            MockUpstream::new("b", UpstreamAvailability::Syncing),
+            MockUpstream::new("c", UpstreamAvailability::Unavailable),
+        ]);
+
+        assert_eq!(ids(&ms.select_available()), vec!["a"]);
+    }
+
+    #[test]
+    fn select_available_rotates_starting_position() {
+        let ms = ms_of(vec![
+            MockUpstream::new("a", UpstreamAvailability::Ok),
+            MockUpstream::new("b", UpstreamAvailability::Ok),
+            MockUpstream::new("c", UpstreamAvailability::Ok),
+        ]);
+
+        // Cursor starts at 0 — first call begins at "a".
+        assert_eq!(ids(&ms.select_available()), vec!["a", "b", "c"]);
+        assert_eq!(ids(&ms.select_available()), vec!["b", "c", "a"]);
+        assert_eq!(ids(&ms.select_available()), vec!["c", "a", "b"]);
+        assert_eq!(ids(&ms.select_available()), vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn select_available_respects_dynamic_state() {
+        let a = MockUpstream::new("a", UpstreamAvailability::Ok);
+        let b = MockUpstream::new("b", UpstreamAvailability::Ok);
+        let ms = ms_of(vec![a.clone(), b.clone()]);
+
+        a.set_availability(UpstreamAvailability::Unavailable);
+        assert_eq!(ids(&ms.select_available()), vec!["b"]);
+    }
+
+    #[test]
+    fn select_available_returns_empty_when_all_unavailable() {
+        let ms = ms_of(vec![
+            MockUpstream::new("a", UpstreamAvailability::Unavailable),
+            MockUpstream::new("b", UpstreamAvailability::Syncing),
+        ]);
+
+        assert!(ms.select_available().is_empty());
+    }
+
+    #[test]
+    fn select_not_lagging_filters_by_lag() {
+        let ms = ms_of(vec![
+            MockUpstream::with_lag("fresh", UpstreamAvailability::Ok, Some(0)),
+            MockUpstream::with_lag("stale", UpstreamAvailability::Lagging, Some(3)),
+            MockUpstream::with_lag("ok", UpstreamAvailability::Lagging, Some(1)),
+        ]);
+
+        let picked = ms.select_not_lagging(1);
+        let labels: Vec<&str> = ids(&picked);
+        assert!(labels.contains(&"fresh"));
+        assert!(labels.contains(&"ok"));
+        assert!(!labels.contains(&"stale"));
+    }
+
+    #[test]
+    fn select_not_lagging_keeps_unknown_lag() {
+        let ms = ms_of(vec![
+            MockUpstream::with_lag("unknown", UpstreamAvailability::Ok, None),
+            MockUpstream::with_lag("stale", UpstreamAvailability::Lagging, Some(5)),
+        ]);
+
+        let picked = ms.select_not_lagging(0);
+        assert_eq!(ids(&picked), vec!["unknown"]);
+    }
+
+    #[test]
+    fn select_not_lagging_excludes_syncing() {
+        let ms = ms_of(vec![
+            MockUpstream::with_lag("fresh", UpstreamAvailability::Ok, Some(0)),
+            MockUpstream::with_lag("syncing", UpstreamAvailability::Syncing, Some(0)),
+        ]);
+
+        let picked = ms.select_not_lagging(0);
+        assert_eq!(ids(&picked), vec!["fresh"]);
+    }
+
+    #[test]
+    fn select_for_dispatches_on_hint() {
+        let ms = ms_of(vec![
+            MockUpstream::with_lag("a", UpstreamAvailability::Ok, Some(0)),
+            MockUpstream::with_lag("b", UpstreamAvailability::Lagging, Some(3)),
+        ]);
+
+        assert_eq!(ms.select_for(SelectorHint::Available).len(), 2);
+        assert_eq!(
+            ids(&ms.select_for(SelectorHint::NotLagging { max_lag: 1 })),
+            vec!["a"]
+        );
     }
 
     #[test]
     #[should_panic(expected = "at least one upstream")]
     fn panics_on_empty() {
-        let _ms = Multistream::new(vec![]);
+        let _ms = Multistream::new(vec![], Arc::new(DefaultMethods));
     }
 }

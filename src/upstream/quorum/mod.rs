@@ -1,0 +1,180 @@
+// Copyright 2026 EmeraldPay Ltd
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Quorum strategies for upstream calls.
+//!
+//! A `CallQuorum` is a stateful policy that decides when enough upstreams have
+//! responded to consider the request resolved (or definitively failed). The
+//! [`UpstreamRouter`](super::router) feeds it the outcome of each call, asks
+//! whether to keep going, and finally extracts the resolved response.
+//!
+//! For now only [`AlwaysQuorum`] is implemented, which accepts the first
+//! response from any upstream. Future strategies (`NotLagging`, `Broadcast`,
+//! `NonEmpty`, `Nonce`) will plug into the same trait.
+
+pub mod always;
+pub mod broadcast;
+pub mod non_empty;
+pub mod nonce;
+pub mod not_lagging;
+
+pub use always::AlwaysQuorum;
+pub use broadcast::BroadcastQuorum;
+pub use non_empty::NonEmptyQuorum;
+pub use nonce::NonceQuorum;
+pub use not_lagging::NotLaggingQuorum;
+
+use crate::jsonrpc::{JsonRpcResponse, RpcMethod};
+use crate::upstream::traits::{RpcUpstream, UpstreamError};
+
+/// Picks a `CallQuorum` strategy for each RPC method.
+///
+/// Concrete implementations live next to the per-chain method tables in
+/// [`crate::upstream::methods`], since the mapping is fundamentally a
+/// per-method configuration.
+pub trait QuorumFactory: Send + Sync {
+    fn quorum_for(&self, method: &RpcMethod) -> Box<dyn CallQuorum>;
+}
+
+/// Decides when a request has gathered enough responses to be considered done.
+///
+/// The router calls `record_response` / `record_error` for each upstream
+/// outcome and consults `is_resolved` / `is_failed` to know when to stop.
+pub trait CallQuorum: Send {
+    /// Tells the quorum how many upstreams are available in total. Some
+    /// strategies clamp their requirements (e.g. broadcast to N) against this.
+    fn set_total_upstreams(&mut self, total: usize);
+
+    /// Record a successful upstream response. A response carrying a JSON-RPC
+    /// error object is still a valid answer from the upstream and is treated
+    /// as a successful outcome here — the caller forwards it to the client.
+    fn record_response(&mut self, response: JsonRpcResponse, upstream: &dyn RpcUpstream);
+
+    /// Record a transport-level or protocol-level failure for an upstream.
+    fn record_error(&mut self, error: &UpstreamError, upstream: &dyn RpcUpstream);
+
+    /// Whether the quorum has gathered enough data to satisfy the request.
+    fn is_resolved(&self) -> bool;
+
+    /// Whether the quorum has definitively failed and no further attempts
+    /// can salvage it.
+    fn is_failed(&self) -> bool;
+
+    /// Called once when the router has run out of upstreams to try. This is
+    /// the last chance for a quorum to promote a tentative state into a final
+    /// one (e.g. surface a connection error that was previously held back).
+    fn close(&mut self) {}
+
+    /// Consume the accumulated state and return the final outcome.
+    fn take_outcome(&mut self) -> QuorumOutcome;
+
+    /// Hint about which upstreams the router should consider. Quorums that
+    /// require fresh data (e.g. `NotLagging`) override this to filter out
+    /// stale upstreams up front; the default is "any available upstream".
+    fn selector(&self) -> SelectorHint {
+        SelectorHint::Available
+    }
+}
+
+/// Tells the [`Multistream`](crate::upstream::Multistream) how to pre-filter
+/// candidate upstreams before the router starts calling them.
+#[derive(Clone, Copy, Debug)]
+pub enum SelectorHint {
+    /// Any upstream that's currently `Ok`, `Lagging`, or `Immature`.
+    Available,
+    /// Only upstreams whose lag is `<= max_lag` blocks behind the best head.
+    NotLagging { max_lag: u64 },
+}
+
+/// Final outcome of a quorum-driven call.
+pub enum QuorumOutcome {
+    /// At least one upstream produced a response that the quorum accepted.
+    Resolved(JsonRpcResponse),
+    /// Every attempted upstream failed in a way the quorum considered fatal.
+    Failed(UpstreamError),
+    /// No upstream was reachable or the quorum never reached a decision.
+    Empty,
+}
+
+/// Whether an error indicates the upstream is temporarily unavailable and the
+/// router should try another one rather than fail the request.
+///
+/// Mirrors the legacy `CallQuorum.isConnectionUnavailable` rules: HTTP 401,
+/// 429, and 502–504 are commonly returned by overloaded or auth-rejecting
+/// proxies (e.g. Infura), and any transport-level failure (connect, timeout,
+/// DNS) qualifies. A `MethodNotAllowed` error is also treated as skippable
+/// because a peer upstream may support the method.
+pub fn is_connection_unavailable(err: &UpstreamError) -> bool {
+    match err {
+        UpstreamError::Transport(_) => true,
+        UpstreamError::HttpStatus(code) => {
+            *code == 401 || *code == 429 || (502..=504).contains(code)
+        }
+        UpstreamError::MethodNotAllowed(_) => true,
+        UpstreamError::InvalidResponse(_) => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn transport_error_is_connection_unavailable() {
+        let err = UpstreamError::Transport("connection refused".into());
+        assert!(is_connection_unavailable(&err));
+    }
+
+    #[test]
+    fn http_429_is_connection_unavailable() {
+        assert!(is_connection_unavailable(&UpstreamError::HttpStatus(429)));
+    }
+
+    #[test]
+    fn http_401_is_connection_unavailable() {
+        assert!(is_connection_unavailable(&UpstreamError::HttpStatus(401)));
+    }
+
+    #[test]
+    fn http_502_503_504_are_connection_unavailable() {
+        assert!(is_connection_unavailable(&UpstreamError::HttpStatus(502)));
+        assert!(is_connection_unavailable(&UpstreamError::HttpStatus(503)));
+        assert!(is_connection_unavailable(&UpstreamError::HttpStatus(504)));
+    }
+
+    #[test]
+    fn http_400_and_500_are_definitive() {
+        assert!(!is_connection_unavailable(&UpstreamError::HttpStatus(400)));
+        assert!(!is_connection_unavailable(&UpstreamError::HttpStatus(500)));
+    }
+
+    #[test]
+    fn http_404_is_definitive() {
+        // Bitcoin Core returns 404 in normal operation for some unknown methods;
+        // see legacy `CallQuorumTest` "Understand errors for available connection".
+        assert!(!is_connection_unavailable(&UpstreamError::HttpStatus(404)));
+    }
+
+    #[test]
+    fn method_not_allowed_is_skippable() {
+        let err = UpstreamError::MethodNotAllowed("debug_traceTransaction".into());
+        assert!(is_connection_unavailable(&err));
+    }
+
+    #[test]
+    fn invalid_response_is_definitive() {
+        let err = UpstreamError::InvalidResponse("bad json".into());
+        assert!(!is_connection_unavailable(&err));
+    }
+}

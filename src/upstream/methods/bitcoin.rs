@@ -14,20 +14,27 @@
 
 //! Default Bitcoin RPC method configuration.
 //!
-//! Defines which methods can be forwarded to an upstream and which are answered
-//! with predefined responses (e.g. `getconnectioncount`, `getnetworkinfo`).
+//! Defines which methods can be forwarded to an upstream, which are answered
+//! with predefined responses, and which `CallQuorum` strategy applies to
+//! each. Mirrors the legacy `DefaultBitcoinMethods` Kotlin class.
 //!
-//! Mirrors the legacy `DefaultBitcoinMethods` Kotlin class.
+//! In the legacy code these decisions are configurable per blockchain and
+//! per upstream. This is the chain-default state — per-upstream overrides
+//! will plug in here later.
 
 use crate::jsonrpc::RpcMethod;
+use crate::upstream::quorum::{
+    AlwaysQuorum, BroadcastQuorum, CallQuorum, NonEmptyQuorum, NotLaggingQuorum, QuorumFactory,
+};
 use serde_json::value::RawValue;
 use std::collections::{HashMap, HashSet};
 
-/// Bitcoin method configuration.
+/// Bitcoin method configuration. Acts as both the source of allowed/hardcoded
+/// method sets and the per-method [`QuorumFactory`].
 ///
-/// Separates methods into two groups:
-/// - **callable** — forwarded to the upstream node (e.g. `getblock`)
-/// - **hardcoded** — answered locally with a static response (e.g. `getconnectioncount`)
+/// TODO: this currently produces a fixed chain-default config. Rewrite to
+/// accept per-blockchain and per-upstream overrides from the user's config
+/// (allowed methods, hardcoded responses, quorum strategy per method).
 pub struct BitcoinMethods {
     callable: HashSet<RpcMethod>,
     hardcoded: HashMap<RpcMethod, Box<RawValue>>,
@@ -101,6 +108,35 @@ fn insert_raw(map: &mut HashMap<RpcMethod, Box<RawValue>>, method: &str, json: &
     );
 }
 
+// ─── Quorum strategy per method ────────────────────────────────────────────
+
+/// Default per-method quorum mapping. Mirrors
+/// `DefaultBitcoinMethods.createQuorumFor` from the legacy implementation.
+impl QuorumFactory for BitcoinMethods {
+    fn quorum_for(&self, method: &RpcMethod) -> Box<dyn CallQuorum> {
+        match method.as_str() {
+            // Head-verified reads require the upstream to be at the tip.
+            "getbestblockhash"
+            | "getblocknumber"
+            | "getblockcount"
+            | "getreceivedbyaddress"
+            | "listunspent" => Box::new(NotLaggingQuorum::new(0)),
+            // Fresh data: tolerate a couple of blocks of lag (Bitcoin blocks
+            // are ~10 minutes apart, so the threshold maps to ~20 min).
+            "getblock" | "getmemorypool" | "getrawmempool" | "gettransaction" | "gettxout" => {
+                Box::new(NotLaggingQuorum::new(2))
+            }
+            // Some upstreams may not yet have the requested object — keep
+            // polling until one does.
+            "getblockhash" | "getrawtransaction" => Box::new(NonEmptyQuorum::new()),
+            "sendrawtransaction" => Box::new(BroadcastQuorum::new()),
+            _ => Box::new(AlwaysQuorum::new()),
+        }
+    }
+}
+
+// ─── Hardcoded responses ───────────────────────────────────────────────────
+
 fn build_hardcoded_map() -> HashMap<RpcMethod, Box<RawValue>> {
     let mut m = HashMap::new();
 
@@ -169,5 +205,46 @@ mod tests {
         let info = hardcoded["getnetworkinfo"].get();
         assert!(info.contains("210100"), "should contain version");
         assert!(info.contains("EmeraldDshackle"), "should contain subversion");
+    }
+
+    // ── Quorum mapping ────────────────────────────────────────────────
+
+    use crate::upstream::quorum::SelectorHint;
+
+    fn selector_for(method: &str) -> SelectorHint {
+        BitcoinMethods::new().quorum_for(&method.into()).selector()
+    }
+
+    #[test]
+    fn send_raw_uses_broadcast_quorum() {
+        // BroadcastQuorum reports `Available` as its selector.
+        match selector_for("sendrawtransaction") {
+            SelectorHint::Available => {}
+            other => panic!("unexpected: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn get_block_count_uses_strict_not_lagging() {
+        match selector_for("getblockcount") {
+            SelectorHint::NotLagging { max_lag: 0 } => {}
+            other => panic!("unexpected: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn get_block_tolerates_two_block_lag() {
+        match selector_for("getblock") {
+            SelectorHint::NotLagging { max_lag: 2 } => {}
+            other => panic!("unexpected: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn unknown_method_falls_back_to_always() {
+        match selector_for("listwallets") {
+            SelectorHint::Available => {}
+            other => panic!("unexpected: {other:?}"),
+        }
     }
 }

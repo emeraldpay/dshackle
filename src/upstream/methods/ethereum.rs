@@ -14,22 +14,30 @@
 
 //! Default Ethereum RPC method configuration.
 //!
-//! Defines which methods can be forwarded to an upstream and which are answered
-//! with predefined responses (e.g. `net_version`, `eth_chainId`).
+//! Defines which methods can be forwarded to an upstream, which are answered
+//! with predefined responses, and which `CallQuorum` strategy applies to
+//! each. Mirrors the legacy `DefaultEthereumMethods` Kotlin class.
 //!
-//! Mirrors the legacy `DefaultEthereumMethods` Kotlin class.
+//! In the legacy code these decisions are configurable per blockchain and
+//! per upstream. This is the chain-default state — per-upstream overrides
+//! will plug in here later.
 
 use crate::blockchain::TargetBlockchain;
 use crate::jsonrpc::RpcMethod;
+use crate::upstream::quorum::{
+    AlwaysQuorum, BroadcastQuorum, CallQuorum, NonceQuorum, NotLaggingQuorum, QuorumFactory,
+};
 use emerald_api::proto::common::ChainRef;
 use serde_json::value::RawValue;
 use std::collections::{HashMap, HashSet};
 
-/// Ethereum method configuration for a specific chain.
+/// Ethereum method configuration for a specific chain. Acts as both the
+/// source of allowed/hardcoded method sets and the per-method
+/// [`QuorumFactory`].
 ///
-/// Separates methods into two groups:
-/// - **callable** — forwarded to the upstream node (e.g. `eth_getBalance`)
-/// - **hardcoded** — answered locally with a static response (e.g. `net_version`)
+/// TODO: this currently produces a fixed chain-default config. Rewrite to
+/// accept per-blockchain and per-upstream overrides from the user's config
+/// (allowed methods, hardcoded responses, quorum strategy per method).
 pub struct EthereumMethods {
     callable: HashSet<RpcMethod>,
     hardcoded: HashMap<RpcMethod, Box<RawValue>>,
@@ -170,6 +178,40 @@ fn net_version_for(chain: TargetBlockchain) -> Option<&'static str> {
     }
 }
 
+// ─── Quorum strategy per method ────────────────────────────────────────────
+
+/// Default per-method quorum mapping. Mirrors
+/// `DefaultEthereumMethods.createQuorumFor` from the legacy implementation.
+impl QuorumFactory for EthereumMethods {
+    fn quorum_for(&self, method: &RpcMethod) -> Box<dyn CallQuorum> {
+        match method.as_str() {
+            // Anything with `latest`/`pending` semantics needs the freshest
+            // possible state — pin to upstreams at the chain head.
+            "eth_blockNumber" | "eth_getBalance" => Box::new(NotLaggingQuorum::new(0)),
+            // Head-verified reads tolerate a single-block lag (the upstream
+            // might be one block behind the global best but still consistent).
+            "eth_getBlockTransactionCountByNumber"
+            | "eth_getUncleCountByBlockNumber"
+            | "eth_getBlockByNumber"
+            | "eth_getTransactionByBlockNumberAndIndex"
+            | "eth_getTransactionReceipt"
+            | "eth_getUncleByBlockNumberAndIndex"
+            | "eth_feeHistory" => Box::new(NotLaggingQuorum::new(1)),
+            // Gas-price / call / estimate are sensitive to network state but
+            // a few blocks of lag are still acceptable.
+            "eth_gasPrice" | "eth_call" | "eth_estimateGas" => Box::new(NotLaggingQuorum::new(4)),
+            // Mempool-sensitive: use the highest nonce seen across upstreams.
+            "eth_getTransactionCount" => Box::new(NonceQuorum::new()),
+            // Broadcast to multiple peers for redundancy.
+            "eth_sendRawTransaction" => Box::new(BroadcastQuorum::new()),
+            // Hash-keyed reads are content-addressed — first valid answer wins.
+            _ => Box::new(AlwaysQuorum::new()),
+        }
+    }
+}
+
+// ─── Hardcoded chain identity ──────────────────────────────────────────────
+
 fn chain_id_for(chain: TargetBlockchain) -> Option<&'static str> {
     match chain {
         TargetBlockchain::Standard(c) => match c {
@@ -305,5 +347,55 @@ mod tests {
         // Chain-specific methods absent (will be forwarded to upstream)
         assert!(!hardcoded.contains_key("net_version"));
         assert!(!hardcoded.contains_key("eth_chainId"));
+    }
+
+    // ── Quorum mapping ────────────────────────────────────────────────
+
+    use crate::upstream::quorum::SelectorHint;
+
+    fn selector_for(method: &str) -> SelectorHint {
+        EthereumMethods::new(eth_chain())
+            .quorum_for(&method.into())
+            .selector()
+    }
+
+    #[test]
+    fn block_number_uses_strict_not_lagging() {
+        match selector_for("eth_blockNumber") {
+            SelectorHint::NotLagging { max_lag: 0 } => {}
+            other => panic!("unexpected: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn get_block_by_number_tolerates_one_block_lag() {
+        match selector_for("eth_getBlockByNumber") {
+            SelectorHint::NotLagging { max_lag: 1 } => {}
+            other => panic!("unexpected: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn gas_price_tolerates_four_block_lag() {
+        match selector_for("eth_gasPrice") {
+            SelectorHint::NotLagging { max_lag: 4 } => {}
+            other => panic!("unexpected: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn send_tx_uses_available_selector() {
+        match selector_for("eth_sendRawTransaction") {
+            SelectorHint::Available => {}
+            other => panic!("unexpected: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn unknown_method_falls_back_to_always() {
+        match selector_for("eth_getStorageAt") {
+            SelectorHint::Available => {}
+            other => panic!("unexpected: {other:?}"),
+        }
     }
 }

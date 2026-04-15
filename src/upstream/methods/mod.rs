@@ -31,3 +31,33 @@ mod hardcoded;
 
 pub use filter::MethodFilter;
 pub use hardcoded::HardcodedMethods;
+
+use crate::jsonrpc::RpcMethod;
+use crate::upstream::quorum::{AlwaysQuorum, CallQuorum, QuorumFactory};
+
+/// Default chain-agnostic methods config used for chains without a
+/// specialized mapping (e.g. Dshackle remotes that already apply quorum
+/// on their side). Always returns [`AlwaysQuorum`].
+///
+/// This is a thin placeholder until per-chain configuration plumbing lands.
+pub struct DefaultMethods;
+
+impl QuorumFactory for DefaultMethods {
+    fn quorum_for(&self, _method: &RpcMethod) -> Box<dyn CallQuorum> {
+        Box::new(AlwaysQuorum::new())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::upstream::quorum::SelectorHint;
+
+    #[test]
+    fn default_methods_always_available() {
+        match DefaultMethods.quorum_for(&"anything".into()).selector() {
+            SelectorHint::Available => {}
+            other => panic!("unexpected: {other:?}"),
+        }
+    }
+}

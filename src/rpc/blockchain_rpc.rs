@@ -65,7 +65,7 @@ impl Blockchain for BlockchainRpcService {
             tonic::Status::invalid_argument(format!("unknown chain id {id}"))
         })?;
 
-        let upstream = self
+        let multistream = self
             .upstreams
             .get(&chain)
             .ok_or_else(|| {
@@ -78,7 +78,7 @@ impl Blockchain for BlockchainRpcService {
         // Future improvement: process concurrently with FuturesOrdered.
         let mut results = Vec::with_capacity(req.items.len());
         for item in &req.items {
-            let reply = native_call::execute_native_call(upstream.as_ref(), item).await;
+            let reply = native_call::execute_native_call(multistream.as_ref(), item).await;
             results.push(Ok(reply));
         }
 

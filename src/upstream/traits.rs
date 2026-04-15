@@ -46,7 +46,7 @@ pub trait RpcUpstream: Send + Sync {
 }
 
 /// Errors that can occur when communicating with an upstream.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum UpstreamError {
     /// HTTP transport failure (connection refused, timeout, DNS, etc.).
     Transport(String),

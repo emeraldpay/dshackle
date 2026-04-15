@@ -18,14 +18,18 @@
 pub mod availability;
 mod bitcoin;
 mod dshackle;
-mod ethereum;
+pub mod ethereum;
 pub mod head;
 mod methods;
-mod multistream;
+pub mod multistream;
+pub mod quorum;
+pub mod router;
 pub mod state;
 mod status;
 mod switch;
 pub mod traits;
+
+pub use multistream::Multistream;
 
 use crate::blockchain::TargetBlockchain;
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
@@ -41,9 +45,10 @@ use ethereum::http::EthereumHttpUpstream;
 use ethereum::EthereumWsUpstream;
 use methods::bitcoin::BitcoinMethods;
 use methods::ethereum::EthereumMethods;
+use methods::DefaultMethods;
 use methods::HardcodedMethods;
 use methods::MethodFilter;
-use multistream::Multistream;
+use quorum::QuorumFactory;
 use status::ChainStatus;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -51,8 +56,11 @@ use switch::SwitchClient;
 use traits::RpcUpstream;
 
 /// Holds all configured upstreams, indexed by target blockchain.
+///
+/// Each chain entry is a [`Multistream`] aggregate — even chains with a single
+/// configured upstream are wrapped uniformly so the call path is the same.
 pub struct UpstreamManager {
-    upstreams: HashMap<TargetBlockchain, Arc<dyn RpcUpstream>>,
+    upstreams: HashMap<TargetBlockchain, Arc<Multistream>>,
 }
 
 impl UpstreamManager {
@@ -234,26 +242,24 @@ impl UpstreamManager {
             }
         }
 
-        let mut upstreams: HashMap<TargetBlockchain, Arc<dyn RpcUpstream>> = HashMap::new();
+        let mut upstreams: HashMap<TargetBlockchain, Arc<Multistream>> = HashMap::new();
         let mut chain_statuses: Vec<ChainStatus> = Vec::new();
 
-        for (chain, mut readers) in per_chain {
+        for (chain, readers) in per_chain {
             let chain_status = ChainStatus {
                 chain,
                 upstreams: readers.clone(),
             };
             chain_statuses.push(chain_status);
 
-            let upstream: Arc<dyn RpcUpstream> = if readers.len() == 1 {
-                readers.remove(0)
-            } else {
+            if readers.len() > 1 {
                 tracing::info!(
-                    "{}: aggregating {} upstreams with round-robin",
+                    "{}: aggregating {} upstreams",
                     chain, readers.len(),
                 );
-                Arc::new(Multistream::new(readers))
-            };
-            upstreams.insert(chain, upstream);
+            }
+            let factory = quorum_factory_for(chain);
+            upstreams.insert(chain, Arc::new(Multistream::new(readers, factory)));
         }
 
         if upstreams.is_empty() {
@@ -265,8 +271,8 @@ impl UpstreamManager {
         Ok(UpstreamManager { upstreams })
     }
 
-    /// Look up the upstream for a given blockchain.
-    pub fn get(&self, chain: &TargetBlockchain) -> Option<&Arc<dyn RpcUpstream>> {
+    /// Look up the upstream aggregate for a given blockchain.
+    pub fn get(&self, chain: &TargetBlockchain) -> Option<&Arc<Multistream>> {
         self.upstreams.get(chain)
     }
 }
@@ -312,6 +318,39 @@ fn syncing_lag_for(chain_ref: ChainRef) -> u64 {
     match chain_ref {
         ChainRef::ChainBitcoin | ChainRef::ChainTestnetBitcoin | ChainRef::ChainTestnetBitcoin4 => 2,
         _ => 6,
+    }
+}
+
+/// Picks the chain-default methods config for the given chain. The returned
+/// value supplies the per-method [`QuorumFactory`] mapping for the chain's
+/// [`Multistream`].
+///
+/// A second instance of the same methods type is built per upstream by the
+/// from_config loop to derive callable/hardcoded sets for the wrappers.
+/// This duplication is acceptable while the methods config is a static
+/// default — once per-blockchain/per-upstream overrides land, both call
+/// sites will share the same instance.
+fn quorum_factory_for(chain: TargetBlockchain) -> Arc<dyn QuorumFactory> {
+    match chain {
+        TargetBlockchain::Standard(c) => match c {
+            ChainRef::ChainBitcoin
+            | ChainRef::ChainTestnetBitcoin
+            | ChainRef::ChainTestnetBitcoin4 => Arc::new(BitcoinMethods::new()),
+            ChainRef::ChainEthereum
+            | ChainRef::ChainEthereumClassic
+            | ChainRef::ChainFantom
+            | ChainRef::ChainMatic
+            | ChainRef::ChainRsk
+            | ChainRef::ChainMorden
+            | ChainRef::ChainKovan
+            | ChainRef::ChainGoerli
+            | ChainRef::ChainRopsten
+            | ChainRef::ChainRinkeby
+            | ChainRef::ChainHolesky
+            | ChainRef::ChainSepolia
+            | ChainRef::ChainHoodi => Arc::new(EthereumMethods::new(chain)),
+            _ => Arc::new(DefaultMethods),
+        },
     }
 }
 

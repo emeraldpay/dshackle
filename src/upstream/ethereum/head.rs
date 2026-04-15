@@ -21,7 +21,7 @@
 //!   Re-subscribes automatically when the connection drops and reconnects.
 
 use crate::jsonrpc::JsonRpcRequest;
-use super::EthereumWsUpstream;
+use super::{parse_hex_quantity, EthereumWsUpstream};
 use crate::upstream::head::CurrentHeight;
 use crate::upstream::traits::RpcUpstream;
 use std::sync::Arc;
@@ -57,7 +57,7 @@ async fn poll_block_number(
     match upstream.call(&request).await {
         Ok(resp) => {
             if let Some(raw) = &resp.result {
-                match parse_hex_height(raw.get()) {
+                match parse_hex_quantity(raw.get()) {
                     Some(h) => {
                         tracing::trace!(upstream = upstream_id, height = h, "head updated");
                         height.update(h);
@@ -121,51 +121,12 @@ pub fn start_ws_head(upstream: Arc<EthereumWsUpstream>) {
 fn extract_block_number(raw_json: &str) -> Option<u64> {
     let v: serde_json::Value = serde_json::from_str(raw_json).ok()?;
     let hex = v.get("number")?.as_str()?;
-    parse_hex_height(hex)
-}
-
-// ─── Shared hex parser ──────────────────────────────────────────────────────
-
-/// Parse a hex string like `"0x10d4f"` or `0x10d4f` into a `u64`.
-pub fn parse_hex_height(raw: &str) -> Option<u64> {
-    let s = raw.trim().trim_matches('"');
-    let hex = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X"))?;
-    u64::from_str_radix(hex, 16).ok()
+    parse_hex_quantity(hex)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn parse_typical_block_number() {
-        assert_eq!(parse_hex_height(r#""0x10d4f""#), Some(0x10d4f));
-    }
-
-    #[test]
-    fn parse_zero() {
-        assert_eq!(parse_hex_height(r#""0x0""#), Some(0));
-    }
-
-    #[test]
-    fn parse_large_block_number() {
-        assert_eq!(parse_hex_height(r#""0x1312d00""#), Some(20_000_000));
-    }
-
-    #[test]
-    fn parse_without_quotes() {
-        assert_eq!(parse_hex_height("0x10d4f"), Some(0x10d4f));
-    }
-
-    #[test]
-    fn reject_non_hex() {
-        assert_eq!(parse_hex_height(r#""not_hex""#), None);
-    }
-
-    #[test]
-    fn reject_empty() {
-        assert_eq!(parse_hex_height(r#""""#), None);
-    }
 
     #[test]
     fn extract_number_from_new_heads_payload() {

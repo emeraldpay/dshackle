@@ -143,6 +143,26 @@ pub struct JsonRpcResponse {
     pub error: Option<JsonRpcError>,
 }
 
+impl JsonRpcResponse {
+    /// Extract the result as a JSON string value (e.g. `"0x1f"` → `"0x1f"`).
+    /// Returns `None` if the response carries an error, has no result, or
+    /// the result is not a JSON string.
+    pub fn result_as_string(&self) -> Option<String> {
+        if self.error.is_some() {
+            return None;
+        }
+        let raw = self.result.as_ref()?;
+        serde_json::from_str::<String>(raw.get()).ok()
+    }
+
+    /// Whether the response carries a non-null, non-error result. A JSON
+    /// `null` result deserializes to `None`, so any `Some(_)` payload counts
+    /// as non-empty here.
+    pub fn is_non_empty_result(&self) -> bool {
+        self.error.is_none() && self.result.is_some()
+    }
+}
+
 /// JSON-RPC 2.0 error object.
 #[derive(Debug, Deserialize)]
 pub struct JsonRpcError {
@@ -473,5 +493,59 @@ mod tests {
         let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
         assert!(resp.error.is_none());
         assert_eq!(resp.result.unwrap().get(), r#""Hello world!""#);
+    }
+
+    // ── result_as_string / is_non_empty_result ─────────────────────────
+
+    fn parse_resp(json: &str) -> JsonRpcResponse {
+        serde_json::from_str(json).unwrap()
+    }
+
+    #[test]
+    fn result_as_string_extracts_string_value() {
+        let r = parse_resp(r#"{"jsonrpc":"2.0","id":1,"result":"0xdead"}"#);
+        assert_eq!(r.result_as_string().as_deref(), Some("0xdead"));
+    }
+
+    #[test]
+    fn result_as_string_none_for_non_string() {
+        let r = parse_resp(r#"{"jsonrpc":"2.0","id":1,"result":123}"#);
+        assert_eq!(r.result_as_string(), None);
+    }
+
+    #[test]
+    fn result_as_string_none_for_error_response() {
+        let r = parse_resp(r#"{"jsonrpc":"2.0","id":1,"error":{"code":-1,"message":"x"}}"#);
+        assert_eq!(r.result_as_string(), None);
+    }
+
+    #[test]
+    fn result_as_string_none_for_null_result() {
+        let r = parse_resp(r#"{"jsonrpc":"2.0","id":1,"result":null}"#);
+        assert_eq!(r.result_as_string(), None);
+    }
+
+    #[test]
+    fn is_non_empty_true_for_string() {
+        let r = parse_resp(r#"{"jsonrpc":"2.0","id":1,"result":"hi"}"#);
+        assert!(r.is_non_empty_result());
+    }
+
+    #[test]
+    fn is_non_empty_true_for_object() {
+        let r = parse_resp(r#"{"jsonrpc":"2.0","id":1,"result":{"a":1}}"#);
+        assert!(r.is_non_empty_result());
+    }
+
+    #[test]
+    fn is_non_empty_false_for_null() {
+        let r = parse_resp(r#"{"jsonrpc":"2.0","id":1,"result":null}"#);
+        assert!(!r.is_non_empty_result());
+    }
+
+    #[test]
+    fn is_non_empty_false_for_error() {
+        let r = parse_resp(r#"{"jsonrpc":"2.0","id":1,"error":{"code":-1,"message":"x"}}"#);
+        assert!(!r.is_non_empty_result());
     }
 }
