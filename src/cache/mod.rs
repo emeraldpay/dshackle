@@ -22,14 +22,20 @@
 //! When a block at an existing height is replaced (chain reorganization), the
 //! previous block is automatically evicted from all caches.
 
+pub mod bitcoin_block_cache;
 mod block_by_hash;
 pub mod caching_head;
+pub mod caching_upstream;
+pub mod ethereum_block_cache;
 mod height_by_hash;
 mod height_cache;
 
 use crate::data::{BlockContainer, BlockId};
 use block_by_hash::BlockByHashCache;
+pub use bitcoin_block_cache::BitcoinBlockCache;
 pub use caching_head::CachingHead;
+pub use caching_upstream::CachingUpstream;
+pub use ethereum_block_cache::EthereumBlockCache;
 use height_by_hash::HeightByHashCache;
 use height_cache::HeightCache;
 

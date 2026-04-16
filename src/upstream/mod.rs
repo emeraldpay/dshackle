@@ -16,7 +16,7 @@
 //! access to them for the RPC layer.
 
 pub mod availability;
-mod bitcoin;
+pub(crate) mod bitcoin;
 mod dshackle;
 pub mod ethereum;
 pub mod head;
@@ -32,7 +32,7 @@ pub mod traits;
 pub use multistream::Multistream;
 
 use crate::blockchain::TargetBlockchain;
-use crate::cache::{Caches, CachingHead};
+use crate::cache::{BitcoinBlockCache, Caches, CachingHead, CachingUpstream, EthereumBlockCache};
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
 use bitcoin::head::start_head_poller as start_btc_head_poller;
 use bitcoin::http::BitcoinHttpUpstream;
@@ -199,8 +199,15 @@ impl UpstreamManager {
                     let methods: Arc<dyn QuorumFactory> =
                         Arc::new(LayeredMethods::new(default_layer, configured_layer));
 
+                    // Wrapping order (outermost first):
+                    //   HardcodedMethods → CachingUpstream → MethodFilter → transport
+                    // Hardcoded responses are cheapest, then cache, then network.
+                    let caches = per_chain_caches.get(&chain).cloned()
+                        .unwrap_or_else(|| Arc::new(Caches::new()));
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(MethodFilter::new(reader, Arc::clone(&methods)));
+                    let reader: Arc<dyn RpcUpstream> =
+                        Arc::new(CachingUpstream::new(reader, caches, EthereumBlockCache));
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(HardcodedMethods::new(reader, Arc::clone(&methods)));
 
@@ -264,8 +271,12 @@ impl UpstreamManager {
                     let methods: Arc<dyn QuorumFactory> =
                         Arc::new(LayeredMethods::new(default_layer, configured_layer));
 
+                    let caches = per_chain_caches.get(&chain).cloned()
+                        .unwrap_or_else(|| Arc::new(Caches::new()));
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(MethodFilter::new(reader, Arc::clone(&methods)));
+                    let reader: Arc<dyn RpcUpstream> =
+                        Arc::new(CachingUpstream::new(reader, caches, BitcoinBlockCache));
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(HardcodedMethods::new(reader, Arc::clone(&methods)));
 

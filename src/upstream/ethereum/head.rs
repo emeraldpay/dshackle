@@ -168,7 +168,7 @@ pub fn start_ws_head(upstream: Arc<EthereumWsUpstream>) {
 /// Parse a full Ethereum block JSON (from `eth_getBlockByNumber` with
 /// `false` for transaction details). Includes transaction hashes and stores
 /// the raw JSON for later re-serving.
-fn parse_eth_block(raw_json: &str) -> Option<BlockContainer> {
+pub(crate) fn parse_eth_block(raw_json: &str) -> Option<BlockContainer> {
     let v: serde_json::Value = serde_json::from_str(raw_json).ok()?;
 
     let hash: BlockId = v.get("hash")?.as_str()?.parse().ok()?;

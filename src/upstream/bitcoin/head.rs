@@ -142,7 +142,7 @@ async fn poll_best_block(
 ///
 /// Bitcoin block JSON uses plain integers for height and time (unix seconds),
 /// and hex strings without `0x` prefix for hashes.
-fn parse_btc_block(raw_json: &str) -> Option<BlockContainer> {
+pub(crate) fn parse_btc_block(raw_json: &str) -> Option<BlockContainer> {
     let v: serde_json::Value = serde_json::from_str(raw_json).ok()?;
 
     let hash: BlockId = v.get("hash")?.as_str()?.parse().ok()?;
