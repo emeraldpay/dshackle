@@ -32,6 +32,7 @@ pub mod traits;
 pub use multistream::Multistream;
 
 use crate::blockchain::TargetBlockchain;
+use crate::cache::{Caches, CachingHead};
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
 use bitcoin::head::start_head_poller as start_btc_head_poller;
 use bitcoin::http::BitcoinHttpUpstream;
@@ -64,6 +65,7 @@ use traits::RpcUpstream;
 /// configured upstream are wrapped uniformly so the call path is the same.
 pub struct UpstreamManager {
     upstreams: HashMap<TargetBlockchain, Arc<Multistream>>,
+    caches: HashMap<TargetBlockchain, Arc<Caches>>,
 }
 
 impl UpstreamManager {
@@ -80,6 +82,12 @@ impl UpstreamManager {
         // so "first delegate supporting the method" preserves config order.
         let mut per_chain_methods: HashMap<TargetBlockchain, Vec<Arc<dyn QuorumFactory>>> =
             HashMap::new();
+        // Per-chain caches and caching heads. Created lazily on first upstream
+        // for each chain. The CachingHead subscribes to each upstream's block
+        // stream and deduplicates before writing to the cache — one update per
+        // chain regardless of how many upstreams report the same block.
+        let mut per_chain_caches: HashMap<TargetBlockchain, Arc<Caches>> = HashMap::new();
+        let mut per_chain_caching_heads: HashMap<TargetBlockchain, CachingHead> = HashMap::new();
 
         for upstream in &config.upstreams {
             if !upstream.enabled {
@@ -95,8 +103,11 @@ impl UpstreamManager {
                     };
                     let blockchain_name = upstream.blockchain.as_deref().unwrap_or("?");
 
-                    // WS upstream gets head updates via newHeads subscription
-                    let ws_upstream: Option<Arc<dyn RpcUpstream>> = eth.ws.as_ref().map(|ws| {
+                    // Build WS and HTTP transports. Head tracking is started
+                    // on only one of them — WS is preferred because newHeads
+                    // gives near-instant updates, while HTTP polls every 10s.
+                    // The other transport is used for RPC calls only.
+                    let ws_upstream: Option<Arc<EthereumWsUpstream>> = eth.ws.as_ref().map(|ws| {
                         if ws.basic_auth.is_some() {
                             tracing::warn!("Upstream {}: WS basic auth not yet supported, ignoring", upstream.id);
                         }
@@ -104,16 +115,14 @@ impl UpstreamManager {
                             "Using Ethereum WS upstream '{}' at {} for {}",
                             upstream.id, ws.url, blockchain_name,
                         );
-                        let ws_up = Arc::new(EthereumWsUpstream::new(
+                        Arc::new(EthereumWsUpstream::new(
                             upstream.id.clone(),
                             ws.url.clone(),
                             ws.connections.unwrap_or(1),
-                        ));
-                        start_ws_head(Arc::clone(&ws_up));
-                        ws_up as Arc<dyn RpcUpstream>
+                        ))
                     });
 
-                    let http_upstream: Option<Arc<dyn RpcUpstream>> = eth.rpc.as_ref().map(|rpc| {
+                    let http_upstream: Option<Arc<EthereumHttpUpstream>> = eth.rpc.as_ref().map(|rpc| {
                         if rpc.basic_auth.is_some() {
                             tracing::warn!("Upstream {}: basic auth not yet supported, ignoring", upstream.id);
                         }
@@ -124,17 +133,44 @@ impl UpstreamManager {
                             "Using Ethereum HTTP upstream '{}' at {} for {}",
                             upstream.id, rpc.url, blockchain_name,
                         );
-                        let http_up = EthereumHttpUpstream::new(
+                        Arc::new(EthereumHttpUpstream::new(
                             upstream.id.clone(),
                             rpc.url.clone(),
-                        );
-                        let head_height = http_up.head_height();
-                        let arc: Arc<dyn RpcUpstream> = Arc::new(http_up);
-                        start_head_poller(upstream.id.clone(), Arc::clone(&arc), head_height);
-                        arc
+                        ))
                     });
 
-                    let reader: Arc<dyn RpcUpstream> = match (ws_upstream, http_upstream) {
+                    // Start head tracking on exactly one transport per
+                    // upstream and subscribe the per-chain CachingHead to it.
+                    let caching_head = get_or_create_caching_head(
+                        chain,
+                        &mut per_chain_caches,
+                        &mut per_chain_caching_heads,
+                    );
+                    match (&ws_upstream, &http_upstream) {
+                        (Some(ws_up), _) => {
+                            caching_head.follow(&ws_up.head_height());
+                            start_ws_head(Arc::clone(ws_up));
+                        }
+                        (None, Some(http_up)) => {
+                            let head = http_up.head_height();
+                            caching_head.follow(&head);
+                            start_head_poller(
+                                upstream.id.clone(),
+                                Arc::clone(http_up) as Arc<dyn RpcUpstream>,
+                                head,
+                            );
+                        }
+                        (None, None) => {
+                            // handled below
+                        }
+                    }
+
+                    let ws_rpc: Option<Arc<dyn RpcUpstream>> =
+                        ws_upstream.map(|u| u as Arc<dyn RpcUpstream>);
+                    let http_rpc: Option<Arc<dyn RpcUpstream>> =
+                        http_upstream.map(|u| u as Arc<dyn RpcUpstream>);
+
+                    let reader: Arc<dyn RpcUpstream> = match (ws_rpc, http_rpc) {
                         (Some(ws), Some(http)) => {
                             // WS primary, HTTP fallback
                             tracing::info!(
@@ -204,12 +240,18 @@ impl UpstreamManager {
                         rpc.url.clone(),
                         basic_auth,
                     );
-                    let head_height = http_up.head_height();
+                    let head = http_up.head_height();
+                    let caching_head = get_or_create_caching_head(
+                        chain,
+                        &mut per_chain_caches,
+                        &mut per_chain_caching_heads,
+                    );
+                    caching_head.follow(&head);
                     let reader: Arc<dyn RpcUpstream> = Arc::new(http_up);
                     start_btc_head_poller(
                         upstream.id.clone(),
                         Arc::clone(&reader),
-                        head_height,
+                        head,
                     );
 
                     // See the Ethereum branch for why the same instance feeds
@@ -251,7 +293,14 @@ impl UpstreamManager {
                         upstream.id, url,
                     );
 
-                    match connect_dshackle(&upstream.id, &url).await {
+                    match connect_dshackle(
+                        &upstream.id,
+                        &url,
+                        &mut per_chain_caches,
+                        &mut per_chain_caching_heads,
+                    )
+                    .await
+                    {
                         Ok(discovered) => {
                             for (chain, reader) in discovered {
                                 per_chain.entry(chain).or_default().push(reader);
@@ -306,16 +355,39 @@ impl UpstreamManager {
 
         status::start_status_reporter(chain_statuses);
 
-        Ok(UpstreamManager { upstreams })
+        Ok(UpstreamManager {
+            upstreams,
+            caches: per_chain_caches,
+        })
     }
 
     /// Look up the upstream aggregate for a given blockchain.
     pub fn get(&self, chain: &TargetBlockchain) -> Option<&Arc<Multistream>> {
         self.upstreams.get(chain)
     }
+
+    /// Look up the cache for a given blockchain.
+    pub fn caches(&self, chain: &TargetBlockchain) -> Option<&Arc<Caches>> {
+        self.caches.get(chain)
+    }
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
+
+/// Returns a reference to the `CachingHead` for a chain, creating it (and the
+/// underlying `Caches`) on first access.
+fn get_or_create_caching_head<'a>(
+    chain: TargetBlockchain,
+    caches_map: &mut HashMap<TargetBlockchain, Arc<Caches>>,
+    caching_heads: &'a mut HashMap<TargetBlockchain, CachingHead>,
+) -> &'a CachingHead {
+    let caches = caches_map
+        .entry(chain)
+        .or_insert_with(|| Arc::new(Caches::new()));
+    caching_heads
+        .entry(chain)
+        .or_insert_with(|| CachingHead::new(Arc::clone(caches)))
+}
 
 /// Parses the blockchain field from a configured upstream. Returns `None` and
 /// logs a warning if the field is missing or unrecognized.
@@ -392,6 +464,8 @@ fn quorum_factory_for(chain: TargetBlockchain) -> Arc<dyn QuorumFactory> {
 async fn connect_dshackle(
     upstream_id: &str,
     url: &str,
+    caches_map: &mut HashMap<TargetBlockchain, Arc<Caches>>,
+    caching_heads: &mut HashMap<TargetBlockchain, CachingHead>,
 ) -> anyhow::Result<Vec<(TargetBlockchain, Arc<dyn RpcUpstream>)>> {
     let endpoint = tonic::transport::Endpoint::from_shared(url.to_string())?;
     let channel = endpoint.connect().await?;
@@ -437,12 +511,17 @@ async fn connect_dshackle(
             syncing_lag,
         );
 
+        // Subscribe caching head before starting the poller so no blocks are missed
+        let head = ds_upstream.head_height();
+        let caching_head = get_or_create_caching_head(chain, caches_map, caching_heads);
+        caching_head.follow(&head);
+
         // Start head tracking via SubscribeHead
         start_head_subscriber(
             chain_id.clone(),
             desc_chain.chain,
             ds_upstream.grpc_client(),
-            ds_upstream.head_height(),
+            head,
         );
 
         let reader: Arc<dyn RpcUpstream> = Arc::new(ds_upstream);

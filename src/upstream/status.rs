@@ -145,20 +145,20 @@ pub fn start_status_reporter(chains: Vec<ChainStatus>) {
 mod tests {
     use super::*;
     use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
-    use crate::upstream::head::{CurrentHeight, Head};
+    use crate::upstream::head::{CurrentHead, Head};
     use crate::upstream::state::UpstreamState;
     use crate::upstream::traits::UpstreamError;
     use emerald_api::proto::common::ChainRef;
 
     struct StubUpstream {
         name: String,
-        head: Arc<CurrentHeight>,
+        head: Arc<CurrentHead>,
         state: Arc<UpstreamState>,
     }
 
     impl StubUpstream {
         fn new(name: &str, height: Option<u64>) -> Arc<dyn RpcUpstream> {
-            let head = Arc::new(CurrentHeight::new());
+            let head = Arc::new(CurrentHead::new());
             if let Some(h) = height {
                 head.update(h);
             }

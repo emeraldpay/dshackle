@@ -26,7 +26,7 @@
 use super::ws_pool::WsConnectionPool;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
 use crate::upstream::availability::UpstreamAvailability;
-use crate::upstream::head::{CurrentHeight, Head};
+use crate::upstream::head::{CurrentHead, Head};
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use serde_json::value::RawValue;
@@ -41,7 +41,7 @@ use tokio::sync::mpsc;
 pub struct EthereumWsUpstream {
     id: String,
     pool: Arc<WsConnectionPool>,
-    head: Arc<CurrentHeight>,
+    head: Arc<CurrentHead>,
     upstream_state: Arc<UpstreamState>,
 }
 
@@ -52,7 +52,7 @@ impl EthereumWsUpstream {
     /// reconnect with exponential backoff on failure.
     pub fn new(id: String, url: String, connections: u32) -> Self {
         let pool = WsConnectionPool::start(id.clone(), url, connections.max(1));
-        let head = Arc::new(CurrentHeight::new());
+        let head = Arc::new(CurrentHead::new());
         let upstream_state = Arc::new(UpstreamState::new());
         Self {
             id,
@@ -63,7 +63,7 @@ impl EthereumWsUpstream {
     }
 
     /// Shared reference to this upstream's head height tracker.
-    pub fn head_height(&self) -> Arc<CurrentHeight> {
+    pub fn head_height(&self) -> Arc<CurrentHead> {
         Arc::clone(&self.head)
     }
 

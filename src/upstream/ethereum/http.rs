@@ -16,7 +16,7 @@
 
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
 use crate::upstream::availability::UpstreamAvailability;
-use crate::upstream::head::{CurrentHeight, Head};
+use crate::upstream::head::{CurrentHead, Head};
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError, sanitize_error_body};
 use std::sync::Arc;
@@ -26,20 +26,20 @@ pub struct EthereumHttpUpstream {
     id: String,
     url: String,
     client: reqwest::Client,
-    head: Arc<CurrentHeight>,
+    head: Arc<CurrentHead>,
     state: Arc<UpstreamState>,
 }
 
 impl EthereumHttpUpstream {
     pub fn new(id: String, url: String) -> Self {
         let client = reqwest::Client::new();
-        let head = Arc::new(CurrentHeight::new());
+        let head = Arc::new(CurrentHead::new());
         let state = Arc::new(UpstreamState::new());
         Self { id, url, client, head, state }
     }
 
     /// Shared reference to this upstream's head height, used to start the poller.
-    pub fn head_height(&self) -> Arc<CurrentHeight> {
+    pub fn head_height(&self) -> Arc<CurrentHead> {
         Arc::clone(&self.head)
     }
 }

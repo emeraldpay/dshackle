@@ -14,14 +14,23 @@
 
 //! Head tracking for blockchain upstreams.
 //!
-//! A `Head` represents the current tip of the chain as seen by an upstream.
-//! Future iterations will add block streaming (like the legacy `getFlux()`)
-//! and pre-block hooks.
+//! A [`Head`] represents the current tip of the chain as seen by an upstream.
+//! [`CurrentHead`] tracks both the height (atomically, for lag/status) and
+//! broadcasts full [`BlockContainer`] data to downstream consumers like
+//! [`CachingHead`](crate::cache::CachingHead).
 
+use crate::data::BlockContainer;
 use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::Arc;
+use tokio::sync::broadcast;
 
 /// Sentinel value indicating "no height known yet" (stored in the atomic).
 const NO_HEIGHT: i64 = -1;
+
+/// Capacity for the block broadcast channel. Slow receivers that fall behind
+/// this many blocks will miss intermediate blocks — acceptable because we
+/// only care about the latest head.
+const BLOCK_CHANNEL_CAPACITY: usize = 16;
 
 /// Current chain tip as observed by an upstream.
 pub trait Head: Send + Sync {
@@ -39,29 +48,50 @@ impl Head for NoHead {
     }
 }
 
-/// Thread-safe, atomically updated head height.
+/// Thread-safe head tracker that stores the current height and broadcasts
+/// new blocks to subscribers.
 ///
 /// Shared between the background polling task (writer) and the status
-/// reporter / trait impl (readers).
-pub struct CurrentHeight {
+/// reporter / cache layer (readers). Each upstream has its own `CurrentHead`;
+/// per-chain aggregation happens in [`CachingHead`](crate::cache::CachingHead).
+pub struct CurrentHead {
     height: AtomicI64,
+    block_sender: broadcast::Sender<Arc<BlockContainer>>,
 }
 
-impl CurrentHeight {
+impl CurrentHead {
     pub fn new() -> Self {
+        let (tx, _) = broadcast::channel(BLOCK_CHANNEL_CAPACITY);
         Self {
             height: AtomicI64::new(NO_HEIGHT),
+            block_sender: tx,
         }
     }
 
-    /// Update the tracked height. Only accepts forward progress — a lower
-    /// height is silently ignored to avoid temporary dips from stale responses.
+    /// Update with a full block. Advances the tracked height and broadcasts
+    /// the block to all subscribers.
+    pub fn update_with_block(&self, block: BlockContainer) {
+        self.height.fetch_max(block.height as i64, Ordering::Relaxed);
+        // Ignore send errors — just means no active subscribers yet
+        let _ = self.block_sender.send(Arc::new(block));
+    }
+
+    /// Update the tracked height only (no block data to broadcast).
+    ///
+    /// Used as a fallback when the head poller can only determine the height
+    /// but not the full block. Only accepts forward progress — a lower height
+    /// is silently ignored.
     pub fn update(&self, new_height: u64) {
         self.height.fetch_max(new_height as i64, Ordering::Relaxed);
     }
+
+    /// Subscribe to block events from this head.
+    pub fn subscribe_blocks(&self) -> broadcast::Receiver<Arc<BlockContainer>> {
+        self.block_sender.subscribe()
+    }
 }
 
-impl Head for CurrentHeight {
+impl Head for CurrentHead {
     fn current_height(&self) -> Option<u64> {
         let h = self.height.load(Ordering::Relaxed);
         if h < 0 {
@@ -75,16 +105,30 @@ impl Head for CurrentHeight {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::data::BlockId;
+
+    fn make_block(height: u64) -> BlockContainer {
+        let mut hash = [0u8; 32];
+        hash[0] = height as u8;
+        BlockContainer {
+            hash: BlockId::from_bytes(hash),
+            height,
+            parent_hash: None,
+            timestamp: jiff::Timestamp::UNIX_EPOCH,
+            transaction_hashes: vec![],
+            json: None,
+        }
+    }
 
     #[test]
     fn starts_with_no_height() {
-        let h = CurrentHeight::new();
+        let h = CurrentHead::new();
         assert_eq!(h.current_height(), None);
     }
 
     #[test]
     fn tracks_height_updates() {
-        let h = CurrentHeight::new();
+        let h = CurrentHead::new();
         h.update(100);
         assert_eq!(h.current_height(), Some(100));
         h.update(200);
@@ -93,9 +137,41 @@ mod tests {
 
     #[test]
     fn ignores_lower_height() {
-        let h = CurrentHeight::new();
+        let h = CurrentHead::new();
         h.update(200);
         h.update(100);
         assert_eq!(h.current_height(), Some(200));
+    }
+
+    #[test]
+    fn update_with_block_advances_height() {
+        let h = CurrentHead::new();
+        h.update_with_block(make_block(42));
+        assert_eq!(h.current_height(), Some(42));
+    }
+
+    #[tokio::test]
+    async fn subscribers_receive_blocks() {
+        let h = CurrentHead::new();
+        let mut rx = h.subscribe_blocks();
+
+        h.update_with_block(make_block(10));
+
+        let block = rx.recv().await.unwrap();
+        assert_eq!(block.height, 10);
+    }
+
+    #[tokio::test]
+    async fn multiple_blocks_received_in_order() {
+        let h = CurrentHead::new();
+        let mut rx = h.subscribe_blocks();
+
+        h.update_with_block(make_block(1));
+        h.update_with_block(make_block(2));
+        h.update_with_block(make_block(3));
+
+        assert_eq!(rx.recv().await.unwrap().height, 1);
+        assert_eq!(rx.recv().await.unwrap().height, 2);
+        assert_eq!(rx.recv().await.unwrap().height, 3);
     }
 }

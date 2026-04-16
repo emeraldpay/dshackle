@@ -15,7 +15,9 @@
 //! Emerald Dshackle — Fault Tolerant Load Balancer for Blockchain API.
 
 mod blockchain;
+mod cache;
 mod config;
+mod data;
 mod global;
 mod jsonrpc;
 mod rpc;

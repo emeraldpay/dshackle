@@ -20,7 +20,7 @@
 
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
 use crate::upstream::availability::UpstreamAvailability;
-use crate::upstream::head::{CurrentHeight, Head};
+use crate::upstream::head::{CurrentHead, Head};
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
@@ -39,7 +39,7 @@ pub struct DshackleUpstream {
     id: String,
     chain_ref: i32,
     client: BlockchainClient<Channel>,
-    head: Arc<CurrentHeight>,
+    head: Arc<CurrentHead>,
     state: Arc<UpstreamState>,
 }
 
@@ -59,13 +59,13 @@ impl DshackleUpstream {
             id,
             chain_ref,
             client,
-            head: Arc::new(CurrentHeight::new()),
+            head: Arc::new(CurrentHead::new()),
             state: Arc::new(UpstreamState::with_syncing_lag(syncing_lag)),
         }
     }
 
     /// Shared reference to this upstream's head height, used by the head subscriber.
-    pub fn head_height(&self) -> Arc<CurrentHeight> {
+    pub fn head_height(&self) -> Arc<CurrentHead> {
         Arc::clone(&self.head)
     }
 

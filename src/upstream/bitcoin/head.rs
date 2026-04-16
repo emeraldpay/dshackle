@@ -12,16 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Bitcoin head height tracking via RPC polling.
+//! Bitcoin head tracking via RPC polling.
 //!
 //! Unlike Ethereum, Bitcoin nodes don't offer a WebSocket `newHeads`
 //! subscription. Instead we poll by calling `getbestblockhash` and, when the
-//! hash changes, fetching the block with `getblock` to extract its height.
+//! hash changes, fetching the block with `getblock` to extract its data.
 //!
 //! The polling interval is 15 seconds, matching the legacy implementation.
+//! Parsed blocks are pushed through [`CurrentHead::update_with_block`] so
+//! downstream consumers (like [`CachingHead`](crate::cache::CachingHead))
+//! receive the data.
 
+use crate::data::{BlockContainer, BlockId, TxId};
 use crate::jsonrpc::JsonRpcRequest;
-use crate::upstream::head::CurrentHeight;
+use crate::upstream::head::CurrentHead;
 use crate::upstream::traits::RpcUpstream;
 use std::sync::Arc;
 use std::time::Duration;
@@ -30,16 +34,16 @@ use std::time::Duration;
 const POLL_INTERVAL: Duration = Duration::from_secs(15);
 
 /// Spawns a background task that polls the Bitcoin node for the current best
-/// block and updates the shared height tracker.
+/// block and updates the shared head tracker.
 ///
 /// The flow mirrors the legacy `BitcoinRpcHead`:
 /// 1. Call `getbestblockhash` to get the tip hash
 /// 2. If the hash changed since last poll, call `getblock` to get full block info
-/// 3. Extract the `height` field from the block response
+/// 3. Parse the block into a [`BlockContainer`] and push it to the head
 pub fn start_head_poller(
     upstream_id: String,
     upstream: Arc<dyn RpcUpstream>,
-    height: Arc<CurrentHeight>,
+    head: Arc<CurrentHead>,
 ) {
     tokio::spawn(async move {
         let mut last_hash: Option<String> = None;
@@ -47,7 +51,7 @@ pub fn start_head_poller(
 
         loop {
             interval.tick().await;
-            poll_best_block(&upstream_id, upstream.as_ref(), &height, &mut last_hash).await;
+            poll_best_block(&upstream_id, upstream.as_ref(), &head, &mut last_hash).await;
         }
     });
 }
@@ -55,7 +59,7 @@ pub fn start_head_poller(
 async fn poll_best_block(
     upstream_id: &str,
     upstream: &dyn RpcUpstream,
-    height: &CurrentHeight,
+    head: &CurrentHead,
     last_hash: &mut Option<String>,
 ) {
     // Step 1: get the best block hash
@@ -87,8 +91,7 @@ async fn poll_best_block(
     }
     *last_hash = Some(hash_str.clone());
 
-    // Step 2: fetch the block to get its height
-    // getblock with verbosity=1 returns JSON with full block info
+    // Step 2: fetch the block — verbosity=1 returns JSON with tx hashes
     let block_request = JsonRpcRequest::new(
         0,
         "getblock".into(),
@@ -97,16 +100,31 @@ async fn poll_best_block(
     match upstream.call(&block_request).await {
         Ok(resp) => {
             if let Some(raw) = &resp.result {
-                match extract_block_height(raw.get()) {
-                    Some(h) => {
-                        tracing::trace!(upstream = upstream_id, height = h, hash = %last_hash.as_deref().unwrap_or(""), "head updated");
-                        height.update(h);
+                match parse_btc_block(raw.get()) {
+                    Some(block) => {
+                        tracing::trace!(
+                            upstream = upstream_id,
+                            height = block.height,
+                            hash = %block.hash,
+                            "head updated"
+                        );
+                        head.update_with_block(block);
                     }
                     None => {
-                        tracing::warn!(
-                            upstream = upstream_id,
-                            "failed to extract height from getblock response"
-                        );
+                        // Fallback: try to extract at least the height
+                        if let Some(h) = extract_block_height(raw.get()) {
+                            tracing::debug!(
+                                upstream = upstream_id,
+                                height = h,
+                                "partial head update (block parse failed)"
+                            );
+                            head.update(h);
+                        } else {
+                            tracing::warn!(
+                                upstream = upstream_id,
+                                "failed to parse getblock response"
+                            );
+                        }
                     }
                 }
             }
@@ -117,7 +135,47 @@ async fn poll_best_block(
     }
 }
 
-/// Extracts the `height` field from a `getblock` JSON response.
+// ─── Block parsing ──────────────────────────────────────────────────────────
+
+/// Parse a Bitcoin `getblock` (verbosity=1) JSON response into a
+/// [`BlockContainer`].
+///
+/// Bitcoin block JSON uses plain integers for height and time (unix seconds),
+/// and hex strings without `0x` prefix for hashes.
+fn parse_btc_block(raw_json: &str) -> Option<BlockContainer> {
+    let v: serde_json::Value = serde_json::from_str(raw_json).ok()?;
+
+    let hash: BlockId = v.get("hash")?.as_str()?.parse().ok()?;
+    let height = v.get("height")?.as_u64()?;
+    let parent_hash = v
+        .get("previousblockhash")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse().ok());
+    let time = v.get("time")?.as_u64()?;
+    let timestamp = jiff::Timestamp::from_second(time as i64).ok()?;
+
+    let transaction_hashes = v
+        .get("tx")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str())
+                .filter_map(|s| s.parse::<TxId>().ok())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Some(BlockContainer {
+        hash,
+        height,
+        parent_hash,
+        timestamp,
+        transaction_hashes,
+        json: Some(Arc::from(raw_json.as_bytes())),
+    })
+}
+
+/// Extracts only the `height` field from a `getblock` response (fallback).
 fn extract_block_height(raw_json: &str) -> Option<u64> {
     let v: serde_json::Value = serde_json::from_str(raw_json).ok()?;
     v.get("height")?.as_u64()
@@ -141,8 +199,8 @@ mod tests {
             "height": 800000,
             "version": 536870912,
             "time": 1690000000,
-            "previousblockhash": "00000000000000000000deadbeef",
-            "tx": ["abc123", "def456"]
+            "previousblockhash": "00000000000000000001deadbeef00000000000000000000000000000000beef",
+            "tx": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
         }"#;
         assert_eq!(extract_block_height(block), Some(800_000));
     }
@@ -162,5 +220,48 @@ mod tests {
     fn extract_height_null_height() {
         let block = r#"{"height":null}"#;
         assert_eq!(extract_block_height(block), None);
+    }
+
+    #[test]
+    fn parse_full_btc_block() {
+        let json = r#"{
+            "hash": "00000000000000000002a7c4c1e48d76c5a37902165a270156b7a8d72f8804c6",
+            "height": 800000,
+            "time": 1690000000,
+            "previousblockhash": "00000000000000000001deadbeef00000000000000000000000000000000beef",
+            "tx": [
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            ],
+            "confirmations": 1,
+            "version": 536870912
+        }"#;
+
+        let block = parse_btc_block(json).unwrap();
+        assert_eq!(block.height, 800_000);
+        assert!(block.parent_hash.is_some());
+        assert_eq!(block.transaction_hashes.len(), 2);
+        assert!(block.json.is_some());
+    }
+
+    #[test]
+    fn parse_btc_genesis_block() {
+        // Genesis block has no previousblockhash
+        let json = r#"{
+            "hash": "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
+            "height": 0,
+            "time": 1231006505
+        }"#;
+
+        let block = parse_btc_block(json).unwrap();
+        assert_eq!(block.height, 0);
+        assert!(block.parent_hash.is_none());
+        assert!(block.transaction_hashes.is_empty());
+    }
+
+    #[test]
+    fn parse_btc_block_rejects_invalid() {
+        assert!(parse_btc_block("not json").is_none());
+        assert!(parse_btc_block(r#"{"height": 1}"#).is_none()); // missing hash
     }
 }

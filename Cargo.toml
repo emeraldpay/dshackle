@@ -19,6 +19,7 @@ emerald-api = { git = "https://github.com/emeraldpay/emerald-api-rs", features =
 enum-display-derive = "0.1"
 futures-util = "0.3"
 lazy_static = "1.5"
+moka = { version = "0.12", features = ["sync"] }
 alloy = { version = "1.8", features = ["rpc-types"] }
 hex = "0.4.3"
 shutdown = "0.5"
