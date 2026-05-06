@@ -63,11 +63,14 @@ pub async fn execute_native_call(
                 }
             } else if let Some(err) = resp.error {
                 tracing::trace!(id = item.id, method = %item.method, error = %err, "call returned rpc error");
+                // Forward the JSON-RPC error object verbatim so callers see the
+                // upstream's exact `code`/`message`/`data`
+                let error_message = serde_json::to_string(&err).unwrap_or_else(|_| err.to_string());
                 NativeCallReplyItem {
                     id: item.id,
                     succeed: false,
                     payload: Vec::new(),
-                    error_message: err.to_string(),
+                    error_message,
                     signature: None,
                 }
             } else {

@@ -164,10 +164,14 @@ impl JsonRpcResponse {
 }
 
 /// JSON-RPC 2.0 error object.
-#[derive(Debug, Deserialize)]
+///
+/// The `data` field is omitted on serialize when `None` to avoid emitting
+/// `"data":null` for upstreams that didn't include it in the original error.
+#[derive(Debug, Deserialize, Serialize)]
 pub struct JsonRpcError {
     pub code: i64,
     pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<serde_json::Value>,
 }
 
@@ -299,6 +303,30 @@ mod tests {
             data: None,
         };
         assert_eq!(err.to_string(), "JSON-RPC error -32601: Method not found");
+    }
+
+    #[test]
+    fn serialize_jsonrpc_error_with_data() {
+        let err = JsonRpcError {
+            code: 3,
+            message: "execution reverted".to_string(),
+            data: Some(serde_json::json!("0x")),
+        };
+        let json = serde_json::to_string(&err).unwrap();
+        assert_eq!(json, r#"{"code":3,"message":"execution reverted","data":"0x"}"#);
+    }
+
+    #[test]
+    fn serialize_jsonrpc_error_omits_absent_data() {
+        // Upstreams that don't include `data` should not see `"data":null`
+        // appear in the forwarded error_message — preserve the original shape.
+        let err = JsonRpcError {
+            code: -32601,
+            message: "Method not found".to_string(),
+            data: None,
+        };
+        let json = serde_json::to_string(&err).unwrap();
+        assert_eq!(json, r#"{"code":-32601,"message":"Method not found"}"#);
     }
 
     // ── Response parsing tests (ported from legacy ResponseRpcParserTest) ──
