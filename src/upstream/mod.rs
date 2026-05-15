@@ -372,6 +372,16 @@ impl UpstreamManager {
         })
     }
 
+    /// Direct constructor for callers that already hold the resolved
+    /// per-chain `Multistream`s and `Caches` — primarily code that wires
+    /// upstreams outside the standard config-driven path (e.g. tests).
+    pub(crate) fn from_parts(
+        upstreams: HashMap<TargetBlockchain, Arc<Multistream>>,
+        caches: HashMap<TargetBlockchain, Arc<Caches>>,
+    ) -> Self {
+        Self { upstreams, caches }
+    }
+
     /// Look up the upstream aggregate for a given blockchain.
     pub fn get(&self, chain: &TargetBlockchain) -> Option<&Arc<Multistream>> {
         self.upstreams.get(chain)
