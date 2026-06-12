@@ -32,7 +32,10 @@ pub mod traits;
 pub use multistream::Multistream;
 
 use crate::blockchain::TargetBlockchain;
-use crate::cache::{BitcoinBlockCache, Caches, CachingHead, CachingUpstream, EthereumBlockCache};
+use crate::cache::{
+    BitcoinBlockCache, Caches, CachingHead, CachingUpstream, EthereumBlockCache,
+    EthereumNormalizer, NormalizingUpstream,
+};
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
 use bitcoin::head::start_head_poller as start_btc_head_poller;
 use bitcoin::http::BitcoinHttpUpstream;
@@ -200,14 +203,22 @@ impl UpstreamManager {
                         Arc::new(LayeredMethods::new(default_layer, configured_layer));
 
                     // Wrapping order (outermost first):
-                    //   HardcodedMethods → CachingUpstream → MethodFilter → transport
+                    //   HardcodedMethods → NormalizingUpstream → CachingUpstream
+                    //     → MethodFilter → transport
                     // Hardcoded responses are cheapest, then cache, then network.
+                    // Normalizing sits above the cache so that a request
+                    // rewritten to block-by-hash can be served from the cache.
                     let caches = per_chain_caches.get(&chain).cloned()
                         .unwrap_or_else(|| Arc::new(Caches::new()));
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(MethodFilter::new(reader, Arc::clone(&methods)));
+                    let reader: Arc<dyn RpcUpstream> = Arc::new(CachingUpstream::new(
+                        reader,
+                        Arc::clone(&caches),
+                        EthereumBlockCache,
+                    ));
                     let reader: Arc<dyn RpcUpstream> =
-                        Arc::new(CachingUpstream::new(reader, caches, EthereumBlockCache));
+                        Arc::new(NormalizingUpstream::new(reader, caches, EthereumNormalizer));
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(HardcodedMethods::new(reader, Arc::clone(&methods)));
 
