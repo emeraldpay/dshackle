@@ -14,34 +14,38 @@
 
 //! In-memory caching layer for blockchain data.
 //!
-//! [`Caches`] coordinates three block-related caches:
-//! - **block by hash** — stores full [`BlockContainer`] data keyed by hash
+//! [`Caches`] coordinates the per-chain caches:
+//! - **block by hash** — stores [`BlockContainer`] data keyed by hash
 //! - **height → hash** — maps block heights to their hashes (detects reorgs)
 //! - **hash → height** — reverse lookup from hash to height
+//! - **tx by hash** — stores [`TxContainer`] data keyed by transaction hash
 //!
 //! When a block at an existing height is replaced (chain reorganization), the
-//! previous block is automatically evicted from all caches.
+//! previous block and its transactions are automatically evicted.
 
-pub mod bitcoin_block_cache;
+pub mod bitcoin_codec;
 mod block_by_hash;
 pub mod caching_head;
 pub mod caching_upstream;
-pub mod ethereum_block_cache;
+pub mod ethereum_codec;
+pub mod ethereum_full_block;
 pub mod ethereum_normalizer;
 mod height_by_hash;
 mod height_cache;
 pub mod normalizing_upstream;
+mod tx_by_hash;
 
-use crate::data::{BlockContainer, BlockId};
+use crate::data::{BlockContainer, BlockId, TxContainer, TxId};
+pub use bitcoin_codec::BitcoinCacheCodec;
 use block_by_hash::BlockByHashCache;
-pub use bitcoin_block_cache::BitcoinBlockCache;
 pub use caching_head::CachingHead;
 pub use caching_upstream::CachingUpstream;
-pub use ethereum_block_cache::EthereumBlockCache;
+pub use ethereum_codec::EthereumCacheCodec;
 pub use ethereum_normalizer::EthereumNormalizer;
-pub use normalizing_upstream::NormalizingUpstream;
 use height_by_hash::HeightByHashCache;
 use height_cache::HeightCache;
+pub use normalizing_upstream::NormalizingUpstream;
+use tx_by_hash::TxByHashCache;
 
 /// How a cached block was obtained — determines caching strategy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,6 +66,7 @@ pub struct Caches {
     blocks_by_hash: BlockByHashCache,
     height_to_hash: HeightCache,
     hash_to_height: HeightByHashCache,
+    txs_by_hash: TxByHashCache,
 }
 
 impl Caches {
@@ -70,6 +75,7 @@ impl Caches {
             blocks_by_hash: BlockByHashCache::new(),
             height_to_hash: HeightCache::new(),
             hash_to_height: HeightByHashCache::new(),
+            txs_by_hash: TxByHashCache::new(),
         }
     }
 
@@ -111,8 +117,26 @@ impl Caches {
         }
     }
 
+    /// Cache a transaction. Pending transactions (not in a block yet) are
+    /// ignored — their content changes once they are mined.
+    pub fn cache_tx(&self, tag: CacheTag, tx: TxContainer) {
+        match tag {
+            // Both kept in memory for now; Requested will also go to Redis
+            // once that storage is added, same as blocks.
+            CacheTag::Latest | CacheTag::Requested => self.txs_by_hash.add(tx),
+        }
+    }
+
     /// Remove a block (and its dependent data) from all caches.
     pub fn evict(&self, block_id: &BlockId) {
+        // The replaced block's transactions are stale too: their
+        // blockHash/blockNumber fields point at the evicted block. When the
+        // block itself is no longer cached its transaction list is unknown,
+        // so fall back to scanning the tx cache.
+        match self.blocks_by_hash.get(block_id) {
+            Some(block) => self.txs_by_hash.evict_all(&block.transaction_hashes),
+            None => self.txs_by_hash.evict_by_block(block_id),
+        }
         self.blocks_by_hash.evict(block_id);
         // Note: we intentionally do NOT evict from hash_to_height here.
         // Even for replaced blocks, the old hash→height mapping remains valid
@@ -135,6 +159,11 @@ impl Caches {
     /// Look up the height for a given block hash.
     pub fn get_height_by_hash(&self, id: &BlockId) -> Option<u64> {
         self.hash_to_height.get(id)
+    }
+
+    /// Look up a cached transaction by its hash.
+    pub fn get_tx_by_hash(&self, id: &TxId) -> Option<TxContainer> {
+        self.txs_by_hash.get(id)
     }
 }
 
@@ -211,6 +240,56 @@ mod tests {
         // The old hash→height mapping is intentionally kept
         assert_eq!(caches.get_height_by_hash(&original.hash), Some(100));
         assert_eq!(caches.get_height_by_hash(&replacement.hash), Some(100));
+    }
+
+    fn make_tx(hash_byte: u8, block: &BlockContainer) -> TxContainer {
+        let mut hash = [0u8; 32];
+        hash[0] = hash_byte;
+        TxContainer {
+            hash: TxId::from_bytes(hash),
+            block_hash: Some(block.hash),
+            height: Some(block.height),
+            json: Some(Arc::from(b"{}".as_slice())),
+        }
+    }
+
+    #[test]
+    fn caches_and_reads_tx() {
+        let caches = Caches::new();
+        let block = make_block(1, 100);
+        let tx = make_tx(0xa1, &block);
+
+        caches.cache_tx(CacheTag::Requested, tx.clone());
+
+        assert_eq!(caches.get_tx_by_hash(&tx.hash), Some(tx));
+    }
+
+    #[test]
+    fn pending_tx_not_cached() {
+        let caches = Caches::new();
+        let block = make_block(1, 100);
+        let mut tx = make_tx(0xa1, &block);
+        tx.block_hash = None;
+
+        caches.cache_tx(CacheTag::Requested, tx.clone());
+
+        assert!(caches.get_tx_by_hash(&tx.hash).is_none());
+    }
+
+    #[test]
+    fn reorg_evicts_old_block_transactions() {
+        let caches = Caches::new();
+        let mut original = make_block(1, 100);
+        let tx = make_tx(0xa1, &original);
+        original.transaction_hashes = vec![tx.hash];
+
+        caches.cache(CacheTag::Latest, original);
+        caches.cache_tx(CacheTag::Requested, tx.clone());
+
+        // Reorg: a different block takes height 100
+        caches.cache(CacheTag::Latest, make_block(2, 100));
+
+        assert!(caches.get_tx_by_hash(&tx.hash).is_none());
     }
 
     #[test]

@@ -12,23 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Bitcoin-specific [`BlockCacheCodec`] implementation.
+//! Bitcoin-specific [`CacheCodec`] implementation.
 //!
 //! Handles `getblock` — caches blocks requested with verbosity=1
-//! (JSON with tx hashes, not raw hex or full tx objects).
+//! (JSON with tx hashes, not raw hex or full tx objects). Transactions and
+//! full blocks (verbosity=2) are not cached yet.
 
-use crate::cache::caching_upstream::BlockCacheCodec;
-use crate::data::{BlockContainer, BlockId};
+use crate::cache::caching_upstream::{CacheCodec, CacheUpdate, CacheableCall};
+use crate::data::{BlockContainer, TxContainer};
 use crate::upstream::bitcoin::head::parse_btc_block;
 
-/// Bitcoin block cache codec.
-///
-/// Cacheable: `getblock(hash, 1)` (verbosity=1 is the default).
-/// Not cacheable: verbosity=0 (raw hex) or verbosity=2 (full tx objects).
-pub struct BitcoinBlockCache;
+/// Bitcoin cache codec.
+pub struct BitcoinCacheCodec;
 
-impl BlockCacheCodec for BitcoinBlockCache {
-    fn cacheable_block_hash(&self, method: &str, params: &serde_json::Value) -> Option<BlockId> {
+impl CacheCodec for BitcoinCacheCodec {
+    fn classify(&self, method: &str, params: &serde_json::Value) -> Option<CacheableCall> {
         if method != "getblock" {
             return None;
         }
@@ -38,14 +36,19 @@ impl BlockCacheCodec for BitcoinBlockCache {
         if verbosity != 1 {
             return None;
         }
-        arr.first()?.as_str()?.parse().ok()
+        Some(CacheableCall::Block(arr.first()?.as_str()?.parse().ok()?))
     }
 
-    fn parse_block_response(&self, method: &str, raw_json: &str) -> Option<BlockContainer> {
-        if method != "getblock" {
-            return None;
+    fn parse_response(&self, call: &CacheableCall, raw_json: &str) -> Option<CacheUpdate> {
+        match call {
+            CacheableCall::Block(_) => parse_btc_block(raw_json).map(CacheUpdate::Block),
+            // classify never produces these for Bitcoin
+            CacheableCall::FullBlock(_) | CacheableCall::Tx(_) => None,
         }
-        parse_btc_block(raw_json)
+    }
+
+    fn rebuild_full_block(&self, _block: &BlockContainer, _txs: &[TxContainer]) -> Option<String> {
+        None
     }
 }
 
@@ -55,50 +58,51 @@ mod tests {
 
     #[test]
     fn getblock_verbosity_1_cacheable() {
-        let codec = BitcoinBlockCache;
+        let codec = BitcoinCacheCodec;
         let params = serde_json::json!([
             "00000000000000000002a7c4c1e48d76c5a37902165a270156b7a8d72f8804c6",
             1
         ]);
-        assert!(codec.cacheable_block_hash("getblock", &params).is_some());
+        assert!(matches!(
+            codec.classify("getblock", &params),
+            Some(CacheableCall::Block(_))
+        ));
     }
 
     #[test]
     fn getblock_default_verbosity_cacheable() {
         // When verbosity is omitted, bitcoind defaults to 1
-        let codec = BitcoinBlockCache;
+        let codec = BitcoinCacheCodec;
         let params = serde_json::json!([
             "00000000000000000002a7c4c1e48d76c5a37902165a270156b7a8d72f8804c6"
         ]);
-        assert!(codec.cacheable_block_hash("getblock", &params).is_some());
+        assert!(codec.classify("getblock", &params).is_some());
     }
 
     #[test]
     fn getblock_verbosity_0_not_cacheable() {
-        let codec = BitcoinBlockCache;
+        let codec = BitcoinCacheCodec;
         let params = serde_json::json!([
             "00000000000000000002a7c4c1e48d76c5a37902165a270156b7a8d72f8804c6",
             0
         ]);
-        assert!(codec.cacheable_block_hash("getblock", &params).is_none());
+        assert!(codec.classify("getblock", &params).is_none());
     }
 
     #[test]
     fn getblock_verbosity_2_not_cacheable() {
-        let codec = BitcoinBlockCache;
+        let codec = BitcoinCacheCodec;
         let params = serde_json::json!([
             "00000000000000000002a7c4c1e48d76c5a37902165a270156b7a8d72f8804c6",
             2
         ]);
-        assert!(codec.cacheable_block_hash("getblock", &params).is_none());
+        assert!(codec.classify("getblock", &params).is_none());
     }
 
     #[test]
     fn unknown_method_not_cacheable() {
-        let codec = BitcoinBlockCache;
+        let codec = BitcoinCacheCodec;
         let params = serde_json::json!(["abc"]);
-        assert!(codec
-            .cacheable_block_hash("getblockhash", &params)
-            .is_none());
+        assert!(codec.classify("getblockhash", &params).is_none());
     }
 }

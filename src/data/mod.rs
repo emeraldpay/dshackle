@@ -17,6 +17,8 @@
 
 mod block_container;
 mod hash_id;
+mod tx_container;
 
 pub use block_container::BlockContainer;
 pub use hash_id::{BlockId, TxId};
+pub use tx_container::TxContainer;

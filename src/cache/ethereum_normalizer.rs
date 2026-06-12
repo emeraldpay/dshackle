@@ -99,7 +99,7 @@ fn with_first_param(request: &JsonRpcRequest, method: &str, first: String) -> Js
 mod tests {
     use super::*;
     use crate::cache::CacheTag;
-    use crate::data::{BlockContainer, BlockId};
+    use crate::data::BlockContainer;
     use crate::upstream::head::{CurrentHead, NoHead};
 
     const HASH_HEX: &str = "0xfc58a258adccc94466ae967b1178eea721349b0667f59d5fe1b0b436460bce75";

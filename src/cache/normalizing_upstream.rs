@@ -21,7 +21,7 @@
 //!
 //! Rewriting matters for two reasons:
 //! - **Caching** — [`CachingUpstream`](super::CachingUpstream) below this
-//!   layer only serves block-by-hash requests, since only those have an
+//!   layer only serves hash-keyed requests, since only those have an
 //!   immutable key. Resolving a height to a hash up front turns a request
 //!   that could never be cached into one that can.
 //! - **Routing** — a by-hash request returns the same data no matter which
@@ -30,8 +30,8 @@
 //!
 //! This is the Rust port of the legacy `NormalizingReader`. The legacy
 //! version also reconstructed full-transaction blocks from separately cached
-//! transactions; that part is not ported because there is no transaction
-//! cache yet.
+//! transactions; here that lives in the caching layer instead (see
+//! [`ethereum_full_block`](super::ethereum_full_block)).
 //!
 //! Chain-specific rewrite rules are provided via the [`RequestNormalizer`]
 //! trait, with the Ethereum implementation in

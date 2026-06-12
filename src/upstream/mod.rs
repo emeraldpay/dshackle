@@ -33,7 +33,7 @@ pub use multistream::Multistream;
 
 use crate::blockchain::TargetBlockchain;
 use crate::cache::{
-    BitcoinBlockCache, Caches, CachingHead, CachingUpstream, EthereumBlockCache,
+    BitcoinCacheCodec, Caches, CachingHead, CachingUpstream, EthereumCacheCodec,
     EthereumNormalizer, NormalizingUpstream,
 };
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
@@ -215,7 +215,7 @@ impl UpstreamManager {
                     let reader: Arc<dyn RpcUpstream> = Arc::new(CachingUpstream::new(
                         reader,
                         Arc::clone(&caches),
-                        EthereumBlockCache,
+                        EthereumCacheCodec,
                     ));
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(NormalizingUpstream::new(reader, caches, EthereumNormalizer));
@@ -287,7 +287,7 @@ impl UpstreamManager {
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(MethodFilter::new(reader, Arc::clone(&methods)));
                     let reader: Arc<dyn RpcUpstream> =
-                        Arc::new(CachingUpstream::new(reader, caches, BitcoinBlockCache));
+                        Arc::new(CachingUpstream::new(reader, caches, BitcoinCacheCodec));
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(HardcodedMethods::new(reader, Arc::clone(&methods)));
 
