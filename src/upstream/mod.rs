@@ -33,9 +33,10 @@ pub use multistream::Multistream;
 
 use crate::blockchain::TargetBlockchain;
 use crate::cache::{
-    BitcoinCacheCodec, Caches, CachingHead, CachingUpstream, EthereumCacheCodec,
-    EthereumNormalizer, NormalizingUpstream,
+    redis_cache, BitcoinCacheCodec, Caches, CachingHead, CachingUpstream, EthereumCacheCodec,
+    EthereumNormalizer, NormalizingUpstream, RedisCache,
 };
+use crate::config::cache::CacheConfig;
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
 use bitcoin::head::start_head_poller as start_btc_head_poller;
 use bitcoin::http::BitcoinHttpUpstream;
@@ -78,7 +79,18 @@ impl UpstreamManager {
     /// a `SwitchClient` (WS primary, HTTP secondary). Otherwise uses whichever
     /// is available. Dshackle gRPC upstreams discover chains dynamically via
     /// the remote's `Describe` RPC.
-    pub async fn from_config(config: &UpstreamsConfig) -> anyhow::Result<Self> {
+    pub async fn from_config(
+        config: &UpstreamsConfig,
+        cache_config: Option<&CacheConfig>,
+    ) -> anyhow::Result<Self> {
+        // A configured but unreachable Redis aborts the startup (matching
+        // the legacy behavior): silently running without the expected shared
+        // cache would overload the upstreams.
+        let redis = match cache_config.and_then(|c| c.redis()) {
+            Some(redis_config) => Some(redis_cache::connect(redis_config).await?),
+            None => None,
+        };
+
         let mut per_chain: HashMap<TargetBlockchain, Vec<Arc<dyn RpcUpstream>>> = HashMap::new();
         // Per-upstream method configs, collected alongside the readers so the
         // chain-level factory can aggregate them. Order matches `per_chain`
@@ -146,6 +158,7 @@ impl UpstreamManager {
                     // upstream and subscribe the per-chain CachingHead to it.
                     let caching_head = get_or_create_caching_head(
                         chain,
+                        redis.as_ref(),
                         &mut per_chain_caches,
                         &mut per_chain_caching_heads,
                     );
@@ -261,6 +274,7 @@ impl UpstreamManager {
                     let head = http_up.head_height();
                     let caching_head = get_or_create_caching_head(
                         chain,
+                        redis.as_ref(),
                         &mut per_chain_caches,
                         &mut per_chain_caching_heads,
                     );
@@ -318,6 +332,7 @@ impl UpstreamManager {
                     match connect_dshackle(
                         &upstream.id,
                         &url,
+                        redis.as_ref(),
                         &mut per_chain_caches,
                         &mut per_chain_caching_heads,
                     )
@@ -410,12 +425,14 @@ impl UpstreamManager {
 /// underlying `Caches`) on first access.
 fn get_or_create_caching_head<'a>(
     chain: TargetBlockchain,
+    redis_conn: Option<&redis::aio::ConnectionManager>,
     caches_map: &mut HashMap<TargetBlockchain, Arc<Caches>>,
     caching_heads: &'a mut HashMap<TargetBlockchain, CachingHead>,
 ) -> &'a CachingHead {
-    let caches = caches_map
-        .entry(chain)
-        .or_insert_with(|| Arc::new(Caches::new()));
+    let caches = caches_map.entry(chain).or_insert_with(|| {
+        let redis = redis_conn.map(|conn| RedisCache::new(conn.clone(), chain.id()));
+        Arc::new(Caches::with_redis(redis))
+    });
     caching_heads
         .entry(chain)
         .or_insert_with(|| CachingHead::new(Arc::clone(caches)))
@@ -496,6 +513,7 @@ fn quorum_factory_for(chain: TargetBlockchain) -> Arc<dyn QuorumFactory> {
 async fn connect_dshackle(
     upstream_id: &str,
     url: &str,
+    redis_conn: Option<&redis::aio::ConnectionManager>,
     caches_map: &mut HashMap<TargetBlockchain, Arc<Caches>>,
     caching_heads: &mut HashMap<TargetBlockchain, CachingHead>,
 ) -> anyhow::Result<Vec<(TargetBlockchain, Arc<dyn RpcUpstream>)>> {
@@ -545,7 +563,8 @@ async fn connect_dshackle(
 
         // Subscribe caching head before starting the poller so no blocks are missed
         let head = ds_upstream.head_height();
-        let caching_head = get_or_create_caching_head(chain, caches_map, caching_heads);
+        let caching_head =
+            get_or_create_caching_head(chain, redis_conn, caches_map, caching_heads);
         caching_head.follow(&head);
 
         // Start head tracking via SubscribeHead

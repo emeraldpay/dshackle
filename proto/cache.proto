@@ -1,0 +1,67 @@
+// Copyright 2026 EmeraldPay Ltd
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Encoding of cached values stored in Redis.
+//
+// This schema is shared with the legacy JVM implementation
+// (src/main/proto/cache.proto there) so that both implementations can read
+// each other's Redis data — it must stay wire-compatible with that file.
+
+syntax = "proto3";
+package emerald.dshackle;
+option java_package = "io.emeraldpay.dshackle.proto";
+option java_outer_classname = "CachesProto";
+
+message ValueContainer {
+    ValueType type = 1;
+    Compression compression = 2;
+    bytes value = 3;
+
+    oneof meta_type {
+        BlockMeta block_meta = 4;
+        TxMeta tx_meta = 5;
+        GenericMeta generic_meta = 6;
+    }
+
+    enum ValueType {
+        UNKNOWN = 0;
+        BLOCK = 1;
+        TX = 2;
+        TX_RECEIPT = 3;
+        GENERIC = 4;
+    }
+
+    enum Compression {
+        NONE = 0;
+    }
+}
+
+message BlockMeta {
+    uint64 height = 1;
+    bytes hash = 2;
+    bytes parentHash = 6;
+    bytes difficulty = 3;
+    uint64 timestamp = 4;
+    repeated bytes tx_hashes = 5;
+}
+
+message TxMeta {
+    uint64 height = 1;
+    bytes hash = 2;
+    bytes block_hash = 3;
+}
+
+message GenericMeta {
+    string type = 1;
+}

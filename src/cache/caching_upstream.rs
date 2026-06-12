@@ -117,31 +117,35 @@ impl CachingUpstream {
         }
     }
 
-    fn read_from_cache(&self, request_id: u32, call: &CacheableCall) -> Option<JsonRpcResponse> {
+    async fn read_from_cache(
+        &self,
+        request_id: u32,
+        call: &CacheableCall,
+    ) -> Option<JsonRpcResponse> {
         match call {
             CacheableCall::Block(hash) => {
-                let block = self.caches.get_block_by_hash(hash)?;
+                let block = self.caches.read_block_by_hash(hash).await?;
                 json_response(request_id, block.json.as_deref()?)
             }
             CacheableCall::FullBlock(hash) => {
-                let block = self.caches.get_block_by_hash(hash)?;
+                let block = self.caches.read_block_by_hash(hash).await?;
                 block.json.as_ref()?;
                 // Every transaction must be cached with its JSON — a partial
                 // set cannot produce a correct full block, so it's a miss
-                let txs: Vec<TxContainer> = block
-                    .transaction_hashes
-                    .iter()
-                    .map(|id| self.caches.get_tx_by_hash(id))
-                    .collect::<Option<_>>()?;
+                let mut txs: Vec<TxContainer> =
+                    Vec::with_capacity(block.transaction_hashes.len());
+                for id in &block.transaction_hashes {
+                    txs.push(self.caches.read_tx_by_hash(id).await?);
+                }
                 let full = self.codec.rebuild_full_block(&block, &txs)?;
                 json_response(request_id, full.as_bytes())
             }
             CacheableCall::Tx(hash) => {
-                let tx = self.caches.get_tx_by_hash(hash)?;
+                let tx = self.caches.read_tx_by_hash(hash).await?;
                 json_response(request_id, tx.json.as_deref()?)
             }
             CacheableCall::Receipt(hash) => {
-                let receipt = self.caches.get_receipt_by_hash(hash)?;
+                let receipt = self.caches.read_receipt_by_hash(hash).await?;
                 json_response(request_id, receipt.json.as_deref()?)
             }
         }
@@ -213,7 +217,7 @@ impl RpcUpstream for CachingUpstream {
 
         // Try to serve from cache
         if let Some(ref call) = call {
-            if let Some(response) = self.read_from_cache(request.id, call) {
+            if let Some(response) = self.read_from_cache(request.id, call).await {
                 tracing::trace!(
                     upstream = self.inner.id(),
                     method = %request.method,

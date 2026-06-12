@@ -37,6 +37,8 @@ mod height_by_hash;
 mod height_cache;
 pub mod normalizing_upstream;
 mod receipt_by_hash;
+pub mod redis_cache;
+mod redis_proto;
 mod tx_by_hash;
 
 use crate::data::{BlockContainer, BlockId, TxContainer, TxId};
@@ -50,6 +52,7 @@ use height_by_hash::HeightByHashCache;
 use height_cache::HeightCache;
 pub use normalizing_upstream::NormalizingUpstream;
 use receipt_by_hash::ReceiptByHashCache;
+pub use redis_cache::RedisCache;
 use tx_by_hash::TxByHashCache;
 
 /// How a cached block was obtained — determines caching strategy.
@@ -73,23 +76,36 @@ pub struct Caches {
     hash_to_height: HeightByHashCache,
     txs_by_hash: TxByHashCache,
     receipts_by_hash: ReceiptByHashCache,
+    redis: Option<RedisCache>,
 }
 
 impl Caches {
     pub fn new() -> Self {
+        Self::with_redis(None)
+    }
+
+    /// Build the caches with an optional Redis storage extending the
+    /// in-memory layer for `Requested`-tagged data.
+    ///
+    /// With Redis present, all writes and evictions spawn background tasks
+    /// and so must happen inside a Tokio runtime.
+    pub fn with_redis(redis: Option<RedisCache>) -> Self {
         Self {
             blocks_by_hash: BlockByHashCache::new(),
             height_to_hash: HeightCache::new(),
             hash_to_height: HeightByHashCache::new(),
             txs_by_hash: TxByHashCache::new(),
             receipts_by_hash: ReceiptByHashCache::new(),
+            redis,
         }
     }
 
     /// Cache a block according to the given tag.
     ///
-    /// - [`CacheTag::Latest`] — stores only in memory (short-lived head data).
-    /// - [`CacheTag::Requested`] — stores in memory (Redis will be added later).
+    /// - [`CacheTag::Latest`] — stores only in memory: head data is
+    ///   short-lived (the next block or a reorg replaces it soon), not worth
+    ///   the Redis round-trip.
+    /// - [`CacheTag::Requested`] — stores in memory and in Redis.
     ///
     /// In both cases, if the block's height was already occupied by a different
     /// hash, the old block is evicted (reorg handling).
@@ -99,8 +115,9 @@ impl Caches {
                 self.memoize_block(block);
             }
             CacheTag::Requested => {
-                // For requested blocks we also store in Redis (future).
-                // For now, the in-memory path is the same.
+                if let Some(redis) = &self.redis {
+                    redis.write_block(block.clone());
+                }
                 self.memoize_block(block);
             }
         }
@@ -127,32 +144,37 @@ impl Caches {
     /// Cache a transaction. Pending transactions (not in a block yet) are
     /// ignored — their content changes once they are mined.
     pub fn cache_tx(&self, tag: CacheTag, tx: TxContainer) {
-        match tag {
-            // Both kept in memory for now; Requested will also go to Redis
-            // once that storage is added, same as blocks.
-            CacheTag::Latest | CacheTag::Requested => self.txs_by_hash.add(tx),
+        if let (CacheTag::Requested, Some(redis), Some(block_hash)) =
+            (tag, &self.redis, &tx.block_hash)
+        {
+            // The Redis TTL is derived from the block's age, so the tx is
+            // stored only when its block is known to the cache
+            if let Some(block) = self.blocks_by_hash.get(block_hash) {
+                redis.write_tx(tx.clone(), block.timestamp);
+            }
         }
+        self.txs_by_hash.add(tx);
     }
 
-    /// Cache a transaction receipt, if it is recent enough.
+    /// Cache a transaction receipt.
     ///
     /// `current_height` is the caller's view of the chain head — `Caches`
-    /// deliberately tracks no head itself. Receipts outside the recency
-    /// window are dropped, see [`ReceiptByHashCache::accepts`].
+    /// deliberately tracks no head itself. Redis keeps any receipt (with a
+    /// confirmation-based TTL), while memory only takes receipts within the
+    /// recency window, see [`ReceiptByHashCache::accepts`].
     pub fn cache_receipt(
         &self,
         tag: CacheTag,
         receipt: TxContainer,
         current_height: Option<u64>,
     ) {
+        if let (CacheTag::Requested, Some(redis)) = (tag, &self.redis) {
+            redis.write_receipt(receipt.clone(), current_height);
+        }
         if !self.receipts_by_hash.accepts(receipt.height, current_height) {
             return;
         }
-        match tag {
-            // Both kept in memory for now; Requested will also go to Redis
-            // once that storage is added, same as blocks.
-            CacheTag::Latest | CacheTag::Requested => self.receipts_by_hash.add(receipt),
-        }
+        self.receipts_by_hash.add(receipt);
     }
 
     /// Remove a block (and its dependent data) from all caches.
@@ -165,6 +187,10 @@ impl Caches {
             Some(block) => {
                 self.txs_by_hash.evict_all(&block.transaction_hashes);
                 self.receipts_by_hash.evict_all(&block.transaction_hashes);
+                if let Some(redis) = &self.redis {
+                    redis.evict_txs(&block.transaction_hashes);
+                    redis.evict_receipts(&block.transaction_hashes);
+                }
             }
             None => {
                 self.txs_by_hash.evict_by_block(block_id);
@@ -172,6 +198,9 @@ impl Caches {
             }
         }
         self.blocks_by_hash.evict(block_id);
+        if let Some(redis) = &self.redis {
+            redis.evict_block(block_id);
+        }
         // Note: we intentionally do NOT evict from hash_to_height here.
         // Even for replaced blocks, the old hash→height mapping remains valid
         // (that hash really was at that height once). This matches the legacy
@@ -203,6 +232,34 @@ impl Caches {
     /// Look up a cached receipt by its transaction hash.
     pub fn get_receipt_by_hash(&self, id: &TxId) -> Option<TxContainer> {
         self.receipts_by_hash.get(id)
+    }
+
+    // ─── Read-through readers (memory first, then Redis) ──────────────────
+
+    /// Look up a block by its hash, falling back to Redis on a memory miss.
+    pub async fn read_block_by_hash(&self, id: &BlockId) -> Option<BlockContainer> {
+        if let Some(block) = self.blocks_by_hash.get(id) {
+            return Some(block);
+        }
+        self.redis.as_ref()?.read_block(id).await
+    }
+
+    /// Look up a transaction by its hash, falling back to Redis on a memory
+    /// miss.
+    pub async fn read_tx_by_hash(&self, id: &TxId) -> Option<TxContainer> {
+        if let Some(tx) = self.txs_by_hash.get(id) {
+            return Some(tx);
+        }
+        self.redis.as_ref()?.read_tx(id).await
+    }
+
+    /// Look up a receipt by its transaction hash, falling back to Redis on a
+    /// memory miss.
+    pub async fn read_receipt_by_hash(&self, id: &TxId) -> Option<TxContainer> {
+        if let Some(receipt) = self.receipts_by_hash.get(id) {
+            return Some(receipt);
+        }
+        self.redis.as_ref()?.read_receipt(id).await
     }
 }
 

@@ -118,7 +118,9 @@ async fn main() {
         }
     };
 
-    let upstreams = match upstream::UpstreamManager::from_config(upstreams_config).await {
+    let upstreams =
+        match upstream::UpstreamManager::from_config(upstreams_config, config.cache.as_ref()).await
+        {
         Ok(mgr) => Arc::new(mgr),
         Err(e) => {
             tracing::error!("Failed to build upstreams: {e:#}");

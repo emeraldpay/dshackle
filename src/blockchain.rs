@@ -36,6 +36,14 @@ impl TargetBlockchain {
             TargetBlockchain::Standard(chain) => chain.code(),
         }
     }
+
+    /// Numeric chain id, shared with other Dshackle instances (JVM or Rust)
+    /// in cross-instance data such as Redis cache keys.
+    pub fn id(&self) -> i32 {
+        match self {
+            TargetBlockchain::Standard(chain) => *chain as i32,
+        }
+    }
 }
 
 impl From<ChainRef> for TargetBlockchain {
