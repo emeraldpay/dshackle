@@ -12,20 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Shared mutable state for an upstream: lag and derived availability.
+//! Shared mutable state for an upstream: lag, validation result, and the
+//! derived availability.
 //!
-//! Written by the status tracker on each tick, read by `RpcUpstream` trait
-//! methods and anything else that needs to know if an upstream is healthy.
+//! Two independent writers feed the state: the status tracker recalculates
+//! the lag-based status on each tick, and the validator (see
+//! [`validation`](super::validation)) reports its probe results. Routing
+//! reads the combination of the two.
 
 use crate::upstream::availability::UpstreamAvailability;
-use std::sync::atomic::{AtomicI64, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU8, Ordering};
 
 const NO_LAG: i64 = -1;
 
-/// Thread-safe upstream state updated by the status tracker.
+/// Thread-safe upstream state updated by the status tracker and the validator.
 pub struct UpstreamState {
     lag: AtomicI64,
-    availability: AtomicU8,
+    /// Availability derived from lag/height by the status tracker.
+    lag_status: AtomicU8,
+    /// Availability reported by the active validator probes.
+    validation_status: AtomicU8,
+    /// `disable-validation` in the config: the operator declared this
+    /// upstream always valid, so report `Ok` no matter what.
+    always_valid: AtomicBool,
     /// Lag threshold above which the upstream is considered syncing.
     /// Ethereum uses 6 (blocks come every ~12s), Bitcoin uses 2 (blocks every ~10min).
     syncing_lag: u64,
@@ -43,7 +52,9 @@ impl UpstreamState {
     pub fn with_syncing_lag(syncing_lag: u64) -> Self {
         Self {
             lag: AtomicI64::new(NO_LAG),
-            availability: AtomicU8::new(UpstreamAvailability::Ok as u8),
+            lag_status: AtomicU8::new(UpstreamAvailability::Ok as u8),
+            validation_status: AtomicU8::new(UpstreamAvailability::Ok as u8),
+            always_valid: AtomicBool::new(false),
             syncing_lag,
         }
     }
@@ -53,24 +64,55 @@ impl UpstreamState {
         if v < 0 { None } else { Some(v as u64) }
     }
 
+    /// Effective availability: the worse of the lag-based status and the
+    /// validation status.
+    ///
+    /// The legacy `statusByLag` combined the two with special cases that
+    /// could let a validation verdict mask a large lag (e.g. `Immature` with
+    /// lag 100 stayed `Immature` and kept receiving traffic). Worst-of-two is
+    /// deliberately stricter: each signal alone is enough to take an upstream
+    /// out of rotation.
     pub fn availability(&self) -> UpstreamAvailability {
-        UpstreamAvailability::from_u8(self.availability.load(Ordering::Relaxed))
+        if self.always_valid.load(Ordering::Relaxed) {
+            return UpstreamAvailability::Ok;
+        }
+        let by_lag = UpstreamAvailability::from_u8(self.lag_status.load(Ordering::Relaxed));
+        let by_validation =
+            UpstreamAvailability::from_u8(self.validation_status.load(Ordering::Relaxed));
+        by_lag.max(by_validation)
     }
 
-    /// Update lag and recalculate availability based on the legacy `statusByLag` rules.
+    /// Update lag and recalculate the lag-based status.
     ///
     /// `height` is the upstream's own current block height (used to detect
     /// freshly started nodes still at block 0).
     pub fn update(&self, lag: u64, height: Option<u64>) {
         self.lag.store(lag as i64, Ordering::Relaxed);
         let avail = availability_from_lag(lag, height, self.syncing_lag);
-        self.availability.store(avail as u8, Ordering::Relaxed);
+        self.lag_status.store(avail as u8, Ordering::Relaxed);
     }
 
     /// Mark the upstream as having unknown lag (e.g. when head height is not available).
     pub fn set_unknown(&self) {
         self.lag.store(NO_LAG, Ordering::Relaxed);
-        self.availability.store(UpstreamAvailability::Ok as u8, Ordering::Relaxed);
+        self.lag_status
+            .store(UpstreamAvailability::Ok as u8, Ordering::Relaxed);
+    }
+
+    /// Record the result of a validation round.
+    pub fn set_validation(&self, status: UpstreamAvailability) {
+        self.validation_status.store(status as u8, Ordering::Relaxed);
+    }
+
+    /// The last recorded validation result.
+    pub fn validation(&self) -> UpstreamAvailability {
+        UpstreamAvailability::from_u8(self.validation_status.load(Ordering::Relaxed))
+    }
+
+    /// Declare the upstream always valid (`disable-validation`): availability
+    /// is reported as `Ok` regardless of lag or validation results.
+    pub fn set_always_valid(&self) {
+        self.always_valid.store(true, Ordering::Relaxed);
     }
 }
 
@@ -164,6 +206,54 @@ mod tests {
         s.set_unknown();
         assert_eq!(s.availability(), UpstreamAvailability::Ok);
         assert_eq!(s.lag(), None);
+    }
+
+    // ── Validation status ──────────────────────────────────────────────
+
+    #[test]
+    fn validation_status_combines_with_lag_as_worst() {
+        let s = UpstreamState::new();
+        s.update(0, Some(100));
+        s.set_validation(UpstreamAvailability::Immature);
+        assert_eq!(s.availability(), UpstreamAvailability::Immature);
+
+        // lag grows worse than the validation verdict — lag wins
+        s.update(10, Some(100));
+        assert_eq!(s.availability(), UpstreamAvailability::Syncing);
+    }
+
+    #[test]
+    fn unavailable_validation_overrides_healthy_lag() {
+        let s = UpstreamState::new();
+        s.update(0, Some(100));
+        s.set_validation(UpstreamAvailability::Unavailable);
+        assert_eq!(s.availability(), UpstreamAvailability::Unavailable);
+    }
+
+    #[test]
+    fn validation_recovery_restores_lag_status() {
+        let s = UpstreamState::new();
+        s.update(0, Some(100));
+        s.set_validation(UpstreamAvailability::Unavailable);
+        s.set_validation(UpstreamAvailability::Ok);
+        assert_eq!(s.availability(), UpstreamAvailability::Ok);
+    }
+
+    #[test]
+    fn set_unknown_preserves_validation_status() {
+        let s = UpstreamState::new();
+        s.set_validation(UpstreamAvailability::Unavailable);
+        s.set_unknown();
+        assert_eq!(s.availability(), UpstreamAvailability::Unavailable);
+    }
+
+    #[test]
+    fn always_valid_forces_ok() {
+        let s = UpstreamState::new();
+        s.set_always_valid();
+        s.update(100, Some(100));
+        s.set_validation(UpstreamAvailability::Unavailable);
+        assert_eq!(s.availability(), UpstreamAvailability::Ok);
     }
 
     // ── Bitcoin threshold of 2 ─────────────────────────────────────────

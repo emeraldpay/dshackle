@@ -16,3 +16,4 @@
 
 pub mod head;
 pub mod http;
+pub mod validator;

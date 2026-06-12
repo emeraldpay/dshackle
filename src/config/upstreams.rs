@@ -15,12 +15,14 @@
 //! Upstream connection configuration: individual upstreams, connection types,
 //! options, methods, and default options.
 
+use crate::blockchain::TargetBlockchain;
 use crate::config::bytes::deserialize_opt_bytes;
 use crate::config::tls::{BasicAuth, ClientTlsAuth};
 use regex::Regex;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::LazyLock;
+use std::time::Duration;
 use tracing::warn;
 
 /// Upstream ID validation: must start with a letter, contain letters/digits/hyphens/underscores,
@@ -65,6 +67,46 @@ impl PartialOptions {
             balance: overwrites.balance.or(self.balance),
         }
     }
+
+    /// Resolve into effective [`Options`], applying the legacy defaults for
+    /// everything left unset. Out-of-range values are clamped rather than
+    /// rejected, because by this point the config has already been accepted.
+    pub fn build(&self) -> Options {
+        Options {
+            disable_validation: self.disable_validation.unwrap_or(false),
+            validate_syncing: self.validate_syncing.unwrap_or(true),
+            validate_peers: self.validate_peers.unwrap_or(true),
+            min_peers: self.min_peers.unwrap_or(1).max(0) as u32,
+            validation_interval: Duration::from_secs(
+                self.validation_interval.unwrap_or(30).max(1) as u64,
+            ),
+            timeout: Duration::from_secs(self.timeout.unwrap_or(60).max(1) as u64),
+            priority: self.priority.unwrap_or(10).clamp(0, 1_000_000),
+            balance: self.balance.unwrap_or(false),
+        }
+    }
+}
+
+/// Effective upstream options with all defaults applied — the resolved form
+/// of [`PartialOptions`], matching the legacy `UpstreamsConfig.Options`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Options {
+    /// Treat the upstream as always valid: no validation probes run and the
+    /// lag-based status is ignored.
+    pub disable_validation: bool,
+    /// Check `eth_syncing` during validation.
+    pub validate_syncing: bool,
+    /// Check the peer count against `min_peers` during validation.
+    pub validate_peers: bool,
+    /// Minimum number of peers for the upstream to be trusted.
+    pub min_peers: u32,
+    /// How often to run the validation probes.
+    pub validation_interval: Duration,
+    /// Overall request timeout for the upstream.
+    pub timeout: Duration,
+    pub priority: i32,
+    /// Whether the upstream can be used for balance lookups.
+    pub balance: bool,
 }
 
 // ─── Default Options ─────────────────────────────────────────────────────────
@@ -349,6 +391,38 @@ pub struct UpstreamsConfig {
     pub upstreams: Vec<Upstream>,
 }
 
+impl UpstreamsConfig {
+    /// Effective options for an upstream: per-chain defaults applied first,
+    /// the upstream's own settings on top, library defaults for the rest.
+    pub fn options_for(&self, upstream: &Upstream) -> Options {
+        let mut merged = PartialOptions::default();
+        for defaults in &self.defaults {
+            if defaults_apply(defaults, upstream.blockchain.as_deref()) {
+                merged = merged.merge(&defaults.resolved_options());
+            }
+        }
+        merged.merge(&upstream.options).build()
+    }
+}
+
+/// Whether a `defaults` entry applies to an upstream of the given blockchain.
+/// An entry must name its blockchains explicitly.
+fn defaults_apply(defaults: &DefaultOptions, blockchain: Option<&str>) -> bool {
+    let (Some(chains), Some(blockchain)) = (&defaults.blockchains, blockchain) else {
+        return false;
+    };
+    chains.iter().any(|c| chain_name_matches(c, blockchain))
+}
+
+/// Compare two blockchain names, accounting for aliases ("ethereum" vs "eth")
+/// by parsing both into a [`TargetBlockchain`] when possible.
+fn chain_name_matches(a: &str, b: &str) -> bool {
+    match (a.parse::<TargetBlockchain>(), b.parse::<TargetBlockchain>()) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => a.eq_ignore_ascii_case(b),
+    }
+}
+
 // ─── Processing ──────────────────────────────────────────────────────────────
 
 fn is_valid_upstream_id(id: &str) -> bool {
@@ -470,6 +544,109 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── Options resolution ───────────────────────────────────────────────
+
+    #[test]
+    fn options_defaults_match_legacy() {
+        let options = PartialOptions::default().build();
+
+        assert!(!options.disable_validation);
+        assert!(options.validate_syncing);
+        assert!(options.validate_peers);
+        assert_eq!(options.min_peers, 1);
+        assert_eq!(options.validation_interval, Duration::from_secs(30));
+        assert_eq!(options.timeout, Duration::from_secs(60));
+        assert_eq!(options.priority, 10);
+        assert!(!options.balance);
+    }
+
+    #[test]
+    fn options_build_uses_configured_values() {
+        let options = PartialOptions {
+            disable_validation: Some(true),
+            min_peers: Some(5),
+            validation_interval: Some(10),
+            timeout: Some(20),
+            ..Default::default()
+        }
+        .build();
+
+        assert!(options.disable_validation);
+        assert_eq!(options.min_peers, 5);
+        assert_eq!(options.validation_interval, Duration::from_secs(10));
+        assert_eq!(options.timeout, Duration::from_secs(20));
+    }
+
+    fn upstream_for(blockchain: &str, options: PartialOptions) -> Upstream {
+        Upstream {
+            id: "test-up".to_string(),
+            blockchain: Some(blockchain.to_string()),
+            enabled: true,
+            role: UpstreamRole::Primary,
+            labels: HashMap::new(),
+            methods: None,
+            connection: UpstreamConnection::Ethereum(EthereumConnection {
+                rpc: None,
+                ws: None,
+            }),
+            options,
+        }
+    }
+
+    fn chain_defaults(blockchains: &[&str], min_peers: i32) -> DefaultOptions {
+        DefaultOptions {
+            blockchains: Some(blockchains.iter().map(|s| s.to_string()).collect()),
+            options: Some(PartialOptions {
+                min_peers: Some(min_peers),
+                ..Default::default()
+            }),
+            min_peers: None,
+            validate_peers: None,
+            validate_syncing: None,
+            validation_interval: None,
+            timeout: None,
+        }
+    }
+
+    #[test]
+    fn chain_defaults_apply_to_matching_upstream() {
+        let config = UpstreamsConfig {
+            defaults: vec![chain_defaults(&["ethereum"], 7)],
+            upstreams: vec![],
+        };
+
+        let options = config.options_for(&upstream_for("ethereum", PartialOptions::default()));
+        assert_eq!(options.min_peers, 7);
+    }
+
+    #[test]
+    fn chain_defaults_skip_other_chains() {
+        let config = UpstreamsConfig {
+            defaults: vec![chain_defaults(&["bitcoin"], 7)],
+            upstreams: vec![],
+        };
+
+        let options = config.options_for(&upstream_for("ethereum", PartialOptions::default()));
+        assert_eq!(options.min_peers, 1);
+    }
+
+    #[test]
+    fn upstream_options_override_chain_defaults() {
+        let config = UpstreamsConfig {
+            defaults: vec![chain_defaults(&["ethereum"], 7)],
+            upstreams: vec![],
+        };
+
+        let upstream = upstream_for(
+            "ethereum",
+            PartialOptions {
+                min_peers: Some(3),
+                ..Default::default()
+            },
+        );
+        assert_eq!(config.options_for(&upstream).min_peers, 3);
+    }
 
     // ── ID validation ────────────────────────────────────────────────────
 

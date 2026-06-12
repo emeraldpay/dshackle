@@ -28,6 +28,7 @@ pub mod state;
 mod status;
 mod switch;
 pub mod traits;
+pub mod validation;
 
 pub use multistream::Multistream;
 
@@ -40,6 +41,7 @@ use crate::config::cache::CacheConfig;
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
 use bitcoin::head::start_head_poller as start_btc_head_poller;
 use bitcoin::http::BitcoinHttpUpstream;
+use bitcoin::validator::BitcoinValidator;
 use dshackle::head::start_head_subscriber;
 use dshackle::DshackleUpstream;
 use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
@@ -47,6 +49,7 @@ use emerald_api::proto::blockchain::DescribeRequest;
 use emerald_api::proto::common::ChainRef;
 use ethereum::head::{start_head_poller, start_ws_head};
 use ethereum::http::EthereumHttpUpstream;
+use ethereum::validator::EthereumValidator;
 use ethereum::EthereumWsUpstream;
 use methods::bitcoin::DefaultBitcoinMethods;
 use methods::ethereum::DefaultEthereumMethods;
@@ -203,6 +206,22 @@ impl UpstreamManager {
                         }
                     };
 
+                    // Validation probes the transport directly (`reader` at
+                    // this point), below the method-filter and cache wrappers
+                    // added later: a user's method allow-list must not fail
+                    // the probes, and a cached answer must not pass them.
+                    let options = config.options_for(upstream);
+                    if options.disable_validation {
+                        tracing::warn!("Disable validation for upstream {}", upstream.id);
+                        reader.state().set_always_valid();
+                    } else {
+                        validation::start_validation(
+                            Arc::clone(&reader),
+                            Box::new(EthereumValidator::new(chain, options.clone())),
+                            options.validation_interval,
+                        );
+                    }
+
                     // Compose the chain-default layer with the user's
                     // configured overrides via `LayeredMethods`. The same
                     // instance feeds the per-upstream wrappers and the
@@ -285,6 +304,20 @@ impl UpstreamManager {
                         Arc::clone(&reader),
                         head,
                     );
+
+                    // See the Ethereum branch for why validation targets the
+                    // bare transport.
+                    let options = config.options_for(upstream);
+                    if options.disable_validation {
+                        tracing::warn!("Disable validation for upstream {}", upstream.id);
+                        reader.state().set_always_valid();
+                    } else {
+                        validation::start_validation(
+                            Arc::clone(&reader),
+                            Box::new(BitcoinValidator::new(options.clone())),
+                            options.validation_interval,
+                        );
+                    }
 
                     // See the Ethereum branch for why the same instance feeds
                     // the wrappers and the aggregator.

@@ -16,6 +16,7 @@
 
 pub mod head;
 pub mod http;
+pub mod validator;
 mod ws_conn;
 mod ws_pool;
 mod ws_single;
