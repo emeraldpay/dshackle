@@ -43,7 +43,7 @@ impl CacheCodec for BitcoinCacheCodec {
         match call {
             CacheableCall::Block(_) => parse_btc_block(raw_json).map(CacheUpdate::Block),
             // classify never produces these for Bitcoin
-            CacheableCall::FullBlock(_) | CacheableCall::Tx(_) => None,
+            CacheableCall::FullBlock(_) | CacheableCall::Tx(_) | CacheableCall::Receipt(_) => None,
         }
     }
 

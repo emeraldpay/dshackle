@@ -26,12 +26,13 @@
 //! [`NormalizingUpstream`](super::NormalizingUpstream) layer above resolves
 //! heights to hashes before the request reaches the cache.
 //!
-//! Three kinds of calls are served (see [`CacheableCall`]):
+//! Four kinds of calls are served (see [`CacheableCall`]):
 //! - **block by hash** with transaction hashes only;
 //! - **block by hash with full transaction bodies** — assembled from the
 //!   cached block plus the individually cached transactions, and decomposed
 //!   into those parts when the response comes from the upstream;
-//! - **transaction by hash**.
+//! - **transaction by hash**;
+//! - **receipt by transaction hash** — cached only for blocks near the head.
 //!
 //! Chain-specific logic (which methods are cacheable, how to parse and
 //! assemble responses) is provided via the [`CacheCodec`] trait, with
@@ -57,6 +58,8 @@ pub enum CacheableCall {
     FullBlock(BlockId),
     /// Single transaction by hash.
     Tx(TxId),
+    /// Transaction receipt, by the transaction hash.
+    Receipt(TxId),
 }
 
 /// Parsed content of an upstream response, ready to be stored.
@@ -70,6 +73,9 @@ pub enum CacheUpdate {
         txs: Vec<TxContainer>,
     },
     Tx(TxContainer),
+    /// A receipt is located exactly like its transaction, so it is carried
+    /// in a [`TxContainer`] holding the receipt JSON.
+    Receipt(TxContainer),
 }
 
 /// Chain-specific logic for cache integration.
@@ -134,6 +140,10 @@ impl CachingUpstream {
                 let tx = self.caches.get_tx_by_hash(hash)?;
                 json_response(request_id, tx.json.as_deref()?)
             }
+            CacheableCall::Receipt(hash) => {
+                let receipt = self.caches.get_receipt_by_hash(hash)?;
+                json_response(request_id, receipt.json.as_deref()?)
+            }
         }
     }
 
@@ -166,6 +176,18 @@ impl CachingUpstream {
                     "caching transaction response"
                 );
                 self.caches.cache_tx(CacheTag::Requested, tx);
+            }
+            CacheUpdate::Receipt(receipt) => {
+                tracing::trace!(
+                    upstream = self.inner.id(),
+                    hash = %receipt.hash,
+                    "caching receipt response"
+                );
+                self.caches.cache_receipt(
+                    CacheTag::Requested,
+                    receipt,
+                    self.inner.head().current_height(),
+                );
             }
         }
     }
@@ -249,7 +271,7 @@ impl RpcUpstream for CachingUpstream {
 mod tests {
     use super::*;
     use crate::cache::EthereumCacheCodec;
-    use crate::upstream::head::NoHead;
+    use crate::upstream::head::CurrentHead;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     static MOCK_STATE: std::sync::LazyLock<Arc<UpstreamState>> =
@@ -265,14 +287,29 @@ mod tests {
         )
     }
 
-    /// Answers every request with the configured full block and counts calls.
+    fn receipt_json() -> String {
+        format!(
+            r#"{{"transactionHash":"{TX_A_HASH}","blockHash":"{BLOCK_HASH}","blockNumber":"0x64","status":"0x1"}}"#
+        )
+    }
+
+    /// Answers block requests with the configured full block, receipt
+    /// requests with its first transaction's receipt, and counts calls.
     struct StubUpstream {
+        head: CurrentHead,
         calls: AtomicUsize,
     }
 
     impl StubUpstream {
         fn new() -> Self {
+            Self::at_height(0x64)
+        }
+
+        fn at_height(height: u64) -> Self {
+            let head = CurrentHead::new();
+            head.update(height);
             Self {
+                head,
                 calls: AtomicUsize::new(0),
             }
         }
@@ -280,12 +317,14 @@ mod tests {
 
     #[async_trait::async_trait]
     impl RpcUpstream for StubUpstream {
-        async fn call(&self, _request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
+        async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             self.calls.fetch_add(1, Ordering::SeqCst);
-            let raw = format!(
-                r#"{{"jsonrpc":"2.0","id":1,"result":{}}}"#,
+            let result = if request.method.as_str() == "eth_getTransactionReceipt" {
+                receipt_json()
+            } else {
                 full_block_json()
-            );
+            };
+            let raw = format!(r#"{{"jsonrpc":"2.0","id":1,"result":{result}}}"#);
             Ok(serde_json::from_str(&raw).unwrap())
         }
         fn id(&self) -> &str {
@@ -295,7 +334,7 @@ mod tests {
             UpstreamAvailability::Ok
         }
         fn head(&self) -> &dyn Head {
-            &NoHead
+            &self.head
         }
         fn lag(&self) -> Option<u64> {
             None
@@ -388,6 +427,41 @@ mod tests {
         up.call(&full_block_request()).await.unwrap();
 
         assert_eq!(inner.calls.load(Ordering::SeqCst), 1);
+    }
+
+    fn receipt_request() -> JsonRpcRequest {
+        JsonRpcRequest::new(
+            4,
+            "eth_getTransactionReceipt".into(),
+            serde_json::json!([TX_A_HASH]),
+        )
+    }
+
+    #[tokio::test]
+    async fn recent_receipt_cached_after_first_request() {
+        let inner = Arc::new(StubUpstream::new());
+        let up = caching(Arc::clone(&inner));
+
+        let first = up.call(&receipt_request()).await.unwrap();
+        let second = up.call(&receipt_request()).await.unwrap();
+
+        assert_eq!(inner.calls.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            first.result.unwrap().get(),
+            second.result.unwrap().get()
+        );
+    }
+
+    #[tokio::test]
+    async fn old_receipt_not_cached() {
+        // The receipt's block (0x64) is far behind this upstream's head
+        let inner = Arc::new(StubUpstream::at_height(0x64 + 100));
+        let up = caching(Arc::clone(&inner));
+
+        up.call(&receipt_request()).await.unwrap();
+        up.call(&receipt_request()).await.unwrap();
+
+        assert_eq!(inner.calls.load(Ordering::SeqCst), 2);
     }
 
     #[tokio::test]

@@ -19,9 +19,12 @@
 //! - **height → hash** — maps block heights to their hashes (detects reorgs)
 //! - **hash → height** — reverse lookup from hash to height
 //! - **tx by hash** — stores [`TxContainer`] data keyed by transaction hash
+//! - **receipt by hash** — receipt JSON for recent transactions, keyed by
+//!   transaction hash
 //!
 //! When a block at an existing height is replaced (chain reorganization), the
-//! previous block and its transactions are automatically evicted.
+//! previous block, its transactions, and their receipts are automatically
+//! evicted.
 
 pub mod bitcoin_codec;
 mod block_by_hash;
@@ -33,6 +36,7 @@ pub mod ethereum_normalizer;
 mod height_by_hash;
 mod height_cache;
 pub mod normalizing_upstream;
+mod receipt_by_hash;
 mod tx_by_hash;
 
 use crate::data::{BlockContainer, BlockId, TxContainer, TxId};
@@ -45,6 +49,7 @@ pub use ethereum_normalizer::EthereumNormalizer;
 use height_by_hash::HeightByHashCache;
 use height_cache::HeightCache;
 pub use normalizing_upstream::NormalizingUpstream;
+use receipt_by_hash::ReceiptByHashCache;
 use tx_by_hash::TxByHashCache;
 
 /// How a cached block was obtained — determines caching strategy.
@@ -67,6 +72,7 @@ pub struct Caches {
     height_to_hash: HeightCache,
     hash_to_height: HeightByHashCache,
     txs_by_hash: TxByHashCache,
+    receipts_by_hash: ReceiptByHashCache,
 }
 
 impl Caches {
@@ -76,6 +82,7 @@ impl Caches {
             height_to_hash: HeightCache::new(),
             hash_to_height: HeightByHashCache::new(),
             txs_by_hash: TxByHashCache::new(),
+            receipts_by_hash: ReceiptByHashCache::new(),
         }
     }
 
@@ -127,15 +134,42 @@ impl Caches {
         }
     }
 
+    /// Cache a transaction receipt, if it is recent enough.
+    ///
+    /// `current_height` is the caller's view of the chain head — `Caches`
+    /// deliberately tracks no head itself. Receipts outside the recency
+    /// window are dropped, see [`ReceiptByHashCache::accepts`].
+    pub fn cache_receipt(
+        &self,
+        tag: CacheTag,
+        receipt: TxContainer,
+        current_height: Option<u64>,
+    ) {
+        if !self.receipts_by_hash.accepts(receipt.height, current_height) {
+            return;
+        }
+        match tag {
+            // Both kept in memory for now; Requested will also go to Redis
+            // once that storage is added, same as blocks.
+            CacheTag::Latest | CacheTag::Requested => self.receipts_by_hash.add(receipt),
+        }
+    }
+
     /// Remove a block (and its dependent data) from all caches.
     pub fn evict(&self, block_id: &BlockId) {
-        // The replaced block's transactions are stale too: their
-        // blockHash/blockNumber fields point at the evicted block. When the
-        // block itself is no longer cached its transaction list is unknown,
-        // so fall back to scanning the tx cache.
+        // The replaced block's transactions and their receipts are stale
+        // too: their blockHash/blockNumber fields point at the evicted
+        // block. When the block itself is no longer cached its transaction
+        // list is unknown, so fall back to scanning the dependent caches.
         match self.blocks_by_hash.get(block_id) {
-            Some(block) => self.txs_by_hash.evict_all(&block.transaction_hashes),
-            None => self.txs_by_hash.evict_by_block(block_id),
+            Some(block) => {
+                self.txs_by_hash.evict_all(&block.transaction_hashes);
+                self.receipts_by_hash.evict_all(&block.transaction_hashes);
+            }
+            None => {
+                self.txs_by_hash.evict_by_block(block_id);
+                self.receipts_by_hash.evict_by_block(block_id);
+            }
         }
         self.blocks_by_hash.evict(block_id);
         // Note: we intentionally do NOT evict from hash_to_height here.
@@ -164,6 +198,11 @@ impl Caches {
     /// Look up a cached transaction by its hash.
     pub fn get_tx_by_hash(&self, id: &TxId) -> Option<TxContainer> {
         self.txs_by_hash.get(id)
+    }
+
+    /// Look up a cached receipt by its transaction hash.
+    pub fn get_receipt_by_hash(&self, id: &TxId) -> Option<TxContainer> {
+        self.receipts_by_hash.get(id)
     }
 }
 
@@ -274,6 +313,55 @@ mod tests {
         caches.cache_tx(CacheTag::Requested, tx.clone());
 
         assert!(caches.get_tx_by_hash(&tx.hash).is_none());
+    }
+
+    #[test]
+    fn caches_recent_receipt() {
+        let caches = Caches::new();
+        let block = make_block(1, 100);
+        let receipt = make_tx(0xa1, &block);
+
+        caches.cache_receipt(CacheTag::Requested, receipt.clone(), Some(102));
+
+        assert!(caches.get_receipt_by_hash(&receipt.hash).is_some());
+    }
+
+    #[test]
+    fn old_receipt_not_cached() {
+        let caches = Caches::new();
+        let block = make_block(1, 100);
+        let receipt = make_tx(0xa1, &block);
+
+        caches.cache_receipt(CacheTag::Requested, receipt.clone(), Some(200));
+
+        assert!(caches.get_receipt_by_hash(&receipt.hash).is_none());
+    }
+
+    #[test]
+    fn receipt_not_cached_without_known_head() {
+        let caches = Caches::new();
+        let block = make_block(1, 100);
+        let receipt = make_tx(0xa1, &block);
+
+        caches.cache_receipt(CacheTag::Requested, receipt.clone(), None);
+
+        assert!(caches.get_receipt_by_hash(&receipt.hash).is_none());
+    }
+
+    #[test]
+    fn reorg_evicts_old_block_receipts() {
+        let caches = Caches::new();
+        let mut original = make_block(1, 100);
+        let receipt = make_tx(0xa1, &original);
+        original.transaction_hashes = vec![receipt.hash];
+
+        caches.cache(CacheTag::Latest, original);
+        caches.cache_receipt(CacheTag::Requested, receipt.clone(), Some(100));
+
+        // Reorg: a different block takes height 100
+        caches.cache(CacheTag::Latest, make_block(2, 100));
+
+        assert!(caches.get_receipt_by_hash(&receipt.hash).is_none());
     }
 
     #[test]

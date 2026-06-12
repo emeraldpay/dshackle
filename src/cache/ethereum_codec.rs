@@ -18,12 +18,15 @@
 //! - `eth_getBlockByHash(hash, false)` — block with tx hashes;
 //! - `eth_getBlockByHash(hash, true)` — full block, cached as block + txs and
 //!   re-assembled from those parts on a hit;
-//! - `eth_getTransactionByHash(hash)` — single transaction.
+//! - `eth_getTransactionByHash(hash)` — single transaction;
+//! - `eth_getTransactionReceipt(hash)` — transaction receipt.
 
 use crate::cache::caching_upstream::{CacheCodec, CacheUpdate, CacheableCall};
 use crate::cache::ethereum_full_block;
-use crate::data::{BlockContainer, TxContainer};
+use crate::data::{BlockContainer, TxContainer, TxId};
 use crate::upstream::ethereum::head::parse_eth_block;
+use crate::upstream::ethereum::parse_hex_quantity;
+use std::sync::Arc;
 
 /// Ethereum cache codec.
 pub struct EthereumCacheCodec;
@@ -44,6 +47,10 @@ impl CacheCodec for EthereumCacheCodec {
                 let arr = params.as_array()?;
                 Some(CacheableCall::Tx(arr.first()?.as_str()?.parse().ok()?))
             }
+            "eth_getTransactionReceipt" => {
+                let arr = params.as_array()?;
+                Some(CacheableCall::Receipt(arr.first()?.as_str()?.parse().ok()?))
+            }
             _ => None,
         }
     }
@@ -54,6 +61,7 @@ impl CacheCodec for EthereumCacheCodec {
             CacheableCall::FullBlock(_) => ethereum_full_block::decompose(raw_json)
                 .map(|(block, txs)| CacheUpdate::FullBlock { block, txs }),
             CacheableCall::Tx(_) => ethereum_full_block::parse_eth_tx(raw_json).map(CacheUpdate::Tx),
+            CacheableCall::Receipt(_) => parse_eth_receipt(raw_json).map(CacheUpdate::Receipt),
         }
     }
 
@@ -66,6 +74,29 @@ impl CacheCodec for EthereumCacheCodec {
 /// Check whether the second parameter requests full transaction objects.
 fn requests_full_transactions(param: Option<&serde_json::Value>) -> bool {
     param.and_then(|v| v.as_bool()).unwrap_or(false)
+}
+
+/// Parse an `eth_getTransactionReceipt` response into a [`TxContainer`]
+/// carrying the receipt JSON.
+fn parse_eth_receipt(raw_json: &str) -> Option<TxContainer> {
+    let v: serde_json::Value = serde_json::from_str(raw_json).ok()?;
+
+    let hash: TxId = v.get("transactionHash")?.as_str()?.parse().ok()?;
+    let block_hash = v
+        .get("blockHash")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse().ok());
+    let height = v
+        .get("blockNumber")
+        .and_then(|v| v.as_str())
+        .and_then(parse_hex_quantity);
+
+    Some(TxContainer {
+        hash,
+        block_hash,
+        height,
+        json: Some(Arc::from(raw_json.as_bytes())),
+    })
 }
 
 #[cfg(test)]
@@ -116,6 +147,16 @@ mod tests {
     }
 
     #[test]
+    fn receipt_classified_as_receipt() {
+        let codec = EthereumCacheCodec;
+        let params = serde_json::json!([TX_HASH]);
+        assert!(matches!(
+            codec.classify("eth_getTransactionReceipt", &params),
+            Some(CacheableCall::Receipt(_))
+        ));
+    }
+
+    #[test]
     fn block_by_number_not_classified() {
         let codec = EthereumCacheCodec;
         let params = serde_json::json!(["0xc5043f", false]);
@@ -155,6 +196,44 @@ mod tests {
             }
             _ => panic!("expected a Tx update"),
         }
+    }
+
+    #[test]
+    fn parses_receipt_response() {
+        let codec = EthereumCacheCodec;
+        let call = codec
+            .classify("eth_getTransactionReceipt", &serde_json::json!([TX_HASH]))
+            .unwrap();
+        let raw = format!(
+            r#"{{"transactionHash":"{TX_HASH}","blockHash":"{BLOCK_HASH}","blockNumber":"0x64","status":"0x1"}}"#
+        );
+
+        let update = codec.parse_response(&call, &raw).unwrap();
+
+        match update {
+            CacheUpdate::Receipt(receipt) => {
+                assert_eq!(receipt.hash.to_hex_prefixed(), TX_HASH);
+                assert_eq!(receipt.height, Some(0x64));
+                assert!(receipt.block_hash.is_some());
+                assert_eq!(
+                    std::str::from_utf8(receipt.json.as_deref().unwrap()).unwrap(),
+                    raw
+                );
+            }
+            _ => panic!("expected a Receipt update"),
+        }
+    }
+
+    #[test]
+    fn receipt_without_tx_hash_not_parsed() {
+        let codec = EthereumCacheCodec;
+        let call = codec
+            .classify("eth_getTransactionReceipt", &serde_json::json!([TX_HASH]))
+            .unwrap();
+
+        assert!(codec
+            .parse_response(&call, r#"{"blockNumber":"0x64"}"#)
+            .is_none());
     }
 
     #[test]
