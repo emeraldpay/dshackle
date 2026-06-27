@@ -35,8 +35,8 @@
 use crate::cache::redis_proto;
 use crate::config::cache::RedisConfig;
 use crate::data::{BlockContainer, BlockId, TxContainer, TxId};
-use redis::aio::ConnectionManager;
 use redis::AsyncCommands;
+use redis::aio::ConnectionManager;
 
 /// A block younger than this can still be replaced by a reorg — not worth
 /// storing in Redis at all.
@@ -340,6 +340,7 @@ mod integration_tests {
             hash: BlockId::from_bytes(hash),
             height,
             parent_hash: None,
+            total_difficulty: alloy::primitives::U256::ZERO,
             timestamp: jiff::Timestamp::now() - jiff::Span::new().hours(1),
             transaction_hashes: vec![],
             json: Some(Arc::from(br#"{"number":"0x64"}"#.as_slice())),
@@ -372,7 +373,11 @@ mod integration_tests {
         // The key must carry the legacy-compatible name and a TTL
         let mut conn = conn.clone();
         let key = format!("block:{}:{}", CHAIN_ID, block.hash.to_hex());
-        let ttl: i64 = redis::cmd("TTL").arg(&key).query_async(&mut conn).await.unwrap();
+        let ttl: i64 = redis::cmd("TTL")
+            .arg(&key)
+            .query_async(&mut conn)
+            .await
+            .unwrap();
         assert!((3590..=3600).contains(&ttl), "unexpected TTL: {ttl}");
     }
 
@@ -418,7 +423,10 @@ mod integration_tests {
         let reader = Caches::with_redis(Some(RedisCache::new(conn, CHAIN_ID)));
         let read = reader.read_block_by_hash(&block.hash).await.unwrap();
         assert_eq!(read.height, 100);
-        assert!(reader.get_block_by_hash(&block.hash).is_none(), "must not be in memory");
+        assert!(
+            reader.get_block_by_hash(&block.hash).is_none(),
+            "must not be in memory"
+        );
     }
 
     #[tokio::test]

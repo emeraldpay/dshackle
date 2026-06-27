@@ -116,7 +116,8 @@ impl ConfiguredMethods {
             }
 
             if let Some(s) = m.static_value.as_deref() {
-                out.static_responses.insert(method, parse_static_response(s));
+                out.static_responses
+                    .insert(method, parse_static_response(s));
             }
         }
 
@@ -201,11 +202,26 @@ mod tests {
     #[test]
     fn quorum_kind_aliases() {
         assert_eq!(QuorumKind::from_str("always").unwrap(), QuorumKind::Always);
-        assert_eq!(QuorumKind::from_str("not_lagging").unwrap(), QuorumKind::NotLagging);
-        assert_eq!(QuorumKind::from_str("no-lag").unwrap(), QuorumKind::NotLagging);
-        assert_eq!(QuorumKind::from_str("not_empty").unwrap(), QuorumKind::NonEmpty);
-        assert_eq!(QuorumKind::from_str("non-empty").unwrap(), QuorumKind::NonEmpty);
-        assert_eq!(QuorumKind::from_str("NOT_EMPTY").unwrap(), QuorumKind::NonEmpty);
+        assert_eq!(
+            QuorumKind::from_str("not_lagging").unwrap(),
+            QuorumKind::NotLagging
+        );
+        assert_eq!(
+            QuorumKind::from_str("no-lag").unwrap(),
+            QuorumKind::NotLagging
+        );
+        assert_eq!(
+            QuorumKind::from_str("not_empty").unwrap(),
+            QuorumKind::NonEmpty
+        );
+        assert_eq!(
+            QuorumKind::from_str("non-empty").unwrap(),
+            QuorumKind::NonEmpty
+        );
+        assert_eq!(
+            QuorumKind::from_str("NOT_EMPTY").unwrap(),
+            QuorumKind::NonEmpty
+        );
         assert!(QuorumKind::from_str("bogus").is_err());
     }
 
@@ -222,7 +238,11 @@ mod tests {
     fn enabled_methods_claim_callable() {
         let cfg = MethodsConfig {
             enabled: vec![
-                MethodConfig { name: "parity_trace".into(), quorum: None, static_value: None },
+                MethodConfig {
+                    name: "parity_trace".into(),
+                    quorum: None,
+                    static_value: None,
+                },
                 MethodConfig {
                     name: "eth_call".into(),
                     quorum: Some("not_empty".into()),
@@ -310,7 +330,8 @@ mod tests {
         };
         let c = ConfiguredMethods::from_config(Some(&cfg));
         assert_eq!(
-            c.hardcoded_response(&"web3_clientVersion".into()).map(|r| r.get()),
+            c.hardcoded_response(&"web3_clientVersion".into())
+                .map(|r| r.get()),
             Some("\"Geth/v1.2.3\""),
         );
     }

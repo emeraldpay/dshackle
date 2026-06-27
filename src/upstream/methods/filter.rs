@@ -80,11 +80,11 @@ impl RpcUpstream for MethodFilter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::upstream::head::NoHead;
-    use crate::upstream::methods::config::ConfiguredMethods;
-    use crate::upstream::methods::LayeredMethods;
-    use crate::upstream::methods::DefaultMethods;
     use crate::config::upstreams::{MethodConfig, MethodsConfig};
+    use crate::upstream::head::NoHead;
+    use crate::upstream::methods::DefaultMethods;
+    use crate::upstream::methods::LayeredMethods;
+    use crate::upstream::methods::config::ConfiguredMethods;
 
     static MOCK_STATE: std::sync::LazyLock<Arc<UpstreamState>> =
         std::sync::LazyLock::new(|| Arc::new(UpstreamState::new()));
@@ -97,11 +97,21 @@ mod tests {
             let raw = r#"{"jsonrpc":"2.0","id":1,"result":"0x1"}"#;
             Ok(serde_json::from_str(raw).unwrap())
         }
-        fn id(&self) -> &str { "stub" }
-        fn availability(&self) -> UpstreamAvailability { UpstreamAvailability::Ok }
-        fn head(&self) -> &dyn Head { &NoHead }
-        fn lag(&self) -> Option<u64> { None }
-        fn state(&self) -> &Arc<UpstreamState> { &MOCK_STATE }
+        fn id(&self) -> &str {
+            "stub"
+        }
+        fn availability(&self) -> UpstreamAvailability {
+            UpstreamAvailability::Ok
+        }
+        fn head(&self) -> &dyn Head {
+            &NoHead
+        }
+        fn lag(&self) -> Option<u64> {
+            None
+        }
+        fn state(&self) -> &Arc<UpstreamState> {
+            &MOCK_STATE
+        }
     }
 
     fn request(method: &str) -> JsonRpcRequest {
@@ -111,7 +121,11 @@ mod tests {
     fn layered_enabled(methods: &[&str]) -> Arc<dyn QuorumFactory> {
         let enabled: Vec<MethodConfig> = methods
             .iter()
-            .map(|m| MethodConfig { name: (*m).into(), quorum: None, static_value: None })
+            .map(|m| MethodConfig {
+                name: (*m).into(),
+                quorum: None,
+                static_value: None,
+            })
             .collect();
         let configured = Arc::new(ConfiguredMethods::from_config(Some(&MethodsConfig {
             enabled,
@@ -145,12 +159,12 @@ mod tests {
             }],
             disabled: vec![],
         })));
-        let filter = MethodFilter::new(
-            Arc::new(StubUpstream),
-            methods as Arc<dyn QuorumFactory>,
-        );
+        let filter = MethodFilter::new(Arc::new(StubUpstream), methods as Arc<dyn QuorumFactory>);
 
-        let err = filter.call(&request("debug_traceTransaction")).await.unwrap_err();
+        let err = filter
+            .call(&request("debug_traceTransaction"))
+            .await
+            .unwrap_err();
         assert!(matches!(err, UpstreamError::MethodNotAllowed(m) if m == "debug_traceTransaction"));
     }
 

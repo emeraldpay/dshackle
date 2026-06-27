@@ -43,10 +43,14 @@ pub fn encode_block(block: &BlockContainer) -> Option<Vec<u8>> {
     let meta = BlockMeta {
         height: block.height,
         hash: block.hash.as_bytes().to_vec(),
-        // Difficulty is not tracked in this implementation. A single zero
-        // byte (BigInteger zero) keeps the value readable for the legacy
-        // implementation, which rejects an empty big integer.
-        difficulty: vec![0],
+        // Stored as a big-endian big integer, matching the legacy JVM cache.
+        // A zero value is written as a single zero byte rather than empty
+        // bytes, which the legacy reader rejects as an invalid big integer.
+        difficulty: if block.total_difficulty.is_zero() {
+            vec![0]
+        } else {
+            block.total_difficulty.to_be_bytes_trimmed_vec()
+        },
         timestamp: block.timestamp.as_millisecond() as u64,
         tx_hashes: block
             .transaction_hashes
@@ -84,6 +88,8 @@ pub fn decode_block(data: &[u8]) -> Option<BlockContainer> {
         hash: BlockId::from_bytes(meta.hash.try_into().ok()?),
         height: meta.height,
         parent_hash: id_from_bytes(meta.parent_hash).map(BlockId::from_bytes),
+        total_difficulty: alloy::primitives::U256::try_from_be_slice(&meta.difficulty)
+            .unwrap_or(alloy::primitives::U256::ZERO),
         timestamp: jiff::Timestamp::from_millisecond(meta.timestamp as i64).ok()?,
         transaction_hashes: meta
             .tx_hashes
@@ -157,6 +163,7 @@ mod tests {
             hash: BlockId::from_bytes([1u8; 32]),
             height: 100,
             parent_hash: Some(BlockId::from_bytes([2u8; 32])),
+            total_difficulty: alloy::primitives::U256::ZERO,
             timestamp: jiff::Timestamp::from_millisecond(1_700_000_000_123).unwrap(),
             transaction_hashes: vec![TxId::from_bytes([3u8; 32]), TxId::from_bytes([4u8; 32])],
             json: Some(Arc::from(br#"{"number":"0x64"}"#.as_slice())),
@@ -227,7 +234,13 @@ mod tests {
 
         assert!(decode_block(&encode_tx(&tx, ValueType::Tx).unwrap()).is_none());
         assert!(decode_tx(&encode_block(&block).unwrap(), ValueType::Tx).is_none());
-        assert!(decode_tx(&encode_tx(&tx, ValueType::Tx).unwrap(), ValueType::TxReceipt).is_none());
+        assert!(
+            decode_tx(
+                &encode_tx(&tx, ValueType::Tx).unwrap(),
+                ValueType::TxReceipt
+            )
+            .is_none()
+        );
     }
 
     #[test]

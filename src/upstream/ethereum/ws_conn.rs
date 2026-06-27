@@ -166,11 +166,9 @@ impl WsConnection {
         let request = JsonRpcRequest::new(0, "eth_subscribe".into(), serde_json::json!([topic]));
         let response = self.call(&request).await?;
 
-        let sub_id = response
-            .result
-            .ok_or_else(|| {
-                UpstreamError::InvalidResponse("eth_subscribe returned no result".into())
-            })?;
+        let sub_id = response.result.ok_or_else(|| {
+            UpstreamError::InvalidResponse("eth_subscribe returned no result".into())
+        })?;
         let sub_id = sub_id.get().trim().trim_matches('"').to_string();
 
         let (tx, rx) = mpsc::unbounded_channel();
@@ -307,7 +305,10 @@ fn handle_incoming_message(label: &str, state: &WsConnectionInner, text: &str) {
     // Try subscription notification first (has "method" field, no numeric "id")
     if let Ok(notif) = serde_json::from_str::<SubscriptionNotification>(text) {
         if notif.method == "eth_subscription" {
-            let mut subs = state.subscriptions.lock().expect("subscriptions lock poisoned");
+            let mut subs = state
+                .subscriptions
+                .lock()
+                .expect("subscriptions lock poisoned");
             if let Some(tx) = subs.get(&notif.params.subscription) {
                 if tx.send(notif.params.result).is_err() {
                     tracing::debug!(
@@ -366,7 +367,10 @@ fn cleanup_on_disconnect(state: &WsConnectionInner, reason: &str) {
     }
     {
         // Dropping senders closes the receivers, signalling disconnect to subscribers
-        let mut subs = state.subscriptions.lock().expect("subscriptions lock poisoned");
+        let mut subs = state
+            .subscriptions
+            .lock()
+            .expect("subscriptions lock poisoned");
         subs.clear();
     }
 }

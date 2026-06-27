@@ -69,7 +69,10 @@ mod tests {
         unsafe {
             std::env::set_var("DSHACKLE_TEST_VAR", "replaced");
         }
-        assert_eq!(substitute("prefix_${DSHACKLE_TEST_VAR}_suffix"), "prefix_replaced_suffix");
+        assert_eq!(
+            substitute("prefix_${DSHACKLE_TEST_VAR}_suffix"),
+            "prefix_replaced_suffix"
+        );
         unsafe {
             std::env::remove_var("DSHACKLE_TEST_VAR");
         }
@@ -77,10 +80,7 @@ mod tests {
 
     #[test]
     fn replaces_unknown_var_with_empty() {
-        assert_eq!(
-            substitute("${DSHACKLE_NONEXISTENT_VAR_12345}"),
-            ""
-        );
+        assert_eq!(substitute("${DSHACKLE_NONEXISTENT_VAR_12345}"), "");
     }
 
     #[test]

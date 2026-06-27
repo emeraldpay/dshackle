@@ -277,7 +277,8 @@ mod tests {
 
     #[test]
     fn deserialize_error_response() {
-        let raw = r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}"#;
+        let raw =
+            r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}"#;
         let resp: JsonRpcResponse = serde_json::from_str(raw).unwrap();
         assert!(resp.result.is_none());
         let err = resp.error.unwrap();
@@ -313,7 +314,10 @@ mod tests {
             data: Some(serde_json::json!("0x")),
         };
         let json = serde_json::to_string(&err).unwrap();
-        assert_eq!(json, r#"{"code":3,"message":"execution reverted","data":"0x"}"#);
+        assert_eq!(
+            json,
+            r#"{"code":3,"message":"execution reverted","data":"0x"}"#
+        );
     }
 
     #[test]
@@ -383,7 +387,8 @@ mod tests {
 
     #[test]
     fn parse_object_result() {
-        let json = r#"{"jsonrpc": "2.0", "id": 1, "result": {"hash": "0x00000", "foo": false, "bar": 1}}"#;
+        let json =
+            r#"{"jsonrpc": "2.0", "id": 1, "result": {"hash": "0x00000", "foo": false, "bar": 1}}"#;
         let resp: JsonRpcResponse = serde_json::from_str(json).unwrap();
         assert!(resp.error.is_none());
         assert_eq!(
@@ -503,7 +508,8 @@ mod tests {
 
     #[test]
     fn reject_broken_json() {
-        let result = serde_json::from_str::<JsonRpcResponse>(r#"{"jsonrpc": "2.0", "id": 101, "resu'"#);
+        let result =
+            serde_json::from_str::<JsonRpcResponse>(r#"{"jsonrpc": "2.0", "id": 101, "resu'"#);
         assert!(result.is_err());
     }
 

@@ -21,7 +21,7 @@
 //! upstream produces a real answer.
 
 use crate::jsonrpc::JsonRpcResponse;
-use crate::upstream::quorum::{is_connection_unavailable, CallQuorum, QuorumOutcome};
+use crate::upstream::quorum::{CallQuorum, QuorumOutcome, is_connection_unavailable};
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 
 /// Resolves on the first response received. Definitive errors fail immediately;
@@ -106,11 +106,21 @@ mod tests {
         async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             unimplemented!()
         }
-        fn id(&self) -> &str { "stub" }
-        fn availability(&self) -> UpstreamAvailability { UpstreamAvailability::Ok }
-        fn head(&self) -> &dyn Head { &NoHead }
-        fn lag(&self) -> Option<u64> { None }
-        fn state(&self) -> &Arc<UpstreamState> { &MOCK_STATE }
+        fn id(&self) -> &str {
+            "stub"
+        }
+        fn availability(&self) -> UpstreamAvailability {
+            UpstreamAvailability::Ok
+        }
+        fn head(&self) -> &dyn Head {
+            &NoHead
+        }
+        fn lag(&self) -> Option<u64> {
+            None
+        }
+        fn state(&self) -> &Arc<UpstreamState> {
+            &MOCK_STATE
+        }
     }
 
     fn make_response(body: &str) -> JsonRpcResponse {

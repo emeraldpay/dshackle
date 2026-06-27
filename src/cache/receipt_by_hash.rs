@@ -55,9 +55,7 @@ impl ReceiptByHashCache {
     /// churn the recent entries out.
     pub fn accepts(&self, height: Option<u64>, current_height: Option<u64>) -> bool {
         match (height, current_height) {
-            (Some(height), Some(current)) => {
-                height <= current && current - height <= self.blocks
-            }
+            (Some(height), Some(current)) => height <= current && current - height <= self.blocks,
             _ => false,
         }
     }

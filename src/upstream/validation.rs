@@ -80,7 +80,11 @@ pub(crate) async fn probe(
     let request = JsonRpcRequest::new(0, method.into(), serde_json::json!([]));
     match tokio::time::timeout(timeout, upstream.call(&request)).await {
         Err(_) => {
-            tracing::warn!(upstream = upstream.id(), method, "no response to validation probe");
+            tracing::warn!(
+                upstream = upstream.id(),
+                method,
+                "no response to validation probe"
+            );
             None
         }
         Ok(Err(e)) => {

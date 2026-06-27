@@ -35,7 +35,13 @@ impl EthereumHttpUpstream {
         let client = reqwest::Client::new();
         let head = Arc::new(CurrentHead::new());
         let state = Arc::new(UpstreamState::new());
-        Self { id, url, client, head, state }
+        Self {
+            id,
+            url,
+            client,
+            head,
+            state,
+        }
     }
 
     /// Shared reference to this upstream's head height, used to start the poller.

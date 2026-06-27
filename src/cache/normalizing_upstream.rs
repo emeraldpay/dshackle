@@ -176,7 +176,12 @@ mod tests {
         }
 
         fn methods_called(&self) -> Vec<String> {
-            self.calls.lock().unwrap().iter().map(|(m, _)| m.clone()).collect()
+            self.calls
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|(m, _)| m.clone())
+                .collect()
         }
     }
 
@@ -247,6 +252,7 @@ mod tests {
                 hash,
                 height,
                 parent_hash: None,
+                total_difficulty: alloy::primitives::U256::ZERO,
                 timestamp: jiff::Timestamp::UNIX_EPOCH,
                 transaction_hashes: vec![],
                 json: None,

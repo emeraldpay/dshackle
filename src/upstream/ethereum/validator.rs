@@ -35,7 +35,7 @@ use crate::config::upstreams::Options;
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::ethereum::parse_hex_quantity;
 use crate::upstream::traits::RpcUpstream;
-use crate::upstream::validation::{probe, UpstreamValidator};
+use crate::upstream::validation::{UpstreamValidator, probe};
 use emerald_api::proto::common::ChainRef;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -113,9 +113,7 @@ impl EthereumValidator {
             .and_then(|v| v.as_str())
             .and_then(parse_hex_quantity);
         match count {
-            Some(count) if count < self.options.min_peers as u64 => {
-                UpstreamAvailability::Immature
-            }
+            Some(count) if count < self.options.min_peers as u64 => UpstreamAvailability::Immature,
             Some(_) => UpstreamAvailability::Ok,
             None => UpstreamAvailability::Unavailable,
         }
@@ -364,10 +362,7 @@ mod tests {
                 ..Default::default()
             }),
         );
-        let upstream = StubUpstream::new(&[
-            ("eth_chainId", "\"0x1\""),
-            ("eth_syncing", "false"),
-        ]);
+        let upstream = StubUpstream::new(&[("eth_chainId", "\"0x1\""), ("eth_syncing", "false")]);
 
         assert_eq!(
             validator.validate(&upstream).await,
@@ -385,8 +380,7 @@ mod tests {
                 ..Default::default()
             }),
         );
-        let upstream =
-            StubUpstream::new(&[("eth_chainId", "\"0x1\""), ("eth_syncing", "false")]);
+        let upstream = StubUpstream::new(&[("eth_chainId", "\"0x1\""), ("eth_syncing", "false")]);
 
         assert_eq!(
             validator.validate(&upstream).await,
@@ -419,7 +413,10 @@ mod tests {
     #[test]
     fn known_chain_ids() {
         assert_eq!(evm_chain_id(ChainRef::ChainEthereum.into()), Some(1));
-        assert_eq!(evm_chain_id(ChainRef::ChainEthereumClassic.into()), Some(61));
+        assert_eq!(
+            evm_chain_id(ChainRef::ChainEthereumClassic.into()),
+            Some(61)
+        );
         assert_eq!(
             evm_chain_id(ChainRef::ChainSepolia.into()),
             Some(11_155_111)

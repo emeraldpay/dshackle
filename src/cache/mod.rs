@@ -162,16 +162,14 @@ impl Caches {
     /// deliberately tracks no head itself. Redis keeps any receipt (with a
     /// confirmation-based TTL), while memory only takes receipts within the
     /// recency window, see [`ReceiptByHashCache::accepts`].
-    pub fn cache_receipt(
-        &self,
-        tag: CacheTag,
-        receipt: TxContainer,
-        current_height: Option<u64>,
-    ) {
+    pub fn cache_receipt(&self, tag: CacheTag, receipt: TxContainer, current_height: Option<u64>) {
         if let (CacheTag::Requested, Some(redis)) = (tag, &self.redis) {
             redis.write_receipt(receipt.clone(), current_height);
         }
-        if !self.receipts_by_hash.accepts(receipt.height, current_height) {
+        if !self
+            .receipts_by_hash
+            .accepts(receipt.height, current_height)
+        {
             return;
         }
         self.receipts_by_hash.add(receipt);
@@ -279,6 +277,7 @@ mod tests {
             hash: BlockId::from_bytes(hash),
             height,
             parent_hash: Some(BlockId::from_bytes(parent)),
+            total_difficulty: alloy::primitives::U256::ZERO,
             timestamp: Timestamp::UNIX_EPOCH,
             transaction_hashes: Vec::<TxId>::new(),
             json: Some(Arc::from(b"{}".as_slice())),

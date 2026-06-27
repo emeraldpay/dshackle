@@ -37,7 +37,10 @@ pub struct LayeredMethods {
 
 impl LayeredMethods {
     pub fn new(default: Arc<dyn QuorumFactory>, configured: Arc<ConfiguredMethods>) -> Self {
-        Self { default, configured }
+        Self {
+            default,
+            configured,
+        }
     }
 }
 
@@ -104,10 +107,7 @@ mod tests {
         })))
     }
 
-    fn default_with(
-        callable: &[&str],
-        hardcoded: &[(&str, &str)],
-    ) -> Arc<FakeDefault> {
+    fn default_with(callable: &[&str], hardcoded: &[(&str, &str)]) -> Arc<FakeDefault> {
         Arc::new(FakeDefault {
             callable: callable.iter().map(|s| RpcMethod::from(*s)).collect(),
             hardcoded: hardcoded
@@ -133,7 +133,9 @@ mod tests {
         assert!(layered.is_callable(&"eth_call".into()));
         assert!(!layered.is_callable(&"admin_shutdown".into()));
         assert_eq!(
-            layered.hardcoded_response(&"net_version".into()).map(|r| r.get()),
+            layered
+                .hardcoded_response(&"net_version".into())
+                .map(|r| r.get()),
             Some("\"1\""),
         );
     }
@@ -142,7 +144,11 @@ mod tests {
     fn enabled_user_method_becomes_callable() {
         let default = default_with(&["eth_call"], &[]);
         let configured = cfg(
-            vec![MethodConfig { name: "parity_trace".into(), quorum: None, static_value: None }],
+            vec![MethodConfig {
+                name: "parity_trace".into(),
+                quorum: None,
+                static_value: None,
+            }],
             vec![],
         );
         let layered = LayeredMethods::new(default, configured);
@@ -213,7 +219,9 @@ mod tests {
         let layered = LayeredMethods::new(default, configured);
 
         assert_eq!(
-            layered.hardcoded_response(&"net_version".into()).map(|r| r.get()),
+            layered
+                .hardcoded_response(&"net_version".into())
+                .map(|r| r.get()),
             Some("\"42\""),
         );
     }
@@ -234,9 +242,15 @@ mod tests {
         // there is no per-instance caching that could drift.
         let default = default_with(&["eth_call"], &[]);
         let configured = Arc::new(ConfiguredMethods::empty());
-        let a = LayeredMethods::new(Arc::clone(&default) as Arc<dyn QuorumFactory>, Arc::clone(&configured));
+        let a = LayeredMethods::new(
+            Arc::clone(&default) as Arc<dyn QuorumFactory>,
+            Arc::clone(&configured),
+        );
         let b = LayeredMethods::new(default as Arc<dyn QuorumFactory>, configured);
-        assert_eq!(a.is_callable(&"eth_call".into()), b.is_callable(&"eth_call".into()));
+        assert_eq!(
+            a.is_callable(&"eth_call".into()),
+            b.is_callable(&"eth_call".into())
+        );
     }
 
     #[test]

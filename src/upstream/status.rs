@@ -175,11 +175,21 @@ mod tests {
         async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             unimplemented!()
         }
-        fn id(&self) -> &str { &self.name }
-        fn availability(&self) -> UpstreamAvailability { self.state.availability() }
-        fn head(&self) -> &dyn Head { self.head.as_ref() }
-        fn lag(&self) -> Option<u64> { self.state.lag() }
-        fn state(&self) -> &Arc<UpstreamState> { &self.state }
+        fn id(&self) -> &str {
+            &self.name
+        }
+        fn availability(&self) -> UpstreamAvailability {
+            self.state.availability()
+        }
+        fn head(&self) -> &dyn Head {
+            self.head.as_ref()
+        }
+        fn lag(&self) -> Option<u64> {
+            self.state.lag()
+        }
+        fn state(&self) -> &Arc<UpstreamState> {
+            &self.state
+        }
     }
 
     #[test]

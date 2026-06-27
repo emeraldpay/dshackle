@@ -104,8 +104,8 @@ fn default_compress() -> bool {
 /// Performs environment variable substitution, processes upstream includes,
 /// and resolves default options.
 pub fn read_config(path: &Path) -> Result<MainConfig> {
-    let content =
-        std::fs::read_to_string(path).with_context(|| format!("reading config: {}", path.display()))?;
+    let content = std::fs::read_to_string(path)
+        .with_context(|| format!("reading config: {}", path.display()))?;
 
     let config_dir = path.parent().unwrap_or(Path::new("."));
     parse_main_config(&content, config_dir)
@@ -114,12 +114,10 @@ pub fn read_config(path: &Path) -> Result<MainConfig> {
 /// Parses a main config from a YAML string. `config_dir` is used to resolve
 /// relative include paths.
 fn parse_main_config(yaml: &str, config_dir: &Path) -> Result<MainConfig> {
-    let mut value: serde_yaml::Value =
-        serde_yaml::from_str(yaml).context("parsing YAML")?;
+    let mut value: serde_yaml::Value = serde_yaml::from_str(yaml).context("parsing YAML")?;
     env::substitute_in_yaml(&mut value);
 
-    let raw: RawMainConfig =
-        serde_yaml::from_value(value).context("deserializing config")?;
+    let raw: RawMainConfig = serde_yaml::from_value(value).context("deserializing config")?;
 
     // Process upstreams (cluster section) with file includes
     let upstreams = match raw.cluster {
@@ -190,8 +188,7 @@ impl std::str::FromStr for UpstreamsConfig {
     type Err = anyhow::Error;
 
     fn from_str(yaml: &str) -> Result<Self> {
-        let mut value: serde_yaml::Value =
-            serde_yaml::from_str(yaml).context("parsing YAML")?;
+        let mut value: serde_yaml::Value = serde_yaml::from_str(yaml).context("parsing YAML")?;
         env::substitute_in_yaml(&mut value);
 
         let raw: RawUpstreamsConfig =
@@ -253,10 +250,18 @@ mod tests {
         let upstreams = cfg.upstreams.as_ref().unwrap();
         assert!(upstreams.upstreams.len() >= 3); // local + infura + remote (from include)
 
-        let local = upstreams.upstreams.iter().find(|u| u.id == "local").unwrap();
+        let local = upstreams
+            .upstreams
+            .iter()
+            .find(|u| u.id == "local")
+            .unwrap();
         assert_eq!(local.blockchain.as_deref(), Some("ethereum"));
 
-        let remote = upstreams.upstreams.iter().find(|u| u.id == "remote").unwrap();
+        let remote = upstreams
+            .upstreams
+            .iter()
+            .find(|u| u.id == "remote")
+            .unwrap();
         assert!(matches!(remote.connection, UpstreamConnection::Dshackle(_)));
     }
 
@@ -410,7 +415,10 @@ mod tests {
         let cfg = yaml.parse::<UpstreamsConfig>().unwrap();
 
         assert_eq!(cfg.upstreams.len(), 1);
-        assert!(matches!(cfg.upstreams[0].connection, UpstreamConnection::Bitcoin(_)));
+        assert!(matches!(
+            cfg.upstreams[0].connection,
+            UpstreamConnection::Bitcoin(_)
+        ));
     }
 
     #[test]

@@ -44,9 +44,7 @@ pub fn parse_bytes(input: &str) -> Result<usize, String> {
 }
 
 fn split_number_unit(s: &str) -> (&str, &str) {
-    let unit_start = s
-        .find(|c: char| c.is_ascii_alphabetic())
-        .unwrap_or(s.len());
+    let unit_start = s.find(|c: char| c.is_ascii_alphabetic()).unwrap_or(s.len());
     (&s[..unit_start], &s[unit_start..])
 }
 

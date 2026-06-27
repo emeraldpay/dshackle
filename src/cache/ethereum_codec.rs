@@ -60,7 +60,9 @@ impl CacheCodec for EthereumCacheCodec {
             CacheableCall::Block(_) => parse_eth_block(raw_json).map(CacheUpdate::Block),
             CacheableCall::FullBlock(_) => ethereum_full_block::decompose(raw_json)
                 .map(|(block, txs)| CacheUpdate::FullBlock { block, txs }),
-            CacheableCall::Tx(_) => ethereum_full_block::parse_eth_tx(raw_json).map(CacheUpdate::Tx),
+            CacheableCall::Tx(_) => {
+                ethereum_full_block::parse_eth_tx(raw_json).map(CacheUpdate::Tx)
+            }
             CacheableCall::Receipt(_) => parse_eth_receipt(raw_json).map(CacheUpdate::Receipt),
         }
     }
@@ -183,9 +185,8 @@ mod tests {
         let call = codec
             .classify("eth_getTransactionByHash", &serde_json::json!([TX_HASH]))
             .unwrap();
-        let raw = format!(
-            r#"{{"hash":"{TX_HASH}","blockHash":"{BLOCK_HASH}","blockNumber":"0x64"}}"#
-        );
+        let raw =
+            format!(r#"{{"hash":"{TX_HASH}","blockHash":"{BLOCK_HASH}","blockNumber":"0x64"}}"#);
 
         let update = codec.parse_response(&call, &raw).unwrap();
 
@@ -231,19 +232,18 @@ mod tests {
             .classify("eth_getTransactionReceipt", &serde_json::json!([TX_HASH]))
             .unwrap();
 
-        assert!(codec
-            .parse_response(&call, r#"{"blockNumber":"0x64"}"#)
-            .is_none());
+        assert!(
+            codec
+                .parse_response(&call, r#"{"blockNumber":"0x64"}"#)
+                .is_none()
+        );
     }
 
     #[test]
     fn parses_full_block_response_into_parts() {
         let codec = EthereumCacheCodec;
         let call = codec
-            .classify(
-                "eth_getBlockByHash",
-                &serde_json::json!([BLOCK_HASH, true]),
-            )
+            .classify("eth_getBlockByHash", &serde_json::json!([BLOCK_HASH, true]))
             .unwrap();
         let raw = format!(
             r#"{{"hash":"{BLOCK_HASH}","number":"0x64","timestamp":"0x65a8b44c","transactions":[{{"hash":"{TX_HASH}","blockHash":"{BLOCK_HASH}","blockNumber":"0x64"}}]}}"#

@@ -83,7 +83,7 @@ mod tests {
     use crate::upstream::head::{Head, NoHead};
     use crate::upstream::quorum::AlwaysQuorum;
     use crate::upstream::state::UpstreamState;
-    use std::sync::atomic::{AtomicU32, AtomicU8, Ordering};
+    use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
 
     /// Mock upstream that returns a scripted sequence of outcomes.
     struct ScriptedUpstream {
@@ -133,13 +133,21 @@ mod tests {
                 Err(e) => Err(e),
             }
         }
-        fn id(&self) -> &str { &self.label }
+        fn id(&self) -> &str {
+            &self.label
+        }
         fn availability(&self) -> UpstreamAvailability {
             UpstreamAvailability::from_u8(self.availability.load(Ordering::Relaxed))
         }
-        fn head(&self) -> &dyn Head { &NoHead }
-        fn lag(&self) -> Option<u64> { None }
-        fn state(&self) -> &Arc<UpstreamState> { &self.state }
+        fn head(&self) -> &dyn Head {
+            &NoHead
+        }
+        fn lag(&self) -> Option<u64> {
+            None
+        }
+        fn state(&self) -> &Arc<UpstreamState> {
+            &self.state
+        }
     }
 
     fn dummy_request() -> JsonRpcRequest {
@@ -147,7 +155,10 @@ mod tests {
     }
 
     fn vec_of(probes: &[Arc<ScriptedUpstream>]) -> Vec<Arc<dyn RpcUpstream>> {
-        probes.iter().map(|p| p.clone() as Arc<dyn RpcUpstream>).collect()
+        probes
+            .iter()
+            .map(|p| p.clone() as Arc<dyn RpcUpstream>)
+            .collect()
     }
 
     #[tokio::test]
@@ -155,9 +166,13 @@ mod tests {
         let a = ScriptedUpstream::ok("a", r#"{"jsonrpc":"2.0","id":1,"result":"0xa"}"#);
         let b = ScriptedUpstream::ok("b", r#"{"jsonrpc":"2.0","id":1,"result":"0xb"}"#);
 
-        let resp = route(vec_of(&[a.clone(), b.clone()]), Box::new(AlwaysQuorum::new()), &dummy_request())
-            .await
-            .unwrap();
+        let resp = route(
+            vec_of(&[a.clone(), b.clone()]),
+            Box::new(AlwaysQuorum::new()),
+            &dummy_request(),
+        )
+        .await
+        .unwrap();
 
         assert_eq!(resp.result.unwrap().get(), r#""0xa""#);
         assert_eq!(a.call_count(), 1);
@@ -169,9 +184,13 @@ mod tests {
         let a = ScriptedUpstream::err("a", UpstreamError::HttpStatus(429));
         let b = ScriptedUpstream::ok("b", r#"{"jsonrpc":"2.0","id":1,"result":"0xb"}"#);
 
-        let resp = route(vec_of(&[a.clone(), b.clone()]), Box::new(AlwaysQuorum::new()), &dummy_request())
-            .await
-            .unwrap();
+        let resp = route(
+            vec_of(&[a.clone(), b.clone()]),
+            Box::new(AlwaysQuorum::new()),
+            &dummy_request(),
+        )
+        .await
+        .unwrap();
 
         assert_eq!(resp.result.unwrap().get(), r#""0xb""#);
         assert_eq!(a.call_count(), 1);
@@ -183,7 +202,12 @@ mod tests {
         let a = ScriptedUpstream::err("a", UpstreamError::InvalidResponse("garbage".into()));
         let b = ScriptedUpstream::ok("b", r#"{"jsonrpc":"2.0","id":1,"result":"0xb"}"#);
 
-        let result = route(vec_of(&[a.clone(), b.clone()]), Box::new(AlwaysQuorum::new()), &dummy_request()).await;
+        let result = route(
+            vec_of(&[a.clone(), b.clone()]),
+            Box::new(AlwaysQuorum::new()),
+            &dummy_request(),
+        )
+        .await;
 
         assert!(matches!(result, Err(UpstreamError::InvalidResponse(_))));
         assert_eq!(a.call_count(), 1);
@@ -195,9 +219,13 @@ mod tests {
         let a = ScriptedUpstream::err("a", UpstreamError::HttpStatus(429));
         let b = ScriptedUpstream::err("b", UpstreamError::HttpStatus(503));
 
-        let err = route(vec_of(&[a.clone(), b.clone()]), Box::new(AlwaysQuorum::new()), &dummy_request())
-            .await
-            .unwrap_err();
+        let err = route(
+            vec_of(&[a.clone(), b.clone()]),
+            Box::new(AlwaysQuorum::new()),
+            &dummy_request(),
+        )
+        .await
+        .unwrap_err();
 
         assert!(matches!(err, UpstreamError::HttpStatus(_)));
     }

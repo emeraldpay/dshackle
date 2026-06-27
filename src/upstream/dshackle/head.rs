@@ -67,7 +67,11 @@ async fn subscribe_once(
             loop {
                 match stream.message().await {
                     Ok(Some(chain_head)) => {
-                        match parse_chain_head(&chain_head.block_id, chain_head.height, chain_head.timestamp) {
+                        match parse_chain_head(
+                            &chain_head.block_id,
+                            chain_head.height,
+                            chain_head.timestamp,
+                        ) {
                             Some(block) => {
                                 tracing::trace!(
                                     upstream = %upstream_id,
@@ -119,11 +123,7 @@ async fn subscribe_once(
 /// Build a [`BlockContainer`] from the fields available in a `ChainHead`
 /// gRPC message. The remote doesn't provide parent hash or transaction
 /// hashes, so those fields are empty.
-fn parse_chain_head(
-    block_id: &str,
-    height: u64,
-    timestamp_ms: u64,
-) -> Option<BlockContainer> {
+fn parse_chain_head(block_id: &str, height: u64, timestamp_ms: u64) -> Option<BlockContainer> {
     let hash: BlockId = block_id.parse().ok()?;
     // ChainHead.timestamp is milliseconds since epoch
     let timestamp = jiff::Timestamp::from_millisecond(timestamp_ms as i64).ok()?;
@@ -132,6 +132,9 @@ fn parse_chain_head(
         hash,
         height,
         parent_hash: None,
+        // A remote Dshackle reports cumulative work in the head's `weight`
+        // field; wiring that through lands with the remote-status work.
+        total_difficulty: alloy::primitives::U256::ZERO,
         timestamp,
         transaction_hashes: vec![],
         json: None,

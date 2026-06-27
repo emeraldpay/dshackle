@@ -30,8 +30,8 @@
 //! applies only to blocks near the head — the same window the legacy
 //! `NormalizingReader` enforced explicitly.
 
-use crate::cache::normalizing_upstream::RequestNormalizer;
 use crate::cache::Caches;
+use crate::cache::normalizing_upstream::RequestNormalizer;
 use crate::jsonrpc::JsonRpcRequest;
 use crate::upstream::ethereum::parse_hex_quantity;
 use crate::upstream::head::Head;
@@ -112,6 +112,7 @@ mod tests {
                 hash: HASH_HEX.parse().unwrap(),
                 height,
                 parent_hash: None,
+                total_difficulty: alloy::primitives::U256::ZERO,
                 timestamp: jiff::Timestamp::UNIX_EPOCH,
                 transaction_hashes: vec![],
                 json: None,
@@ -162,9 +163,11 @@ mod tests {
         let normalizer = EthereumNormalizer;
         let req = request(serde_json::json!(["latest", false]));
 
-        assert!(normalizer
-            .normalize(&req, &NoHead, &caches_with_block(100))
-            .is_none());
+        assert!(
+            normalizer
+                .normalize(&req, &NoHead, &caches_with_block(100))
+                .is_none()
+        );
     }
 
     #[test]
@@ -183,9 +186,11 @@ mod tests {
         let normalizer = EthereumNormalizer;
         let req = request(serde_json::json!(["pending", false]));
 
-        assert!(normalizer
-            .normalize(&req, &head_at(100), &caches_with_block(100))
-            .is_none());
+        assert!(
+            normalizer
+                .normalize(&req, &head_at(100), &caches_with_block(100))
+                .is_none()
+        );
     }
 
     #[test]
@@ -206,7 +211,11 @@ mod tests {
         let normalizer = EthereumNormalizer;
         let req = request(serde_json::json!(["0x64", false]));
 
-        assert!(normalizer.normalize(&req, &NoHead, &Caches::new()).is_none());
+        assert!(
+            normalizer
+                .normalize(&req, &NoHead, &Caches::new())
+                .is_none()
+        );
     }
 
     #[test]
@@ -230,9 +239,11 @@ mod tests {
             serde_json::json!([HASH_HEX, false]),
         );
 
-        assert!(normalizer
-            .normalize(&req, &head_at(100), &caches_with_block(100))
-            .is_none());
+        assert!(
+            normalizer
+                .normalize(&req, &head_at(100), &caches_with_block(100))
+                .is_none()
+        );
     }
 
     #[test]
@@ -241,9 +252,11 @@ mod tests {
         let normalizer = EthereumNormalizer;
         let req = request(serde_json::json!([HASH_HEX, false]));
 
-        assert!(normalizer
-            .normalize(&req, &head_at(100), &caches_with_block(100))
-            .is_none());
+        assert!(
+            normalizer
+                .normalize(&req, &head_at(100), &caches_with_block(100))
+                .is_none()
+        );
     }
 
     #[test]
@@ -259,7 +272,9 @@ mod tests {
             serde_json::json!(["not_a_number", false]),
         ] {
             assert!(
-                normalizer.normalize(&request(params.clone()), &head, &caches).is_none(),
+                normalizer
+                    .normalize(&request(params.clone()), &head, &caches)
+                    .is_none(),
                 "params {params} must pass through"
             );
         }

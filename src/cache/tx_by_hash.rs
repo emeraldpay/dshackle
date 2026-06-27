@@ -155,7 +155,9 @@ mod tests {
             cache.add(make_tx(i, Some(10)));
         }
         cache.inner.run_pending_tasks();
-        let present = (1..=3u8).filter(|i| cache.get(&tx_id(*i)).is_some()).count();
+        let present = (1..=3u8)
+            .filter(|i| cache.get(&tx_id(*i)).is_some())
+            .count();
         assert!(present <= 2);
     }
 }

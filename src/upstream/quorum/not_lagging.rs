@@ -24,9 +24,7 @@
 //! [`Multistream`]: crate::upstream::Multistream
 
 use crate::jsonrpc::JsonRpcResponse;
-use crate::upstream::quorum::{
-    AlwaysQuorum, CallQuorum, QuorumOutcome, SelectorHint,
-};
+use crate::upstream::quorum::{AlwaysQuorum, CallQuorum, QuorumOutcome, SelectorHint};
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 
 /// Resolves on the first response from a non-lagging upstream. The lag check
@@ -77,7 +75,9 @@ impl CallQuorum for NotLaggingQuorum {
     }
 
     fn selector(&self) -> SelectorHint {
-        SelectorHint::NotLagging { max_lag: self.max_lag }
+        SelectorHint::NotLagging {
+            max_lag: self.max_lag,
+        }
     }
 }
 
@@ -100,11 +100,21 @@ mod tests {
         async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             unimplemented!()
         }
-        fn id(&self) -> &str { "stub" }
-        fn availability(&self) -> UpstreamAvailability { UpstreamAvailability::Ok }
-        fn head(&self) -> &dyn Head { &NoHead }
-        fn lag(&self) -> Option<u64> { None }
-        fn state(&self) -> &Arc<UpstreamState> { &MOCK_STATE }
+        fn id(&self) -> &str {
+            "stub"
+        }
+        fn availability(&self) -> UpstreamAvailability {
+            UpstreamAvailability::Ok
+        }
+        fn head(&self) -> &dyn Head {
+            &NoHead
+        }
+        fn lag(&self) -> Option<u64> {
+            None
+        }
+        fn state(&self) -> &Arc<UpstreamState> {
+            &MOCK_STATE
+        }
     }
 
     fn make_response(body: &str) -> JsonRpcResponse {

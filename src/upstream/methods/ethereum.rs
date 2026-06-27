@@ -98,11 +98,7 @@ impl QuorumFactory for DefaultEthereumMethods {
 // ─── Callable methods ──────────────────────────────────────────────────────
 
 /// Methods that require only any valid response (no special quorum).
-const ANY_RESPONSE_METHODS: &[&str] = &[
-    "eth_gasPrice",
-    "eth_call",
-    "eth_estimateGas",
-];
+const ANY_RESPONSE_METHODS: &[&str] = &["eth_gasPrice", "eth_call", "eth_estimateGas"];
 
 /// Methods that return data uniquely identified by hash (first valid response wins).
 const FIRST_VALUE_METHODS: &[&str] = &[
@@ -269,7 +265,11 @@ mod tests {
     fn hardcoded_ethereum_mainnet() {
         let methods = DefaultEthereumMethods::new(eth_chain());
 
-        let lookup = |m: &str| methods.hardcoded_response(&m.into()).map(|r| r.get().to_string());
+        let lookup = |m: &str| {
+            methods
+                .hardcoded_response(&m.into())
+                .map(|r| r.get().to_string())
+        };
         assert_eq!(lookup("net_version").as_deref(), Some("\"1\""));
         assert_eq!(lookup("eth_chainId").as_deref(), Some("\"0x1\""));
         assert_eq!(lookup("eth_syncing").as_deref(), Some("false"));
@@ -299,12 +299,18 @@ mod tests {
             let chain = TargetBlockchain::Standard(chain_ref);
             let methods = DefaultEthereumMethods::new(chain);
             assert_eq!(
-                methods.hardcoded_response(&"eth_chainId".into()).map(|r| r.get().to_string()).as_deref(),
+                methods
+                    .hardcoded_response(&"eth_chainId".into())
+                    .map(|r| r.get().to_string())
+                    .as_deref(),
                 Some(expected_chain_id),
                 "eth_chainId mismatch for {chain_ref:?}",
             );
             assert_eq!(
-                methods.hardcoded_response(&"net_version".into()).map(|r| r.get().to_string()).as_deref(),
+                methods
+                    .hardcoded_response(&"net_version".into())
+                    .map(|r| r.get().to_string())
+                    .as_deref(),
                 Some(expected_net_version),
                 "net_version mismatch for {chain_ref:?}",
             );
@@ -314,7 +320,10 @@ mod tests {
     #[test]
     fn hardcoded_version_string() {
         let methods = DefaultEthereumMethods::new(eth_chain());
-        let version = methods.hardcoded_response(&"web3_clientVersion".into()).unwrap().get();
+        let version = methods
+            .hardcoded_response(&"web3_clientVersion".into())
+            .unwrap()
+            .get();
         assert!(version.starts_with("\"EmeraldDshackle/"));
         assert!(version.ends_with('"'));
     }
@@ -326,7 +335,11 @@ mod tests {
 
         // Chain-independent methods still present
         assert!(methods.hardcoded_response(&"eth_syncing".into()).is_some());
-        assert!(methods.hardcoded_response(&"web3_clientVersion".into()).is_some());
+        assert!(
+            methods
+                .hardcoded_response(&"web3_clientVersion".into())
+                .is_some()
+        );
 
         // Chain-specific methods absent (will be forwarded to upstream)
         assert!(methods.hardcoded_response(&"net_version".into()).is_none());

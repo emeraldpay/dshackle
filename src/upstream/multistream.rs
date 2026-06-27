@@ -27,8 +27,8 @@ use crate::jsonrpc::RpcMethod;
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::quorum::{CallQuorum, QuorumFactory, SelectorHint};
 use crate::upstream::traits::RpcUpstream;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Holds every configured upstream for one blockchain and answers queries
 /// about which ones are usable for a given request.
@@ -46,7 +46,10 @@ impl Multistream {
         upstreams: Vec<Arc<dyn RpcUpstream>>,
         quorum_factory: Arc<dyn QuorumFactory>,
     ) -> Self {
-        assert!(!upstreams.is_empty(), "Multistream requires at least one upstream");
+        assert!(
+            !upstreams.is_empty(),
+            "Multistream requires at least one upstream"
+        );
         Self {
             upstreams,
             cursor: AtomicUsize::new(0),
@@ -63,11 +66,7 @@ impl Multistream {
     /// those that accept `method`. Upstreams that reject the method up front
     /// are skipped so the router doesn't waste a round-trip just to learn
     /// what the allow-list already knew.
-    pub fn select_for(
-        &self,
-        hint: SelectorHint,
-        method: &RpcMethod,
-    ) -> Vec<Arc<dyn RpcUpstream>> {
+    pub fn select_for(&self, hint: SelectorHint, method: &RpcMethod) -> Vec<Arc<dyn RpcUpstream>> {
         match hint {
             SelectorHint::Available => self.select_available(method),
             SelectorHint::NotLagging { max_lag } => self.select_not_lagging(method, max_lag),
@@ -186,18 +185,28 @@ mod tests {
         async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             unimplemented!()
         }
-        fn id(&self) -> &str { &self.label }
+        fn id(&self) -> &str {
+            &self.label
+        }
         fn availability(&self) -> UpstreamAvailability {
             UpstreamAvailability::from_u8(self.availability.load(Ordering::Relaxed))
         }
-        fn head(&self) -> &dyn Head { &NoHead }
-        fn lag(&self) -> Option<u64> { self.lag }
-        fn state(&self) -> &Arc<UpstreamState> { &self.state }
+        fn head(&self) -> &dyn Head {
+            &NoHead
+        }
+        fn lag(&self) -> Option<u64> {
+            self.lag
+        }
+        fn state(&self) -> &Arc<UpstreamState> {
+            &self.state
+        }
     }
 
     fn ms_of(upstreams: Vec<Arc<MockUpstream>>) -> Multistream {
-        let dyn_ups: Vec<Arc<dyn RpcUpstream>> =
-            upstreams.into_iter().map(|u| u as Arc<dyn RpcUpstream>).collect();
+        let dyn_ups: Vec<Arc<dyn RpcUpstream>> = upstreams
+            .into_iter()
+            .map(|u| u as Arc<dyn RpcUpstream>)
+            .collect();
         Multistream::new(dyn_ups, Arc::new(DefaultMethods))
     }
 
@@ -236,10 +245,22 @@ mod tests {
         ]);
 
         // Cursor starts at 0 — first call begins at "a".
-        assert_eq!(ids(&ms.select_available(&"any".into())), vec!["a", "b", "c"]);
-        assert_eq!(ids(&ms.select_available(&"any".into())), vec!["b", "c", "a"]);
-        assert_eq!(ids(&ms.select_available(&"any".into())), vec!["c", "a", "b"]);
-        assert_eq!(ids(&ms.select_available(&"any".into())), vec!["a", "b", "c"]);
+        assert_eq!(
+            ids(&ms.select_available(&"any".into())),
+            vec!["a", "b", "c"]
+        );
+        assert_eq!(
+            ids(&ms.select_available(&"any".into())),
+            vec!["b", "c", "a"]
+        );
+        assert_eq!(
+            ids(&ms.select_available(&"any".into())),
+            vec!["c", "a", "b"]
+        );
+        assert_eq!(
+            ids(&ms.select_available(&"any".into())),
+            vec!["a", "b", "c"]
+        );
     }
 
     #[test]
@@ -306,7 +327,10 @@ mod tests {
             MockUpstream::with_lag("b", UpstreamAvailability::Lagging, Some(3)),
         ]);
 
-        assert_eq!(ms.select_for(SelectorHint::Available, &"any".into()).len(), 2);
+        assert_eq!(
+            ms.select_for(SelectorHint::Available, &"any".into()).len(),
+            2
+        );
         assert_eq!(
             ids(&ms.select_for(SelectorHint::NotLagging { max_lag: 1 }, &"any".into())),
             vec!["a"]
@@ -332,11 +356,21 @@ mod tests {
         async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             unimplemented!()
         }
-        fn id(&self) -> &str { &self.label }
-        fn availability(&self) -> UpstreamAvailability { UpstreamAvailability::Ok }
-        fn head(&self) -> &dyn Head { &NoHead }
-        fn lag(&self) -> Option<u64> { Some(0) }
-        fn state(&self) -> &Arc<UpstreamState> { &self.state }
+        fn id(&self) -> &str {
+            &self.label
+        }
+        fn availability(&self) -> UpstreamAvailability {
+            UpstreamAvailability::Ok
+        }
+        fn head(&self) -> &dyn Head {
+            &NoHead
+        }
+        fn lag(&self) -> Option<u64> {
+            Some(0)
+        }
+        fn state(&self) -> &Arc<UpstreamState> {
+            &self.state
+        }
         fn allows_method(&self, method: &RpcMethod) -> bool {
             self.allows.iter().any(|m| m == method.as_str())
         }

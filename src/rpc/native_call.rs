@@ -17,8 +17,8 @@
 //! result back to a gRPC reply.
 
 use crate::jsonrpc::JsonRpcRequest;
-use crate::upstream::router;
 use crate::upstream::Multistream;
+use crate::upstream::router;
 use emerald_api::proto::blockchain::{NativeCallItem, NativeCallReplyItem};
 
 /// Execute a single native call item against the upstreams of a chain.
@@ -106,10 +106,9 @@ fn parse_payload(payload: &[u8]) -> Result<serde_json::Value, String> {
     if payload.is_empty() {
         return Ok(serde_json::Value::Array(Vec::new()));
     }
-    let text = std::str::from_utf8(payload)
-        .map_err(|e| format!("payload is not valid UTF-8: {e}"))?;
-    serde_json::from_str(text)
-        .map_err(|e| format!("payload is not valid JSON: {e}"))
+    let text =
+        std::str::from_utf8(payload).map_err(|e| format!("payload is not valid UTF-8: {e}"))?;
+    serde_json::from_str(text).map_err(|e| format!("payload is not valid JSON: {e}"))
 }
 
 #[cfg(test)]

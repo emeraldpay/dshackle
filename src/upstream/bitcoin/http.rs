@@ -49,7 +49,14 @@ impl BitcoinHttpUpstream {
         let client = reqwest::Client::new();
         let head = Arc::new(CurrentHead::new());
         let state = Arc::new(UpstreamState::with_syncing_lag(BITCOIN_SYNCING_LAG));
-        Self { id, url, basic_auth, client, head, state }
+        Self {
+            id,
+            url,
+            basic_auth,
+            client,
+            head,
+            state,
+        }
     }
 
     /// Shared reference to this upstream's head height, used to start the poller.

@@ -121,12 +121,12 @@ async fn main() {
     let upstreams =
         match upstream::UpstreamManager::from_config(upstreams_config, config.cache.as_ref()).await
         {
-        Ok(mgr) => Arc::new(mgr),
-        Err(e) => {
-            tracing::error!("Failed to build upstreams: {e:#}");
-            std::process::exit(1);
-        }
-    };
+            Ok(mgr) => Arc::new(mgr),
+            Err(e) => {
+                tracing::error!("Failed to build upstreams: {e:#}");
+                std::process::exit(1);
+            }
+        };
 
     // Start gRPC server
     let service = rpc::blockchain_rpc::BlockchainRpcService::new(upstreams);

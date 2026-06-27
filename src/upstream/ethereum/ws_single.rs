@@ -75,9 +75,10 @@ impl EthereumWsUpstream {
         &self,
         topic: &str,
     ) -> Result<mpsc::UnboundedReceiver<Box<RawValue>>, UpstreamError> {
-        let conn = self.pool.get_connection().ok_or_else(|| {
-            UpstreamError::Transport("No WS connections available yet".into())
-        })?;
+        let conn = self
+            .pool
+            .get_connection()
+            .ok_or_else(|| UpstreamError::Transport("No WS connections available yet".into()))?;
         conn.subscribe(topic).await
     }
 }
@@ -85,9 +86,10 @@ impl EthereumWsUpstream {
 #[async_trait::async_trait]
 impl RpcUpstream for EthereumWsUpstream {
     async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
-        let conn = self.pool.get_connection().ok_or_else(|| {
-            UpstreamError::Transport("No WS connections available yet".into())
-        })?;
+        let conn = self
+            .pool
+            .get_connection()
+            .ok_or_else(|| UpstreamError::Transport("No WS connections available yet".into()))?;
         conn.call(request).await
     }
 

@@ -94,10 +94,7 @@ const FRESH_METHODS: &[&str] = &[
 ];
 
 /// Methods where any valid response is acceptable.
-const ANY_RESPONSE_METHODS: &[&str] = &[
-    "getblockhash",
-    "getrawtransaction",
-];
+const ANY_RESPONSE_METHODS: &[&str] = &["getblockhash", "getrawtransaction"];
 
 /// Methods verified against the current head.
 const HEAD_VERIFIED_METHODS: &[&str] = &[
@@ -109,9 +106,7 @@ const HEAD_VERIFIED_METHODS: &[&str] = &[
 ];
 
 /// Methods for broadcasting transactions.
-const BROADCAST_METHODS: &[&str] = &[
-    "sendrawtransaction",
-];
+const BROADCAST_METHODS: &[&str] = &["sendrawtransaction"];
 
 fn build_callable_set() -> HashSet<RpcMethod> {
     FRESH_METHODS
@@ -183,7 +178,10 @@ mod tests {
     fn hardcoded_connection_count() {
         let methods = DefaultBitcoinMethods::new();
         assert_eq!(
-            methods.hardcoded_response(&"getconnectioncount".into()).unwrap().get(),
+            methods
+                .hardcoded_response(&"getconnectioncount".into())
+                .unwrap()
+                .get(),
             "42",
         );
     }
@@ -191,9 +189,15 @@ mod tests {
     #[test]
     fn hardcoded_network_info() {
         let methods = DefaultBitcoinMethods::new();
-        let info = methods.hardcoded_response(&"getnetworkinfo".into()).unwrap().get();
+        let info = methods
+            .hardcoded_response(&"getnetworkinfo".into())
+            .unwrap()
+            .get();
         assert!(info.contains("210100"), "should contain version");
-        assert!(info.contains("EmeraldDshackle"), "should contain subversion");
+        assert!(
+            info.contains("EmeraldDshackle"),
+            "should contain subversion"
+        );
     }
 
     // ── Quorum mapping ────────────────────────────────────────────────
@@ -201,7 +205,9 @@ mod tests {
     use crate::upstream::quorum::SelectorHint;
 
     fn selector_for(method: &str) -> SelectorHint {
-        DefaultBitcoinMethods::new().quorum_for(&method.into()).selector()
+        DefaultBitcoinMethods::new()
+            .quorum_for(&method.into())
+            .selector()
     }
 
     #[test]

@@ -20,8 +20,8 @@
 //! [`CachingHead`](crate::cache::CachingHead).
 
 use crate::data::BlockContainer;
-use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI64, Ordering};
 use tokio::sync::broadcast;
 
 /// Sentinel value indicating "no height known yet" (stored in the atomic).
@@ -71,7 +71,8 @@ impl CurrentHead {
     /// Update with a full block. Advances the tracked height and broadcasts
     /// the block to all subscribers.
     pub fn update_with_block(&self, block: BlockContainer) {
-        self.height.fetch_max(block.height as i64, Ordering::Relaxed);
+        self.height
+            .fetch_max(block.height as i64, Ordering::Relaxed);
         // Ignore send errors — just means no active subscribers yet
         let _ = self.block_sender.send(Arc::new(block));
     }
@@ -94,11 +95,7 @@ impl CurrentHead {
 impl Head for CurrentHead {
     fn current_height(&self) -> Option<u64> {
         let h = self.height.load(Ordering::Relaxed);
-        if h < 0 {
-            None
-        } else {
-            Some(h as u64)
-        }
+        if h < 0 { None } else { Some(h as u64) }
     }
 }
 
@@ -114,6 +111,7 @@ mod tests {
             hash: BlockId::from_bytes(hash),
             height,
             parent_hash: None,
+            total_difficulty: alloy::primitives::U256::ZERO,
             timestamp: jiff::Timestamp::UNIX_EPOCH,
             transaction_hashes: vec![],
             json: None,

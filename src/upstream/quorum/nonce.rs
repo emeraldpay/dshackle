@@ -69,7 +69,9 @@ impl CallQuorum for NonceQuorum {
 
     fn record_response(&mut self, response: JsonRpcResponse, _upstream: &dyn RpcUpstream) {
         self.received += 1;
-        let value = response.result_as_string().and_then(|s| parse_hex_quantity(&s));
+        let value = response
+            .result_as_string()
+            .and_then(|s| parse_hex_quantity(&s));
         match value {
             Some(v) if v >= self.best_value || self.best_response.is_none() => {
                 self.best_value = v;
@@ -127,11 +129,21 @@ mod tests {
         async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             unimplemented!()
         }
-        fn id(&self) -> &str { "stub" }
-        fn availability(&self) -> UpstreamAvailability { UpstreamAvailability::Ok }
-        fn head(&self) -> &dyn Head { &NoHead }
-        fn lag(&self) -> Option<u64> { None }
-        fn state(&self) -> &Arc<UpstreamState> { &MOCK_STATE }
+        fn id(&self) -> &str {
+            "stub"
+        }
+        fn availability(&self) -> UpstreamAvailability {
+            UpstreamAvailability::Ok
+        }
+        fn head(&self) -> &dyn Head {
+            &NoHead
+        }
+        fn lag(&self) -> Option<u64> {
+            None
+        }
+        fn state(&self) -> &Arc<UpstreamState> {
+            &MOCK_STATE
+        }
     }
 
     fn parse(body: &str) -> JsonRpcResponse {
@@ -141,9 +153,18 @@ mod tests {
     #[test]
     fn picks_highest_nonce_across_responses() {
         let mut q = NonceQuorum::with_tries(3);
-        q.record_response(parse(r#"{"jsonrpc":"2.0","id":1,"result":"0x5"}"#), &StubUpstream);
-        q.record_response(parse(r#"{"jsonrpc":"2.0","id":1,"result":"0xa"}"#), &StubUpstream);
-        q.record_response(parse(r#"{"jsonrpc":"2.0","id":1,"result":"0x7"}"#), &StubUpstream);
+        q.record_response(
+            parse(r#"{"jsonrpc":"2.0","id":1,"result":"0x5"}"#),
+            &StubUpstream,
+        );
+        q.record_response(
+            parse(r#"{"jsonrpc":"2.0","id":1,"result":"0xa"}"#),
+            &StubUpstream,
+        );
+        q.record_response(
+            parse(r#"{"jsonrpc":"2.0","id":1,"result":"0x7"}"#),
+            &StubUpstream,
+        );
 
         assert!(q.is_resolved());
         match q.take_outcome() {
@@ -157,8 +178,14 @@ mod tests {
     #[test]
     fn waits_for_all_tries_before_resolving() {
         let mut q = NonceQuorum::with_tries(3);
-        q.record_response(parse(r#"{"jsonrpc":"2.0","id":1,"result":"0x5"}"#), &StubUpstream);
-        q.record_response(parse(r#"{"jsonrpc":"2.0","id":1,"result":"0xa"}"#), &StubUpstream);
+        q.record_response(
+            parse(r#"{"jsonrpc":"2.0","id":1,"result":"0x5"}"#),
+            &StubUpstream,
+        );
+        q.record_response(
+            parse(r#"{"jsonrpc":"2.0","id":1,"result":"0xa"}"#),
+            &StubUpstream,
+        );
         assert!(!q.is_resolved(), "should wait for the third response");
     }
 
@@ -179,8 +206,14 @@ mod tests {
     fn tries_clamped_to_total_upstreams() {
         let mut q = NonceQuorum::with_tries(10);
         q.set_total_upstreams(2);
-        q.record_response(parse(r#"{"jsonrpc":"2.0","id":1,"result":"0x1"}"#), &StubUpstream);
-        q.record_response(parse(r#"{"jsonrpc":"2.0","id":1,"result":"0x2"}"#), &StubUpstream);
+        q.record_response(
+            parse(r#"{"jsonrpc":"2.0","id":1,"result":"0x1"}"#),
+            &StubUpstream,
+        );
+        q.record_response(
+            parse(r#"{"jsonrpc":"2.0","id":1,"result":"0x2"}"#),
+            &StubUpstream,
+        );
         assert!(q.is_resolved());
     }
 
@@ -190,11 +223,23 @@ mod tests {
         // received response — the quorum still needs `tries` valid answers.
         let mut q = NonceQuorum::with_tries(3);
         q.record_error(&UpstreamError::HttpStatus(503), &StubUpstream);
-        q.record_response(parse(r#"{"jsonrpc":"2.0","id":1,"result":"0x10"}"#), &StubUpstream);
+        q.record_response(
+            parse(r#"{"jsonrpc":"2.0","id":1,"result":"0x10"}"#),
+            &StubUpstream,
+        );
         assert!(!q.is_resolved());
-        q.record_response(parse(r#"{"jsonrpc":"2.0","id":1,"result":"0x11"}"#), &StubUpstream);
-        assert!(!q.is_resolved(), "two successes are not enough after an error");
-        q.record_response(parse(r#"{"jsonrpc":"2.0","id":1,"result":"0x10"}"#), &StubUpstream);
+        q.record_response(
+            parse(r#"{"jsonrpc":"2.0","id":1,"result":"0x11"}"#),
+            &StubUpstream,
+        );
+        assert!(
+            !q.is_resolved(),
+            "two successes are not enough after an error"
+        );
+        q.record_response(
+            parse(r#"{"jsonrpc":"2.0","id":1,"result":"0x10"}"#),
+            &StubUpstream,
+        );
         assert!(q.is_resolved());
 
         match q.take_outcome() {
@@ -208,8 +253,14 @@ mod tests {
     #[test]
     fn malformed_response_does_not_overwrite_best() {
         let mut q = NonceQuorum::with_tries(2);
-        q.record_response(parse(r#"{"jsonrpc":"2.0","id":1,"result":"0xa"}"#), &StubUpstream);
-        q.record_response(parse(r#"{"jsonrpc":"2.0","id":1,"result":"garbage"}"#), &StubUpstream);
+        q.record_response(
+            parse(r#"{"jsonrpc":"2.0","id":1,"result":"0xa"}"#),
+            &StubUpstream,
+        );
+        q.record_response(
+            parse(r#"{"jsonrpc":"2.0","id":1,"result":"garbage"}"#),
+            &StubUpstream,
+        );
 
         match q.take_outcome() {
             QuorumOutcome::Resolved(r) => {

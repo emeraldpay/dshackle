@@ -132,8 +132,7 @@ impl CachingUpstream {
                 block.json.as_ref()?;
                 // Every transaction must be cached with its JSON — a partial
                 // set cannot produce a correct full block, so it's a miss
-                let mut txs: Vec<TxContainer> =
-                    Vec::with_capacity(block.transaction_hashes.len());
+                let mut txs: Vec<TxContainer> = Vec::with_capacity(block.transaction_hashes.len());
                 for id in &block.transaction_hashes {
                     txs.push(self.caches.read_tx_by_hash(id).await?);
                 }
@@ -450,10 +449,7 @@ mod tests {
         let second = up.call(&receipt_request()).await.unwrap();
 
         assert_eq!(inner.calls.load(Ordering::SeqCst), 1);
-        assert_eq!(
-            first.result.unwrap().get(),
-            second.result.unwrap().get()
-        );
+        assert_eq!(first.result.unwrap().get(), second.result.unwrap().get());
     }
 
     #[tokio::test]

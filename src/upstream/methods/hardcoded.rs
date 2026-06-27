@@ -86,8 +86,8 @@ mod tests {
     use super::*;
     use crate::config::upstreams::{MethodConfig, MethodsConfig};
     use crate::upstream::head::NoHead;
-    use crate::upstream::methods::config::ConfiguredMethods;
     use crate::upstream::methods::DefaultMethods;
+    use crate::upstream::methods::config::ConfiguredMethods;
 
     static MOCK_STATE: std::sync::LazyLock<Arc<UpstreamState>> =
         std::sync::LazyLock::new(|| Arc::new(UpstreamState::new()));
@@ -100,11 +100,21 @@ mod tests {
             let raw = r#"{"jsonrpc":"2.0","id":1,"result":"0xfromupstream"}"#;
             Ok(serde_json::from_str(raw).unwrap())
         }
-        fn id(&self) -> &str { "stub" }
-        fn availability(&self) -> UpstreamAvailability { UpstreamAvailability::Ok }
-        fn head(&self) -> &dyn Head { &NoHead }
-        fn lag(&self) -> Option<u64> { None }
-        fn state(&self) -> &Arc<UpstreamState> { &MOCK_STATE }
+        fn id(&self) -> &str {
+            "stub"
+        }
+        fn availability(&self) -> UpstreamAvailability {
+            UpstreamAvailability::Ok
+        }
+        fn head(&self) -> &dyn Head {
+            &NoHead
+        }
+        fn lag(&self) -> Option<u64> {
+            None
+        }
+        fn state(&self) -> &Arc<UpstreamState> {
+            &MOCK_STATE
+        }
     }
 
     fn request(method: &str) -> JsonRpcRequest {

@@ -27,7 +27,7 @@ pub mod tls;
 pub mod tokens;
 pub mod upstreams;
 
-pub use main_config::{read_config, MainConfig};
+pub use main_config::{MainConfig, read_config};
 
 use std::path::{Path, PathBuf};
 
@@ -111,10 +111,7 @@ mod tests {
 
         let result = resolve_config_path(Some(&config_file));
         assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            dunce::canonicalize(&config_file).unwrap()
-        );
+        assert_eq!(result.unwrap(), dunce::canonicalize(&config_file).unwrap());
     }
 
     #[test]
@@ -128,9 +125,7 @@ mod tests {
 
     #[test]
     fn fails_when_no_config_found() {
-        if !is_accessible(Path::new(DEFAULT_CONFIG))
-            && !is_accessible(Path::new(LOCAL_CONFIG))
-        {
+        if !is_accessible(Path::new(DEFAULT_CONFIG)) && !is_accessible(Path::new(LOCAL_CONFIG)) {
             let result = resolve_config_path(None);
             assert!(matches!(result.unwrap_err(), ConfigError::NotFound));
         }

@@ -78,7 +78,7 @@ impl PartialOptions {
             validate_peers: self.validate_peers.unwrap_or(true),
             min_peers: self.min_peers.unwrap_or(1).max(0) as u32,
             validation_interval: Duration::from_secs(
-                self.validation_interval.unwrap_or(30).max(1) as u64,
+                self.validation_interval.unwrap_or(30).max(1) as u64
             ),
             timeout: Duration::from_secs(self.timeout.unwrap_or(60).max(1) as u64),
             priority: self.priority.unwrap_or(10).clamp(0, 1_000_000),
@@ -255,11 +255,7 @@ pub struct WsEndpoint {
     pub msg_size: Option<usize>,
     pub connections: Option<u32>,
     pub compress: Option<bool>,
-    #[serde(
-        alias = "disable-methods",
-        rename = "disabled-methods",
-        default
-    )]
+    #[serde(alias = "disable-methods", rename = "disabled-methods", default)]
     pub disabled_methods: Vec<String>,
 }
 
@@ -793,11 +789,26 @@ mod tests {
 
     #[test]
     fn role_from_str_lenient() {
-        assert_eq!(UpstreamRole::from_str_lenient("primary"), Some(UpstreamRole::Primary));
-        assert_eq!(UpstreamRole::from_str_lenient("standard"), Some(UpstreamRole::Primary));
-        assert_eq!(UpstreamRole::from_str_lenient("secondary"), Some(UpstreamRole::Secondary));
-        assert_eq!(UpstreamRole::from_str_lenient("fallback"), Some(UpstreamRole::Fallback));
-        assert_eq!(UpstreamRole::from_str_lenient("FALLBACK"), Some(UpstreamRole::Fallback));
+        assert_eq!(
+            UpstreamRole::from_str_lenient("primary"),
+            Some(UpstreamRole::Primary)
+        );
+        assert_eq!(
+            UpstreamRole::from_str_lenient("standard"),
+            Some(UpstreamRole::Primary)
+        );
+        assert_eq!(
+            UpstreamRole::from_str_lenient("secondary"),
+            Some(UpstreamRole::Secondary)
+        );
+        assert_eq!(
+            UpstreamRole::from_str_lenient("fallback"),
+            Some(UpstreamRole::Fallback)
+        );
+        assert_eq!(
+            UpstreamRole::from_str_lenient("FALLBACK"),
+            Some(UpstreamRole::Fallback)
+        );
         assert_eq!(UpstreamRole::from_str_lenient("unknown"), None);
     }
 }

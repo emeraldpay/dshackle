@@ -59,7 +59,11 @@ impl Blockchain for BlockchainRpcService {
         request: tonic::Request<NativeCallRequest>,
     ) -> Result<tonic::Response<Self::NativeCallStream>, tonic::Status> {
         let req = request.into_inner();
-        tracing::trace!(chain = req.chain, items = req.items.len(), "native_call request");
+        tracing::trace!(
+            chain = req.chain,
+            items = req.items.len(),
+            "native_call request"
+        );
 
         let chain = TargetBlockchain::try_from(req.chain).map_err(|id| {
             tracing::trace!(chain = id, "unknown chain id");
@@ -104,56 +108,72 @@ impl Blockchain for BlockchainRpcService {
         &self,
         _request: tonic::Request<common::Chain>,
     ) -> Result<tonic::Response<Self::SubscribeHeadStream>, tonic::Status> {
-        Err(tonic::Status::unimplemented("subscribe_head not yet implemented"))
+        Err(tonic::Status::unimplemented(
+            "subscribe_head not yet implemented",
+        ))
     }
 
     async fn subscribe_balance(
         &self,
         _request: tonic::Request<BalanceRequest>,
     ) -> Result<tonic::Response<Self::SubscribeBalanceStream>, tonic::Status> {
-        Err(tonic::Status::unimplemented("subscribe_balance not yet implemented"))
+        Err(tonic::Status::unimplemented(
+            "subscribe_balance not yet implemented",
+        ))
     }
 
     async fn subscribe_tx_status(
         &self,
         _request: tonic::Request<TxStatusRequest>,
     ) -> Result<tonic::Response<Self::SubscribeTxStatusStream>, tonic::Status> {
-        Err(tonic::Status::unimplemented("subscribe_tx_status not yet implemented"))
+        Err(tonic::Status::unimplemented(
+            "subscribe_tx_status not yet implemented",
+        ))
     }
 
     async fn get_balance(
         &self,
         _request: tonic::Request<BalanceRequest>,
     ) -> Result<tonic::Response<Self::GetBalanceStream>, tonic::Status> {
-        Err(tonic::Status::unimplemented("get_balance not yet implemented"))
+        Err(tonic::Status::unimplemented(
+            "get_balance not yet implemented",
+        ))
     }
 
     async fn get_address_allowance(
         &self,
         _request: tonic::Request<AddressAllowanceRequest>,
     ) -> Result<tonic::Response<Self::GetAddressAllowanceStream>, tonic::Status> {
-        Err(tonic::Status::unimplemented("get_address_allowance not yet implemented"))
+        Err(tonic::Status::unimplemented(
+            "get_address_allowance not yet implemented",
+        ))
     }
 
     async fn subscribe_address_allowance(
         &self,
         _request: tonic::Request<AddressAllowanceRequest>,
     ) -> Result<tonic::Response<Self::SubscribeAddressAllowanceStream>, tonic::Status> {
-        Err(tonic::Status::unimplemented("subscribe_address_allowance not yet implemented"))
+        Err(tonic::Status::unimplemented(
+            "subscribe_address_allowance not yet implemented",
+        ))
     }
 
     async fn estimate_fee(
         &self,
         _request: tonic::Request<EstimateFeeRequest>,
     ) -> Result<tonic::Response<EstimateFeeResponse>, tonic::Status> {
-        Err(tonic::Status::unimplemented("estimate_fee not yet implemented"))
+        Err(tonic::Status::unimplemented(
+            "estimate_fee not yet implemented",
+        ))
     }
 
     async fn native_subscribe(
         &self,
         _request: tonic::Request<NativeSubscribeRequest>,
     ) -> Result<tonic::Response<Self::NativeSubscribeStream>, tonic::Status> {
-        Err(tonic::Status::unimplemented("native_subscribe not yet implemented"))
+        Err(tonic::Status::unimplemented(
+            "native_subscribe not yet implemented",
+        ))
     }
 
     async fn describe(
@@ -167,7 +187,9 @@ impl Blockchain for BlockchainRpcService {
         &self,
         _request: tonic::Request<StatusRequest>,
     ) -> Result<tonic::Response<Self::SubscribeStatusStream>, tonic::Status> {
-        Err(tonic::Status::unimplemented("subscribe_status not yet implemented"))
+        Err(tonic::Status::unimplemented(
+            "subscribe_status not yet implemented",
+        ))
     }
 }
 
@@ -175,12 +197,12 @@ impl Blockchain for BlockchainRpcService {
 mod tests {
     use super::*;
     use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
+    use crate::upstream::Multistream;
     use crate::upstream::availability::UpstreamAvailability;
     use crate::upstream::head::{Head, NoHead};
     use crate::upstream::quorum::{AlwaysQuorum, CallQuorum, QuorumFactory};
     use crate::upstream::state::UpstreamState;
     use crate::upstream::traits::{RpcUpstream, UpstreamError};
-    use crate::upstream::Multistream;
     use emerald_api::proto::blockchain::NativeCallItem;
     use emerald_api::proto::common::ChainRef;
     use std::collections::HashMap;
@@ -222,11 +244,21 @@ mod tests {
             self.active.fetch_sub(1, Ordering::SeqCst);
             Ok(serde_json::from_str(r#"{"jsonrpc":"2.0","id":1,"result":"0x1"}"#).unwrap())
         }
-        fn id(&self) -> &str { "probe" }
-        fn availability(&self) -> UpstreamAvailability { UpstreamAvailability::Ok }
-        fn head(&self) -> &dyn Head { &NoHead }
-        fn lag(&self) -> Option<u64> { None }
-        fn state(&self) -> &Arc<UpstreamState> { &self.state }
+        fn id(&self) -> &str {
+            "probe"
+        }
+        fn availability(&self) -> UpstreamAvailability {
+            UpstreamAvailability::Ok
+        }
+        fn head(&self) -> &dyn Head {
+            &NoHead
+        }
+        fn lag(&self) -> Option<u64> {
+            None
+        }
+        fn state(&self) -> &Arc<UpstreamState> {
+            &self.state
+        }
     }
 
     /// Minimal `QuorumFactory` that hands out `AlwaysQuorum` for every method —
@@ -242,7 +274,10 @@ mod tests {
     fn service_with(upstream: Arc<dyn RpcUpstream>) -> BlockchainRpcService {
         let multistream = Arc::new(Multistream::new(vec![upstream], Arc::new(AlwaysFactory)));
         let mut chains: HashMap<TargetBlockchain, Arc<Multistream>> = HashMap::new();
-        chains.insert(TargetBlockchain::Standard(ChainRef::ChainEthereum), multistream);
+        chains.insert(
+            TargetBlockchain::Standard(ChainRef::ChainEthereum),
+            multistream,
+        );
         let manager = Arc::new(UpstreamManager::from_parts(chains, HashMap::new()));
         BlockchainRpcService::new(manager)
     }

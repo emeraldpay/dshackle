@@ -199,13 +199,34 @@ mod tests {
     #[test]
     fn log_encoding_from_str() {
         assert_eq!("nl".parse::<LogEncoding>().unwrap(), LogEncoding::NewLine);
-        assert_eq!("newline".parse::<LogEncoding>().unwrap(), LogEncoding::NewLine);
-        assert_eq!("new-line".parse::<LogEncoding>().unwrap(), LogEncoding::NewLine);
-        assert_eq!("new_line".parse::<LogEncoding>().unwrap(), LogEncoding::NewLine);
-        assert_eq!("prefix".parse::<LogEncoding>().unwrap(), LogEncoding::SizePrefix);
-        assert_eq!("length".parse::<LogEncoding>().unwrap(), LogEncoding::SizePrefix);
-        assert_eq!("length-prefix".parse::<LogEncoding>().unwrap(), LogEncoding::SizePrefix);
-        assert_eq!("length_prefix".parse::<LogEncoding>().unwrap(), LogEncoding::SizePrefix);
+        assert_eq!(
+            "newline".parse::<LogEncoding>().unwrap(),
+            LogEncoding::NewLine
+        );
+        assert_eq!(
+            "new-line".parse::<LogEncoding>().unwrap(),
+            LogEncoding::NewLine
+        );
+        assert_eq!(
+            "new_line".parse::<LogEncoding>().unwrap(),
+            LogEncoding::NewLine
+        );
+        assert_eq!(
+            "prefix".parse::<LogEncoding>().unwrap(),
+            LogEncoding::SizePrefix
+        );
+        assert_eq!(
+            "length".parse::<LogEncoding>().unwrap(),
+            LogEncoding::SizePrefix
+        );
+        assert_eq!(
+            "length-prefix".parse::<LogEncoding>().unwrap(),
+            LogEncoding::SizePrefix
+        );
+        assert_eq!(
+            "length_prefix".parse::<LogEncoding>().unwrap(),
+            LogEncoding::SizePrefix
+        );
         assert!("unknown".parse::<LogEncoding>().is_err());
     }
 }

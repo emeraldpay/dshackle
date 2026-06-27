@@ -50,9 +50,7 @@ impl WsConnectionPool {
         });
 
         if target > 1 {
-            tracing::info!(
-                "Upstream {upstream_id}: opening {target} WS connections to {url}"
-            );
+            tracing::info!("Upstream {upstream_id}: opening {target} WS connections to {url}");
         }
 
         let pool_clone = Arc::clone(&pool);
@@ -95,12 +93,7 @@ impl WsConnectionPool {
 /// matching the legacy behavior where a broken connection pauses growth.
 /// After [`POOL_GROW_MAX_WAIT`] the next connection is added regardless,
 /// to avoid stalling forever on a flaky endpoint.
-async fn grow_pool(
-    pool: Arc<WsConnectionPool>,
-    upstream_id: String,
-    url: String,
-    target: u32,
-) {
+async fn grow_pool(pool: Arc<WsConnectionPool>, upstream_id: String, url: String, target: u32) {
     for i in 0..target {
         let label = if target == 1 {
             format!("Upstream {upstream_id}")
@@ -131,8 +124,6 @@ async fn grow_pool(
     }
 
     if target > 1 {
-        tracing::info!(
-            "Upstream {upstream_id}: all {target} WS connections created"
-        );
+        tracing::info!("Upstream {upstream_id}: all {target} WS connections created");
     }
 }

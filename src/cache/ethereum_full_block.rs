@@ -223,8 +223,14 @@ mod tests {
         assert_eq!(txs[0].hash.to_hex(), "a".repeat(64));
         assert_eq!(txs[0].height, Some(0x64));
         assert!(txs[0].block_hash.is_some());
-        assert_eq!(std::str::from_utf8(txs[0].json.as_deref().unwrap()).unwrap(), TX_A);
-        assert_eq!(std::str::from_utf8(txs[1].json.as_deref().unwrap()).unwrap(), TX_B);
+        assert_eq!(
+            std::str::from_utf8(txs[0].json.as_deref().unwrap()).unwrap(),
+            TX_A
+        );
+        assert_eq!(
+            std::str::from_utf8(txs[1].json.as_deref().unwrap()).unwrap(),
+            TX_B
+        );
     }
 
     #[test]
@@ -235,7 +241,10 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(json).unwrap();
         assert_eq!(
             v["transactions"],
-            serde_json::json!([format!("0x{}", "a".repeat(64)), format!("0x{}", "b".repeat(64))])
+            serde_json::json!([
+                format!("0x{}", "a".repeat(64)),
+                format!("0x{}", "b".repeat(64))
+            ])
         );
         // The rest of the block is preserved as the upstream sent it
         assert_eq!(v["gasUsed"], "0x1234");
@@ -260,7 +269,10 @@ mod tests {
         let (block, txs) = decompose(json).unwrap();
 
         assert!(txs.is_empty());
-        assert_eq!(std::str::from_utf8(block.json.as_deref().unwrap()).unwrap(), json);
+        assert_eq!(
+            std::str::from_utf8(block.json.as_deref().unwrap()).unwrap(),
+            json
+        );
     }
 
     #[test]

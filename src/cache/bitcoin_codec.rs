@@ -73,9 +73,8 @@ mod tests {
     fn getblock_default_verbosity_cacheable() {
         // When verbosity is omitted, bitcoind defaults to 1
         let codec = BitcoinCacheCodec;
-        let params = serde_json::json!([
-            "00000000000000000002a7c4c1e48d76c5a37902165a270156b7a8d72f8804c6"
-        ]);
+        let params =
+            serde_json::json!(["00000000000000000002a7c4c1e48d76c5a37902165a270156b7a8d72f8804c6"]);
         assert!(codec.classify("getblock", &params).is_some());
     }
 

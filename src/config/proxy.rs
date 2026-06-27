@@ -29,18 +29,11 @@ pub struct ProxyConfig {
     pub tls: Option<ServerTlsConfig>,
     #[serde(default)]
     pub routes: Vec<Route>,
-    #[serde(
-        alias = "preserveBatchOrder",
-        rename = "preserve-batch-order",
-        default
-    )]
+    #[serde(alias = "preserveBatchOrder", rename = "preserve-batch-order", default)]
     pub preserve_batch_order: bool,
     #[serde(alias = "corsOrigin", rename = "cors-origin")]
     pub cors_origin: Option<String>,
-    #[serde(
-        alias = "corsAllowedHeaders",
-        rename = "cors-allowed-headers"
-    )]
+    #[serde(alias = "corsAllowedHeaders", rename = "cors-allowed-headers")]
     pub cors_allowed_headers: Option<String>,
 }
 

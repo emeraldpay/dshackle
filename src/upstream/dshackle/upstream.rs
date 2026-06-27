@@ -73,7 +73,6 @@ impl DshackleUpstream {
     pub fn grpc_client(&self) -> BlockchainClient<Channel> {
         self.client.clone()
     }
-
 }
 
 #[async_trait::async_trait]
@@ -130,11 +129,9 @@ impl RpcUpstream for DshackleUpstream {
             let json_str = String::from_utf8(reply.payload).map_err(|e| {
                 UpstreamError::InvalidResponse(format!("payload is not valid UTF-8: {e}"))
             })?;
-            Some(
-                RawValue::from_string(json_str).map_err(|e| {
-                    UpstreamError::InvalidResponse(format!("payload is not valid JSON: {e}"))
-                })?,
-            )
+            Some(RawValue::from_string(json_str).map_err(|e| {
+                UpstreamError::InvalidResponse(format!("payload is not valid JSON: {e}"))
+            })?)
         };
 
         Ok(JsonRpcResponse {
