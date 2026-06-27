@@ -20,6 +20,7 @@ mod config;
 mod data;
 mod global;
 mod jsonrpc;
+mod proxy;
 mod rpc;
 mod server;
 mod upstream;
@@ -127,6 +128,19 @@ async fn main() {
                 std::process::exit(1);
             }
         };
+
+    // Start the JSON-RPC HTTP proxy alongside the gRPC server, if enabled.
+    if let Some(proxy_config) = &config.proxy {
+        if proxy_config.enabled {
+            let proxy_config = proxy_config.clone();
+            let proxy_upstreams = Arc::clone(&upstreams);
+            tokio::spawn(async move {
+                if let Err(e) = proxy::start(&proxy_config, proxy_upstreams).await {
+                    tracing::error!("JSON-RPC HTTP proxy failed: {e:#}");
+                }
+            });
+        }
+    }
 
     // Start gRPC server
     let service = rpc::blockchain_rpc::BlockchainRpcService::new(upstreams);

@@ -50,5 +50,7 @@ shadow-rs = "1.1"
 testcontainers = "0.27"
 tempfile = "3.19"
 rand = "0.10"
+# Enables `warp::test` for the proxy filter tests without pulling it into the binary.
+warp = { version = "0.4", features = ["test"] }
 
 

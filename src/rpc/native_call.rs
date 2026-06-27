@@ -16,10 +16,23 @@
 //! `Multistream` with a method-specific quorum policy, then converting the
 //! result back to a gRPC reply.
 
-use crate::jsonrpc::JsonRpcRequest;
+use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
 use crate::upstream::Multistream;
 use crate::upstream::router;
+use crate::upstream::traits::UpstreamError;
 use emerald_api::proto::blockchain::{NativeCallItem, NativeCallReplyItem};
+
+/// Route a single JSON-RPC request through a chain's upstreams using the
+/// method's quorum policy. The shared execution core behind both the gRPC
+/// `NativeCall` and the JSON-RPC HTTP proxy.
+pub async fn execute_call(
+    multistream: &Multistream,
+    request: &JsonRpcRequest,
+) -> Result<JsonRpcResponse, UpstreamError> {
+    let quorum = multistream.quorum_for(&request.method);
+    let candidates = multistream.select_for(quorum.selector(), &request.method);
+    router::route(candidates, quorum, request).await
+}
 
 /// Execute a single native call item against the upstreams of a chain.
 ///
@@ -46,9 +59,7 @@ pub async fn execute_native_call(
     let request = JsonRpcRequest::new(item.id, item.method.clone().into(), params);
     tracing::trace!(id = item.id, method = %item.method, "executing native call item");
 
-    let quorum = multistream.quorum_for(&request.method);
-    let candidates = multistream.select_for(quorum.selector(), &request.method);
-    match router::route(candidates, quorum, &request).await {
+    match execute_call(multistream, &request).await {
         Ok(resp) => {
             if let Some(result) = resp.result {
                 // Forward the raw JSON bytes as-is, without re-serialization
