@@ -18,6 +18,7 @@
 //! `UNIMPLEMENTED` status.
 
 use crate::blockchain::TargetBlockchain;
+use crate::data::BlockContainer;
 use crate::rpc::native_call;
 use crate::upstream::UpstreamManager;
 use emerald_api::proto::blockchain::blockchain_server::Blockchain;
@@ -27,6 +28,7 @@ use futures::stream::{FuturesUnordered, StreamExt};
 use std::pin::Pin;
 use std::sync::Arc;
 use tokio_stream::Stream;
+use tokio_stream::wrappers::BroadcastStream;
 
 /// The Dshackle implementation of the `Blockchain` gRPC service.
 pub struct BlockchainRpcService {
@@ -106,11 +108,26 @@ impl Blockchain for BlockchainRpcService {
 
     async fn subscribe_head(
         &self,
-        _request: tonic::Request<common::Chain>,
+        request: tonic::Request<common::Chain>,
     ) -> Result<tonic::Response<Self::SubscribeHeadStream>, tonic::Status> {
-        Err(tonic::Status::unimplemented(
-            "subscribe_head not yet implemented",
-        ))
+        let chain = TargetBlockchain::try_from(request.into_inner().r#type).map_err(|id| {
+            tracing::trace!(chain = id, "unknown chain id");
+            tonic::Status::invalid_argument(format!("unknown chain id {id}"))
+        })?;
+
+        let head = self.upstreams.head(&chain).ok_or_else(|| {
+            tracing::trace!(%chain, "no head stream for chain");
+            tonic::Status::unavailable(format!("no upstream available for chain {chain}"))
+        })?;
+
+        let chain_id = chain.id();
+        // Map each merged-head block to a `ChainHead`, skipping the gaps the
+        // broadcast channel reports when a subscriber lags behind.
+        let stream = BroadcastStream::new(head.subscribe()).filter_map(move |item| async move {
+            item.ok().map(|block| Ok(chain_head(chain_id, &block)))
+        });
+
+        Ok(tonic::Response::new(Box::pin(stream)))
     }
 
     async fn subscribe_balance(
@@ -190,6 +207,24 @@ impl Blockchain for BlockchainRpcService {
         Err(tonic::Status::unimplemented(
             "subscribe_status not yet implemented",
         ))
+    }
+}
+
+/// Build a `ChainHead` gRPC message from a head block. `weight` carries the
+/// cumulative work as a big-endian big integer (empty when unknown), matching
+/// the legacy `StreamHead`.
+fn chain_head(chain_id: i32, block: &BlockContainer) -> ChainHead {
+    ChainHead {
+        chain: chain_id,
+        height: block.height,
+        block_id: block.hash.to_hex(),
+        timestamp: block.timestamp.as_millisecond() as u64,
+        weight: if block.total_difficulty.is_zero() {
+            Vec::new()
+        } else {
+            block.total_difficulty.to_be_bytes_trimmed_vec()
+        },
+        reorg: 0,
     }
 }
 
@@ -364,5 +399,55 @@ mod tests {
             observed > 1,
             "expected concurrent requests to overlap — max in-flight calls was {observed}"
         );
+    }
+
+    // ── subscribe_head ──────────────────────────────────────────────────
+
+    #[test]
+    fn chain_head_maps_block_fields() {
+        let mut hash = [0u8; 32];
+        hash[0] = 0xab;
+        let block = BlockContainer {
+            hash: crate::data::BlockId::from_bytes(hash),
+            height: 12345,
+            parent_hash: None,
+            total_difficulty: alloy::primitives::U256::from(1024u64),
+            timestamp: jiff::Timestamp::from_millisecond(1_700_000_000_000).unwrap(),
+            transaction_hashes: vec![],
+            json: None,
+        };
+        let head = chain_head(ChainRef::ChainEthereum as i32, &block);
+        assert_eq!(head.chain, ChainRef::ChainEthereum as i32);
+        assert_eq!(head.height, 12345);
+        assert_eq!(head.block_id, block.hash.to_hex());
+        assert_eq!(head.timestamp, 1_700_000_000_000);
+        assert_eq!(head.weight, vec![0x04, 0x00]); // 1024 == 0x0400
+        assert_eq!(head.reorg, 0);
+    }
+
+    #[tokio::test]
+    async fn subscribe_head_unknown_chain_is_invalid_argument() {
+        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let status = service
+            .subscribe_head(tonic::Request::new(common::Chain { r#type: 999_999 }))
+            .await
+            .err()
+            .expect("expected an error status");
+        assert_eq!(status.code(), tonic::Code::InvalidArgument);
+    }
+
+    #[tokio::test]
+    async fn subscribe_head_without_head_stream_is_unavailable() {
+        // `service_with` builds the manager via `from_parts`, which has no
+        // merged head streams, so a known chain still reports unavailable.
+        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let status = service
+            .subscribe_head(tonic::Request::new(common::Chain {
+                r#type: ChainRef::ChainEthereum as i32,
+            }))
+            .await
+            .err()
+            .expect("expected an error status");
+        assert_eq!(status.code(), tonic::Code::Unavailable);
     }
 }

@@ -21,6 +21,7 @@ mod dshackle;
 pub mod ethereum;
 pub mod fork;
 pub mod head;
+pub mod merged_head;
 mod methods;
 pub mod multistream;
 pub mod quorum;
@@ -56,6 +57,7 @@ use fork::{
     DifficultyForkChoice, ForkChoice, ForkMember, PriorityForkChoice, is_pos, start_fork_watch,
 };
 use head::CurrentHead;
+use merged_head::MergedHead;
 use methods::AggregatedMethods;
 use methods::ConfiguredMethods;
 use methods::DefaultMethods;
@@ -78,6 +80,9 @@ use traits::RpcUpstream;
 pub struct UpstreamManager {
     upstreams: HashMap<TargetBlockchain, Arc<Multistream>>,
     caches: HashMap<TargetBlockchain, Arc<Caches>>,
+    /// Per-chain merged head stream, used by `SubscribeHead` and the proxy's
+    /// `newHeads` subscription.
+    heads: HashMap<TargetBlockchain, Arc<MergedHead>>,
 }
 
 impl UpstreamManager {
@@ -108,6 +113,9 @@ impl UpstreamManager {
         // Per-upstream fork-watch members, collected so the per-chain fork
         // choice can be built once all upstreams of a chain are known.
         let mut per_chain_fork: HashMap<TargetBlockchain, Vec<ForkMember>> = HashMap::new();
+        // Per-upstream head trackers, collected so a per-chain merged head can
+        // be built once all upstreams of a chain are known.
+        let mut per_chain_heads: HashMap<TargetBlockchain, Vec<Arc<CurrentHead>>> = HashMap::new();
         // Per-chain caches and caching heads. Created lazily on first upstream
         // for each chain. The CachingHead subscribes to each upstream's block
         // stream and deduplicates before writing to the cache — one update per
@@ -289,6 +297,10 @@ impl UpstreamManager {
                         Arc::new(HardcodedMethods::new(reader, Arc::clone(&methods)));
 
                     if let Some(head) = fork_head {
+                        per_chain_heads
+                            .entry(chain)
+                            .or_default()
+                            .push(Arc::clone(&head));
                         per_chain_fork.entry(chain).or_default().push(ForkMember {
                             id: upstream.id.clone(),
                             priority: options.priority,
@@ -385,6 +397,10 @@ impl UpstreamManager {
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(HardcodedMethods::new(reader, Arc::clone(&methods)));
 
+                    per_chain_heads
+                        .entry(chain)
+                        .or_default()
+                        .push(Arc::clone(&fork_head));
                     per_chain_fork.entry(chain).or_default().push(ForkMember {
                         id: upstream.id.clone(),
                         priority: options.priority,
@@ -505,11 +521,19 @@ impl UpstreamManager {
             tracing::warn!("No usable upstreams were configured");
         }
 
+        // Merge each chain's upstream heads into a single best-head stream for
+        // `SubscribeHead` (remote Dshackle heads are folded in with section 4).
+        let heads = per_chain_heads
+            .into_iter()
+            .map(|(chain, chain_heads)| (chain, MergedHead::new(chain_heads)))
+            .collect();
+
         status::start_status_reporter(chain_statuses);
 
         Ok(UpstreamManager {
             upstreams,
             caches: per_chain_caches,
+            heads,
         })
     }
 
@@ -520,12 +544,21 @@ impl UpstreamManager {
         upstreams: HashMap<TargetBlockchain, Arc<Multistream>>,
         caches: HashMap<TargetBlockchain, Arc<Caches>>,
     ) -> Self {
-        Self { upstreams, caches }
+        Self {
+            upstreams,
+            caches,
+            heads: HashMap::new(),
+        }
     }
 
     /// Look up the upstream aggregate for a given blockchain.
     pub fn get(&self, chain: &TargetBlockchain) -> Option<&Arc<Multistream>> {
         self.upstreams.get(chain)
+    }
+
+    /// Look up the merged head stream for a given blockchain.
+    pub fn head(&self, chain: &TargetBlockchain) -> Option<&Arc<MergedHead>> {
+        self.heads.get(chain)
     }
 
     /// Look up the cache for a given blockchain.
