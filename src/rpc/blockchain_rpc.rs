@@ -14,13 +14,14 @@
 
 //! Implementation of the `Blockchain` gRPC service from the emerald-api.
 //!
-//! Currently only `native_call` is implemented; all other methods return
-//! `UNIMPLEMENTED` status.
+//! Implemented so far: `native_call`, `subscribe_head`, and `native_subscribe`
+//! (newHeads). The remaining methods return `UNIMPLEMENTED`.
 
 use crate::blockchain::TargetBlockchain;
 use crate::data::BlockContainer;
 use crate::rpc::native_call;
 use crate::upstream::UpstreamManager;
+use crate::upstream::egress::{EgressError, EgressSubscription, HeadEgress};
 use emerald_api::proto::blockchain::blockchain_server::Blockchain;
 use emerald_api::proto::blockchain::*;
 use emerald_api::proto::common;
@@ -186,11 +187,31 @@ impl Blockchain for BlockchainRpcService {
 
     async fn native_subscribe(
         &self,
-        _request: tonic::Request<NativeSubscribeRequest>,
+        request: tonic::Request<NativeSubscribeRequest>,
     ) -> Result<tonic::Response<Self::NativeSubscribeStream>, tonic::Status> {
-        Err(tonic::Status::unimplemented(
-            "native_subscribe not yet implemented",
-        ))
+        let req = request.into_inner();
+
+        let chain = TargetBlockchain::try_from(req.chain)
+            .map_err(|id| tonic::Status::unavailable(format!("BLOCKCHAIN UNAVAILABLE: {id}")))?;
+        let params = parse_subscribe_params(&req.payload)?;
+
+        // The egress currently needs only the merged head (newHeads); richer
+        // topics will extend it. No head stream means the chain isn't serving
+        // subscriptions yet.
+        let head = self.upstreams.head(&chain).cloned().ok_or_else(|| {
+            tonic::Status::unavailable(format!("no upstream available for chain {chain}"))
+        })?;
+        let egress = HeadEgress::new(head);
+
+        match egress.subscribe(&req.method, params) {
+            Ok(stream) => {
+                let mapped = stream.map(|payload| Ok(NativeSubscribeReplyItem { payload }));
+                Ok(tonic::Response::new(Box::pin(mapped)))
+            }
+            Err(EgressError::UnsupportedMethod(method)) => Err(tonic::Status::unimplemented(
+                format!("Method {method} is not supported"),
+            )),
+        }
     }
 
     async fn describe(
@@ -208,6 +229,17 @@ impl Blockchain for BlockchainRpcService {
             "subscribe_status not yet implemented",
         ))
     }
+}
+
+/// Parse the optional JSON params object from a `NativeSubscribe` payload. An
+/// empty payload means "no params"; non-empty payloads must be valid JSON.
+fn parse_subscribe_params(payload: &[u8]) -> Result<Option<serde_json::Value>, tonic::Status> {
+    if payload.is_empty() {
+        return Ok(None);
+    }
+    serde_json::from_slice(payload)
+        .map(Some)
+        .map_err(|e| tonic::Status::invalid_argument(format!("invalid subscribe params: {e}")))
 }
 
 /// Build a `ChainHead` gRPC message from a head block. `weight` carries the
@@ -444,6 +476,48 @@ mod tests {
         let status = service
             .subscribe_head(tonic::Request::new(common::Chain {
                 r#type: ChainRef::ChainEthereum as i32,
+            }))
+            .await
+            .err()
+            .expect("expected an error status");
+        assert_eq!(status.code(), tonic::Code::Unavailable);
+    }
+
+    // ── native_subscribe ────────────────────────────────────────────────
+
+    #[test]
+    fn parse_subscribe_params_handles_empty_and_json() {
+        assert!(parse_subscribe_params(b"").unwrap().is_none());
+        assert_eq!(
+            parse_subscribe_params(br#"{"address":"0x00"}"#).unwrap(),
+            Some(serde_json::json!({"address": "0x00"}))
+        );
+        assert!(parse_subscribe_params(b"not json").is_err());
+    }
+
+    #[tokio::test]
+    async fn native_subscribe_unknown_chain_is_unavailable() {
+        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let status = service
+            .native_subscribe(tonic::Request::new(NativeSubscribeRequest {
+                chain: 999_999,
+                method: "newHeads".to_string(),
+                payload: Vec::new(),
+            }))
+            .await
+            .err()
+            .expect("expected an error status");
+        assert_eq!(status.code(), tonic::Code::Unavailable);
+    }
+
+    #[tokio::test]
+    async fn native_subscribe_without_head_is_unavailable() {
+        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let status = service
+            .native_subscribe(tonic::Request::new(NativeSubscribeRequest {
+                chain: ChainRef::ChainEthereum as i32,
+                method: "newHeads".to_string(),
+                payload: Vec::new(),
             }))
             .await
             .err()

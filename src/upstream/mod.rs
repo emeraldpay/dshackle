@@ -18,6 +18,7 @@
 pub mod availability;
 pub(crate) mod bitcoin;
 mod dshackle;
+pub mod egress;
 pub mod ethereum;
 pub mod fork;
 pub mod head;
