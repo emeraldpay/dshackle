@@ -181,7 +181,10 @@ mod tests {
     }
 
     fn multistream(result: &'static str) -> Multistream {
-        Multistream::new(vec![StubUpstream::with_result(result)], Arc::new(AlwaysFactory))
+        Multistream::new(
+            vec![StubUpstream::with_result(result)],
+            Arc::new(AlwaysFactory),
+        )
     }
 
     #[tokio::test]

@@ -30,13 +30,28 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use warp::Filter;
 use warp::Reply;
-use warp::http::StatusCode;
+use warp::http::header::{
+    ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_ALLOW_ORIGIN, CONTENT_TYPE, HeaderValue,
+};
+use warp::http::{Method, StatusCode};
+
+/// Default value for `Access-Control-Allow-Headers` when `cors-allowed-headers`
+/// is not configured, matching the legacy default.
+const DEFAULT_CORS_HEADERS: &str = "Content-Type";
+
+/// CORS headers added to responses when `cors-origin` is configured.
+struct Cors {
+    origin: String,
+    allowed_headers: String,
+}
 
 /// Resolved routing state shared with every request handler.
 struct ProxyState {
     /// Route id (URL path segment, e.g. `eth`) → the chain's upstreams.
     routes: HashMap<String, Arc<Multistream>>,
     preserve_batch_order: bool,
+    /// CORS headers to emit, or `None` when `cors-origin` is unset.
+    cors: Option<Cors>,
 }
 
 /// Start the JSON-RPC HTTP proxy. Runs until the server stops; intended to be
@@ -51,9 +66,18 @@ pub async fn start(config: &ProxyConfig, upstreams: Arc<UpstreamManager>) -> any
         );
     }
 
+    let cors = config.cors_origin.as_ref().map(|origin| Cors {
+        origin: origin.clone(),
+        allowed_headers: config
+            .cors_allowed_headers
+            .clone()
+            .unwrap_or_else(|| DEFAULT_CORS_HEADERS.to_string()),
+    });
+
     let state = Arc::new(ProxyState {
         routes,
         preserve_batch_order: config.preserve_batch_order,
+        cors,
     });
 
     let addr: SocketAddr = format!("{}:{}", config.host, config.port).parse()?;
@@ -63,19 +87,18 @@ pub async fn start(config: &ProxyConfig, upstreams: Arc<UpstreamManager>) -> any
     Ok(())
 }
 
-/// Build the request filter: `POST /<route-id>` with the body executed against
-/// the route's upstreams. A single segment is matched exactly (`/eth`, not
-/// `/eth/x`); unknown ids fall through to a 404 in the handler, matching the
-/// legacy exact-path routes.
+/// Build the request filter: a single exactly-matched segment (`/eth`, not
+/// `/eth/x`), with the HTTP method dispatched inside the handler. Matching all
+/// methods on the path keeps the codes deterministic — unknown route → 404,
+/// known route with the wrong method → 405 — matching the legacy exact routes.
 fn routes_filter(
     state: Arc<ProxyState>,
 ) -> impl Filter<Extract = (warp::reply::Response,), Error = warp::Rejection> + Clone {
-    let with_state = warp::any().map(move || Arc::clone(&state));
-    warp::post()
-        .and(warp::path::param::<String>())
+    warp::path::param::<String>()
         .and(warp::path::end())
+        .and(warp::method())
         .and(warp::body::bytes())
-        .and(with_state)
+        .and(warp::any().map(move || Arc::clone(&state)))
         .then(handle)
 }
 
@@ -113,19 +136,55 @@ fn resolve_routes(
     routes
 }
 
-async fn handle(segment: String, body: Bytes, state: Arc<ProxyState>) -> warp::reply::Response {
+async fn handle(
+    segment: String,
+    method: Method,
+    body: Bytes,
+    state: Arc<ProxyState>,
+) -> warp::reply::Response {
     let Some(multistream) = state.routes.get(&segment) else {
+        // Unknown route, any method.
         return warp::reply::with_status(String::new(), StatusCode::NOT_FOUND).into_response();
     };
 
-    let body = handler::process(&body, multistream, state.preserve_batch_order).await;
-    // Always HTTP 200; JSON-RPC errors are carried in the body.
-    warp::reply::with_header(
-        warp::reply::with_status(body, StatusCode::OK),
-        "content-type",
-        "application/json",
-    )
-    .into_response()
+    match method {
+        Method::POST => {
+            let body = handler::process(&body, multistream, state.preserve_batch_order).await;
+            // Always HTTP 200; JSON-RPC errors are carried in the body.
+            let mut response = warp::reply::with_status(body, StatusCode::OK).into_response();
+            response
+                .headers_mut()
+                .insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+            add_cors_headers(&mut response, &state);
+            response
+        }
+        // CORS preflight: 200, empty body, CORS headers when configured.
+        Method::OPTIONS => {
+            let mut response =
+                warp::reply::with_status(String::new(), StatusCode::OK).into_response();
+            add_cors_headers(&mut response, &state);
+            response
+        }
+        _ => {
+            warp::reply::with_status(String::new(), StatusCode::METHOD_NOT_ALLOWED).into_response()
+        }
+    }
+}
+
+/// Add `Access-Control-Allow-Origin` / `Access-Control-Allow-Headers` when CORS
+/// is configured. A header value that can't be encoded is skipped rather than
+/// failing the request.
+fn add_cors_headers(response: &mut warp::reply::Response, state: &ProxyState) {
+    let Some(cors) = &state.cors else {
+        return;
+    };
+    let headers = response.headers_mut();
+    if let Ok(origin) = HeaderValue::from_str(&cors.origin) {
+        headers.insert(ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+    }
+    if let Ok(allowed) = HeaderValue::from_str(&cors.allowed_headers) {
+        headers.insert(ACCESS_CONTROL_ALLOW_HEADERS, allowed);
+    }
 }
 
 /// Warn loudly about config sections that are parsed but not yet honored, so
@@ -137,11 +196,6 @@ fn warn_unsupported(config: &ProxyConfig) {
     if config.websocket {
         tracing::warn!(
             "Proxy WebSocket is enabled but not yet supported; only HTTP POST is served"
-        );
-    }
-    if config.cors_origin.is_some() || config.cors_allowed_headers.is_some() {
-        tracing::warn!(
-            "Proxy CORS (cors-origin/cors-allowed-headers) is configured but not yet supported"
         );
     }
 }
@@ -186,7 +240,7 @@ mod tests {
         }
     }
 
-    fn state_with_eth_route() -> Arc<ProxyState> {
+    fn state_with(cors: Option<Cors>) -> Arc<ProxyState> {
         let upstream: Arc<dyn RpcUpstream> = Arc::new(StubUpstream(Arc::new(UpstreamState::new())));
         let multistream = Arc::new(Multistream::new(vec![upstream], Arc::new(AlwaysFactory)));
         let mut routes = HashMap::new();
@@ -194,7 +248,12 @@ mod tests {
         Arc::new(ProxyState {
             routes,
             preserve_batch_order: false,
+            cors,
         })
+    }
+
+    fn state_with_eth_route() -> Arc<ProxyState> {
+        state_with(None)
     }
 
     #[tokio::test]
@@ -248,5 +307,65 @@ mod tests {
             .await;
         // warp rejects the non-POST method (405), never reaching the handler.
         assert_eq!(resp.status(), 405);
+    }
+
+    fn cors() -> Option<Cors> {
+        Some(Cors {
+            origin: "*".to_string(),
+            allowed_headers: DEFAULT_CORS_HEADERS.to_string(),
+        })
+    }
+
+    #[tokio::test]
+    async fn post_includes_cors_headers_when_configured() {
+        let filter = routes_filter(state_with(cors()));
+        let resp = warp::test::request()
+            .method("POST")
+            .path("/eth")
+            .body(r#"{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber"}"#)
+            .reply(&filter)
+            .await;
+        assert_eq!(resp.status(), 200);
+        assert_eq!(resp.headers()["access-control-allow-origin"], "*");
+        assert_eq!(
+            resp.headers()["access-control-allow-headers"],
+            "Content-Type"
+        );
+    }
+
+    #[tokio::test]
+    async fn post_has_no_cors_headers_when_unset() {
+        let filter = routes_filter(state_with_eth_route());
+        let resp = warp::test::request()
+            .method("POST")
+            .path("/eth")
+            .body(r#"{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber"}"#)
+            .reply(&filter)
+            .await;
+        assert!(!resp.headers().contains_key("access-control-allow-origin"));
+    }
+
+    #[tokio::test]
+    async fn options_preflight_returns_200_with_cors_headers() {
+        let filter = routes_filter(state_with(cors()));
+        let resp = warp::test::request()
+            .method("OPTIONS")
+            .path("/eth")
+            .reply(&filter)
+            .await;
+        assert_eq!(resp.status(), 200);
+        assert_eq!(resp.headers()["access-control-allow-origin"], "*");
+        assert!(resp.body().is_empty());
+    }
+
+    #[tokio::test]
+    async fn options_unknown_route_is_404() {
+        let filter = routes_filter(state_with(cors()));
+        let resp = warp::test::request()
+            .method("OPTIONS")
+            .path("/nope")
+            .reply(&filter)
+            .await;
+        assert_eq!(resp.status(), 404);
     }
 }
