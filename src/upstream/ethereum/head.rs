@@ -28,10 +28,11 @@ use crate::data::{BlockContainer, BlockId, TxId};
 use crate::jsonrpc::JsonRpcRequest;
 use crate::upstream::head::CurrentHead;
 use crate::upstream::traits::RpcUpstream;
+use alloy::primitives::U256;
 use std::sync::Arc;
 use std::time::Duration;
 
-use super::{parse_hex_quantity, EthereumWsUpstream};
+use super::{EthereumWsUpstream, parse_hex_quantity};
 
 /// How often to poll for HTTP upstreams.
 const POLL_INTERVAL: Duration = Duration::from_secs(10);
@@ -57,11 +58,7 @@ pub fn start_head_poller(
 
 /// Fetches the latest block (with tx hashes, not full tx bodies) and pushes
 /// it through the head tracker.
-async fn poll_latest_block(
-    upstream_id: &str,
-    upstream: &dyn RpcUpstream,
-    head: &CurrentHead,
-) {
+async fn poll_latest_block(upstream_id: &str, upstream: &dyn RpcUpstream, head: &CurrentHead) {
     let request = JsonRpcRequest::new(
         0,
         "eth_getBlockByNumber".into(),
@@ -179,6 +176,7 @@ pub(crate) fn parse_eth_block(raw_json: &str) -> Option<BlockContainer> {
         .and_then(|s| s.parse().ok());
     let timestamp_secs = parse_hex_quantity(v.get("timestamp")?.as_str()?)?;
     let timestamp = jiff::Timestamp::from_second(timestamp_secs as i64).ok()?;
+    let total_difficulty = parse_total_difficulty(&v);
 
     let transaction_hashes = v
         .get("transactions")
@@ -195,10 +193,26 @@ pub(crate) fn parse_eth_block(raw_json: &str) -> Option<BlockContainer> {
         hash,
         height,
         parent_hash,
+        total_difficulty,
         timestamp,
         transaction_hashes,
         json: Some(Arc::from(raw_json.as_bytes())),
     })
+}
+
+/// Reads the `totalDifficulty` hex quantity from a parsed block, defaulting to
+/// `ZERO` when absent (post-merge blocks omit it on some clients).
+fn parse_total_difficulty(v: &serde_json::Value) -> U256 {
+    v.get("totalDifficulty")
+        .and_then(|d| d.as_str())
+        .and_then(|s| {
+            let hex = s
+                .strip_prefix("0x")
+                .or_else(|| s.strip_prefix("0X"))
+                .unwrap_or(s);
+            U256::from_str_radix(hex, 16).ok()
+        })
+        .unwrap_or(U256::ZERO)
 }
 
 /// Parse an Ethereum `newHeads` notification into a [`BlockContainer`].
@@ -217,11 +231,13 @@ fn parse_eth_head_notification(raw_json: &str) -> Option<BlockContainer> {
         .and_then(|s| s.parse().ok());
     let timestamp_secs = parse_hex_quantity(v.get("timestamp")?.as_str()?)?;
     let timestamp = jiff::Timestamp::from_second(timestamp_secs as i64).ok()?;
+    let total_difficulty = parse_total_difficulty(&v);
 
     Some(BlockContainer {
         hash,
         height,
         parent_hash,
+        total_difficulty,
         timestamp,
         transaction_hashes: vec![],
         json: None,

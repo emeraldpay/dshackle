@@ -23,7 +23,7 @@
 use crate::config::upstreams::Options;
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::traits::RpcUpstream;
-use crate::upstream::validation::{probe, UpstreamValidator};
+use crate::upstream::validation::{UpstreamValidator, probe};
 use std::time::Duration;
 
 pub struct BitcoinValidator {
@@ -52,9 +52,7 @@ impl UpstreamValidator for BitcoinValidator {
             .await
             .and_then(|v| v.as_u64());
         match count {
-            Some(count) if count < self.options.min_peers as u64 => {
-                UpstreamAvailability::Immature
-            }
+            Some(count) if count < self.options.min_peers as u64 => UpstreamAvailability::Immature,
             Some(_) => UpstreamAvailability::Ok,
             None => UpstreamAvailability::Unavailable,
         }

@@ -110,6 +110,7 @@ mod tests {
             hash: BlockId::from_bytes(hash),
             height,
             parent_hash: None,
+            total_difficulty: alloy::primitives::U256::ZERO,
             timestamp: jiff::Timestamp::UNIX_EPOCH,
             transaction_hashes: vec![],
             json: None,

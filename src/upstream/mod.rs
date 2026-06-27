@@ -19,6 +19,7 @@ pub mod availability;
 pub(crate) mod bitcoin;
 mod dshackle;
 pub mod ethereum;
+pub mod fork;
 pub mod head;
 mod methods;
 pub mod multistream;
@@ -34,31 +35,35 @@ pub use multistream::Multistream;
 
 use crate::blockchain::TargetBlockchain;
 use crate::cache::{
-    redis_cache, BitcoinCacheCodec, Caches, CachingHead, CachingUpstream, EthereumCacheCodec,
-    EthereumNormalizer, NormalizingUpstream, RedisCache,
+    BitcoinCacheCodec, Caches, CachingHead, CachingUpstream, EthereumCacheCodec,
+    EthereumNormalizer, NormalizingUpstream, RedisCache, redis_cache,
 };
 use crate::config::cache::CacheConfig;
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
 use bitcoin::head::start_head_poller as start_btc_head_poller;
 use bitcoin::http::BitcoinHttpUpstream;
 use bitcoin::validator::BitcoinValidator;
-use dshackle::head::start_head_subscriber;
 use dshackle::DshackleUpstream;
-use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
+use dshackle::head::start_head_subscriber;
 use emerald_api::proto::blockchain::DescribeRequest;
+use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
 use emerald_api::proto::common::ChainRef;
+use ethereum::EthereumWsUpstream;
 use ethereum::head::{start_head_poller, start_ws_head};
 use ethereum::http::EthereumHttpUpstream;
 use ethereum::validator::EthereumValidator;
-use ethereum::EthereumWsUpstream;
-use methods::bitcoin::DefaultBitcoinMethods;
-use methods::ethereum::DefaultEthereumMethods;
+use fork::{
+    DifficultyForkChoice, ForkChoice, ForkMember, PriorityForkChoice, is_pos, start_fork_watch,
+};
+use head::CurrentHead;
 use methods::AggregatedMethods;
 use methods::ConfiguredMethods;
 use methods::DefaultMethods;
 use methods::HardcodedMethods;
 use methods::LayeredMethods;
 use methods::MethodFilter;
+use methods::bitcoin::DefaultBitcoinMethods;
+use methods::ethereum::DefaultEthereumMethods;
 use quorum::QuorumFactory;
 use status::ChainStatus;
 use std::collections::{HashMap, HashSet};
@@ -100,6 +105,9 @@ impl UpstreamManager {
         // so "first delegate supporting the method" preserves config order.
         let mut per_chain_methods: HashMap<TargetBlockchain, Vec<Arc<dyn QuorumFactory>>> =
             HashMap::new();
+        // Per-upstream fork-watch members, collected so the per-chain fork
+        // choice can be built once all upstreams of a chain are known.
+        let mut per_chain_fork: HashMap<TargetBlockchain, Vec<ForkMember>> = HashMap::new();
         // Per-chain caches and caching heads. Created lazily on first upstream
         // for each chain. The CachingHead subscribes to each upstream's block
         // stream and deduplicates before writing to the cache — one update per
@@ -127,11 +135,16 @@ impl UpstreamManager {
                     // The other transport is used for RPC calls only.
                     let ws_upstream: Option<Arc<EthereumWsUpstream>> = eth.ws.as_ref().map(|ws| {
                         if ws.basic_auth.is_some() {
-                            tracing::warn!("Upstream {}: WS basic auth not yet supported, ignoring", upstream.id);
+                            tracing::warn!(
+                                "Upstream {}: WS basic auth not yet supported, ignoring",
+                                upstream.id
+                            );
                         }
                         tracing::info!(
                             "Using Ethereum WS upstream '{}' at {} for {}",
-                            upstream.id, ws.url, blockchain_name,
+                            upstream.id,
+                            ws.url,
+                            blockchain_name,
                         );
                         Arc::new(EthereumWsUpstream::new(
                             upstream.id.clone(),
@@ -140,22 +153,31 @@ impl UpstreamManager {
                         ))
                     });
 
-                    let http_upstream: Option<Arc<EthereumHttpUpstream>> = eth.rpc.as_ref().map(|rpc| {
-                        if rpc.basic_auth.is_some() {
-                            tracing::warn!("Upstream {}: basic auth not yet supported, ignoring", upstream.id);
-                        }
-                        if rpc.tls.is_some() {
-                            tracing::warn!("Upstream {}: client TLS not yet supported, ignoring", upstream.id);
-                        }
-                        tracing::info!(
-                            "Using Ethereum HTTP upstream '{}' at {} for {}",
-                            upstream.id, rpc.url, blockchain_name,
-                        );
-                        Arc::new(EthereumHttpUpstream::new(
-                            upstream.id.clone(),
-                            rpc.url.clone(),
-                        ))
-                    });
+                    let http_upstream: Option<Arc<EthereumHttpUpstream>> =
+                        eth.rpc.as_ref().map(|rpc| {
+                            if rpc.basic_auth.is_some() {
+                                tracing::warn!(
+                                    "Upstream {}: basic auth not yet supported, ignoring",
+                                    upstream.id
+                                );
+                            }
+                            if rpc.tls.is_some() {
+                                tracing::warn!(
+                                    "Upstream {}: client TLS not yet supported, ignoring",
+                                    upstream.id
+                                );
+                            }
+                            tracing::info!(
+                                "Using Ethereum HTTP upstream '{}' at {} for {}",
+                                upstream.id,
+                                rpc.url,
+                                blockchain_name,
+                            );
+                            Arc::new(EthereumHttpUpstream::new(
+                                upstream.id.clone(),
+                                rpc.url.clone(),
+                            ))
+                        });
 
                     // Start head tracking on exactly one transport per
                     // upstream and subscribe the per-chain CachingHead to it.
@@ -184,6 +206,13 @@ impl UpstreamManager {
                         }
                     }
 
+                    // The head being tracked (WS primary, else HTTP) is the one
+                    // the fork watcher follows for this upstream.
+                    let fork_head: Option<Arc<CurrentHead>> = ws_upstream
+                        .as_ref()
+                        .map(|u| u.head_height())
+                        .or_else(|| http_upstream.as_ref().map(|u| u.head_height()));
+
                     let ws_rpc: Option<Arc<dyn RpcUpstream>> =
                         ws_upstream.map(|u| u as Arc<dyn RpcUpstream>);
                     let http_rpc: Option<Arc<dyn RpcUpstream>> =
@@ -194,14 +223,18 @@ impl UpstreamManager {
                             // WS primary, HTTP fallback
                             tracing::info!(
                                 "Upstream '{}': using WS with HTTP fallback for {}",
-                                upstream.id, blockchain_name,
+                                upstream.id,
+                                blockchain_name,
                             );
                             Arc::new(SwitchClient::new(ws, http))
                         }
                         (Some(ws), None) => ws,
                         (None, Some(http)) => http,
                         (None, None) => {
-                            tracing::warn!("Upstream {} has no RPC or WS configured, skipping", upstream.id);
+                            tracing::warn!(
+                                "Upstream {} has no RPC or WS configured, skipping",
+                                upstream.id
+                            );
                             continue;
                         }
                     };
@@ -228,9 +261,8 @@ impl UpstreamManager {
                     // chain-level `AggregatedMethods` factory.
                     let default_layer: Arc<dyn QuorumFactory> =
                         Arc::new(DefaultEthereumMethods::new(chain));
-                    let configured_layer = Arc::new(ConfiguredMethods::from_config(
-                        upstream.methods.as_ref(),
-                    ));
+                    let configured_layer =
+                        Arc::new(ConfiguredMethods::from_config(upstream.methods.as_ref()));
                     let methods: Arc<dyn QuorumFactory> =
                         Arc::new(LayeredMethods::new(default_layer, configured_layer));
 
@@ -240,7 +272,9 @@ impl UpstreamManager {
                     // Hardcoded responses are cheapest, then cache, then network.
                     // Normalizing sits above the cache so that a request
                     // rewritten to block-by-hash can be served from the cache.
-                    let caches = per_chain_caches.get(&chain).cloned()
+                    let caches = per_chain_caches
+                        .get(&chain)
+                        .cloned()
                         .unwrap_or_else(|| Arc::new(Caches::new()));
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(MethodFilter::new(reader, Arc::clone(&methods)));
@@ -253,6 +287,15 @@ impl UpstreamManager {
                         Arc::new(NormalizingUpstream::new(reader, caches, EthereumNormalizer));
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(HardcodedMethods::new(reader, Arc::clone(&methods)));
+
+                    if let Some(head) = fork_head {
+                        per_chain_fork.entry(chain).or_default().push(ForkMember {
+                            id: upstream.id.clone(),
+                            priority: options.priority,
+                            head,
+                            state: Arc::clone(reader.state()),
+                        });
+                    }
 
                     per_chain.entry(chain).or_default().push(reader);
                     per_chain_methods.entry(chain).or_default().push(methods);
@@ -267,29 +310,35 @@ impl UpstreamManager {
                     let rpc = match &btc.rpc {
                         Some(rpc) => rpc,
                         None => {
-                            tracing::warn!("Upstream {} has no RPC configured, skipping", upstream.id);
+                            tracing::warn!(
+                                "Upstream {} has no RPC configured, skipping",
+                                upstream.id
+                            );
                             continue;
                         }
                     };
 
                     if rpc.tls.is_some() {
-                        tracing::warn!("Upstream {}: client TLS not yet supported, ignoring", upstream.id);
+                        tracing::warn!(
+                            "Upstream {}: client TLS not yet supported, ignoring",
+                            upstream.id
+                        );
                     }
 
-                    let basic_auth = rpc.basic_auth.as_ref().map(|auth| {
-                        (auth.username.clone(), auth.password.clone())
-                    });
+                    let basic_auth = rpc
+                        .basic_auth
+                        .as_ref()
+                        .map(|auth| (auth.username.clone(), auth.password.clone()));
 
                     tracing::info!(
                         "Using Bitcoin HTTP upstream '{}' at {} for {}",
-                        upstream.id, rpc.url, blockchain_name,
+                        upstream.id,
+                        rpc.url,
+                        blockchain_name,
                     );
 
-                    let http_up = BitcoinHttpUpstream::new(
-                        upstream.id.clone(),
-                        rpc.url.clone(),
-                        basic_auth,
-                    );
+                    let http_up =
+                        BitcoinHttpUpstream::new(upstream.id.clone(), rpc.url.clone(), basic_auth);
                     let head = http_up.head_height();
                     let caching_head = get_or_create_caching_head(
                         chain,
@@ -299,11 +348,8 @@ impl UpstreamManager {
                     );
                     caching_head.follow(&head);
                     let reader: Arc<dyn RpcUpstream> = Arc::new(http_up);
-                    start_btc_head_poller(
-                        upstream.id.clone(),
-                        Arc::clone(&reader),
-                        head,
-                    );
+                    let fork_head = Arc::clone(&head);
+                    start_btc_head_poller(upstream.id.clone(), Arc::clone(&reader), head);
 
                     // See the Ethereum branch for why validation targets the
                     // bare transport.
@@ -323,13 +369,14 @@ impl UpstreamManager {
                     // the wrappers and the aggregator.
                     let default_layer: Arc<dyn QuorumFactory> =
                         Arc::new(DefaultBitcoinMethods::new());
-                    let configured_layer = Arc::new(ConfiguredMethods::from_config(
-                        upstream.methods.as_ref(),
-                    ));
+                    let configured_layer =
+                        Arc::new(ConfiguredMethods::from_config(upstream.methods.as_ref()));
                     let methods: Arc<dyn QuorumFactory> =
                         Arc::new(LayeredMethods::new(default_layer, configured_layer));
 
-                    let caches = per_chain_caches.get(&chain).cloned()
+                    let caches = per_chain_caches
+                        .get(&chain)
+                        .cloned()
                         .unwrap_or_else(|| Arc::new(Caches::new()));
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(MethodFilter::new(reader, Arc::clone(&methods)));
@@ -337,6 +384,13 @@ impl UpstreamManager {
                         Arc::new(CachingUpstream::new(reader, caches, BitcoinCacheCodec));
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(HardcodedMethods::new(reader, Arc::clone(&methods)));
+
+                    per_chain_fork.entry(chain).or_default().push(ForkMember {
+                        id: upstream.id.clone(),
+                        priority: options.priority,
+                        head: fork_head,
+                        state: Arc::clone(reader.state()),
+                    });
 
                     per_chain.entry(chain).or_default().push(reader);
                     per_chain_methods.entry(chain).or_default().push(methods);
@@ -354,13 +408,13 @@ impl UpstreamManager {
                     };
 
                     if ds.tls.is_some() {
-                        tracing::warn!("Upstream {}: Dshackle TLS not yet supported, ignoring", upstream.id);
+                        tracing::warn!(
+                            "Upstream {}: Dshackle TLS not yet supported, ignoring",
+                            upstream.id
+                        );
                     }
 
-                    tracing::info!(
-                        "Connecting to remote Dshackle '{}' at {}",
-                        upstream.id, url,
-                    );
+                    tracing::info!("Connecting to remote Dshackle '{}' at {}", upstream.id, url,);
 
                     match connect_dshackle(
                         &upstream.id,
@@ -386,11 +440,42 @@ impl UpstreamManager {
                         Err(e) => {
                             tracing::warn!(
                                 "Upstream {}: failed to connect to Dshackle at {}: {}",
-                                upstream.id, url, e
+                                upstream.id,
+                                url,
+                                e
                             );
                         }
                     }
                 }
+            }
+        }
+
+        // Start fork detection per chain. PoS chains compare by priority;
+        // everything else falls back to cumulative-difficulty ordering. The
+        // fork choice is shared across the chain's upstreams so it sees them
+        // all; each upstream then gets its own watcher.
+        for (chain, members) in per_chain_fork {
+            let TargetBlockchain::Standard(chain_ref) = chain;
+            let fork_choice: Arc<dyn ForkChoice> = if is_pos(chain_ref) {
+                let priority = Arc::new(PriorityForkChoice::new());
+                for member in &members {
+                    priority.add_upstream(
+                        member.id.clone(),
+                        member.priority,
+                        Arc::clone(&member.state),
+                    );
+                }
+                priority
+            } else {
+                Arc::new(DifficultyForkChoice::new())
+            };
+            for member in members {
+                start_fork_watch(
+                    member.id,
+                    member.head,
+                    member.state,
+                    Arc::clone(&fork_choice),
+                );
             }
         }
 
@@ -405,10 +490,7 @@ impl UpstreamManager {
             chain_statuses.push(chain_status);
 
             if readers.len() > 1 {
-                tracing::info!(
-                    "{}: aggregating {} upstreams",
-                    chain, readers.len(),
-                );
+                tracing::info!("{}: aggregating {} upstreams", chain, readers.len(),);
             }
             let delegates = per_chain_methods.remove(&chain).unwrap_or_default();
             let factory: Arc<dyn QuorumFactory> = if delegates.is_empty() {
@@ -473,29 +555,32 @@ fn get_or_create_caching_head<'a>(
 
 /// Parses the blockchain field from a configured upstream. Returns `None` and
 /// logs a warning if the field is missing or unrecognized.
-fn parse_required_chain(
-    upstream: &crate::config::upstreams::Upstream,
-) -> Option<TargetBlockchain> {
+fn parse_required_chain(upstream: &crate::config::upstreams::Upstream) -> Option<TargetBlockchain> {
     let name = match &upstream.blockchain {
         Some(name) => name,
         None => {
-            tracing::warn!("Upstream {} has no blockchain specified, skipping", upstream.id);
+            tracing::warn!(
+                "Upstream {} has no blockchain specified, skipping",
+                upstream.id
+            );
             return None;
         }
     };
     match name.parse() {
         Ok(c) => Some(c),
         Err(_) => {
-            tracing::warn!("Unknown blockchain '{}' for upstream {}, skipping", name, upstream.id);
+            tracing::warn!(
+                "Unknown blockchain '{}' for upstream {}, skipping",
+                name,
+                upstream.id
+            );
             None
         }
     }
 }
 
 /// Resolves the gRPC URL for a Dshackle connection from its config.
-fn resolve_dshackle_url(
-    ds: &crate::config::upstreams::DshackleConnection,
-) -> Option<String> {
+fn resolve_dshackle_url(ds: &crate::config::upstreams::DshackleConnection) -> Option<String> {
     if let Some(url) = &ds.url {
         return Some(url.clone());
     }
@@ -508,7 +593,9 @@ fn resolve_dshackle_url(
 /// Returns the appropriate syncing lag threshold for a chain.
 fn syncing_lag_for(chain_ref: ChainRef) -> u64 {
     match chain_ref {
-        ChainRef::ChainBitcoin | ChainRef::ChainTestnetBitcoin | ChainRef::ChainTestnetBitcoin4 => 2,
+        ChainRef::ChainBitcoin | ChainRef::ChainTestnetBitcoin | ChainRef::ChainTestnetBitcoin4 => {
+            2
+        }
         _ => 6,
     }
 }
@@ -558,7 +645,10 @@ async fn connect_dshackle(
     let chains = describe_resp.into_inner().chains;
 
     if chains.is_empty() {
-        tracing::warn!("Dshackle '{}': remote reported no available chains", upstream_id);
+        tracing::warn!(
+            "Dshackle '{}': remote reported no available chains",
+            upstream_id
+        );
         return Ok(Vec::new());
     }
 
@@ -570,7 +660,8 @@ async fn connect_dshackle(
             _ => {
                 tracing::debug!(
                     "Dshackle '{}': skipping unknown chain id {}",
-                    upstream_id, desc_chain.chain
+                    upstream_id,
+                    desc_chain.chain
                 );
                 continue;
             }
@@ -596,8 +687,7 @@ async fn connect_dshackle(
 
         // Subscribe caching head before starting the poller so no blocks are missed
         let head = ds_upstream.head_height();
-        let caching_head =
-            get_or_create_caching_head(chain, redis_conn, caches_map, caching_heads);
+        let caching_head = get_or_create_caching_head(chain, redis_conn, caches_map, caching_heads);
         caching_head.follow(&head);
 
         // Start head tracking via SubscribeHead

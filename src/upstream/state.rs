@@ -32,6 +32,9 @@ pub struct UpstreamState {
     lag_status: AtomicU8,
     /// Availability reported by the active validator probes.
     validation_status: AtomicU8,
+    /// Availability derived from fork detection: `Immature` while the upstream
+    /// is forked off the recognized chain, `Ok` otherwise.
+    fork_status: AtomicU8,
     /// `disable-validation` in the config: the operator declared this
     /// upstream always valid, so report `Ok` no matter what.
     always_valid: AtomicBool,
@@ -54,6 +57,7 @@ impl UpstreamState {
             lag: AtomicI64::new(NO_LAG),
             lag_status: AtomicU8::new(UpstreamAvailability::Ok as u8),
             validation_status: AtomicU8::new(UpstreamAvailability::Ok as u8),
+            fork_status: AtomicU8::new(UpstreamAvailability::Ok as u8),
             always_valid: AtomicBool::new(false),
             syncing_lag,
         }
@@ -64,12 +68,12 @@ impl UpstreamState {
         if v < 0 { None } else { Some(v as u64) }
     }
 
-    /// Effective availability: the worse of the lag-based status and the
-    /// validation status.
+    /// Effective availability: the worst of the lag-based status, the
+    /// validation status, and the fork status.
     ///
-    /// The legacy `statusByLag` combined the two with special cases that
+    /// The legacy `statusByLag` combined these with special cases that
     /// could let a validation verdict mask a large lag (e.g. `Immature` with
-    /// lag 100 stayed `Immature` and kept receiving traffic). Worst-of-two is
+    /// lag 100 stayed `Immature` and kept receiving traffic). Worst-of is
     /// deliberately stricter: each signal alone is enough to take an upstream
     /// out of rotation.
     pub fn availability(&self) -> UpstreamAvailability {
@@ -79,7 +83,8 @@ impl UpstreamState {
         let by_lag = UpstreamAvailability::from_u8(self.lag_status.load(Ordering::Relaxed));
         let by_validation =
             UpstreamAvailability::from_u8(self.validation_status.load(Ordering::Relaxed));
-        by_lag.max(by_validation)
+        let by_fork = UpstreamAvailability::from_u8(self.fork_status.load(Ordering::Relaxed));
+        by_lag.max(by_validation).max(by_fork)
     }
 
     /// Update lag and recalculate the lag-based status.
@@ -101,12 +106,25 @@ impl UpstreamState {
 
     /// Record the result of a validation round.
     pub fn set_validation(&self, status: UpstreamAvailability) {
-        self.validation_status.store(status as u8, Ordering::Relaxed);
+        self.validation_status
+            .store(status as u8, Ordering::Relaxed);
     }
 
     /// The last recorded validation result.
     pub fn validation(&self) -> UpstreamAvailability {
         UpstreamAvailability::from_u8(self.validation_status.load(Ordering::Relaxed))
+    }
+
+    /// Record a fork-detection verdict. A forked upstream is reported as
+    /// `Immature` (matching the legacy fork handling) so it drops out of
+    /// rotation; `Ok` clears it.
+    pub fn set_fork(&self, forked: bool) {
+        let status = if forked {
+            UpstreamAvailability::Immature
+        } else {
+            UpstreamAvailability::Ok
+        };
+        self.fork_status.store(status as u8, Ordering::Relaxed);
     }
 
     /// Declare the upstream always valid (`disable-validation`): availability

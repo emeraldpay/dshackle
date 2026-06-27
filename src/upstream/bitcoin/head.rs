@@ -27,6 +27,7 @@ use crate::data::{BlockContainer, BlockId, TxId};
 use crate::jsonrpc::JsonRpcRequest;
 use crate::upstream::head::CurrentHead;
 use crate::upstream::traits::RpcUpstream;
+use alloy::primitives::U256;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -75,7 +76,10 @@ async fn poll_best_block(
                 s
             }
             None => {
-                tracing::debug!(upstream = upstream_id, "getbestblockhash returned no result");
+                tracing::debug!(
+                    upstream = upstream_id,
+                    "getbestblockhash returned no result"
+                );
                 return;
             }
         },
@@ -92,11 +96,7 @@ async fn poll_best_block(
     *last_hash = Some(hash_str.clone());
 
     // Step 2: fetch the block — verbosity=1 returns JSON with tx hashes
-    let block_request = JsonRpcRequest::new(
-        0,
-        "getblock".into(),
-        serde_json::json!([hash_str, 1]),
-    );
+    let block_request = JsonRpcRequest::new(0, "getblock".into(), serde_json::json!([hash_str, 1]));
     match upstream.call(&block_request).await {
         Ok(resp) => {
             if let Some(raw) = &resp.result {
@@ -153,6 +153,18 @@ pub(crate) fn parse_btc_block(raw_json: &str) -> Option<BlockContainer> {
         .and_then(|s| s.parse().ok());
     let time = v.get("time")?.as_u64()?;
     let timestamp = jiff::Timestamp::from_second(time as i64).ok()?;
+    // `chainwork` is the cumulative proof-of-work as a 256-bit hex string.
+    let total_difficulty = v
+        .get("chainwork")
+        .and_then(|w| w.as_str())
+        .and_then(|s| {
+            let hex = s
+                .strip_prefix("0x")
+                .or_else(|| s.strip_prefix("0X"))
+                .unwrap_or(s);
+            U256::from_str_radix(hex, 16).ok()
+        })
+        .unwrap_or(U256::ZERO);
 
     let transaction_hashes = v
         .get("tx")
@@ -169,6 +181,7 @@ pub(crate) fn parse_btc_block(raw_json: &str) -> Option<BlockContainer> {
         hash,
         height,
         parent_hash,
+        total_difficulty,
         timestamp,
         transaction_hashes,
         json: Some(Arc::from(raw_json.as_bytes())),

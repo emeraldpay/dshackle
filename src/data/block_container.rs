@@ -18,6 +18,7 @@
 //! representation. The JSON is expected to contain transaction hashes only (not
 //! full transaction objects) — full transactions are cached separately.
 
+use alloy::primitives::U256;
 use std::sync::Arc;
 
 use super::{BlockId, TxId};
@@ -35,6 +36,11 @@ pub struct BlockContainer {
     pub height: u64,
     /// Parent block hash, if known.
     pub parent_hash: Option<BlockId>,
+    /// Cumulative work on the chain up to this block: total difficulty for
+    /// Ethereum (PoW), chainwork for Bitcoin. Used by the difficulty-based
+    /// fork choice to pick the heaviest chain. `ZERO` when unknown (e.g. a
+    /// post-merge Ethereum block or a remote upstream that doesn't report it).
+    pub total_difficulty: U256,
     /// Block timestamp.
     pub timestamp: jiff::Timestamp,
     /// Transaction hashes included in this block.
@@ -76,6 +82,7 @@ mod tests {
             hash: BlockId::from_bytes(hash_bytes),
             height,
             parent_hash: None,
+            total_difficulty: U256::ZERO,
             timestamp: jiff::Timestamp::UNIX_EPOCH,
             transaction_hashes: vec![],
             json: None,
