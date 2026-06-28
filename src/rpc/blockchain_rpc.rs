@@ -21,7 +21,7 @@ use crate::blockchain::TargetBlockchain;
 use crate::data::BlockContainer;
 use crate::rpc::native_call;
 use crate::upstream::UpstreamManager;
-use crate::upstream::egress::{EgressError, EgressSubscription, EthereumEgress, SyncingStatus};
+use crate::upstream::egress::EgressError;
 use emerald_api::proto::blockchain::blockchain_server::Blockchain;
 use emerald_api::proto::blockchain::*;
 use emerald_api::proto::common;
@@ -195,16 +195,12 @@ impl Blockchain for BlockchainRpcService {
             .map_err(|id| tonic::Status::unavailable(format!("BLOCKCHAIN UNAVAILABLE: {id}")))?;
         let params = parse_subscribe_params(&req.payload)?;
 
-        // The egress needs the merged head (newHeads) and the chain's aggregate
-        // status (syncing). No head stream means the chain isn't serving
-        // subscriptions yet.
-        let head = self.upstreams.head(&chain).cloned().ok_or_else(|| {
-            tonic::Status::unavailable(format!("no upstream available for chain {chain}"))
+        // No egress means the chain can't serve subscriptions: it tracks no
+        // head yet, or it isn't an Ethereum-family chain (Bitcoin egress isn't
+        // ported).
+        let egress = self.upstreams.egress(&chain).ok_or_else(|| {
+            tonic::Status::unavailable(format!("BLOCKCHAIN UNAVAILABLE: {chain}"))
         })?;
-        let status: Arc<dyn SyncingStatus> = self.upstreams.get(&chain).cloned().ok_or_else(|| {
-            tonic::Status::unavailable(format!("no upstream available for chain {chain}"))
-        })?;
-        let egress = EthereumEgress::new(head, status);
 
         match egress.subscribe(&req.method, params) {
             Ok(stream) => {

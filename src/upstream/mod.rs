@@ -35,7 +35,7 @@ pub mod validation;
 
 pub use multistream::Multistream;
 
-use crate::blockchain::TargetBlockchain;
+use crate::blockchain::{BlockchainType, TargetBlockchain};
 use crate::cache::{
     BitcoinCacheCodec, Caches, CachingHead, CachingUpstream, EthereumCacheCodec,
     EthereumNormalizer, NormalizingUpstream, RedisCache, redis_cache,
@@ -57,6 +57,7 @@ use ethereum::validator::EthereumValidator;
 use fork::{
     DifficultyForkChoice, ForkChoice, ForkMember, PriorityForkChoice, is_pos, start_fork_watch,
 };
+use egress::{EgressSubscription, EthereumEgress, SyncingStatus};
 use head::CurrentHead;
 use merged_head::MergedHead;
 use methods::AggregatedMethods;
@@ -562,6 +563,20 @@ impl UpstreamManager {
         self.heads.get(chain)
     }
 
+    /// Build the `eth_subscribe` egress for a chain, or `None` when the chain
+    /// can't serve server-pushed subscriptions: it tracks no head yet, or it
+    /// isn't an Ethereum-family chain. Bitcoin egress isn't ported, so Bitcoin
+    /// chains reject `eth_subscribe` rather than emitting Ethereum-shaped
+    /// notifications built from Bitcoin blocks.
+    pub fn egress(&self, chain: &TargetBlockchain) -> Option<Arc<dyn EgressSubscription>> {
+        if chain.blockchain_type() != BlockchainType::Ethereum {
+            return None;
+        }
+        let head = self.head(chain)?;
+        let status: Arc<dyn SyncingStatus> = self.get(chain)?.clone();
+        Some(Arc::new(EthereumEgress::new(Arc::clone(head), status)))
+    }
+
     /// Look up the cache for a given blockchain.
     pub fn caches(&self, chain: &TargetBlockchain) -> Option<&Arc<Caches>> {
         self.caches.get(chain)
@@ -639,26 +654,10 @@ fn syncing_lag_for(chain_ref: ChainRef) -> u64 {
 /// hit a connection error). Normal flow aggregates the per-upstream factories
 /// collected by `from_config` instead.
 fn quorum_factory_for(chain: TargetBlockchain) -> Arc<dyn QuorumFactory> {
-    match chain {
-        TargetBlockchain::Standard(c) => match c {
-            ChainRef::ChainBitcoin
-            | ChainRef::ChainTestnetBitcoin
-            | ChainRef::ChainTestnetBitcoin4 => Arc::new(DefaultBitcoinMethods::new()),
-            ChainRef::ChainEthereum
-            | ChainRef::ChainEthereumClassic
-            | ChainRef::ChainFantom
-            | ChainRef::ChainMatic
-            | ChainRef::ChainRsk
-            | ChainRef::ChainMorden
-            | ChainRef::ChainKovan
-            | ChainRef::ChainGoerli
-            | ChainRef::ChainRopsten
-            | ChainRef::ChainRinkeby
-            | ChainRef::ChainHolesky
-            | ChainRef::ChainSepolia
-            | ChainRef::ChainHoodi => Arc::new(DefaultEthereumMethods::new(chain)),
-            _ => Arc::new(DefaultMethods),
-        },
+    match chain.blockchain_type() {
+        BlockchainType::Bitcoin => Arc::new(DefaultBitcoinMethods::new()),
+        BlockchainType::Ethereum => Arc::new(DefaultEthereumMethods::new(chain)),
+        BlockchainType::Unknown => Arc::new(DefaultMethods),
     }
 }
 

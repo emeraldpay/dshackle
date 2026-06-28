@@ -25,7 +25,7 @@ mod ws;
 
 use crate::blockchain::TargetBlockchain;
 use crate::config::proxy::ProxyConfig;
-use crate::upstream::egress::{EgressSubscription, EthereumEgress, SyncingStatus};
+use crate::upstream::egress::EgressSubscription;
 use crate::upstream::{Multistream, UpstreamManager};
 use bytes::Bytes;
 use std::collections::HashMap;
@@ -171,12 +171,11 @@ fn resolve_routes(
         match upstreams.get(&chain) {
             Some(multistream) => {
                 tracing::info!("Proxy route '/{}' -> {}", route.id, chain);
-                let egress = build_egress(upstreams, &chain, multistream);
                 routes.insert(
                     route.id.clone(),
                     Arc::new(ProxyRoute {
                         multistream: Arc::clone(multistream),
-                        egress,
+                        egress: upstreams.egress(&chain),
                     }),
                 );
             }
@@ -188,19 +187,6 @@ fn resolve_routes(
         }
     }
     routes
-}
-
-/// Build the chain's `eth_subscribe` egress from its merged head and aggregate
-/// status. Returns `None` when the chain has no head yet (subscriptions then
-/// can't be served).
-fn build_egress(
-    upstreams: &UpstreamManager,
-    chain: &TargetBlockchain,
-    multistream: &Arc<Multistream>,
-) -> Option<Arc<dyn EgressSubscription>> {
-    let head = upstreams.head(chain)?;
-    let status: Arc<dyn SyncingStatus> = multistream.clone();
-    Some(Arc::new(EthereumEgress::new(Arc::clone(head), status)))
 }
 
 async fn handle(
@@ -511,7 +497,7 @@ mod tests {
     /// A route whose chain has a working `newHeads` egress, plus the head to
     /// feed blocks into it.
     fn state_with_egress() -> (Arc<ProxyState>, Arc<crate::upstream::head::CurrentHead>) {
-        use crate::upstream::egress::EthereumEgress;
+        use crate::upstream::egress::{EthereumEgress, SyncingStatus};
         use crate::upstream::head::CurrentHead;
         use crate::upstream::merged_head::MergedHead;
 

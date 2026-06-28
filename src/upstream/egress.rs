@@ -136,17 +136,16 @@ fn new_head_message(block: &BlockContainer) -> Vec<u8> {
     );
 
     let raw = block.header_json.as_deref().or(block.json.as_deref());
-    if let Some(raw) = raw {
-        if let Ok(serde_json::Value::Object(header)) =
+    if let Some(raw) = raw
+        && let Ok(serde_json::Value::Object(header)) =
             serde_json::from_slice::<serde_json::Value>(raw)
-        {
-            for field in NEW_HEAD_HEADER_FIELDS {
-                match header.get(field) {
-                    Some(value) if !value.is_null() => {
-                        msg.insert(field.to_string(), value.clone());
-                    }
-                    _ => {}
+    {
+        for field in NEW_HEAD_HEADER_FIELDS {
+            match header.get(field) {
+                Some(value) if !value.is_null() => {
+                    msg.insert(field.to_string(), value.clone());
                 }
+                _ => {}
             }
         }
     }

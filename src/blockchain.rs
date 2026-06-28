@@ -29,11 +29,47 @@ pub enum TargetBlockchain {
     Standard(ChainRef),
 }
 
+/// Broad protocol family of a blockchain. Used where behavior depends on the
+/// protocol (subscriptions, status thresholds, default method sets) rather than
+/// on the specific chain.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BlockchainType {
+    Bitcoin,
+    Ethereum,
+    /// A chain the rewrite doesn't classify yet (e.g. a non-standard id).
+    Unknown,
+}
+
 impl TargetBlockchain {
     /// Short code for display and logging (e.g. "ETH", "BTC").
     pub fn code(&self) -> String {
         match self {
             TargetBlockchain::Standard(chain) => chain.code(),
+        }
+    }
+
+    /// Classify the chain into its protocol family.
+    pub fn blockchain_type(&self) -> BlockchainType {
+        match self {
+            TargetBlockchain::Standard(chain) => match chain {
+                ChainRef::ChainBitcoin
+                | ChainRef::ChainTestnetBitcoin
+                | ChainRef::ChainTestnetBitcoin4 => BlockchainType::Bitcoin,
+                ChainRef::ChainEthereum
+                | ChainRef::ChainEthereumClassic
+                | ChainRef::ChainFantom
+                | ChainRef::ChainMatic
+                | ChainRef::ChainRsk
+                | ChainRef::ChainMorden
+                | ChainRef::ChainKovan
+                | ChainRef::ChainGoerli
+                | ChainRef::ChainRopsten
+                | ChainRef::ChainRinkeby
+                | ChainRef::ChainHolesky
+                | ChainRef::ChainSepolia
+                | ChainRef::ChainHoodi => BlockchainType::Ethereum,
+                _ => BlockchainType::Unknown,
+            },
         }
     }
 
@@ -92,6 +128,18 @@ mod tests {
         assert_eq!(target, TargetBlockchain::Standard(ChainRef::ChainEthereum));
         assert_eq!(target.code(), "ETH");
         assert_eq!(target.to_string(), "ETH");
+    }
+
+    #[test]
+    fn blockchain_type_classifies_families() {
+        let eth: TargetBlockchain = ChainRef::ChainEthereum.into();
+        let etc: TargetBlockchain = ChainRef::ChainEthereumClassic.into();
+        let btc: TargetBlockchain = ChainRef::ChainBitcoin.into();
+        let tbtc: TargetBlockchain = ChainRef::ChainTestnetBitcoin4.into();
+        assert_eq!(eth.blockchain_type(), BlockchainType::Ethereum);
+        assert_eq!(etc.blockchain_type(), BlockchainType::Ethereum);
+        assert_eq!(btc.blockchain_type(), BlockchainType::Bitcoin);
+        assert_eq!(tbtc.blockchain_type(), BlockchainType::Bitcoin);
     }
 
     #[test]
