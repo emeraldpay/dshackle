@@ -127,9 +127,13 @@ fn new_head_message(block: &BlockContainer) -> Vec<u8> {
     let mut msg = serde_json::Map::new();
     msg.insert("number".into(), json!(format!("0x{:x}", block.height)));
     msg.insert("hash".into(), json!(block.hash.to_hex_prefixed()));
-    if let Some(parent) = block.parent_hash {
-        msg.insert("parentHash".into(), json!(parent.to_hex_prefixed()));
-    }
+    // Always present, matching the legacy `NewHeadMessage` (which never omits
+    // the field); `null` only for heads that don't carry a parent, e.g. one
+    // sourced from a remote Dshackle's `ChainHead`.
+    msg.insert(
+        "parentHash".into(),
+        json!(block.parent_hash.map(|p| p.to_hex_prefixed())),
+    );
     msg.insert(
         "timestamp".into(),
         json!(format!("0x{:x}", block.timestamp.as_second() as u64)),
@@ -251,6 +255,18 @@ mod tests {
         assert_eq!(value["number"], "0x10");
         assert!(value.get("difficulty").is_none());
         assert!(value.get("gasLimit").is_none());
+    }
+
+    #[test]
+    fn new_head_message_keeps_null_parent_hash_key() {
+        // A head without a parent (e.g. from a remote Dshackle ChainHead) still
+        // carries the `parentHash` key, as `null` — never dropped.
+        let mut block = block_with_header(0x10, None);
+        block.parent_hash = None;
+        let msg = new_head_message(&block);
+        let value: serde_json::Value = serde_json::from_slice(&msg).unwrap();
+        assert!(value.as_object().unwrap().contains_key("parentHash"));
+        assert!(value["parentHash"].is_null());
     }
 
     #[tokio::test]
