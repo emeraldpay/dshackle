@@ -94,8 +94,9 @@ async fn process_batch(
     format!("[{}]", bodies.join(","))
 }
 
-/// Execute one validated request and serialize its response object.
-async fn run(multistream: &Multistream, req: &ProxyRequest) -> String {
+/// Execute one validated request and serialize its response object. Shared with
+/// the WebSocket transport, which dispatches one validated call at a time.
+pub(super) async fn run(multistream: &Multistream, req: &ProxyRequest) -> String {
     let method = match req.method.parse::<RpcMethod>() {
         Ok(method) => method,
         Err(_) => {

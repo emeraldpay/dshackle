@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Standard JSON-RPC HTTP proxy.
+//! Standard JSON-RPC HTTP and WebSocket proxy.
 //!
-//! Exposes one `POST /<route-id>` endpoint per configured route, mapping the
-//! path to a blockchain and serving JSON-RPC over the same call path as the
-//! gRPC `NativeCall`. Ports the legacy `proxy.ProxyServer` / `HttpHandler`.
+//! Exposes one endpoint per configured route, mapping the path to a blockchain
+//! and serving JSON-RPC over the same call path as the gRPC `NativeCall`: `POST
+//! /<route-id>` for HTTP, and a WebSocket upgrade on the same path. Ports the
+//! legacy `proxy.ProxyServer` / `HttpHandler` / `WebsocketHandler`.
 
 mod handler;
 mod protocol;
+mod ws;
 
 use crate::blockchain::TargetBlockchain;
 use crate::config::proxy::ProxyConfig;
@@ -50,6 +52,8 @@ struct ProxyState {
     /// Route id (URL path segment, e.g. `eth`) → the chain's upstreams.
     routes: HashMap<String, Arc<Multistream>>,
     preserve_batch_order: bool,
+    /// Whether WebSocket upgrades are served; when off, the path is HTTP-only.
+    websocket: bool,
     /// CORS headers to emit, or `None` when `cors-origin` is unset.
     cors: Option<Cors>,
 }
@@ -77,6 +81,7 @@ pub async fn start(config: &ProxyConfig, upstreams: Arc<UpstreamManager>) -> any
     let state = Arc::new(ProxyState {
         routes,
         preserve_batch_order: config.preserve_batch_order,
+        websocket: config.websocket,
         cors,
     });
 
@@ -88,18 +93,51 @@ pub async fn start(config: &ProxyConfig, upstreams: Arc<UpstreamManager>) -> any
 }
 
 /// Build the request filter: a single exactly-matched segment (`/eth`, not
-/// `/eth/x`), with the HTTP method dispatched inside the handler. Matching all
-/// methods on the path keeps the codes deterministic — unknown route → 404,
-/// known route with the wrong method → 405 — matching the legacy exact routes.
+/// `/eth/x`). A WebSocket upgrade on the path is served as a JSON-RPC WS
+/// connection; everything else dispatches by HTTP method inside the handler.
+/// Matching all methods on the path keeps the codes deterministic — unknown
+/// route → 404, known route with the wrong method → 405 — matching the legacy
+/// exact routes.
 fn routes_filter(
     state: Arc<ProxyState>,
 ) -> impl Filter<Extract = (warp::reply::Response,), Error = warp::Rejection> + Clone {
-    warp::path::param::<String>()
+    let ws_state = Arc::clone(&state);
+    // `warp::ws()` matches only genuine upgrade requests, so plain POST/OPTIONS
+    // fall through to the HTTP branch.
+    let ws_route = warp::path::param::<String>()
+        .and(warp::path::end())
+        .and(warp::ws())
+        .and(warp::any().map(move || Arc::clone(&ws_state)))
+        .map(
+            |segment: String, upgrade: warp::ws::Ws, state: Arc<ProxyState>| {
+                if !state.websocket {
+                    // WS disabled: the path only serves POST/OPTIONS, so the
+                    // upgrade (a GET) is not allowed here.
+                    return warp::reply::with_status(String::new(), StatusCode::METHOD_NOT_ALLOWED)
+                        .into_response();
+                }
+                match state.routes.get(&segment) {
+                    Some(multistream) => {
+                        let multistream = Arc::clone(multistream);
+                        upgrade
+                            .on_upgrade(move |socket| ws::serve(socket, multistream))
+                            .into_response()
+                    }
+                    None => {
+                        warp::reply::with_status(String::new(), StatusCode::NOT_FOUND).into_response()
+                    }
+                }
+            },
+        );
+
+    let http_route = warp::path::param::<String>()
         .and(warp::path::end())
         .and(warp::method())
         .and(warp::body::bytes())
         .and(warp::any().map(move || Arc::clone(&state)))
-        .then(handle)
+        .then(handle);
+
+    ws_route.or(http_route).unify()
 }
 
 /// Build the path → upstreams map, skipping routes whose blockchain is unknown
@@ -193,11 +231,6 @@ fn warn_unsupported(config: &ProxyConfig) {
     if config.tls.is_some() {
         tracing::warn!("Proxy TLS is configured but not yet supported; serving plaintext HTTP");
     }
-    if config.websocket {
-        tracing::warn!(
-            "Proxy WebSocket is enabled but not yet supported; only HTTP POST is served"
-        );
-    }
 }
 
 #[cfg(test)]
@@ -248,6 +281,7 @@ mod tests {
         Arc::new(ProxyState {
             routes,
             preserve_batch_order: false,
+            websocket: true,
             cors,
         })
     }
@@ -367,5 +401,70 @@ mod tests {
             .reply(&filter)
             .await;
         assert_eq!(resp.status(), 404);
+    }
+
+    #[tokio::test]
+    async fn ws_plain_call_returns_result() {
+        let filter = routes_filter(state_with_eth_route());
+        let mut client = warp::test::ws()
+            .path("/eth")
+            .handshake(filter)
+            .await
+            .expect("handshake succeeds");
+        client
+            .send_text(r#"{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber"}"#)
+            .await;
+        let msg = client.recv().await.expect("a response frame");
+        assert_eq!(
+            msg.to_str().unwrap(),
+            r#"{"jsonrpc":"2.0","id":1,"result":"0x1"}"#
+        );
+    }
+
+    #[tokio::test]
+    async fn ws_subscribe_is_rejected_until_egress_lands() {
+        let filter = routes_filter(state_with_eth_route());
+        let mut client = warp::test::ws()
+            .path("/eth")
+            .handshake(filter)
+            .await
+            .expect("handshake succeeds");
+        client
+            .send_text(r#"{"jsonrpc":"2.0","id":7,"method":"eth_subscribe","params":["newHeads"]}"#)
+            .await;
+        let msg = client.recv().await.expect("a response frame");
+        let value: serde_json::Value = serde_json::from_str(msg.to_str().unwrap()).unwrap();
+        assert_eq!(value["id"], 7);
+        assert_eq!(value["error"]["code"], -32601);
+    }
+
+    #[tokio::test]
+    async fn ws_ignores_batch_and_answers_next_single() {
+        let filter = routes_filter(state_with_eth_route());
+        let mut client = warp::test::ws()
+            .path("/eth")
+            .handshake(filter)
+            .await
+            .expect("handshake succeeds");
+        // A batch is silently dropped; the following single still gets answered.
+        client
+            .send_text(r#"[{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber"}]"#)
+            .await;
+        client
+            .send_text(r#"{"jsonrpc":"2.0","id":2,"method":"eth_blockNumber"}"#)
+            .await;
+        let msg = client.recv().await.expect("a response frame");
+        let value: serde_json::Value = serde_json::from_str(msg.to_str().unwrap()).unwrap();
+        assert_eq!(value["id"], 2);
+    }
+
+    #[tokio::test]
+    async fn ws_rejected_when_disabled() {
+        let mut state = state_with_eth_route();
+        // Rebuild with websocket off.
+        Arc::get_mut(&mut state).unwrap().websocket = false;
+        let filter = routes_filter(state);
+        let result = warp::test::ws().path("/eth").handshake(filter).await;
+        assert!(result.is_err(), "upgrade must fail when WS is disabled");
     }
 }
