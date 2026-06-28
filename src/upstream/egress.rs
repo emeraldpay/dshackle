@@ -19,19 +19,25 @@
 //! topic + params into a stream of JSON messages. Ports the legacy
 //! `EthereumEgressSubscription`.
 
-use crate::data::BlockContainer;
+use crate::data::{BlockContainer, BlockId};
+use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::merged_head::MergedHead;
+use crate::upstream::traits::UpstreamError;
 use serde_json::json;
+use std::collections::VecDeque;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::broadcast;
+use tokio::sync::broadcast::error::RecvError;
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::{Stream, StreamExt};
 
-/// `eth_subscribe` topics. `logs` (filtered) and `newPendingTransactions` are
-/// added with later work.
+/// `eth_subscribe` topics. `newPendingTransactions` is deferred (needs a
+/// pending-tx source).
 pub const METHOD_NEW_HEADS: &str = "newHeads";
 pub const METHOD_SYNCING: &str = "syncing";
+pub const METHOD_LOGS: &str = "logs";
 
 /// Header fields a `newHeads` message carries beyond the parsed block metadata.
 /// Passed through verbatim from the raw header JSON, matching the legacy
@@ -73,25 +79,31 @@ pub trait EgressSubscription: Send + Sync {
     ) -> Result<SubscriptionStream, EgressError>;
 }
 
-/// Source of the chain's aggregate syncing state, read by the `syncing` topic.
-/// Implemented by `Multistream`; abstracted so the egress doesn't depend on the
-/// whole routing layer (and stays trivially testable).
-pub trait SyncingStatus: Send + Sync {
+/// What the egress needs from a chain's upstreams: the aggregate syncing state
+/// (for `syncing`) and a way to make a call (for `logs`). Abstracted as a trait
+/// so the egress doesn't depend on the whole routing layer and stays trivially
+/// testable. Implemented by `Multistream`.
+#[async_trait::async_trait]
+pub trait ChainAccess: Send + Sync {
     /// `true` when the chain has no fully-synced upstream — the legacy
     /// `observeStatus() != OK`.
     fn is_syncing(&self) -> bool;
+
+    /// Route a JSON-RPC request through the chain's upstreams (used to fetch
+    /// `eth_getLogs` per head block).
+    async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError>;
 }
 
-/// Ethereum egress: `newHeads` from the chain's merged head and `syncing` from
-/// its aggregate status. Ports `EthereumEgressSubscription`.
+/// Ethereum egress: `newHeads` and `logs` from the chain's merged head and
+/// `syncing` from its aggregate status. Ports `EthereumEgressSubscription`.
 pub struct EthereumEgress {
     head: Arc<MergedHead>,
-    status: Arc<dyn SyncingStatus>,
+    access: Arc<dyn ChainAccess>,
 }
 
 impl EthereumEgress {
-    pub fn new(head: Arc<MergedHead>, status: Arc<dyn SyncingStatus>) -> Self {
-        Self { head, status }
+    pub fn new(head: Arc<MergedHead>, access: Arc<dyn ChainAccess>) -> Self {
+        Self { head, access }
     }
 }
 
@@ -99,7 +111,7 @@ impl EgressSubscription for EthereumEgress {
     fn subscribe(
         &self,
         method: &str,
-        _params: Option<serde_json::Value>,
+        params: Option<serde_json::Value>,
     ) -> Result<SubscriptionStream, EgressError> {
         match method {
             METHOD_NEW_HEADS => {
@@ -109,7 +121,12 @@ impl EgressSubscription for EthereumEgress {
                     .filter_map(|item| item.ok().map(|block| new_head_message(&block)));
                 Ok(Box::pin(stream))
             }
-            METHOD_SYNCING => Ok(syncing_stream(Arc::clone(&self.status))),
+            METHOD_SYNCING => Ok(syncing_stream(Arc::clone(&self.access))),
+            METHOD_LOGS => Ok(logs_stream(
+                Arc::clone(&self.head),
+                Arc::clone(&self.access),
+                LogsFilter::from_params(params),
+            )),
             other => Err(EgressError::UnsupportedMethod(other.to_string())),
         }
     }
@@ -160,16 +177,16 @@ fn new_head_message(block: &BlockContainer) -> Vec<u8> {
 /// Stream of `syncing` booleans: the current value immediately, then a new
 /// value each time the chain's status flips. Polls on [`SYNCING_POLL_INTERVAL`]
 /// while the value is unchanged.
-fn syncing_stream(status: Arc<dyn SyncingStatus>) -> SubscriptionStream {
+fn syncing_stream(access: Arc<dyn ChainAccess>) -> SubscriptionStream {
     let stream = futures::stream::unfold(
-        (status, Option::<bool>::None),
-        |(status, last)| async move {
+        (access, Option::<bool>::None),
+        |(access, last)| async move {
             loop {
-                let syncing = status.is_syncing();
+                let syncing = access.is_syncing();
                 if last != Some(syncing) {
                     let msg = serde_json::to_vec(&serde_json::Value::Bool(syncing))
                         .expect("bool always serializes");
-                    return Some((msg, (status, Some(syncing))));
+                    return Some((msg, (access, Some(syncing))));
                 }
                 tokio::time::sleep(SYNCING_POLL_INTERVAL).await;
             }
@@ -178,11 +195,133 @@ fn syncing_stream(status: Arc<dyn SyncingStatus>) -> SubscriptionStream {
     Box::pin(stream)
 }
 
+/// `eth_subscribe("logs")` filter: the `address` / `topics` fields from the
+/// subscription params, passed through to `eth_getLogs` verbatim so the node
+/// applies the full standard topic semantics (positional AND, per-position OR,
+/// `null` wildcards) rather than the legacy proxy's first-topic-only filter.
+#[derive(Clone, Default)]
+struct LogsFilter {
+    address: Option<serde_json::Value>,
+    topics: Option<serde_json::Value>,
+}
+
+impl LogsFilter {
+    fn from_params(params: Option<serde_json::Value>) -> Self {
+        let Some(obj) = params.as_ref().and_then(|v| v.as_object()) else {
+            return Self::default();
+        };
+        Self {
+            address: obj.get("address").cloned(),
+            topics: obj.get("topics").cloned(),
+        }
+    }
+
+    /// The `eth_getLogs` filter object scoped to a single block by hash.
+    fn for_block(&self, block_hash: &BlockId) -> serde_json::Value {
+        let mut filter = serde_json::Map::new();
+        filter.insert("blockHash".into(), json!(block_hash.to_hex_prefixed()));
+        if let Some(address) = &self.address {
+            filter.insert("address".into(), address.clone());
+        }
+        if let Some(topics) = &self.topics {
+            filter.insert("topics".into(), topics.clone());
+        }
+        serde_json::Value::Object(filter)
+    }
+}
+
+/// Stream of `logs` messages: for each new head, fetch the block's matching
+/// logs via `eth_getLogs` (scoped by `blockHash`) and emit each one.
+///
+/// Unlike the legacy proxy this delegates filtering to the node and reads whole
+/// blocks at once instead of per-transaction receipts. Reorg `removed: true`
+/// re-emission is not done yet — the merged head only advances forward and
+/// reports no drops, so there is no signal to act on (tracked in the roadmap).
+fn logs_stream(
+    head: Arc<MergedHead>,
+    access: Arc<dyn ChainAccess>,
+    filter: LogsFilter,
+) -> SubscriptionStream {
+    struct State {
+        rx: broadcast::Receiver<Arc<BlockContainer>>,
+        access: Arc<dyn ChainAccess>,
+        filter: LogsFilter,
+        pending: VecDeque<Vec<u8>>,
+    }
+
+    let state = State {
+        rx: head.subscribe(),
+        access,
+        filter,
+        pending: VecDeque::new(),
+    };
+
+    let stream = futures::stream::unfold(state, |mut state| async move {
+        loop {
+            if let Some(msg) = state.pending.pop_front() {
+                return Some((msg, state));
+            }
+            match state.rx.recv().await {
+                Ok(block) => {
+                    let logs =
+                        fetch_block_logs(&*state.access, &block.hash, &state.filter).await;
+                    state.pending.extend(logs);
+                }
+                // Skip the gap marker when a slow subscriber falls behind.
+                Err(RecvError::Lagged(_)) => continue,
+                Err(RecvError::Closed) => return None,
+            }
+        }
+    });
+    Box::pin(stream)
+}
+
+/// Fetch the logs of one block matching the filter and render each as a
+/// subscription message. A failed call or non-array result yields no logs for
+/// that block rather than tearing down the subscription.
+async fn fetch_block_logs(
+    access: &dyn ChainAccess,
+    block_hash: &BlockId,
+    filter: &LogsFilter,
+) -> Vec<Vec<u8>> {
+    let request = JsonRpcRequest::new(
+        0,
+        RpcMethod::from("eth_getLogs"),
+        json!([filter.for_block(block_hash)]),
+    );
+    let response = match access.call(&request).await {
+        Ok(response) => response,
+        Err(_) => return Vec::new(),
+    };
+    if response.error.is_some() {
+        return Vec::new();
+    }
+    let Some(result) = response.result else {
+        return Vec::new();
+    };
+    let logs: Vec<serde_json::Value> = match serde_json::from_str(result.get()) {
+        Ok(logs) => logs,
+        Err(_) => return Vec::new(),
+    };
+    logs.into_iter().filter_map(log_message).collect()
+}
+
+/// Render one `eth_getLogs` result entry as a `logs` subscription message,
+/// ensuring the `removed` flag is present (false for a canonical block).
+fn log_message(mut log: serde_json::Value) -> Option<Vec<u8>> {
+    if let serde_json::Value::Object(ref mut fields) = log {
+        fields
+            .entry("removed")
+            .or_insert(serde_json::Value::Bool(false));
+    }
+    serde_json::to_vec(&log).ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::BlockId;
     use crate::upstream::head::CurrentHead;
+    use std::sync::Mutex;
     use std::sync::atomic::{AtomicBool, Ordering};
 
     /// A full Ethereum header as a node delivers it over `newHeads`.
@@ -208,23 +347,47 @@ mod tests {
         }
     }
 
-    struct StubStatus(AtomicBool);
-    impl StubStatus {
-        fn new(syncing: bool) -> Arc<Self> {
-            Arc::new(Self(AtomicBool::new(syncing)))
+    /// Stub chain access: a settable syncing flag and a canned `eth_getLogs`
+    /// result, capturing the params of the last call.
+    struct StubAccess {
+        syncing: AtomicBool,
+        logs: Vec<serde_json::Value>,
+        last_params: Mutex<Option<serde_json::Value>>,
+    }
+
+    impl StubAccess {
+        fn new(syncing: bool, logs: Vec<serde_json::Value>) -> Arc<Self> {
+            Arc::new(Self {
+                syncing: AtomicBool::new(syncing),
+                logs,
+                last_params: Mutex::new(None),
+            })
         }
         fn set(&self, syncing: bool) {
-            self.0.store(syncing, Ordering::Relaxed);
+            self.syncing.store(syncing, Ordering::Relaxed);
         }
-    }
-    impl SyncingStatus for StubStatus {
-        fn is_syncing(&self) -> bool {
-            self.0.load(Ordering::Relaxed)
+        fn last_params(&self) -> Option<serde_json::Value> {
+            self.last_params.lock().unwrap().clone()
         }
     }
 
-    fn egress(head: Arc<MergedHead>, status: Arc<dyn SyncingStatus>) -> EthereumEgress {
-        EthereumEgress::new(head, status)
+    #[async_trait::async_trait]
+    impl ChainAccess for StubAccess {
+        fn is_syncing(&self) -> bool {
+            self.syncing.load(Ordering::Relaxed)
+        }
+        async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
+            *self.last_params.lock().unwrap() = Some(request.params.clone());
+            let body = format!(
+                r#"{{"jsonrpc":"2.0","id":1,"result":{}}}"#,
+                serde_json::to_string(&self.logs).unwrap()
+            );
+            Ok(serde_json::from_str(&body).unwrap())
+        }
+    }
+
+    fn egress(head: Arc<MergedHead>, access: Arc<dyn ChainAccess>) -> EthereumEgress {
+        EthereumEgress::new(head, access)
     }
 
     #[test]
@@ -273,7 +436,7 @@ mod tests {
     async fn new_heads_streams_head_messages() {
         let head = Arc::new(CurrentHead::new());
         let merged = MergedHead::new(vec![Arc::clone(&head)]);
-        let egress = egress(merged, StubStatus::new(false));
+        let egress = egress(merged, StubAccess::new(false, vec![]));
 
         let mut stream = egress.subscribe(METHOD_NEW_HEADS, None).unwrap();
         head.update_with_block(block_with_header(0x20, Some(HEADER_JSON)));
@@ -286,9 +449,9 @@ mod tests {
 
     #[tokio::test]
     async fn syncing_emits_initial_then_on_change() {
-        let status = StubStatus::new(false);
+        let access = StubAccess::new(false, vec![]);
         let merged = MergedHead::new(vec![]);
-        let egress = egress(merged, Arc::clone(&status) as Arc<dyn SyncingStatus>);
+        let egress = egress(merged, Arc::clone(&access) as Arc<dyn ChainAccess>);
 
         let mut stream = egress.subscribe(METHOD_SYNCING, None).unwrap();
 
@@ -298,20 +461,72 @@ mod tests {
 
         // The change is observed on the next poll, which happens as soon as the
         // stream is polled again — no waiting on the interval.
-        status.set(true);
+        access.set(true);
         let second: serde_json::Value =
             serde_json::from_slice(&stream.next().await.unwrap()).unwrap();
         assert_eq!(second, serde_json::json!(true));
     }
 
     #[tokio::test]
+    async fn logs_stream_emits_block_logs_and_passes_filter() {
+        let head = Arc::new(CurrentHead::new());
+        let merged = MergedHead::new(vec![Arc::clone(&head)]);
+        let canned = vec![json!({
+            "address": "0xabc",
+            "topics": ["0x1"],
+            "data": "0x",
+            "logIndex": "0x0"
+        })];
+        let access = StubAccess::new(false, canned);
+        let egress = egress(merged, Arc::clone(&access) as Arc<dyn ChainAccess>);
+
+        let mut stream = egress
+            .subscribe(
+                METHOD_LOGS,
+                Some(json!({"address": "0xabc", "topics": ["0x1"]})),
+            )
+            .unwrap();
+        head.update_with_block(block_with_header(0x10, None));
+
+        let msg = stream.next().await.unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&msg).unwrap();
+        assert_eq!(value["address"], "0xabc");
+        // `removed` is added when the node's result omits it.
+        assert_eq!(value["removed"], false);
+
+        // The filter reached eth_getLogs, scoped to the block by hash.
+        let params = access.last_params().expect("eth_getLogs was called");
+        let filter = &params[0];
+        assert!(filter["blockHash"].as_str().unwrap().starts_with("0x"));
+        assert_eq!(filter["address"], "0xabc");
+        assert_eq!(filter["topics"], json!(["0x1"]));
+    }
+
+    #[tokio::test]
+    async fn logs_without_filter_query_only_scopes_by_block() {
+        let head = Arc::new(CurrentHead::new());
+        let merged = MergedHead::new(vec![Arc::clone(&head)]);
+        let access = StubAccess::new(false, vec![json!({"address": "0x1"})]);
+        let egress = egress(merged, Arc::clone(&access) as Arc<dyn ChainAccess>);
+
+        let mut stream = egress.subscribe(METHOD_LOGS, None).unwrap();
+        head.update_with_block(block_with_header(0x10, None));
+        let _ = stream.next().await.unwrap();
+
+        let filter = access.last_params().unwrap()[0].clone();
+        assert!(filter.get("blockHash").is_some());
+        assert!(filter.get("address").is_none());
+        assert!(filter.get("topics").is_none());
+    }
+
+    #[tokio::test]
     async fn unsupported_method_errors() {
         let merged = MergedHead::new(vec![]);
-        let egress = egress(merged, StubStatus::new(false));
+        let egress = egress(merged, StubAccess::new(false, vec![]));
         let err = egress
-            .subscribe("logs", None)
+            .subscribe("newPendingTransactions", None)
             .err()
-            .expect("logs is not supported yet");
-        assert!(matches!(err, EgressError::UnsupportedMethod(m) if m == "logs"));
+            .expect("newPendingTransactions is not supported yet");
+        assert!(matches!(err, EgressError::UnsupportedMethod(m) if m == "newPendingTransactions"));
     }
 }

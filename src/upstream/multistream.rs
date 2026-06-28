@@ -23,11 +23,12 @@
 //! evenly without the router needing to know how many requests have come
 //! before.
 
-use crate::jsonrpc::RpcMethod;
+use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
-use crate::upstream::egress::SyncingStatus;
+use crate::upstream::egress::ChainAccess;
 use crate::upstream::quorum::{CallQuorum, QuorumFactory, SelectorHint};
-use crate::upstream::traits::RpcUpstream;
+use crate::upstream::router;
+use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -151,9 +152,18 @@ impl Multistream {
     }
 }
 
-impl SyncingStatus for Multistream {
+#[async_trait::async_trait]
+impl ChainAccess for Multistream {
     fn is_syncing(&self) -> bool {
         self.aggregate_availability() != UpstreamAvailability::Ok
+    }
+
+    async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
+        // The same routing core as `native_call::execute_call`, inlined to keep
+        // the upstream layer from depending on the rpc layer.
+        let quorum = self.quorum_for(&request.method);
+        let candidates = self.select_for(quorum.selector(), &request.method);
+        router::route(candidates, quorum, request).await
     }
 }
 

@@ -497,16 +497,16 @@ mod tests {
     /// A route whose chain has a working `newHeads` egress, plus the head to
     /// feed blocks into it.
     fn state_with_egress() -> (Arc<ProxyState>, Arc<crate::upstream::head::CurrentHead>) {
-        use crate::upstream::egress::{EthereumEgress, SyncingStatus};
+        use crate::upstream::egress::{ChainAccess, EthereumEgress};
         use crate::upstream::head::CurrentHead;
         use crate::upstream::merged_head::MergedHead;
 
         let multistream = stub_multistream();
         let head = Arc::new(CurrentHead::new());
         let merged = MergedHead::new(vec![Arc::clone(&head)]);
-        let status: Arc<dyn SyncingStatus> = multistream.clone();
+        let access: Arc<dyn ChainAccess> = multistream.clone();
         let egress: Arc<dyn EgressSubscription> =
-            Arc::new(EthereumEgress::new(merged, status));
+            Arc::new(EthereumEgress::new(merged, access));
 
         let mut routes = HashMap::new();
         routes.insert(

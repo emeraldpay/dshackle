@@ -57,7 +57,7 @@ use ethereum::validator::EthereumValidator;
 use fork::{
     DifficultyForkChoice, ForkChoice, ForkMember, PriorityForkChoice, is_pos, start_fork_watch,
 };
-use egress::{EgressSubscription, EthereumEgress, SyncingStatus};
+use egress::{ChainAccess, EgressSubscription, EthereumEgress};
 use head::CurrentHead;
 use merged_head::MergedHead;
 use methods::AggregatedMethods;
@@ -573,8 +573,8 @@ impl UpstreamManager {
             return None;
         }
         let head = self.head(chain)?;
-        let status: Arc<dyn SyncingStatus> = self.get(chain)?.clone();
-        Some(Arc::new(EthereumEgress::new(Arc::clone(head), status)))
+        let access: Arc<dyn ChainAccess> = self.get(chain)?.clone();
+        Some(Arc::new(EthereumEgress::new(Arc::clone(head), access)))
     }
 
     /// Look up the cache for a given blockchain.
