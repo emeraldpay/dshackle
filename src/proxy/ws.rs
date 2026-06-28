@@ -38,6 +38,14 @@ const METHOD_UNSUBSCRIBE: &str = "eth_unsubscribe";
 /// Code returned for a subscription request that can't be served.
 const CODE_METHOD_NOT_FOUND: i64 = -32601;
 
+/// Bound on per-connection buffered outbound messages. A slow or stalled
+/// reader fills this and then back-pressures its producers — request tasks and
+/// subscription pumps block on send — instead of letting the queue grow without
+/// limit (the legacy reactive pipeline applied backpressure the same way). Big
+/// enough to absorb normal bursts (batched responses, a head fan-out across a
+/// few subscriptions) without stalling a healthy client.
+const OUTBOUND_CHANNEL_CAPACITY: usize = 256;
+
 /// Connection-independent subscription id counter. The legacy proxy keeps one
 /// `AtomicLong` per handler instance (effectively global); a process-wide
 /// counter keeps ids unique across connections too. Hex-encoded, matching
@@ -52,12 +60,13 @@ fn next_subscription_id() -> String {
 ///
 /// Plain calls are processed concurrently (one task per frame, matching the
 /// legacy `flatMap`) and answered as they complete. A single writer task owns
-/// the sink, so request responses and subscription pushes never race on it. The
-/// per-connection subscription registry is touched only by this read loop, so
-/// it needs no locking.
+/// the sink, so request responses and subscription pushes never race on it, and
+/// the bounded channel back-pressures producers when the client can't keep up.
+/// The per-connection subscription registry is touched only by this read loop,
+/// so it needs no locking.
 pub async fn serve(socket: WebSocket, route: Arc<ProxyRoute>) {
     let (mut sink, mut stream) = socket.split();
-    let (out_tx, mut out_rx) = mpsc::unbounded_channel::<Message>();
+    let (out_tx, mut out_rx) = mpsc::channel::<Message>(OUTBOUND_CHANNEL_CAPACITY);
 
     let writer = tokio::spawn(async move {
         while let Some(msg) = out_rx.recv().await {
@@ -91,8 +100,8 @@ pub async fn serve(socket: WebSocket, route: Arc<ProxyRoute>) {
         };
 
         match req.method.as_str() {
-            METHOD_SUBSCRIBE => handle_subscribe(&route, &req, &out_tx, &mut subscriptions),
-            METHOD_UNSUBSCRIBE => handle_unsubscribe(&req, &out_tx, &mut subscriptions),
+            METHOD_SUBSCRIBE => handle_subscribe(&route, &req, &out_tx, &mut subscriptions).await,
+            METHOD_UNSUBSCRIBE => handle_unsubscribe(&req, &out_tx, &mut subscriptions).await,
             _ => {
                 // Plain call: run it off the read loop so a slow upstream never
                 // blocks later frames on this connection.
@@ -100,7 +109,7 @@ pub async fn serve(socket: WebSocket, route: Arc<ProxyRoute>) {
                 let out_tx = out_tx.clone();
                 tokio::spawn(async move {
                     let response = handler::run(&multistream, &req).await;
-                    let _ = out_tx.send(Message::text(response));
+                    let _ = out_tx.send(Message::text(response)).await;
                 });
             }
         }
@@ -127,10 +136,10 @@ fn parse_single(bytes: &[u8]) -> Option<ProxyRequest> {
 
 /// Start a subscription: respond with its id, then pump its events back wrapped
 /// in the `eth_subscription` envelope.
-fn handle_subscribe(
+async fn handle_subscribe(
     route: &ProxyRoute,
     req: &ProxyRequest,
-    out_tx: &mpsc::UnboundedSender<Message>,
+    out_tx: &mpsc::Sender<Message>,
     subscriptions: &mut HashMap<String, AbortHandle>,
 ) {
     // A malformed subscribe (no topic, or too many params) is ignored, matching
@@ -140,24 +149,28 @@ fn handle_subscribe(
     };
 
     let Some(egress) = &route.egress else {
-        let _ = out_tx.send(Message::text(protocol::build_error(
-            &req.id,
-            CODE_METHOD_NOT_FOUND,
-            "Subscriptions are not supported for this blockchain".to_string(),
-            None,
-        )));
+        let _ = out_tx
+            .send(Message::text(protocol::build_error(
+                &req.id,
+                CODE_METHOD_NOT_FOUND,
+                "Subscriptions are not supported for this blockchain".to_string(),
+                None,
+            )))
+            .await;
         return;
     };
 
     match egress.subscribe(&topic, params) {
         Ok(mut stream) => {
             let sub_id = next_subscription_id();
-            // The id response must precede any pushed event; the mpsc is FIFO and
-            // this enqueues before the pump task is spawned.
-            let _ = out_tx.send(Message::text(protocol::build_success_value(
-                &req.id,
-                serde_json::Value::String(sub_id.clone()),
-            )));
+            // The id response must precede any pushed event; the channel is FIFO
+            // and this enqueues before the pump task is spawned.
+            let _ = out_tx
+                .send(Message::text(protocol::build_success_value(
+                    &req.id,
+                    serde_json::Value::String(sub_id.clone()),
+                )))
+                .await;
 
             let out = out_tx.clone();
             let id = sub_id.clone();
@@ -167,7 +180,7 @@ fn handle_subscribe(
                     let Some(msg) = subscription_message(&id, &event) else {
                         break;
                     };
-                    if out.send(Message::text(msg)).is_err() {
+                    if out.send(Message::text(msg)).await.is_err() {
                         break;
                     }
                 }
@@ -175,20 +188,22 @@ fn handle_subscribe(
             subscriptions.insert(sub_id, handle.abort_handle());
         }
         Err(EgressError::UnsupportedMethod(method)) => {
-            let _ = out_tx.send(Message::text(protocol::build_error(
-                &req.id,
-                CODE_METHOD_NOT_FOUND,
-                format!("Subscription type {method} is not supported"),
-                None,
-            )));
+            let _ = out_tx
+                .send(Message::text(protocol::build_error(
+                    &req.id,
+                    CODE_METHOD_NOT_FOUND,
+                    format!("Subscription type {method} is not supported"),
+                    None,
+                )))
+                .await;
         }
     }
 }
 
 /// Cancel a subscription by id and report whether one was active.
-fn handle_unsubscribe(
+async fn handle_unsubscribe(
     req: &ProxyRequest,
-    out_tx: &mpsc::UnboundedSender<Message>,
+    out_tx: &mpsc::Sender<Message>,
     subscriptions: &mut HashMap<String, AbortHandle>,
 ) {
     let removed = req
@@ -200,10 +215,12 @@ fn handle_unsubscribe(
     if let Some(handle) = &removed {
         handle.abort();
     }
-    let _ = out_tx.send(Message::text(protocol::build_success_value(
-        &req.id,
-        serde_json::Value::Bool(removed.is_some()),
-    )));
+    let _ = out_tx
+        .send(Message::text(protocol::build_success_value(
+            &req.id,
+            serde_json::Value::Bool(removed.is_some()),
+        )))
+        .await;
 }
 
 /// Extract `(topic, params)` from a subscribe request's params array. Ports the
