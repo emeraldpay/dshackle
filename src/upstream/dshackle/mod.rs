@@ -21,6 +21,7 @@
 //! calling the remote's `Describe` RPC.
 
 pub mod head;
+pub mod status;
 pub mod upstream;
 
 pub use upstream::DshackleUpstream;

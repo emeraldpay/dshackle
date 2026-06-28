@@ -47,6 +47,7 @@ use bitcoin::http::BitcoinHttpUpstream;
 use bitcoin::validator::BitcoinValidator;
 use dshackle::DshackleUpstream;
 use dshackle::head::start_head_subscriber;
+use dshackle::status::start_status_subscriber;
 use emerald_api::proto::blockchain::DescribeRequest;
 use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
 use emerald_api::proto::common::ChainRef;
@@ -729,6 +730,14 @@ async fn connect_dshackle(
             desc_chain.chain,
             ds_upstream.grpc_client(),
             head,
+        );
+
+        // Track the remote's own reported availability via SubscribeStatus.
+        start_status_subscriber(
+            chain_id.clone(),
+            desc_chain.chain,
+            ds_upstream.grpc_client(),
+            ds_upstream.state_handle(),
         );
 
         let reader: Arc<dyn RpcUpstream> = Arc::new(ds_upstream);

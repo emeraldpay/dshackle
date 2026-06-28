@@ -35,6 +35,10 @@ pub struct UpstreamState {
     /// Availability derived from fork detection: `Immature` while the upstream
     /// is forked off the recognized chain, `Ok` otherwise.
     fork_status: AtomicU8,
+    /// Availability reported by the upstream itself over `SubscribeStatus`.
+    /// Only a remote Dshackle upstream reports its own status; for every other
+    /// upstream this stays `Ok` and has no effect.
+    reported_status: AtomicU8,
     /// `disable-validation` in the config: the operator declared this
     /// upstream always valid, so report `Ok` no matter what.
     always_valid: AtomicBool,
@@ -58,6 +62,7 @@ impl UpstreamState {
             lag_status: AtomicU8::new(UpstreamAvailability::Ok as u8),
             validation_status: AtomicU8::new(UpstreamAvailability::Ok as u8),
             fork_status: AtomicU8::new(UpstreamAvailability::Ok as u8),
+            reported_status: AtomicU8::new(UpstreamAvailability::Ok as u8),
             always_valid: AtomicBool::new(false),
             syncing_lag,
         }
@@ -69,7 +74,8 @@ impl UpstreamState {
     }
 
     /// Effective availability: the worst of the lag-based status, the
-    /// validation status, and the fork status.
+    /// validation status, the fork status, and the status the upstream reports
+    /// about itself (remote Dshackle `SubscribeStatus`).
     ///
     /// The legacy `statusByLag` combined these with special cases that
     /// could let a validation verdict mask a large lag (e.g. `Immature` with
@@ -84,7 +90,9 @@ impl UpstreamState {
         let by_validation =
             UpstreamAvailability::from_u8(self.validation_status.load(Ordering::Relaxed));
         let by_fork = UpstreamAvailability::from_u8(self.fork_status.load(Ordering::Relaxed));
-        by_lag.max(by_validation).max(by_fork)
+        let by_reported =
+            UpstreamAvailability::from_u8(self.reported_status.load(Ordering::Relaxed));
+        by_lag.max(by_validation).max(by_fork).max(by_reported)
     }
 
     /// Update lag and recalculate the lag-based status.
@@ -125,6 +133,14 @@ impl UpstreamState {
             UpstreamAvailability::Ok
         };
         self.fork_status.store(status as u8, Ordering::Relaxed);
+    }
+
+    /// Record the availability a remote Dshackle upstream reports about itself
+    /// over `SubscribeStatus`. Folded into `availability` as another worst-of
+    /// signal, so the remote declaring a chain unavailable takes it out of
+    /// rotation here too.
+    pub fn set_reported(&self, status: UpstreamAvailability) {
+        self.reported_status.store(status as u8, Ordering::Relaxed);
     }
 
     /// Declare the upstream always valid (`disable-validation`): availability
@@ -263,6 +279,18 @@ mod tests {
         s.set_validation(UpstreamAvailability::Unavailable);
         s.set_unknown();
         assert_eq!(s.availability(), UpstreamAvailability::Unavailable);
+    }
+
+    #[test]
+    fn reported_status_combines_as_worst() {
+        let s = UpstreamState::new();
+        s.update(0, Some(100));
+        // A healthy lag, but the remote reports itself unavailable.
+        s.set_reported(UpstreamAvailability::Unavailable);
+        assert_eq!(s.availability(), UpstreamAvailability::Unavailable);
+        // Remote recovers; lag-based Ok is restored.
+        s.set_reported(UpstreamAvailability::Ok);
+        assert_eq!(s.availability(), UpstreamAvailability::Ok);
     }
 
     #[test]

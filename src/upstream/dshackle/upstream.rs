@@ -73,6 +73,12 @@ impl DshackleUpstream {
     pub fn grpc_client(&self) -> BlockchainClient<Channel> {
         self.client.clone()
     }
+
+    /// Shared reference to this upstream's state, used by the status subscriber
+    /// to record the availability the remote reports over `SubscribeStatus`.
+    pub fn state_handle(&self) -> Arc<UpstreamState> {
+        Arc::clone(&self.state)
+    }
 }
 
 #[async_trait::async_trait]
