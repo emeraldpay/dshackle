@@ -207,6 +207,14 @@ pub fn build_success(id: &RequestId, result: &RawValue) -> String {
     .expect("response serialization never fails")
 }
 
+/// Serialize a success response whose result is an owned JSON value (used for
+/// proxy-generated results like a subscription id or an unsubscribe boolean,
+/// where there is no upstream `RawValue` to forward).
+pub fn build_success_value(id: &RequestId, value: serde_json::Value) -> String {
+    let raw = RawValue::from_string(value.to_string()).expect("value serializes to valid json");
+    build_success(id, &raw)
+}
+
 /// Serialize an error response.
 pub fn build_error(
     id: &RequestId,

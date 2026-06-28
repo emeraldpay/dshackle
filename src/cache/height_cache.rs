@@ -80,6 +80,7 @@ mod tests {
             timestamp: Timestamp::UNIX_EPOCH,
             transaction_hashes: Vec::<TxId>::new(),
             json: None,
+            header_json: None,
         }
     }
 

@@ -66,6 +66,7 @@ mod tests {
             timestamp: Timestamp::UNIX_EPOCH,
             transaction_hashes: vec![],
             json: None,
+            header_json: None,
         }
     }
 

@@ -197,6 +197,9 @@ pub(crate) fn parse_eth_block(raw_json: &str) -> Option<BlockContainer> {
         timestamp,
         transaction_hashes,
         json: Some(Arc::from(raw_json.as_bytes())),
+        // Full block already carries the header fields in `json`; the newHeads
+        // egress falls back to it, so no separate header copy is needed.
+        header_json: None,
     })
 }
 
@@ -217,9 +220,10 @@ fn parse_total_difficulty(v: &serde_json::Value) -> U256 {
 
 /// Parse an Ethereum `newHeads` notification into a [`BlockContainer`].
 ///
-/// The notification contains the block header but NOT the transaction list,
-/// so `transaction_hashes` will be empty and `json` is `None` (incomplete
-/// representation that shouldn't be served to callers).
+/// The notification contains the block header but NOT the transaction list, so
+/// `transaction_hashes` is empty and `json` stays `None` — an incomplete block
+/// must never be cached or served as a block response. The raw header is kept
+/// in `header_json` instead, for the `eth_subscribe("newHeads")` egress.
 fn parse_eth_head_notification(raw_json: &str) -> Option<BlockContainer> {
     let v: serde_json::Value = serde_json::from_str(raw_json).ok()?;
 
@@ -241,6 +245,7 @@ fn parse_eth_head_notification(raw_json: &str) -> Option<BlockContainer> {
         timestamp,
         transaction_hashes: vec![],
         json: None,
+        header_json: Some(Arc::from(raw_json.as_bytes())),
     })
 }
 

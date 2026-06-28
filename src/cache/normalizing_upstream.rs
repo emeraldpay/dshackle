@@ -256,6 +256,7 @@ mod tests {
                 timestamp: jiff::Timestamp::UNIX_EPOCH,
                 transaction_hashes: vec![],
                 json: None,
+                header_json: None,
             },
         );
         (caches, hash)

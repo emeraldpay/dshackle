@@ -344,6 +344,7 @@ mod integration_tests {
             timestamp: jiff::Timestamp::now() - jiff::Span::new().hours(1),
             transaction_hashes: vec![],
             json: Some(Arc::from(br#"{"number":"0x64"}"#.as_slice())),
+            header_json: None,
         }
     }
 

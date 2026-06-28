@@ -138,6 +138,7 @@ fn parse_chain_head(block_id: &str, height: u64, timestamp_ms: u64) -> Option<Bl
         timestamp,
         transaction_hashes: vec![],
         json: None,
+        header_json: None,
     })
 }
 

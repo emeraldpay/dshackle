@@ -48,6 +48,16 @@ pub struct BlockContainer {
     /// Raw JSON bytes of the block (with tx hashes, not full tx bodies).
     /// Wrapped in `Arc` for cheap cloning across cache layers.
     pub json: Option<Arc<[u8]>>,
+    /// Raw JSON of the block *header* as delivered by an Ethereum `newHeads`
+    /// notification, retained for the `eth_subscribe("newHeads")` egress.
+    ///
+    /// Unlike [`BlockContainer::json`], this may be a header-only object (no
+    /// transaction list) and so must never be served as a block response or
+    /// memoized in the block cache. `None` when the source didn't deliver a
+    /// standalone header (full blocks, cache reconstructions); the egress then
+    /// falls back to `json`, which for a full block carries the same header
+    /// fields.
+    pub header_json: Option<Arc<[u8]>>,
 }
 
 impl BlockContainer {
@@ -86,6 +96,7 @@ mod tests {
             timestamp: jiff::Timestamp::UNIX_EPOCH,
             transaction_hashes: vec![],
             json: None,
+            header_json: None,
         }
     }
 

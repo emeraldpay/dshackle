@@ -185,6 +185,8 @@ pub(crate) fn parse_btc_block(raw_json: &str) -> Option<BlockContainer> {
         timestamp,
         transaction_hashes,
         json: Some(Arc::from(raw_json.as_bytes())),
+        // Bitcoin has no Ethereum-style newHeads header notification.
+        header_json: None,
     })
 }
 

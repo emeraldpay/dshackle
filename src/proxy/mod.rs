@@ -25,6 +25,7 @@ mod ws;
 
 use crate::blockchain::TargetBlockchain;
 use crate::config::proxy::ProxyConfig;
+use crate::upstream::egress::{EgressSubscription, EthereumEgress, SyncingStatus};
 use crate::upstream::{Multistream, UpstreamManager};
 use bytes::Bytes;
 use std::collections::HashMap;
@@ -49,13 +50,21 @@ struct Cors {
 
 /// Resolved routing state shared with every request handler.
 struct ProxyState {
-    /// Route id (URL path segment, e.g. `eth`) → the chain's upstreams.
-    routes: HashMap<String, Arc<Multistream>>,
+    /// Route id (URL path segment, e.g. `eth`) → the chain's route.
+    routes: HashMap<String, Arc<ProxyRoute>>,
     preserve_batch_order: bool,
     /// Whether WebSocket upgrades are served; when off, the path is HTTP-only.
     websocket: bool,
     /// CORS headers to emit, or `None` when `cors-origin` is unset.
     cors: Option<Cors>,
+}
+
+/// Everything one route needs: the upstreams for plain JSON-RPC calls and, when
+/// the chain tracks a head, the egress for `eth_subscribe`. `egress` is `None`
+/// for chains without a head — they answer calls but reject subscriptions.
+struct ProxyRoute {
+    multistream: Arc<Multistream>,
+    egress: Option<Arc<dyn EgressSubscription>>,
 }
 
 /// Start the JSON-RPC HTTP proxy. Runs until the server stops; intended to be
@@ -117,10 +126,10 @@ fn routes_filter(
                         .into_response();
                 }
                 match state.routes.get(&segment) {
-                    Some(multistream) => {
-                        let multistream = Arc::clone(multistream);
+                    Some(route) => {
+                        let route = Arc::clone(route);
                         upgrade
-                            .on_upgrade(move |socket| ws::serve(socket, multistream))
+                            .on_upgrade(move |socket| ws::serve(socket, route))
                             .into_response()
                     }
                     None => {
@@ -140,12 +149,12 @@ fn routes_filter(
     ws_route.or(http_route).unify()
 }
 
-/// Build the path → upstreams map, skipping routes whose blockchain is unknown
-/// or has no configured upstreams.
+/// Build the path → route map, skipping routes whose blockchain is unknown or
+/// has no configured upstreams.
 fn resolve_routes(
     config: &ProxyConfig,
     upstreams: &UpstreamManager,
-) -> HashMap<String, Arc<Multistream>> {
+) -> HashMap<String, Arc<ProxyRoute>> {
     let mut routes = HashMap::new();
     for route in &config.routes {
         let chain: TargetBlockchain = match route.blockchain.parse() {
@@ -162,7 +171,14 @@ fn resolve_routes(
         match upstreams.get(&chain) {
             Some(multistream) => {
                 tracing::info!("Proxy route '/{}' -> {}", route.id, chain);
-                routes.insert(route.id.clone(), Arc::clone(multistream));
+                let egress = build_egress(upstreams, &chain, multistream);
+                routes.insert(
+                    route.id.clone(),
+                    Arc::new(ProxyRoute {
+                        multistream: Arc::clone(multistream),
+                        egress,
+                    }),
+                );
             }
             None => tracing::warn!(
                 "Proxy route '/{}' -> {} has no upstreams, skipping",
@@ -174,20 +190,34 @@ fn resolve_routes(
     routes
 }
 
+/// Build the chain's `eth_subscribe` egress from its merged head and aggregate
+/// status. Returns `None` when the chain has no head yet (subscriptions then
+/// can't be served).
+fn build_egress(
+    upstreams: &UpstreamManager,
+    chain: &TargetBlockchain,
+    multistream: &Arc<Multistream>,
+) -> Option<Arc<dyn EgressSubscription>> {
+    let head = upstreams.head(chain)?;
+    let status: Arc<dyn SyncingStatus> = multistream.clone();
+    Some(Arc::new(EthereumEgress::new(Arc::clone(head), status)))
+}
+
 async fn handle(
     segment: String,
     method: Method,
     body: Bytes,
     state: Arc<ProxyState>,
 ) -> warp::reply::Response {
-    let Some(multistream) = state.routes.get(&segment) else {
+    let Some(route) = state.routes.get(&segment) else {
         // Unknown route, any method.
         return warp::reply::with_status(String::new(), StatusCode::NOT_FOUND).into_response();
     };
 
     match method {
         Method::POST => {
-            let body = handler::process(&body, multistream, state.preserve_batch_order).await;
+            let body =
+                handler::process(&body, &route.multistream, state.preserve_batch_order).await;
             // Always HTTP 200; JSON-RPC errors are carried in the body.
             let mut response = warp::reply::with_status(body, StatusCode::OK).into_response();
             response
@@ -273,11 +303,20 @@ mod tests {
         }
     }
 
-    fn state_with(cors: Option<Cors>) -> Arc<ProxyState> {
+    fn stub_multistream() -> Arc<Multistream> {
         let upstream: Arc<dyn RpcUpstream> = Arc::new(StubUpstream(Arc::new(UpstreamState::new())));
-        let multistream = Arc::new(Multistream::new(vec![upstream], Arc::new(AlwaysFactory)));
+        Arc::new(Multistream::new(vec![upstream], Arc::new(AlwaysFactory)))
+    }
+
+    fn state_with(cors: Option<Cors>) -> Arc<ProxyState> {
         let mut routes = HashMap::new();
-        routes.insert("eth".to_string(), multistream);
+        routes.insert(
+            "eth".to_string(),
+            Arc::new(ProxyRoute {
+                multistream: stub_multistream(),
+                egress: None,
+            }),
+        );
         Arc::new(ProxyState {
             routes,
             preserve_batch_order: false,
@@ -422,7 +461,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ws_subscribe_is_rejected_until_egress_lands() {
+    async fn ws_subscribe_rejected_when_chain_has_no_egress() {
+        // A route without a head can't serve subscriptions.
         let filter = routes_filter(state_with_eth_route());
         let mut client = warp::test::ws()
             .path("/eth")
@@ -466,5 +506,122 @@ mod tests {
         let filter = routes_filter(state);
         let result = warp::test::ws().path("/eth").handshake(filter).await;
         assert!(result.is_err(), "upgrade must fail when WS is disabled");
+    }
+
+    /// A route whose chain has a working `newHeads` egress, plus the head to
+    /// feed blocks into it.
+    fn state_with_egress() -> (Arc<ProxyState>, Arc<crate::upstream::head::CurrentHead>) {
+        use crate::upstream::egress::EthereumEgress;
+        use crate::upstream::head::CurrentHead;
+        use crate::upstream::merged_head::MergedHead;
+
+        let multistream = stub_multistream();
+        let head = Arc::new(CurrentHead::new());
+        let merged = MergedHead::new(vec![Arc::clone(&head)]);
+        let status: Arc<dyn SyncingStatus> = multistream.clone();
+        let egress: Arc<dyn EgressSubscription> =
+            Arc::new(EthereumEgress::new(merged, status));
+
+        let mut routes = HashMap::new();
+        routes.insert(
+            "eth".to_string(),
+            Arc::new(ProxyRoute {
+                multistream,
+                egress: Some(egress),
+            }),
+        );
+        let state = Arc::new(ProxyState {
+            routes,
+            preserve_batch_order: false,
+            websocket: true,
+            cors: None,
+        });
+        (state, head)
+    }
+
+    fn head_block(height: u64) -> crate::data::BlockContainer {
+        use crate::data::{BlockContainer, BlockId};
+        let mut hash = [0u8; 32];
+        hash[0] = height as u8;
+        let header = format!(
+            r#"{{"number":"0x{height:x}","gasLimit":"0x1c9c380","difficulty":"0x0"}}"#
+        );
+        BlockContainer {
+            hash: BlockId::from_bytes(hash),
+            height,
+            parent_hash: Some(BlockId::from_bytes([0xbb; 32])),
+            total_difficulty: alloy::primitives::U256::ZERO,
+            timestamp: jiff::Timestamp::UNIX_EPOCH,
+            transaction_hashes: vec![],
+            json: None,
+            header_json: Some(Arc::from(header.into_bytes().as_slice())),
+        }
+    }
+
+    #[tokio::test]
+    async fn ws_newheads_subscription_streams_blocks() {
+        let (state, head) = state_with_egress();
+        let filter = routes_filter(state);
+        let mut client = warp::test::ws()
+            .path("/eth")
+            .handshake(filter)
+            .await
+            .expect("handshake succeeds");
+
+        client
+            .send_text(r#"{"jsonrpc":"2.0","id":1,"method":"eth_subscribe","params":["newHeads"]}"#)
+            .await;
+
+        // First frame carries the subscription id.
+        let first: serde_json::Value =
+            serde_json::from_str(client.recv().await.unwrap().to_str().unwrap()).unwrap();
+        assert_eq!(first["id"], 1);
+        let sub_id = first["result"].as_str().expect("subscription id").to_string();
+
+        // A new head is pushed as an eth_subscription envelope.
+        head.update_with_block(head_block(0x42));
+        let event: serde_json::Value =
+            serde_json::from_str(client.recv().await.unwrap().to_str().unwrap()).unwrap();
+        assert_eq!(event["method"], "eth_subscription");
+        assert_eq!(event["params"]["subscription"], sub_id);
+        assert_eq!(event["params"]["result"]["number"], "0x42");
+        assert_eq!(event["params"]["result"]["gasLimit"], "0x1c9c380");
+    }
+
+    #[tokio::test]
+    async fn ws_unsubscribe_reports_active_then_unknown() {
+        let (state, _head) = state_with_egress();
+        let filter = routes_filter(state);
+        let mut client = warp::test::ws()
+            .path("/eth")
+            .handshake(filter)
+            .await
+            .expect("handshake succeeds");
+
+        client
+            .send_text(r#"{"jsonrpc":"2.0","id":1,"method":"eth_subscribe","params":["newHeads"]}"#)
+            .await;
+        let first: serde_json::Value =
+            serde_json::from_str(client.recv().await.unwrap().to_str().unwrap()).unwrap();
+        let sub_id = first["result"].as_str().unwrap().to_string();
+
+        // Unsubscribing an active subscription returns true.
+        client
+            .send_text(&format!(
+                r#"{{"jsonrpc":"2.0","id":2,"method":"eth_unsubscribe","params":["{sub_id}"]}}"#
+            ))
+            .await;
+        let ok: serde_json::Value =
+            serde_json::from_str(client.recv().await.unwrap().to_str().unwrap()).unwrap();
+        assert_eq!(ok["id"], 2);
+        assert_eq!(ok["result"], true);
+
+        // Unsubscribing an unknown id returns false.
+        client
+            .send_text(r#"{"jsonrpc":"2.0","id":3,"method":"eth_unsubscribe","params":["deadbeef"]}"#)
+            .await;
+        let unknown: serde_json::Value =
+            serde_json::from_str(client.recv().await.unwrap().to_str().unwrap()).unwrap();
+        assert_eq!(unknown["result"], false);
     }
 }

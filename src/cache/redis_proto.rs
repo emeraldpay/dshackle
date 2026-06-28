@@ -97,6 +97,9 @@ pub fn decode_block(data: &[u8]) -> Option<BlockContainer> {
             .map(|h| h.try_into().ok().map(TxId::from_bytes))
             .collect::<Option<Vec<_>>>()?,
         json: Some(Arc::from(container.value.as_slice())),
+        // Cached blocks are full blocks; the newHeads egress reads header fields
+        // from `json` when no standalone header was captured.
+        header_json: None,
     })
 }
 
@@ -167,6 +170,7 @@ mod tests {
             timestamp: jiff::Timestamp::from_millisecond(1_700_000_000_123).unwrap(),
             transaction_hashes: vec![TxId::from_bytes([3u8; 32]), TxId::from_bytes([4u8; 32])],
             json: Some(Arc::from(br#"{"number":"0x64"}"#.as_slice())),
+            header_json: None,
         }
     }
 

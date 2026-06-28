@@ -14,22 +14,43 @@
 
 //! Egress (server-pushed) subscriptions.
 //!
-//! The topics behind the gRPC `NativeSubscribe` and, later, `eth_subscribe`
-//! over the WebSocket proxy. Each chain exposes an [`EgressSubscription`] that
-//! turns a topic + params into a stream of JSON messages. Ported from the
-//! legacy `EgressSubscription` / `EthereumEgressSubscription`.
+//! The topics behind the gRPC `NativeSubscribe` and the `eth_subscribe`
+//! WebSocket proxy. Each chain exposes an [`EgressSubscription`] that turns a
+//! topic + params into a stream of JSON messages. Ports the legacy
+//! `EthereumEgressSubscription`.
 
 use crate::data::BlockContainer;
 use crate::upstream::merged_head::MergedHead;
 use serde_json::json;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::{Stream, StreamExt};
 
-/// Subscription topic name. The other `eth_subscribe` topics (`logs`,
-/// `syncing`, `newPendingTransactions`) are added as they are implemented.
+/// `eth_subscribe` topics. `logs` (filtered) and `newPendingTransactions` are
+/// added with later work.
 pub const METHOD_NEW_HEADS: &str = "newHeads";
+pub const METHOD_SYNCING: &str = "syncing";
+
+/// Header fields a `newHeads` message carries beyond the parsed block metadata.
+/// Passed through verbatim from the raw header JSON, matching the legacy
+/// `NewHeadMessage` (which intentionally omits extraData, sha3Uncles, the state
+/// / transactions / receipts roots, and the full transaction list).
+const NEW_HEAD_HEADER_FIELDS: [&str; 6] = [
+    "difficulty",
+    "gasLimit",
+    "gasUsed",
+    "logsBloom",
+    "miner",
+    "baseFeePerGas",
+];
+
+/// How often the `syncing` topic re-checks the chain's status. The legacy
+/// implementation is event-driven off `observeStatus`; the Rust upstreams
+/// expose no status-change signal yet, so the egress polls and emits only on
+/// change. The poll cadence is the one behavioral difference.
+const SYNCING_POLL_INTERVAL: Duration = Duration::from_secs(1);
 
 /// A stream of JSON-encoded subscription messages.
 pub type SubscriptionStream = Pin<Box<dyn Stream<Item = Vec<u8>> + Send>>;
@@ -52,20 +73,29 @@ pub trait EgressSubscription: Send + Sync {
     ) -> Result<SubscriptionStream, EgressError>;
 }
 
-/// Egress backed solely by the chain's merged head — supports `newHeads` only.
-/// The richer Ethereum topics (`logs`, `syncing`) build on top of this as they
-/// are ported.
-pub struct HeadEgress {
-    head: Arc<MergedHead>,
+/// Source of the chain's aggregate syncing state, read by the `syncing` topic.
+/// Implemented by `Multistream`; abstracted so the egress doesn't depend on the
+/// whole routing layer (and stays trivially testable).
+pub trait SyncingStatus: Send + Sync {
+    /// `true` when the chain has no fully-synced upstream — the legacy
+    /// `observeStatus() != OK`.
+    fn is_syncing(&self) -> bool;
 }
 
-impl HeadEgress {
-    pub fn new(head: Arc<MergedHead>) -> Self {
-        Self { head }
+/// Ethereum egress: `newHeads` from the chain's merged head and `syncing` from
+/// its aggregate status. Ports `EthereumEgressSubscription`.
+pub struct EthereumEgress {
+    head: Arc<MergedHead>,
+    status: Arc<dyn SyncingStatus>,
+}
+
+impl EthereumEgress {
+    pub fn new(head: Arc<MergedHead>, status: Arc<dyn SyncingStatus>) -> Self {
+        Self { head, status }
     }
 }
 
-impl EgressSubscription for HeadEgress {
+impl EgressSubscription for EthereumEgress {
     fn subscribe(
         &self,
         method: &str,
@@ -79,6 +109,7 @@ impl EgressSubscription for HeadEgress {
                     .filter_map(|item| item.ok().map(|block| new_head_message(&block)));
                 Ok(Box::pin(stream))
             }
+            METHOD_SYNCING => Ok(syncing_stream(Arc::clone(&self.status))),
             other => Err(EgressError::UnsupportedMethod(other.to_string())),
         }
     }
@@ -86,19 +117,62 @@ impl EgressSubscription for HeadEgress {
 
 /// Build a `newHeads` message from a head block.
 ///
-/// Emits the subset of header fields carried by [`BlockContainer`]. The rest of
-/// the legacy `NewHeadMessage` (difficulty, gasLimit, gasUsed, logsBloom,
-/// miner, baseFeePerGas) requires the raw header JSON, which the head pipeline
-/// will preserve when the WebSocket egress lands; until then those fields are
-/// omitted rather than guessed.
+/// The core fields come from the parsed block metadata; the remaining header
+/// fields are passed through verbatim from the raw header JSON (a `newHeads`
+/// notification or, as a fallback, the full block JSON — both carry the same
+/// header fields, already encoded as canonical hex by the node). When no raw
+/// header is available the message degrades to the metadata-only subset rather
+/// than guessing.
 fn new_head_message(block: &BlockContainer) -> Vec<u8> {
-    let value = json!({
-        "number": format!("0x{:x}", block.height),
-        "hash": block.hash.to_hex_prefixed(),
-        "parentHash": block.parent_hash.map(|p| p.to_hex_prefixed()),
-        "timestamp": format!("0x{:x}", block.timestamp.as_second() as u64),
-    });
-    serde_json::to_vec(&value).expect("newHeads message always serializes")
+    let mut msg = serde_json::Map::new();
+    msg.insert("number".into(), json!(format!("0x{:x}", block.height)));
+    msg.insert("hash".into(), json!(block.hash.to_hex_prefixed()));
+    if let Some(parent) = block.parent_hash {
+        msg.insert("parentHash".into(), json!(parent.to_hex_prefixed()));
+    }
+    msg.insert(
+        "timestamp".into(),
+        json!(format!("0x{:x}", block.timestamp.as_second() as u64)),
+    );
+
+    let raw = block.header_json.as_deref().or(block.json.as_deref());
+    if let Some(raw) = raw {
+        if let Ok(serde_json::Value::Object(header)) =
+            serde_json::from_slice::<serde_json::Value>(raw)
+        {
+            for field in NEW_HEAD_HEADER_FIELDS {
+                match header.get(field) {
+                    Some(value) if !value.is_null() => {
+                        msg.insert(field.to_string(), value.clone());
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    serde_json::to_vec(&serde_json::Value::Object(msg)).expect("newHeads message always serializes")
+}
+
+/// Stream of `syncing` booleans: the current value immediately, then a new
+/// value each time the chain's status flips. Polls on [`SYNCING_POLL_INTERVAL`]
+/// while the value is unchanged.
+fn syncing_stream(status: Arc<dyn SyncingStatus>) -> SubscriptionStream {
+    let stream = futures::stream::unfold(
+        (status, Option::<bool>::None),
+        |(status, last)| async move {
+            loop {
+                let syncing = status.is_syncing();
+                if last != Some(syncing) {
+                    let msg = serde_json::to_vec(&serde_json::Value::Bool(syncing))
+                        .expect("bool always serializes");
+                    return Some((msg, (status, Some(syncing))));
+                }
+                tokio::time::sleep(SYNCING_POLL_INTERVAL).await;
+            }
+        },
+    );
+    Box::pin(stream)
 }
 
 #[cfg(test)]
@@ -106,8 +180,17 @@ mod tests {
     use super::*;
     use crate::data::BlockId;
     use crate::upstream::head::CurrentHead;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
-    fn block(height: u64) -> BlockContainer {
+    /// A full Ethereum header as a node delivers it over `newHeads`.
+    const HEADER_JSON: &str = r#"{
+        "number":"0x10","hash":"0xaa","parentHash":"0xbb","timestamp":"0x6553f100",
+        "difficulty":"0x0","gasLimit":"0x1c9c380","gasUsed":"0x5208",
+        "logsBloom":"0x00","miner":"0xcafe","baseFeePerGas":"0x7",
+        "extraData":"0xdead","stateRoot":"0xfeed"
+    }"#;
+
+    fn block_with_header(height: u64, header: Option<&str>) -> BlockContainer {
         let mut hash = [0u8; 32];
         hash[0] = height as u8;
         BlockContainer {
@@ -118,30 +201,98 @@ mod tests {
             timestamp: jiff::Timestamp::from_second(1_700_000_000).unwrap(),
             transaction_hashes: vec![],
             json: None,
+            header_json: header.map(|h| Arc::from(h.as_bytes())),
         }
+    }
+
+    struct StubStatus(AtomicBool);
+    impl StubStatus {
+        fn new(syncing: bool) -> Arc<Self> {
+            Arc::new(Self(AtomicBool::new(syncing)))
+        }
+        fn set(&self, syncing: bool) {
+            self.0.store(syncing, Ordering::Relaxed);
+        }
+    }
+    impl SyncingStatus for StubStatus {
+        fn is_syncing(&self) -> bool {
+            self.0.load(Ordering::Relaxed)
+        }
+    }
+
+    fn egress(head: Arc<MergedHead>, status: Arc<dyn SyncingStatus>) -> EthereumEgress {
+        EthereumEgress::new(head, status)
+    }
+
+    #[test]
+    fn new_head_message_carries_full_header_fields() {
+        let msg = new_head_message(&block_with_header(0x10, Some(HEADER_JSON)));
+        let value: serde_json::Value = serde_json::from_slice(&msg).unwrap();
+        // Core fields from metadata.
+        assert_eq!(value["number"], "0x10");
+        assert_eq!(value["timestamp"], "0x6553f100");
+        assert!(value["hash"].as_str().unwrap().starts_with("0x"));
+        assert!(value["parentHash"].as_str().unwrap().starts_with("0x"));
+        // Header fields passed through from the raw header.
+        assert_eq!(value["difficulty"], "0x0");
+        assert_eq!(value["gasLimit"], "0x1c9c380");
+        assert_eq!(value["gasUsed"], "0x5208");
+        assert_eq!(value["logsBloom"], "0x00");
+        assert_eq!(value["miner"], "0xcafe");
+        assert_eq!(value["baseFeePerGas"], "0x7");
+        // Intentionally-omitted fields stay out.
+        assert!(value.get("extraData").is_none());
+        assert!(value.get("stateRoot").is_none());
+    }
+
+    #[test]
+    fn new_head_message_degrades_without_raw_header() {
+        let msg = new_head_message(&block_with_header(0x10, None));
+        let value: serde_json::Value = serde_json::from_slice(&msg).unwrap();
+        assert_eq!(value["number"], "0x10");
+        assert!(value.get("difficulty").is_none());
+        assert!(value.get("gasLimit").is_none());
     }
 
     #[tokio::test]
     async fn new_heads_streams_head_messages() {
         let head = Arc::new(CurrentHead::new());
         let merged = MergedHead::new(vec![Arc::clone(&head)]);
-        let egress = HeadEgress::new(merged);
+        let egress = egress(merged, StubStatus::new(false));
 
         let mut stream = egress.subscribe(METHOD_NEW_HEADS, None).unwrap();
-        head.update_with_block(block(0x10));
+        head.update_with_block(block_with_header(0x20, Some(HEADER_JSON)));
 
         let msg = stream.next().await.unwrap();
         let value: serde_json::Value = serde_json::from_slice(&msg).unwrap();
-        assert_eq!(value["number"], "0x10");
-        assert_eq!(value["timestamp"], "0x6553f100");
-        assert!(value["hash"].as_str().unwrap().starts_with("0x"));
-        assert!(value["parentHash"].as_str().unwrap().starts_with("0x"));
+        assert_eq!(value["number"], "0x20");
+        assert_eq!(value["gasLimit"], "0x1c9c380");
+    }
+
+    #[tokio::test]
+    async fn syncing_emits_initial_then_on_change() {
+        let status = StubStatus::new(false);
+        let merged = MergedHead::new(vec![]);
+        let egress = egress(merged, Arc::clone(&status) as Arc<dyn SyncingStatus>);
+
+        let mut stream = egress.subscribe(METHOD_SYNCING, None).unwrap();
+
+        // Initial value is emitted immediately.
+        let first: serde_json::Value = serde_json::from_slice(&stream.next().await.unwrap()).unwrap();
+        assert_eq!(first, serde_json::json!(false));
+
+        // The change is observed on the next poll, which happens as soon as the
+        // stream is polled again — no waiting on the interval.
+        status.set(true);
+        let second: serde_json::Value =
+            serde_json::from_slice(&stream.next().await.unwrap()).unwrap();
+        assert_eq!(second, serde_json::json!(true));
     }
 
     #[tokio::test]
     async fn unsupported_method_errors() {
         let merged = MergedHead::new(vec![]);
-        let egress = HeadEgress::new(merged);
+        let egress = egress(merged, StubStatus::new(false));
         let err = egress
             .subscribe("logs", None)
             .err()

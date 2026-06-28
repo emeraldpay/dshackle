@@ -14,30 +14,48 @@
 
 //! JSON-RPC over WebSocket for the proxy.
 //!
-//! Serves the same `/<route-id>` endpoints as the HTTP proxy, but over a
-//! persistent WebSocket connection. Each text frame is one JSON-RPC request,
-//! answered through the shared call path. Ports the plain-call half of the
-//! legacy `WebsocketHandler`; `eth_subscribe` / `eth_unsubscribe` arrive with
-//! the egress work (3.4).
+//! Serves the same `/<route-id>` endpoints as the HTTP proxy, over a persistent
+//! WebSocket connection. Each text frame is one JSON-RPC request: plain calls
+//! go through the shared call path, while `eth_subscribe` / `eth_unsubscribe`
+//! drive server-pushed [`EgressSubscription`] streams. Ports the legacy
+//! `WebsocketHandler`.
 
+use super::ProxyRoute;
 use super::handler;
-use super::protocol::{self, BodyKind};
-use crate::upstream::Multistream;
+use super::protocol::{self, BodyKind, ProxyRequest};
+use crate::upstream::egress::EgressError;
 use futures::{SinkExt, StreamExt};
+use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::mpsc;
+use tokio::task::AbortHandle;
 use warp::ws::{Message, WebSocket};
 
 const METHOD_SUBSCRIBE: &str = "eth_subscribe";
 const METHOD_UNSUBSCRIBE: &str = "eth_unsubscribe";
 
+/// Code returned for a subscription request that can't be served.
+const CODE_METHOD_NOT_FOUND: i64 = -32601;
+
+/// Connection-independent subscription id counter. The legacy proxy keeps one
+/// `AtomicLong` per handler instance (effectively global); a process-wide
+/// counter keeps ids unique across connections too. Hex-encoded, matching
+/// `Long.toString(16)`.
+static NEXT_SUBSCRIPTION_ID: AtomicU64 = AtomicU64::new(1);
+
+fn next_subscription_id() -> String {
+    format!("{:x}", NEXT_SUBSCRIPTION_ID.fetch_add(1, Ordering::Relaxed))
+}
+
 /// Serve one accepted WebSocket connection until the client disconnects.
 ///
-/// Requests are processed concurrently and responses are written back as they
-/// complete (matching the legacy `flatMap`), so a slow upstream call never
-/// blocks later requests on the same connection. A single writer task owns the
-/// sink; this is also the seam subscription pushes will use in 3.4.
-pub async fn serve(socket: WebSocket, multistream: Arc<Multistream>) {
+/// Plain calls are processed concurrently (one task per frame, matching the
+/// legacy `flatMap`) and answered as they complete. A single writer task owns
+/// the sink, so request responses and subscription pushes never race on it. The
+/// per-connection subscription registry is touched only by this read loop, so
+/// it needs no locking.
+pub async fn serve(socket: WebSocket, route: Arc<ProxyRoute>) {
     let (mut sink, mut stream) = socket.split();
     let (out_tx, mut out_rx) = mpsc::unbounded_channel::<Message>();
 
@@ -48,6 +66,9 @@ pub async fn serve(socket: WebSocket, multistream: Arc<Multistream>) {
             }
         }
     });
+
+    // Active subscriptions on this connection: id -> handle to its pump task.
+    let mut subscriptions: HashMap<String, AbortHandle> = HashMap::new();
 
     while let Some(frame) = stream.next().await {
         let msg = match frame {
@@ -63,45 +84,147 @@ pub async fn serve(socket: WebSocket, multistream: Arc<Multistream>) {
             continue;
         }
 
-        let bytes = msg.as_bytes().to_vec();
-        let multistream = Arc::clone(&multistream);
-        let out_tx = out_tx.clone();
-        tokio::spawn(async move {
-            if let Some(response) = dispatch(&bytes, &multistream).await {
-                let _ = out_tx.send(Message::text(response));
+        // Malformed input and batches are silently ignored, as the legacy proxy
+        // does ("that's what other Ethereum servers do").
+        let Some(req) = parse_single(msg.as_bytes()) else {
+            continue;
+        };
+
+        match req.method.as_str() {
+            METHOD_SUBSCRIBE => handle_subscribe(&route, &req, &out_tx, &mut subscriptions),
+            METHOD_UNSUBSCRIBE => handle_unsubscribe(&req, &out_tx, &mut subscriptions),
+            _ => {
+                // Plain call: run it off the read loop so a slow upstream never
+                // blocks later frames on this connection.
+                let multistream = Arc::clone(&route.multistream);
+                let out_tx = out_tx.clone();
+                tokio::spawn(async move {
+                    let response = handler::run(&multistream, &req).await;
+                    let _ = out_tx.send(Message::text(response));
+                });
             }
-        });
+        }
     }
 
-    // Drop the read loop's sender so the writer ends once in-flight responses
-    // (whose tasks hold their own clones) have drained.
+    // Stop all subscription pumps, then let the writer drain once the in-flight
+    // call tasks (which hold their own sender clones) finish.
+    for (_, handle) in subscriptions.drain() {
+        handle.abort();
+    }
     drop(out_tx);
     let _ = writer.await;
 }
 
-/// Turn one incoming frame into an optional response body.
-///
-/// Returns `None` for anything the connection should silently swallow — batches
-/// (unsupported over WS) and malformed requests — exactly as the legacy proxy
-/// does ("that's what other Ethereum servers do").
-async fn dispatch(bytes: &[u8], multistream: &Multistream) -> Option<String> {
-    // WS carries one request per frame; batches are ignored, not answered.
+/// Parse one frame as a single JSON-RPC request, or `None` for anything to
+/// ignore (a batch — unsupported over WS — or malformed input).
+fn parse_single(bytes: &[u8]) -> Option<ProxyRequest> {
     if !matches!(protocol::detect_kind(bytes), Ok(BodyKind::Single)) {
         return None;
     }
     let value = protocol::parse_body(bytes).ok()?;
-    let req = protocol::validate_item(&value).ok()?;
+    protocol::validate_item(&value).ok()
+}
 
-    match req.method.as_str() {
-        // Subscriptions ride on top of this transport in 3.4. Until then reject
-        // them explicitly rather than forwarding a meaningless eth_subscribe to
-        // an HTTP upstream.
-        METHOD_SUBSCRIBE | METHOD_UNSUBSCRIBE => Some(protocol::build_error(
+/// Start a subscription: respond with its id, then pump its events back wrapped
+/// in the `eth_subscription` envelope.
+fn handle_subscribe(
+    route: &ProxyRoute,
+    req: &ProxyRequest,
+    out_tx: &mpsc::UnboundedSender<Message>,
+    subscriptions: &mut HashMap<String, AbortHandle>,
+) {
+    // A malformed subscribe (no topic, or too many params) is ignored, matching
+    // the legacy `splitMethodParams` returning null.
+    let Some((topic, params)) = subscribe_params(&req.params) else {
+        return;
+    };
+
+    let Some(egress) = &route.egress else {
+        let _ = out_tx.send(Message::text(protocol::build_error(
             &req.id,
-            -32601,
-            "Subscriptions are not yet supported over the proxy".to_string(),
+            CODE_METHOD_NOT_FOUND,
+            "Subscriptions are not supported for this blockchain".to_string(),
             None,
-        )),
-        _ => Some(handler::run(multistream, &req).await),
+        )));
+        return;
+    };
+
+    match egress.subscribe(&topic, params) {
+        Ok(mut stream) => {
+            let sub_id = next_subscription_id();
+            // The id response must precede any pushed event; the mpsc is FIFO and
+            // this enqueues before the pump task is spawned.
+            let _ = out_tx.send(Message::text(protocol::build_success_value(
+                &req.id,
+                serde_json::Value::String(sub_id.clone()),
+            )));
+
+            let out = out_tx.clone();
+            let id = sub_id.clone();
+            let handle = tokio::spawn(async move {
+                while let Some(event) = stream.next().await {
+                    // Bad event JSON or a closed channel stops the pump.
+                    let Some(msg) = subscription_message(&id, &event) else {
+                        break;
+                    };
+                    if out.send(Message::text(msg)).is_err() {
+                        break;
+                    }
+                }
+            });
+            subscriptions.insert(sub_id, handle.abort_handle());
+        }
+        Err(EgressError::UnsupportedMethod(method)) => {
+            let _ = out_tx.send(Message::text(protocol::build_error(
+                &req.id,
+                CODE_METHOD_NOT_FOUND,
+                format!("Subscription type {method} is not supported"),
+                None,
+            )));
+        }
     }
+}
+
+/// Cancel a subscription by id and report whether one was active.
+fn handle_unsubscribe(
+    req: &ProxyRequest,
+    out_tx: &mpsc::UnboundedSender<Message>,
+    subscriptions: &mut HashMap<String, AbortHandle>,
+) {
+    let removed = req
+        .params
+        .as_array()
+        .and_then(|a| a.first())
+        .and_then(|v| v.as_str())
+        .and_then(|id| subscriptions.remove(id));
+    if let Some(handle) = &removed {
+        handle.abort();
+    }
+    let _ = out_tx.send(Message::text(protocol::build_success_value(
+        &req.id,
+        serde_json::Value::Bool(removed.is_some()),
+    )));
+}
+
+/// Extract `(topic, params)` from a subscribe request's params array. Ports the
+/// legacy `splitMethodParams`: one or two elements only.
+fn subscribe_params(params: &serde_json::Value) -> Option<(String, Option<serde_json::Value>)> {
+    let arr = params.as_array()?;
+    match arr.len() {
+        1 => Some((arr[0].as_str()?.to_string(), None)),
+        2 => Some((arr[0].as_str()?.to_string(), Some(arr[1].clone()))),
+        _ => None,
+    }
+}
+
+/// Wrap a subscription event in the `eth_subscription` envelope. Returns `None`
+/// if the event isn't valid JSON (it always is, coming from the egress).
+fn subscription_message(sub_id: &str, event: &[u8]) -> Option<String> {
+    let result: serde_json::Value = serde_json::from_slice(event).ok()?;
+    let envelope = serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": "eth_subscription",
+        "params": { "subscription": sub_id, "result": result },
+    });
+    serde_json::to_string(&envelope).ok()
 }

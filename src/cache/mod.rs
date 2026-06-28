@@ -281,6 +281,7 @@ mod tests {
             timestamp: Timestamp::UNIX_EPOCH,
             transaction_hashes: Vec::<TxId>::new(),
             json: Some(Arc::from(b"{}".as_slice())),
+            header_json: None,
         }
     }
 

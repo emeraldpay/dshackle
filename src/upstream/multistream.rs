@@ -25,6 +25,7 @@
 
 use crate::jsonrpc::RpcMethod;
 use crate::upstream::availability::UpstreamAvailability;
+use crate::upstream::egress::SyncingStatus;
 use crate::upstream::quorum::{CallQuorum, QuorumFactory, SelectorHint};
 use crate::upstream::traits::RpcUpstream;
 use std::sync::Arc;
@@ -84,6 +85,16 @@ impl Multistream {
         self.upstreams.len()
     }
 
+    /// The chain's overall availability: the best (most-available) status across
+    /// all upstreams. Upstreams are never empty (asserted in `new`).
+    pub fn aggregate_availability(&self) -> UpstreamAvailability {
+        self.upstreams
+            .iter()
+            .map(|u| u.availability())
+            .min()
+            .unwrap_or(UpstreamAvailability::Unavailable)
+    }
+
     /// Returns upstreams currently considered usable (`Ok`, `Lagging`, or
     /// `Immature`) that accept `method`, starting from the next round-robin
     /// position.
@@ -137,6 +148,12 @@ impl Multistream {
             }
         }
         out
+    }
+}
+
+impl SyncingStatus for Multistream {
+    fn is_syncing(&self) -> bool {
+        self.aggregate_availability() != UpstreamAvailability::Ok
     }
 }
 
