@@ -26,11 +26,18 @@ use crate::upstream::egress::EgressError;
 use emerald_api::proto::blockchain::blockchain_server::Blockchain;
 use emerald_api::proto::blockchain::*;
 use emerald_api::proto::common;
-use futures::stream::{FuturesUnordered, StreamExt};
+use futures::stream::{self, FuturesUnordered, StreamExt};
 use std::pin::Pin;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio_stream::Stream;
 use tokio_stream::wrappers::BroadcastStream;
+
+/// How often [`subscribe_status`] re-checks a configured chain's aggregate
+/// status while it is unchanged. The legacy `SubscribeStatus` is event-driven
+/// off `Multistream.observeStatus`; until an event-driven status signal exists
+/// (roadmap 4.1) we poll, the same approach as the `syncing` egress.
+const STATUS_POLL_INTERVAL: Duration = Duration::from_secs(1);
 
 /// The Dshackle implementation of the `Blockchain` gRPC service.
 pub struct BlockchainRpcService {
@@ -280,12 +287,73 @@ impl Blockchain for BlockchainRpcService {
 
     async fn subscribe_status(
         &self,
-        _request: tonic::Request<StatusRequest>,
+        request: tonic::Request<StatusRequest>,
     ) -> Result<tonic::Response<Self::SubscribeStatusStream>, tonic::Status> {
-        Err(tonic::Status::unimplemented(
-            "subscribe_status not yet implemented",
-        ))
+        let req = request.into_inner();
+
+        // One sub-stream per requested chain, merged into a single response
+        // stream (legacy `Flux.merge`). A configured chain streams its status
+        // on every change; an unconfigured or unknown chain emits a single
+        // `UNAVAILABLE` and completes (legacy `chainUnavailable`).
+        let streams: Vec<Self::SubscribeStatusStream> = req
+            .chains
+            .into_iter()
+            .map(|chain_id| match TargetBlockchain::try_from(chain_id) {
+                Ok(chain) => match self.upstreams.get(&chain) {
+                    Some(multistream) => chain_status_stream(chain, multistream.clone()),
+                    None => once_status(chain_unavailable(chain.id())),
+                },
+                // An id outside the known `ChainRef` set still gets a definite
+                // answer, carrying the requested id verbatim.
+                Err(id) => once_status(chain_unavailable(id)),
+            })
+            .collect();
+
+        Ok(tonic::Response::new(Box::pin(stream::select_all(streams))))
     }
+}
+
+/// A single-item status stream that emits `status` once and completes. Used for
+/// chains with no configured upstreams.
+fn once_status(status: ChainStatus) -> BoxStream<ChainStatus> {
+    Box::pin(stream::once(std::future::ready(Ok(status))))
+}
+
+/// `ChainStatus` for a chain that has no upstreams: `UNAVAILABLE`, quorum 0
+/// (legacy `SubscribeStatus.chainUnavailable`).
+fn chain_unavailable(chain_id: i32) -> ChainStatus {
+    use crate::upstream::availability::UpstreamAvailability;
+    ChainStatus {
+        chain: chain_id,
+        availability: UpstreamAvailability::Unavailable as i32,
+        quorum: 0,
+    }
+}
+
+/// Stream a chain's [`ChainStatus`]: the current value immediately, then a new
+/// value each time its aggregate availability or in-quorum upstream count
+/// changes. Mirrors the legacy `SubscribeStatus` subscribing to
+/// `Multistream.observeStatus`; polls on [`STATUS_POLL_INTERVAL`] while
+/// unchanged (see the note there).
+fn chain_status_stream(
+    chain: TargetBlockchain,
+    multistream: Arc<Multistream>,
+) -> BoxStream<ChainStatus> {
+    // `ChainStatus` is `Copy + Eq`, so we keep the last emitted value and only
+    // yield on a real change — `distinctUntilChanged` over the poll.
+    let stream = stream::unfold(
+        (chain, multistream, Option::<ChainStatus>::None),
+        |(chain, multistream, last)| async move {
+            loop {
+                let status = chain_status(&chain, &multistream);
+                if last != Some(status) {
+                    return Some((Ok(status), (chain, multistream, Some(status))));
+                }
+                tokio::time::sleep(STATUS_POLL_INTERVAL).await;
+            }
+        },
+    );
+    Box::pin(stream)
 }
 
 /// Parse the optional JSON params object from a `NativeSubscribe` payload. An
@@ -777,6 +845,76 @@ mod tests {
             crate::upstream::availability::UpstreamAvailability::Ok as i32
         );
         assert_eq!(status.quorum, 1);
+    }
+
+    // ── subscribe_status ─────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn subscribe_status_reports_configured_chain() {
+        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let resp = service
+            .subscribe_status(tonic::Request::new(StatusRequest {
+                chains: vec![ChainRef::ChainEthereum as i32],
+            }))
+            .await
+            .expect("subscribe_status failed");
+        let mut stream = resp.into_inner();
+
+        // The current status is emitted immediately on subscribe.
+        let first = stream.next().await.expect("an item").expect("status ok");
+        assert_eq!(first.chain, ChainRef::ChainEthereum as i32);
+        assert_eq!(first.availability, UpstreamAvailability::Ok as i32);
+        assert_eq!(first.quorum, 1);
+    }
+
+    #[tokio::test]
+    async fn subscribe_status_unconfigured_chain_is_unavailable_once() {
+        // `service_with` configures only Ethereum, so Bitcoin is unknown here.
+        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let resp = service
+            .subscribe_status(tonic::Request::new(StatusRequest {
+                chains: vec![ChainRef::ChainBitcoin as i32],
+            }))
+            .await
+            .expect("subscribe_status failed");
+        let mut stream = resp.into_inner();
+
+        let first = stream.next().await.expect("an item").expect("status ok");
+        assert_eq!(first.chain, ChainRef::ChainBitcoin as i32);
+        assert_eq!(first.availability, UpstreamAvailability::Unavailable as i32);
+        assert_eq!(first.quorum, 0);
+        // Single-shot for an unconfigured chain: the sub-stream then completes.
+        assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn subscribe_status_unknown_chain_id_is_unavailable() {
+        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let resp = service
+            .subscribe_status(tonic::Request::new(StatusRequest {
+                chains: vec![999_999],
+            }))
+            .await
+            .expect("subscribe_status failed");
+        let mut stream = resp.into_inner();
+
+        // An id outside the known set still gets a definite answer carrying
+        // the requested id verbatim.
+        let first = stream.next().await.expect("an item").expect("status ok");
+        assert_eq!(first.chain, 999_999);
+        assert_eq!(first.availability, UpstreamAvailability::Unavailable as i32);
+        assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn subscribe_status_empty_request_completes_immediately() {
+        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let resp = service
+            .subscribe_status(tonic::Request::new(StatusRequest { chains: vec![] }))
+            .await
+            .expect("subscribe_status failed");
+        let mut stream = resp.into_inner();
+        assert!(stream.next().await.is_none());
     }
 
     #[tokio::test]
