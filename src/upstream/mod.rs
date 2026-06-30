@@ -16,6 +16,7 @@
 //! access to them for the RPC layer.
 
 pub mod availability;
+pub mod balance;
 pub(crate) mod bitcoin;
 mod dshackle;
 pub mod egress;
@@ -43,6 +44,7 @@ use crate::cache::{
     EthereumNormalizer, NormalizingUpstream, RedisCache, redis_cache,
 };
 use crate::config::cache::CacheConfig;
+use crate::config::tokens::{TokenConfig, TokenType};
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
 use bitcoin::head::start_head_poller as start_btc_head_poller;
 use bitcoin::http::BitcoinHttpUpstream;
@@ -51,6 +53,7 @@ use bitcoin::validator::BitcoinValidator;
 use dshackle::DshackleUpstream;
 use dshackle::head::start_head_subscriber;
 use dshackle::status::start_status_subscriber;
+use emerald_api::proto::blockchain::BalanceRequest;
 use emerald_api::proto::blockchain::DescribeRequest;
 use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
 use emerald_api::proto::common::ChainRef;
@@ -61,6 +64,7 @@ use ethereum::validator::EthereumValidator;
 use fork::{
     DifficultyForkChoice, ForkChoice, ForkMember, PriorityForkChoice, is_pos, start_fork_watch,
 };
+use balance::{BalanceError, BalanceStream, BitcoinBalance, EthereumBalance};
 use egress::{ChainAccess, EgressSubscription, EthereumEgress};
 use fees::{BitcoinFees, ChainFees, EthereumFees};
 use head::CurrentHead;
@@ -91,6 +95,10 @@ pub struct UpstreamManager {
     /// Per-chain merged head stream, used by `SubscribeHead` and the proxy's
     /// `newHeads` subscription.
     heads: HashMap<TargetBlockchain, Arc<MergedHead>>,
+    /// Configured ERC-20 tokens, keyed by `(chain, lowercased name)` → the
+    /// lowercased contract address. Lets a `GetBalance` request name a token by
+    /// its configured code (legacy `TrackERC20Address` `tokens` map).
+    tokens: HashMap<(TargetBlockchain, String), String>,
 }
 
 impl UpstreamManager {
@@ -103,6 +111,7 @@ impl UpstreamManager {
     pub async fn from_config(
         config: &UpstreamsConfig,
         cache_config: Option<&CacheConfig>,
+        tokens: &[TokenConfig],
     ) -> anyhow::Result<Self> {
         // A configured but unreachable Redis aborts the startup (matching
         // the legacy behavior): silently running without the expected shared
@@ -564,6 +573,7 @@ impl UpstreamManager {
             upstreams,
             caches: per_chain_caches,
             heads,
+            tokens: build_token_registry(tokens),
         })
     }
 
@@ -578,6 +588,7 @@ impl UpstreamManager {
             upstreams,
             caches,
             heads: HashMap::new(),
+            tokens: HashMap::new(),
         }
     }
 
@@ -636,6 +647,140 @@ impl UpstreamManager {
         }
     }
 
+    /// Build the balance stream for a `GetBalance` / `SubscribeBalance` request.
+    /// `subscribe` selects streaming-on-change vs a one-shot current value. The
+    /// tracker is chosen by chain + asset, mirroring the legacy
+    /// `trackAddress.find { it.isSupported(request) }`: native Ether
+    /// (`TrackEthereumAddress`), ERC-20 by token code or contract
+    /// (`TrackERC20Address`), and native Bitcoin (`TrackBitcoinAddress`).
+    pub fn balance(
+        &self,
+        request: &BalanceRequest,
+        subscribe: bool,
+    ) -> Result<BalanceStream, BalanceError> {
+        use emerald_api::proto::blockchain::balance_request::BalanceType;
+
+        let chain = balance::request_chain(request)?;
+        let access: Arc<dyn ChainAccess> = self
+            .get(&chain)
+            .ok_or(BalanceError::Unavailable(chain.id()))?
+            .clone();
+        let head = self.head(&chain).cloned();
+        let chain_id = chain.id();
+        let eth = chain.blockchain_type() == BlockchainType::Ethereum;
+        let btc = chain.blockchain_type() == BlockchainType::Bitcoin;
+        // `None` means an xpub address: Bitcoin would derive it (deferred here),
+        // every other asset treats it as no match — legacy returns an empty,
+        // successful stream rather than an error.
+        let resolved = balance::resolve_addresses(&request.address)?;
+
+        // `subscribe` vs one-shot over the chosen tracker (trackers share the
+        // method shape but are distinct types, so the choice is made per arm).
+        let stream = match request.balance_type.as_ref() {
+            // Native Ether.
+            Some(BalanceType::Asset(asset)) if eth && asset.code.eq_ignore_ascii_case("ether") => {
+                let Some(addresses) = resolved else {
+                    return Ok(balance::empty_stream());
+                };
+                let addresses = balance::parse_eth_addresses(addresses)?;
+                // Legacy always reports the native asset code as "ETHER".
+                let asset = emerald_api::proto::common::Asset {
+                    chain: asset.chain,
+                    code: "ETHER".to_string(),
+                };
+                let t = EthereumBalance::native(access, head, asset);
+                if subscribe {
+                    t.subscribe(addresses)
+                } else {
+                    t.get_balance(addresses)
+                }
+            }
+            // ERC-20 named by a configured token code.
+            Some(BalanceType::Asset(asset)) if eth => {
+                let contract = self
+                    .token_contract(&chain, &asset.code)
+                    .ok_or(BalanceError::Unsupported)?;
+                let Some(addresses) = resolved else {
+                    return Ok(balance::empty_stream());
+                };
+                let addresses = balance::parse_eth_addresses(addresses)?;
+                let t =
+                    EthereumBalance::erc20_named(access, head, chain_id, asset.code.clone(), contract);
+                if subscribe {
+                    t.subscribe(addresses)
+                } else {
+                    t.get_balance(addresses)
+                }
+            }
+            // ERC-20 by contract address (any valid address, no config needed).
+            Some(BalanceType::Erc20Asset(erc20)) if eth => {
+                if !balance::is_valid_eth_address(&erc20.contract_address) {
+                    return Err(BalanceError::Unsupported);
+                }
+                let Some(addresses) = resolved else {
+                    return Ok(balance::empty_stream());
+                };
+                let addresses = balance::parse_eth_addresses(addresses)?;
+                let t = EthereumBalance::erc20_contract(
+                    access,
+                    head,
+                    chain_id,
+                    erc20.contract_address.clone(),
+                );
+                if subscribe {
+                    t.subscribe(addresses)
+                } else {
+                    t.get_balance(addresses)
+                }
+            }
+            // Native Bitcoin (bitcoin / btc / satoshi).
+            Some(BalanceType::Asset(asset))
+                if btc
+                    && matches!(
+                        asset.code.to_lowercase().as_str(),
+                        "bitcoin" | "btc" | "satoshi"
+                    ) =>
+            {
+                // Legacy `isBalanceAvailable`: an upstream must advertise the
+                // BALANCE capability for the local UTXO path to run.
+                if !self.chain_provides_balance(&chain) {
+                    return Err(BalanceError::Unsupported);
+                }
+                // xpub derivation is deferred; only single/multi addresses.
+                let Some(mut addresses) = resolved else {
+                    return Err(BalanceError::Unsupported);
+                };
+                addresses.sort(); // legacy sorts multi addresses for Bitcoin
+                let addresses = balance::bitcoin::validate_addresses(addresses, chain)?;
+                let t = BitcoinBalance::new(access, head, chain_id, request.include_utxo);
+                if subscribe {
+                    t.subscribe(addresses)
+                } else {
+                    t.get_balance(addresses)
+                }
+            }
+            _ => return Err(BalanceError::Unsupported),
+        };
+        Ok(stream)
+    }
+
+    /// The contract address of an ERC-20 token configured under `name` for
+    /// `chain` (case-insensitive), if any.
+    fn token_contract(&self, chain: &TargetBlockchain, name: &str) -> Option<String> {
+        self.tokens.get(&(*chain, name.to_lowercase())).cloned()
+    }
+
+    /// Whether any upstream on `chain` advertises the BALANCE capability — the
+    /// gate the legacy `TrackBitcoinAddress.isBalanceAvailable` applies before
+    /// serving a Bitcoin balance from local UTXO data.
+    fn chain_provides_balance(&self, chain: &TargetBlockchain) -> bool {
+        self.get(chain).is_some_and(|ms| {
+            ms.upstreams()
+                .iter()
+                .any(|u| u.capabilities().contains(&Capability::Balance))
+        })
+    }
+
     /// Build the Bitcoin block/transaction reader for a chain, or `None` for a
     /// non-Bitcoin chain. The data-access layer the Bitcoin fee estimator and
     /// address trackers read through (legacy `bitcoin/DataReaders`).
@@ -660,6 +805,26 @@ const ETHEREUM_FEE_HEIGHT_LIMIT: u32 = 256;
 /// How many blocks back a single Bitcoin fee estimate may sample (legacy
 /// `BitcoinMultistream` passes 6).
 const BITCOIN_FEE_HEIGHT_LIMIT: u32 = 6;
+
+/// Index the configured ERC-20 tokens by `(chain, lowercased name)` →
+/// lowercased contract address, so a `GetBalance` request can name a token by
+/// its code. Tokens on an unrecognized blockchain are skipped. Legacy
+/// `TrackERC20Address.init`.
+fn build_token_registry(
+    tokens: &[TokenConfig],
+) -> HashMap<(TargetBlockchain, String), String> {
+    let mut registry = HashMap::new();
+    for token in tokens {
+        let TokenType::Erc20 = token.token_type;
+        if let Ok(chain) = token.blockchain.parse::<TargetBlockchain>() {
+            registry.insert(
+                (chain, token.name.to_lowercase()),
+                token.address.to_lowercase(),
+            );
+        }
+    }
+    registry
+}
 
 /// Whether the chain produces EIP-1559 (type-2) transactions, selecting the
 /// extended fee response. Matches the legacy `ChainOptions.supportsEIP1559`

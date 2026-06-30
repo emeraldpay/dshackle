@@ -24,13 +24,11 @@
 
 use super::{ChainFees, FeeError, FeeMode, block_range};
 use crate::data::TxId;
+use crate::upstream::bitcoin::btc_to_satoshis;
 use crate::upstream::bitcoin::reader::BitcoinReader;
 use emerald_api::proto::blockchain::EstimateFeeResponse;
 use futures::future::join_all;
 use serde_json::Value;
-
-/// Satoshis per Bitcoin (`COIN`), used to convert decimal BTC amounts.
-const SATOSHIS_PER_BTC: f64 = 100_000_000.0;
 
 /// A sampled fee rate (satoshi per kilo-vbyte) and how many samples it
 /// represents, so several blocks' rates can be summed and averaged. Mirrors the
@@ -169,18 +167,6 @@ fn vout_amounts(tx: &Value) -> Vec<Option<u64>> {
         .iter()
         .map(|v| v.get("value").and_then(btc_to_satoshis))
         .collect()
-}
-
-/// Convert a decimal BTC `value` to satoshis. Multiplying the `f64` by `COIN`
-/// and rounding is exact for every valid amount (< 21M BTC ⇒ < 2^53 satoshis,
-/// well within `f64`'s integer range), matching the legacy `BigDecimal * COIN`
-/// without pulling in a decimal dependency.
-fn btc_to_satoshis(value: &Value) -> Option<u64> {
-    let btc = value.as_f64()?;
-    if btc < 0.0 {
-        return None;
-    }
-    Some((btc * SATOSHIS_PER_BTC).round() as u64)
 }
 
 /// Virtual size of a transaction in vbytes, preferring `vsize` then falling back

@@ -20,7 +20,8 @@ enum-display-derive = "0.1"
 futures-util = "0.3"
 lazy_static = "1.5"
 moka = { version = "0.12", features = ["sync"] }
-alloy = { version = "1.8", features = ["rpc-types"] }
+alloy = { version = "1.8", features = ["rpc-types", "sol-types"] }
+bitcoin = "0.32"
 hex = "0.4.3"
 shutdown = "0.5"
 tracing = "0.1"

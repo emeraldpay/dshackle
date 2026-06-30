@@ -22,6 +22,7 @@ use crate::data::BlockContainer;
 use crate::rpc::native_call;
 use crate::upstream::traits::Capability;
 use crate::upstream::{Multistream, UpstreamManager};
+use crate::upstream::balance::BalanceError;
 use crate::upstream::egress::EgressError;
 use crate::upstream::fees::{FeeError, FeeMode};
 use emerald_api::proto::blockchain::blockchain_server::Blockchain;
@@ -142,11 +143,14 @@ impl Blockchain for BlockchainRpcService {
 
     async fn subscribe_balance(
         &self,
-        _request: tonic::Request<BalanceRequest>,
+        request: tonic::Request<BalanceRequest>,
     ) -> Result<tonic::Response<Self::SubscribeBalanceStream>, tonic::Status> {
-        Err(tonic::Status::unimplemented(
-            "subscribe_balance not yet implemented",
-        ))
+        let req = request.into_inner();
+        let stream = self
+            .upstreams
+            .balance(&req, true)
+            .map_err(BalanceError::into_status)?;
+        Ok(tonic::Response::new(stream))
     }
 
     async fn subscribe_tx_status(
@@ -160,11 +164,14 @@ impl Blockchain for BlockchainRpcService {
 
     async fn get_balance(
         &self,
-        _request: tonic::Request<BalanceRequest>,
+        request: tonic::Request<BalanceRequest>,
     ) -> Result<tonic::Response<Self::GetBalanceStream>, tonic::Status> {
-        Err(tonic::Status::unimplemented(
-            "get_balance not yet implemented",
-        ))
+        let req = request.into_inner();
+        let stream = self
+            .upstreams
+            .balance(&req, false)
+            .map_err(BalanceError::into_status)?;
+        Ok(tonic::Response::new(stream))
     }
 
     async fn get_address_allowance(

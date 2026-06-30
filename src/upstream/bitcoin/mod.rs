@@ -18,3 +18,19 @@ pub mod head;
 pub mod http;
 pub mod reader;
 pub mod validator;
+
+/// Satoshis per Bitcoin (`COIN`).
+const SATOSHIS_PER_BTC: f64 = 100_000_000.0;
+
+/// Convert a decimal BTC JSON `value` to satoshis. Multiplying the `f64` by
+/// `COIN` and rounding is exact for every valid amount (< 21M BTC ⇒ < 2^53
+/// satoshis, well within `f64`'s integer range), matching the legacy
+/// `BigDecimal * COIN` (`RpcUnspentDeserializer`, `BitcoinFees`) without a
+/// decimal dependency. `None` for a missing or negative value.
+pub fn btc_to_satoshis(value: &serde_json::Value) -> Option<u64> {
+    let btc = value.as_f64()?;
+    if btc < 0.0 {
+        return None;
+    }
+    Some((btc * SATOSHIS_PER_BTC).round() as u64)
+}
