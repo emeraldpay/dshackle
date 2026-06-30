@@ -46,6 +46,7 @@ use crate::config::cache::CacheConfig;
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
 use bitcoin::head::start_head_poller as start_btc_head_poller;
 use bitcoin::http::BitcoinHttpUpstream;
+use bitcoin::reader::BitcoinReader;
 use bitcoin::validator::BitcoinValidator;
 use dshackle::DshackleUpstream;
 use dshackle::head::start_head_subscriber;
@@ -61,7 +62,7 @@ use fork::{
     DifficultyForkChoice, ForkChoice, ForkMember, PriorityForkChoice, is_pos, start_fork_watch,
 };
 use egress::{ChainAccess, EgressSubscription, EthereumEgress};
-use fees::{ChainFees, EthereumFees};
+use fees::{BitcoinFees, ChainFees, EthereumFees};
 use head::CurrentHead;
 use identified::IdentifiedUpstream;
 use merged_head::MergedHead;
@@ -613,20 +614,37 @@ impl UpstreamManager {
     }
 
     /// Build the fee estimator for a chain, or `None` when fee estimation isn't
-    /// supported there. Only Ethereum-family chains are wired; Bitcoin fee
-    /// estimation needs UTXO resolution not yet ported (legacy `BitcoinFees`).
-    /// The EIP-1559 / legacy response shape is chosen per chain, mirroring the
-    /// legacy `EthereumMultistream` (`supportsEIP1559`).
+    /// supported there. Ethereum-family chains read per-transaction fee fields
+    /// (the EIP-1559 / legacy response shape is chosen per chain, mirroring the
+    /// legacy `EthereumMultistream` `supportsEIP1559`); Bitcoin derives fees from
+    /// input/output amounts via the block reader (legacy `BitcoinFees`).
     pub fn fees(&self, chain: &TargetBlockchain) -> Option<Arc<dyn ChainFees>> {
-        if chain.blockchain_type() != BlockchainType::Ethereum {
+        match chain.blockchain_type() {
+            BlockchainType::Ethereum => {
+                let access: Arc<dyn ChainAccess> = self.get(chain)?.clone();
+                Some(Arc::new(EthereumFees::new(
+                    access,
+                    supports_eip1559(chain),
+                    ETHEREUM_FEE_HEIGHT_LIMIT,
+                )))
+            }
+            BlockchainType::Bitcoin => Some(Arc::new(BitcoinFees::new(
+                self.bitcoin_reader(chain)?,
+                BITCOIN_FEE_HEIGHT_LIMIT,
+            ))),
+            BlockchainType::Unknown => None,
+        }
+    }
+
+    /// Build the Bitcoin block/transaction reader for a chain, or `None` for a
+    /// non-Bitcoin chain. The data-access layer the Bitcoin fee estimator and
+    /// address trackers read through (legacy `bitcoin/DataReaders`).
+    pub fn bitcoin_reader(&self, chain: &TargetBlockchain) -> Option<BitcoinReader> {
+        if chain.blockchain_type() != BlockchainType::Bitcoin {
             return None;
         }
         let access: Arc<dyn ChainAccess> = self.get(chain)?.clone();
-        Some(Arc::new(EthereumFees::new(
-            access,
-            supports_eip1559(chain),
-            ETHEREUM_FEE_HEIGHT_LIMIT,
-        )))
+        Some(BitcoinReader::new(access, self.caches.get(chain).cloned()))
     }
 
     /// Look up the cache for a given blockchain.
@@ -638,6 +656,10 @@ impl UpstreamManager {
 /// How many blocks back a single Ethereum fee estimate may sample (legacy
 /// `EthereumMultistream` passes 256).
 const ETHEREUM_FEE_HEIGHT_LIMIT: u32 = 256;
+
+/// How many blocks back a single Bitcoin fee estimate may sample (legacy
+/// `BitcoinMultistream` passes 6).
+const BITCOIN_FEE_HEIGHT_LIMIT: u32 = 6;
 
 /// Whether the chain produces EIP-1559 (type-2) transactions, selecting the
 /// extended fee response. Matches the legacy `ChainOptions.supportsEIP1559`

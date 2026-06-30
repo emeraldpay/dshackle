@@ -19,12 +19,13 @@
 //! values are combined are both driven by the requested [`FeeMode`], mirroring
 //! the legacy `AbstractChainFees` / `ChainFees` hierarchy.
 //!
-//! Only Ethereum-family chains are implemented (see [`ethereum`]); Bitcoin fee
-//! estimation needs UTXO input/output resolution that depends on Bitcoin block
-//! reading not yet ported, so it's deferred.
+//! Ethereum-family chains read per-transaction fee fields (see [`ethereum`]);
+//! Bitcoin derives a fee from input/output amount differences (see [`bitcoin`]).
 
+mod bitcoin;
 mod ethereum;
 
+pub use bitcoin::BitcoinFees;
 pub use ethereum::EthereumFees;
 
 use emerald_api::proto::blockchain::EstimateFeeResponse;

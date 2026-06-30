@@ -567,7 +567,13 @@ mod tests {
         }
     }
 
-    fn service_with(upstream: Arc<dyn RpcUpstream>) -> BlockchainRpcService {
+    /// Build a service whose `UpstreamManager` has a single configured chain,
+    /// Ethereum, wired to `upstream` — and nothing else: no merged heads and no
+    /// caches (`from_parts` with empty maps). Used by the dispatch-level handler
+    /// tests, which only need one chain present; any other chain (e.g. Bitcoin)
+    /// is intentionally left unconfigured so the "no upstream → unavailable"
+    /// path can be exercised.
+    fn eth_service_with(upstream: Arc<dyn RpcUpstream>) -> BlockchainRpcService {
         let multistream = Arc::new(Multistream::new(vec![upstream], Arc::new(AlwaysFactory)));
         let mut chains: HashMap<TargetBlockchain, Arc<Multistream>> = HashMap::new();
         chains.insert(
@@ -614,7 +620,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn native_call_items_run_in_parallel() {
         let probe = ConcurrencyProbeUpstream::new(Duration::from_millis(100));
-        let service = service_with(probe.clone() as Arc<dyn RpcUpstream>);
+        let service = eth_service_with(probe.clone() as Arc<dyn RpcUpstream>);
 
         let items: Vec<NativeCallItem> = (0..10).map(make_item).collect();
         let replies = drive_native_call(&service, items).await;
@@ -640,7 +646,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn concurrent_native_call_requests_overlap() {
         let probe = ConcurrencyProbeUpstream::new(Duration::from_millis(100));
-        let service = Arc::new(service_with(probe.clone() as Arc<dyn RpcUpstream>));
+        let service = Arc::new(eth_service_with(probe.clone() as Arc<dyn RpcUpstream>));
 
         let mut handles = Vec::new();
         for _ in 0..8 {
@@ -689,7 +695,7 @@ mod tests {
 
     #[tokio::test]
     async fn subscribe_head_unknown_chain_is_invalid_argument() {
-        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let service = eth_service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
         let status = service
             .subscribe_head(tonic::Request::new(common::Chain { r#type: 999_999 }))
             .await
@@ -700,9 +706,9 @@ mod tests {
 
     #[tokio::test]
     async fn subscribe_head_without_head_stream_is_unavailable() {
-        // `service_with` builds the manager via `from_parts`, which has no
+        // `eth_service_with` builds the manager via `from_parts`, which has no
         // merged head streams, so a known chain still reports unavailable.
-        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let service = eth_service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
         let status = service
             .subscribe_head(tonic::Request::new(common::Chain {
                 r#type: ChainRef::ChainEthereum as i32,
@@ -727,7 +733,7 @@ mod tests {
 
     #[tokio::test]
     async fn native_subscribe_unknown_chain_is_unavailable() {
-        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let service = eth_service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
         let status = service
             .native_subscribe(tonic::Request::new(NativeSubscribeRequest {
                 chain: 999_999,
@@ -877,7 +883,7 @@ mod tests {
 
     #[tokio::test]
     async fn subscribe_status_reports_configured_chain() {
-        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let service = eth_service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
         let resp = service
             .subscribe_status(tonic::Request::new(StatusRequest {
                 chains: vec![ChainRef::ChainEthereum as i32],
@@ -895,8 +901,8 @@ mod tests {
 
     #[tokio::test]
     async fn subscribe_status_unconfigured_chain_is_unavailable_once() {
-        // `service_with` configures only Ethereum, so Bitcoin is unknown here.
-        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        // `eth_service_with` configures only Ethereum, so Bitcoin is unknown here.
+        let service = eth_service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
         let resp = service
             .subscribe_status(tonic::Request::new(StatusRequest {
                 chains: vec![ChainRef::ChainBitcoin as i32],
@@ -915,7 +921,7 @@ mod tests {
 
     #[tokio::test]
     async fn subscribe_status_unknown_chain_id_is_unavailable() {
-        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let service = eth_service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
         let resp = service
             .subscribe_status(tonic::Request::new(StatusRequest {
                 chains: vec![999_999],
@@ -934,7 +940,7 @@ mod tests {
 
     #[tokio::test]
     async fn subscribe_status_empty_request_completes_immediately() {
-        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let service = eth_service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
         let resp = service
             .subscribe_status(tonic::Request::new(StatusRequest { chains: vec![] }))
             .await
@@ -947,8 +953,9 @@ mod tests {
 
     #[tokio::test]
     async fn estimate_fee_unconfigured_chain_is_unavailable() {
-        // `service_with` configures only Ethereum; Bitcoin has no estimator.
-        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        // `eth_service_with` configures only Ethereum, so Bitcoin is unconfigured
+        // here — no upstream means no estimator.
+        let service = eth_service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
         let status = service
             .estimate_fee(tonic::Request::new(EstimateFeeRequest {
                 chain: ChainRef::ChainBitcoin as i32,
@@ -963,7 +970,7 @@ mod tests {
 
     #[tokio::test]
     async fn estimate_fee_invalid_mode_is_rejected() {
-        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let service = eth_service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
         let status = service
             .estimate_fee(tonic::Request::new(EstimateFeeRequest {
                 chain: ChainRef::ChainEthereum as i32,
@@ -980,7 +987,7 @@ mod tests {
     #[tokio::test]
     async fn estimate_fee_without_head_is_unavailable() {
         // The probe upstream reports no head height, so there's no window.
-        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let service = eth_service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
         let status = service
             .estimate_fee(tonic::Request::new(EstimateFeeRequest {
                 chain: ChainRef::ChainEthereum as i32,
@@ -995,7 +1002,7 @@ mod tests {
 
     #[tokio::test]
     async fn native_subscribe_without_head_is_unavailable() {
-        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let service = eth_service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
         let status = service
             .native_subscribe(tonic::Request::new(NativeSubscribeRequest {
                 chain: ChainRef::ChainEthereum as i32,
