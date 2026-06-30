@@ -25,6 +25,7 @@ use crate::upstream::{Multistream, UpstreamManager};
 use crate::upstream::balance::BalanceError;
 use crate::upstream::egress::EgressError;
 use crate::upstream::fees::{FeeError, FeeMode};
+use crate::upstream::tx_status::TxStatusError;
 use emerald_api::proto::blockchain::blockchain_server::Blockchain;
 use emerald_api::proto::blockchain::*;
 use emerald_api::proto::common;
@@ -155,11 +156,14 @@ impl Blockchain for BlockchainRpcService {
 
     async fn subscribe_tx_status(
         &self,
-        _request: tonic::Request<TxStatusRequest>,
+        request: tonic::Request<TxStatusRequest>,
     ) -> Result<tonic::Response<Self::SubscribeTxStatusStream>, tonic::Status> {
-        Err(tonic::Status::unimplemented(
-            "subscribe_tx_status not yet implemented",
-        ))
+        let req = request.into_inner();
+        let stream = self
+            .upstreams
+            .tx_status(&req)
+            .map_err(TxStatusError::into_status)?;
+        Ok(tonic::Response::new(stream))
     }
 
     async fn get_balance(

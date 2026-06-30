@@ -32,6 +32,7 @@ pub mod quorum;
 pub mod router;
 pub mod state;
 mod status;
+pub mod tx_status;
 mod switch;
 pub mod traits;
 pub mod validation;
@@ -55,6 +56,7 @@ use dshackle::head::start_head_subscriber;
 use dshackle::status::start_status_subscriber;
 use emerald_api::proto::blockchain::BalanceRequest;
 use emerald_api::proto::blockchain::DescribeRequest;
+use emerald_api::proto::blockchain::TxStatusRequest;
 use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
 use emerald_api::proto::common::ChainRef;
 use ethereum::EthereumWsUpstream;
@@ -65,6 +67,9 @@ use fork::{
     DifficultyForkChoice, ForkChoice, ForkMember, PriorityForkChoice, is_pos, start_fork_watch,
 };
 use balance::{BalanceError, BalanceStream, BitcoinBalance, EthereumBalance};
+use tx_status::bitcoin::BitcoinTxReader;
+use tx_status::ethereum::EthereumTxReader;
+use tx_status::{TxStatusError, TxStatusStream};
 use egress::{ChainAccess, EgressSubscription, EthereumEgress};
 use fees::{BitcoinFees, ChainFees, EthereumFees};
 use head::CurrentHead;
@@ -779,6 +784,51 @@ impl UpstreamManager {
                 .iter()
                 .any(|u| u.capabilities().contains(&Capability::Balance))
         })
+    }
+
+    /// Build the `SubscribeTxStatus` stream for a request, choosing the reader by
+    /// chain (legacy `trackTx.find { isSupported }`). The confirmation limit is
+    /// clamped per chain (Ethereum `[1, 100]`, Bitcoin `[1, 12]`).
+    ///
+    /// Bitcoin's clamp intentionally differs from a latent legacy bug: legacy
+    /// computes `max(min(1, limit), 12)`, which collapses to a constant 12; we
+    /// honor the client's requested limit within `[1, 12]`.
+    pub fn tx_status(
+        &self,
+        request: &TxStatusRequest,
+    ) -> Result<TxStatusStream, TxStatusError> {
+        let chain = TargetBlockchain::try_from(request.chain)
+            .map_err(|_| TxStatusError::Unavailable(request.chain))?;
+        let multistream = self
+            .get(&chain)
+            .ok_or(TxStatusError::Unavailable(request.chain))?
+            .clone();
+        let head = self.head(&chain).cloned();
+
+        let (reader, limit, ttl): (Arc<dyn tx_status::TxReader>, u32, tx_status::Ttl) =
+            match chain.blockchain_type() {
+                BlockchainType::Ethereum => {
+                    let access: Arc<dyn ChainAccess> = multistream;
+                    (
+                        Arc::new(EthereumTxReader::new(access, request.tx_id.clone())),
+                        request.confirmation_limit.clamp(1, 100),
+                        tx_status::ethereum::ttl(),
+                    )
+                }
+                BlockchainType::Bitcoin => {
+                    let reader = self
+                        .bitcoin_reader(&chain)
+                        .ok_or(TxStatusError::Unsupported)?;
+                    (
+                        Arc::new(BitcoinTxReader::new(reader, request.tx_id.clone())),
+                        request.confirmation_limit.clamp(1, 12),
+                        tx_status::bitcoin::ttl(),
+                    )
+                }
+                BlockchainType::Unknown => return Err(TxStatusError::Unsupported),
+            };
+
+        Ok(tx_status::subscribe(head, reader, limit, ttl))
     }
 
     /// Build the Bitcoin block/transaction reader for a chain, or `None` for a
