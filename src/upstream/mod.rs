@@ -15,6 +15,7 @@
 //! Upstream management: holds configured upstreams indexed by chain and provides
 //! access to them for the RPC layer.
 
+pub mod allowance;
 pub mod availability;
 pub mod balance;
 pub(crate) mod bitcoin;
@@ -54,10 +55,12 @@ use bitcoin::validator::BitcoinValidator;
 use dshackle::DshackleUpstream;
 use dshackle::head::start_head_subscriber;
 use dshackle::status::start_status_subscriber;
+use emerald_api::proto::blockchain::AddressAllowanceRequest;
 use emerald_api::proto::blockchain::BalanceRequest;
 use emerald_api::proto::blockchain::DescribeRequest;
 use emerald_api::proto::blockchain::TxStatusRequest;
 use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
+use tonic::transport::Channel;
 use emerald_api::proto::common::ChainRef;
 use ethereum::EthereumWsUpstream;
 use ethereum::head::{start_head_poller, start_ws_head};
@@ -66,6 +69,7 @@ use ethereum::validator::EthereumValidator;
 use fork::{
     DifficultyForkChoice, ForkChoice, ForkMember, PriorityForkChoice, is_pos, start_fork_watch,
 };
+use allowance::{AllowanceError, AllowanceStream};
 use balance::{BalanceError, BalanceStream, BitcoinBalance, EthereumBalance};
 use tx_status::bitcoin::BitcoinTxReader;
 use tx_status::ethereum::EthereumTxReader;
@@ -104,6 +108,10 @@ pub struct UpstreamManager {
     /// lowercased contract address. Lets a `GetBalance` request name a token by
     /// its configured code (legacy `TrackERC20Address` `tokens` map).
     tokens: HashMap<(TargetBlockchain, String), String>,
+    /// Per-chain gRPC client of a remote Dshackle upstream that advertises the
+    /// `ALLOWANCE` capability, used to forward allowance requests (legacy
+    /// `TrackERC20Allowance` proxies to such an upstream).
+    allowance_clients: HashMap<TargetBlockchain, BlockchainClient<Channel>>,
 }
 
 impl UpstreamManager {
@@ -144,6 +152,10 @@ impl UpstreamManager {
         // chain regardless of how many upstreams report the same block.
         let mut per_chain_caches: HashMap<TargetBlockchain, Arc<Caches>> = HashMap::new();
         let mut per_chain_caching_heads: HashMap<TargetBlockchain, CachingHead> = HashMap::new();
+        // First allowance-capable remote Dshackle client per chain (legacy picks
+        // one upstream matching the ALLOWANCE capability).
+        let mut allowance_clients: HashMap<TargetBlockchain, BlockchainClient<Channel>> =
+            HashMap::new();
 
         for upstream in &config.upstreams {
             if !upstream.enabled {
@@ -480,7 +492,12 @@ impl UpstreamManager {
                     .await
                     {
                         Ok(discovered) => {
-                            for (chain, reader, caps) in discovered {
+                            for (chain, reader, caps, allowance_client) in discovered {
+                                // Remember a remote that can serve allowances so
+                                // `address_allowance` can forward to it.
+                                if let Some(client) = allowance_client {
+                                    allowance_clients.entry(chain).or_insert(client);
+                                }
                                 // Outermost layer: this relay's configured
                                 // labels plus the capabilities the remote
                                 // reported.
@@ -579,6 +596,7 @@ impl UpstreamManager {
             caches: per_chain_caches,
             heads,
             tokens: build_token_registry(tokens),
+            allowance_clients,
         })
     }
 
@@ -594,6 +612,7 @@ impl UpstreamManager {
             caches,
             heads: HashMap::new(),
             tokens: HashMap::new(),
+            allowance_clients: HashMap::new(),
         }
     }
 
@@ -831,6 +850,33 @@ impl UpstreamManager {
         Ok(tx_status::subscribe(head, reader, limit, ttl))
     }
 
+    /// Forward a `GetAddressAllowance` / `SubscribeAddressAllowance` request to a
+    /// remote Dshackle upstream advertising the ALLOWANCE capability, relaying
+    /// its stream (legacy `TrackERC20Allowance`). `subscribe` selects the
+    /// remote's streaming method. With no such upstream the chain is
+    /// unavailable, matching legacy.
+    pub async fn address_allowance(
+        &self,
+        request: AddressAllowanceRequest,
+        subscribe: bool,
+    ) -> Result<AllowanceStream, AllowanceError> {
+        let chain = TargetBlockchain::try_from(request.chain)
+            .map_err(|_| AllowanceError::Unavailable(request.chain))?;
+        let mut client = self
+            .allowance_clients
+            .get(&chain)
+            .cloned()
+            .ok_or(AllowanceError::Unsupported(request.chain))?;
+
+        let response = if subscribe {
+            client.subscribe_address_allowance(request).await
+        } else {
+            client.get_address_allowance(request).await
+        }
+        .map_err(AllowanceError::Remote)?;
+        Ok(Box::pin(response.into_inner()))
+    }
+
     /// Build the Bitcoin block/transaction reader for a chain, or `None` for a
     /// non-Bitcoin chain. The data-access layer the Bitcoin fee estimator and
     /// address trackers read through (legacy `bitcoin/DataReaders`).
@@ -1007,7 +1053,14 @@ async fn connect_dshackle(
     redis_conn: Option<&redis::aio::ConnectionManager>,
     caches_map: &mut HashMap<TargetBlockchain, Arc<Caches>>,
     caching_heads: &mut HashMap<TargetBlockchain, CachingHead>,
-) -> anyhow::Result<Vec<(TargetBlockchain, Arc<dyn RpcUpstream>, Vec<Capability>)>> {
+) -> anyhow::Result<
+    Vec<(
+        TargetBlockchain,
+        Arc<dyn RpcUpstream>,
+        Vec<Capability>,
+        Option<BlockchainClient<Channel>>,
+    )>,
+> {
     let endpoint = tonic::transport::Endpoint::from_shared(url.to_string())?;
     let channel = endpoint.connect().await?;
     let mut client = BlockchainClient::new(channel);
@@ -1084,6 +1137,12 @@ async fn connect_dshackle(
         // the backend can serve.
         let caps = capabilities_from_proto(&desc_chain.capabilities);
 
+        // Keep the gRPC client to forward allowance requests to, when the
+        // remote advertises that capability (legacy `allowanceUpstreamMatcher`).
+        let allowance_client = caps
+            .contains(&Capability::Allowance)
+            .then(|| client.clone());
+
         // Use the supported methods from Describe as the allowed set.
         // The remote Dshackle already handles hardcoded responses, so we
         // only need a MethodFilter — no HardcodedMethods wrapper.
@@ -1096,10 +1155,10 @@ async fn connect_dshackle(
             let methods: Arc<dyn QuorumFactory> =
                 Arc::new(ConfiguredMethods::allowed_only(callable));
             let reader = Arc::new(MethodFilter::new(reader, methods));
-            results.push((chain, reader as Arc<dyn RpcUpstream>, caps));
+            results.push((chain, reader as Arc<dyn RpcUpstream>, caps, allowance_client));
         } else {
             // No method list — pass everything through
-            results.push((chain, reader, caps));
+            results.push((chain, reader, caps, allowance_client));
         }
     }
 

@@ -22,6 +22,7 @@ use crate::data::BlockContainer;
 use crate::rpc::native_call;
 use crate::upstream::traits::Capability;
 use crate::upstream::{Multistream, UpstreamManager};
+use crate::upstream::allowance::AllowanceError;
 use crate::upstream::balance::BalanceError;
 use crate::upstream::egress::EgressError;
 use crate::upstream::fees::{FeeError, FeeMode};
@@ -180,20 +181,26 @@ impl Blockchain for BlockchainRpcService {
 
     async fn get_address_allowance(
         &self,
-        _request: tonic::Request<AddressAllowanceRequest>,
+        request: tonic::Request<AddressAllowanceRequest>,
     ) -> Result<tonic::Response<Self::GetAddressAllowanceStream>, tonic::Status> {
-        Err(tonic::Status::unimplemented(
-            "get_address_allowance not yet implemented",
-        ))
+        let stream = self
+            .upstreams
+            .address_allowance(request.into_inner(), false)
+            .await
+            .map_err(AllowanceError::into_status)?;
+        Ok(tonic::Response::new(stream))
     }
 
     async fn subscribe_address_allowance(
         &self,
-        _request: tonic::Request<AddressAllowanceRequest>,
+        request: tonic::Request<AddressAllowanceRequest>,
     ) -> Result<tonic::Response<Self::SubscribeAddressAllowanceStream>, tonic::Status> {
-        Err(tonic::Status::unimplemented(
-            "subscribe_address_allowance not yet implemented",
-        ))
+        let stream = self
+            .upstreams
+            .address_allowance(request.into_inner(), true)
+            .await
+            .map_err(AllowanceError::into_status)?;
+        Ok(tonic::Response::new(stream))
     }
 
     async fn estimate_fee(
@@ -1004,6 +1011,40 @@ mod tests {
                 chain: ChainRef::ChainEthereum as i32,
                 mode: FeeEstimationMode::AvgLast as i32,
                 blocks: 5,
+            }))
+            .await
+            .err()
+            .expect("expected an error status");
+        assert_eq!(status.code(), tonic::Code::Unavailable);
+    }
+
+    // ── get_address_allowance ────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn get_address_allowance_without_provider_is_unavailable() {
+        // The chain is configured but no upstream advertises ALLOWANCE, so there
+        // is nothing to forward to (legacy `UnsupportedBlockchain`).
+        let service = eth_service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let status = service
+            .get_address_allowance(tonic::Request::new(AddressAllowanceRequest {
+                chain: ChainRef::ChainEthereum as i32,
+                address: None,
+                contract_addresses: vec![],
+            }))
+            .await
+            .err()
+            .expect("expected an error status");
+        assert_eq!(status.code(), tonic::Code::Unavailable);
+    }
+
+    #[tokio::test]
+    async fn get_address_allowance_unknown_chain_is_unavailable() {
+        let service = eth_service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let status = service
+            .get_address_allowance(tonic::Request::new(AddressAllowanceRequest {
+                chain: 999_999,
+                address: None,
+                contract_addresses: vec![],
             }))
             .await
             .err()
