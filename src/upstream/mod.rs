@@ -22,6 +22,7 @@ pub mod egress;
 pub mod ethereum;
 pub mod fork;
 pub mod head;
+mod identified;
 pub mod merged_head;
 mod methods;
 pub mod multistream;
@@ -60,6 +61,7 @@ use fork::{
 };
 use egress::{ChainAccess, EgressSubscription, EthereumEgress};
 use head::CurrentHead;
+use identified::IdentifiedUpstream;
 use merged_head::MergedHead;
 use methods::AggregatedMethods;
 use methods::ConfiguredMethods;
@@ -74,7 +76,7 @@ use status::ChainStatus;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use switch::SwitchClient;
-use traits::RpcUpstream;
+use traits::{Capability, RpcUpstream};
 
 /// Holds all configured upstreams, indexed by target blockchain.
 ///
@@ -312,6 +314,14 @@ impl UpstreamManager {
                         });
                     }
 
+                    // Outermost layer: attach the configured labels and
+                    // capabilities so `Describe` can report this upstream.
+                    let reader: Arc<dyn RpcUpstream> = Arc::new(IdentifiedUpstream::new(
+                        reader,
+                        upstream.labels.clone(),
+                        local_capabilities(options.balance),
+                    ));
+
                     per_chain.entry(chain).or_default().push(reader);
                     per_chain_methods.entry(chain).or_default().push(methods);
                 }
@@ -411,6 +421,14 @@ impl UpstreamManager {
                         state: Arc::clone(reader.state()),
                     });
 
+                    // Outermost layer: configured labels + capabilities for
+                    // `Describe`.
+                    let reader: Arc<dyn RpcUpstream> = Arc::new(IdentifiedUpstream::new(
+                        reader,
+                        upstream.labels.clone(),
+                        local_capabilities(options.balance),
+                    ));
+
                     per_chain.entry(chain).or_default().push(reader);
                     per_chain_methods.entry(chain).or_default().push(methods);
                 }
@@ -445,7 +463,13 @@ impl UpstreamManager {
                     .await
                     {
                         Ok(discovered) => {
-                            for (chain, reader) in discovered {
+                            for (chain, reader, caps) in discovered {
+                                // Outermost layer: this relay's configured
+                                // labels plus the capabilities the remote
+                                // reported.
+                                let reader: Arc<dyn RpcUpstream> = Arc::new(
+                                    IdentifiedUpstream::new(reader, upstream.labels.clone(), caps),
+                                );
                                 per_chain.entry(chain).or_default().push(reader);
                                 // Remote Dshackles handle their own quorum
                                 // internally; use `DefaultMethods` so the
@@ -554,6 +578,14 @@ impl UpstreamManager {
         }
     }
 
+    /// All configured chains, sorted by chain id for deterministic `Describe`
+    /// output (legacy `MultistreamHolder.getAvailable`).
+    pub fn chains(&self) -> Vec<TargetBlockchain> {
+        let mut chains: Vec<TargetBlockchain> = self.upstreams.keys().copied().collect();
+        chains.sort_by_key(|c| c.id());
+        chains
+    }
+
     /// Look up the upstream aggregate for a given blockchain.
     pub fn get(&self, chain: &TargetBlockchain) -> Option<&Arc<Multistream>> {
         self.upstreams.get(chain)
@@ -629,6 +661,34 @@ fn parse_required_chain(upstream: &crate::config::upstreams::Upstream) -> Option
     }
 }
 
+/// Capabilities for a locally-connected upstream: RPC always, plus BALANCE when
+/// the operator marked it a balance provider (`balance: true`). Mirrors the
+/// legacy `EthereumUpstream` / `BitcoinRpcUpstream` capability sets; ALLOWANCE
+/// is never advertised by a local upstream.
+fn local_capabilities(provides_balance: bool) -> Vec<Capability> {
+    let mut caps = vec![Capability::Rpc];
+    if provides_balance {
+        caps.push(Capability::Balance);
+    }
+    caps
+}
+
+/// Map a remote Dshackle's reported `Capabilities` proto values to our
+/// [`Capability`]. Unknown / `CAP_NONE` values are ignored. Mirrors the legacy
+/// `RemoteCapabilities.extract`.
+fn capabilities_from_proto(proto: &[i32]) -> Vec<Capability> {
+    use emerald_api::proto::blockchain::Capabilities;
+    proto
+        .iter()
+        .filter_map(|c| match Capabilities::try_from(*c) {
+            Ok(Capabilities::CapCalls) => Some(Capability::Rpc),
+            Ok(Capabilities::CapBalance) => Some(Capability::Balance),
+            Ok(Capabilities::CapAllowance) => Some(Capability::Allowance),
+            _ => None,
+        })
+        .collect()
+}
+
 /// Resolves the gRPC URL for a Dshackle connection from its config.
 fn resolve_dshackle_url(ds: &crate::config::upstreams::DshackleConnection) -> Option<String> {
     if let Some(url) = &ds.url {
@@ -670,7 +730,7 @@ async fn connect_dshackle(
     redis_conn: Option<&redis::aio::ConnectionManager>,
     caches_map: &mut HashMap<TargetBlockchain, Arc<Caches>>,
     caching_heads: &mut HashMap<TargetBlockchain, CachingHead>,
-) -> anyhow::Result<Vec<(TargetBlockchain, Arc<dyn RpcUpstream>)>> {
+) -> anyhow::Result<Vec<(TargetBlockchain, Arc<dyn RpcUpstream>, Vec<Capability>)>> {
     let endpoint = tonic::transport::Endpoint::from_shared(url.to_string())?;
     let channel = endpoint.connect().await?;
     let mut client = BlockchainClient::new(channel);
@@ -742,6 +802,11 @@ async fn connect_dshackle(
 
         let reader: Arc<dyn RpcUpstream> = Arc::new(ds_upstream);
 
+        // Capabilities come from the remote's own report (legacy
+        // `RemoteCapabilities.extract`), so a Dshackle relay re-advertises what
+        // the backend can serve.
+        let caps = capabilities_from_proto(&desc_chain.capabilities);
+
         // Use the supported methods from Describe as the allowed set.
         // The remote Dshackle already handles hardcoded responses, so we
         // only need a MethodFilter — no HardcodedMethods wrapper.
@@ -754,10 +819,10 @@ async fn connect_dshackle(
             let methods: Arc<dyn QuorumFactory> =
                 Arc::new(ConfiguredMethods::allowed_only(callable));
             let reader = Arc::new(MethodFilter::new(reader, methods));
-            results.push((chain, reader as Arc<dyn RpcUpstream>));
+            results.push((chain, reader as Arc<dyn RpcUpstream>, caps));
         } else {
             // No method list — pass everything through
-            results.push((chain, reader));
+            results.push((chain, reader, caps));
         }
     }
 

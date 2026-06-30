@@ -80,6 +80,10 @@ impl QuorumFactory for DefaultBitcoinMethods {
     fn hardcoded_response(&self, method: &RpcMethod) -> Option<&RawValue> {
         self.hardcoded.get(method).map(|b| &**b)
     }
+
+    fn supported_methods(&self) -> Vec<String> {
+        super::supported_union(&self.callable, self.hardcoded.keys())
+    }
 }
 
 // ─── Callable methods ──────────────────────────────────────────────────────

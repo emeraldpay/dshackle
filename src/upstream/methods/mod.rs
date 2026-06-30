@@ -38,7 +38,23 @@ pub use layered::LayeredMethods;
 
 use crate::jsonrpc::RpcMethod;
 use crate::upstream::quorum::{AlwaysQuorum, CallQuorum, QuorumFactory};
+use std::collections::HashSet;
 use std::sync::Arc;
+
+/// Sorted union of the callable and hardcoded method names, matching the legacy
+/// `getSupportedMethods` (allowed + hardcoded, sorted). Shared by the chain
+/// default tables ([`ethereum`] and [`bitcoin`]), whose `supported_methods`
+/// implementations differ only in which sets they pass in.
+pub(super) fn supported_union<'a>(
+    callable: &HashSet<RpcMethod>,
+    hardcoded: impl Iterator<Item = &'a RpcMethod>,
+) -> Vec<String> {
+    let mut names: HashSet<String> = callable.iter().map(|m| m.as_str().to_string()).collect();
+    names.extend(hardcoded.map(|m| m.as_str().to_string()));
+    let mut out: Vec<String> = names.into_iter().collect();
+    out.sort();
+    out
+}
 
 /// Default chain-agnostic methods config used for chains without a
 /// specialized mapping (e.g. Dshackle remotes that already apply quorum
@@ -86,6 +102,19 @@ impl QuorumFactory for AggregatedMethods {
 
     fn is_hardcoded(&self, method: &RpcMethod) -> bool {
         self.delegates.iter().any(|d| d.is_hardcoded(method))
+    }
+
+    fn supported_methods(&self) -> Vec<String> {
+        // A method is supported on the chain if any upstream's config supports
+        // it (legacy `AggregatedCallMethods`).
+        let mut out: Vec<String> = self
+            .delegates
+            .iter()
+            .flat_map(|d| d.supported_methods())
+            .collect();
+        out.sort();
+        out.dedup();
+        out
     }
 }
 

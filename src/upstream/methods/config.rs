@@ -178,6 +178,18 @@ impl QuorumFactory for ConfiguredMethods {
     fn hardcoded_response(&self, method: &RpcMethod) -> Option<&RawValue> {
         self.static_responses.get(method).map(|b| &**b)
     }
+
+    /// The methods this layer adds on its own: those the user enabled plus any
+    /// with a static response. The chain default's methods are folded in by
+    /// [`LayeredMethods`](super::LayeredMethods), which also applies `disabled`.
+    fn supported_methods(&self) -> Vec<String> {
+        let mut names: HashSet<String> =
+            self.enabled.iter().map(|m| m.as_str().to_string()).collect();
+        names.extend(self.static_responses.keys().map(|m| m.as_str().to_string()));
+        let mut out: Vec<String> = names.into_iter().collect();
+        out.sort();
+        out
+    }
 }
 
 /// Encode a user-supplied static response. If the string parses as JSON we

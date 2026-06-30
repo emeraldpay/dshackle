@@ -64,6 +64,12 @@ impl Multistream {
         self.quorum_factory.quorum_for(method)
     }
 
+    /// Every method this chain can serve, for `Describe`. Sorted, callable plus
+    /// hardcoded, aggregated across all upstreams' method configs.
+    pub fn supported_methods(&self) -> Vec<String> {
+        self.quorum_factory.supported_methods()
+    }
+
     /// Pick candidate upstreams matching the given selector hint, filtered to
     /// those that accept `method`. Upstreams that reject the method up front
     /// are skipped so the router doesn't waste a round-trip just to learn

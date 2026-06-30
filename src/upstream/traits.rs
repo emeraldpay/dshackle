@@ -20,7 +20,25 @@ use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
 use crate::upstream::state::UpstreamState;
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, LazyLock};
+
+/// What an upstream can serve, advertised through `Describe` and (eventually)
+/// used for capability-based upstream selection. Mirrors the legacy
+/// `io.emeraldpay.dshackle.upstream.Capability`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Capability {
+    /// JSON-RPC calls via `NativeCall` (`CAP_CALLS`). Every upstream has this.
+    Rpc,
+    /// Balance tracking via `GetBalance` / `SubscribeBalance` (`CAP_BALANCE`).
+    Balance,
+    /// ERC-20 allowance tracking (`CAP_ALLOWANCE`).
+    Allowance,
+}
+
+/// Empty label map returned by the [`RpcUpstream::labels`] default, so the
+/// default needs no per-call allocation.
+static NO_LABELS: LazyLock<HashMap<String, String>> = LazyLock::new(HashMap::new);
 
 /// An upstream that can execute JSON-RPC calls.
 #[async_trait::async_trait]
@@ -53,6 +71,21 @@ pub trait RpcUpstream: Send + Sync {
     /// per-upstream method configs.
     fn allows_method(&self, _method: &RpcMethod) -> bool {
         true
+    }
+
+    /// Configured labels for this upstream, advertised in `Describe` node
+    /// details and used for label-based selection. Defaults to empty; the
+    /// metadata-carrying wrapper installed during wiring overrides it. Inner
+    /// transports and wrappers keep the default — only the outermost layer the
+    /// `Multistream` holds is queried.
+    fn labels(&self) -> &HashMap<String, String> {
+        &NO_LABELS
+    }
+
+    /// What this upstream can serve. Defaults to RPC-only; the metadata wrapper
+    /// adds `Balance`/`Allowance` from config (or a remote Dshackle's report).
+    fn capabilities(&self) -> Vec<Capability> {
+        vec![Capability::Rpc]
     }
 }
 

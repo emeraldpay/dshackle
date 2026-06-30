@@ -93,6 +93,10 @@ impl QuorumFactory for DefaultEthereumMethods {
     fn hardcoded_response(&self, method: &RpcMethod) -> Option<&RawValue> {
         self.hardcoded.get(method).map(|b| &**b)
     }
+
+    fn supported_methods(&self) -> Vec<String> {
+        super::supported_union(&self.callable, self.hardcoded.keys())
+    }
 }
 
 // ─── Callable methods ──────────────────────────────────────────────────────
@@ -394,5 +398,26 @@ mod tests {
             SelectorHint::Available => {}
             other => panic!("unexpected: {other:?}"),
         }
+    }
+
+    #[test]
+    fn supported_methods_unions_callable_and_hardcoded_sorted() {
+        let methods = DefaultEthereumMethods::new(eth_chain());
+        let supported = methods.supported_methods();
+
+        // Sorted ascending.
+        let mut sorted = supported.clone();
+        sorted.sort();
+        assert_eq!(supported, sorted);
+
+        // Callable methods present.
+        assert!(supported.contains(&"eth_getBalance".to_string()));
+        assert!(supported.contains(&"eth_getLogs".to_string()));
+        // Hardcoded methods present too (legacy includes them).
+        assert!(supported.contains(&"eth_chainId".to_string()));
+        assert!(supported.contains(&"web3_clientVersion".to_string()));
+        // No duplicates.
+        let unique: std::collections::HashSet<_> = supported.iter().collect();
+        assert_eq!(unique.len(), supported.len());
     }
 }

@@ -64,6 +64,22 @@ impl QuorumFactory for LayeredMethods {
             .hardcoded_response(method)
             .or_else(|| self.default.hardcoded_response(method))
     }
+
+    fn supported_methods(&self) -> Vec<String> {
+        // Union of both layers, then drop anything the user disabled — the same
+        // `disabled`-wins rule `is_callable` applies. Hardcoded responses are
+        // intentionally not subtracted (legacy `ManagedCallMethods`).
+        let mut out: Vec<String> = self
+            .default
+            .supported_methods()
+            .into_iter()
+            .chain(self.configured.supported_methods())
+            .filter(|m| !self.configured.is_disabled(&RpcMethod::from(m.as_str())))
+            .collect();
+        out.sort();
+        out.dedup();
+        out
+    }
 }
 
 #[cfg(test)]
@@ -93,6 +109,17 @@ mod tests {
         }
         fn hardcoded_response(&self, method: &RpcMethod) -> Option<&RawValue> {
             self.hardcoded.get(method).map(|b| &**b)
+        }
+        fn supported_methods(&self) -> Vec<String> {
+            let mut out: Vec<String> = self
+                .callable
+                .iter()
+                .chain(self.hardcoded.keys())
+                .map(|m| m.as_str().to_string())
+                .collect();
+            out.sort();
+            out.dedup();
+            out
         }
     }
 
@@ -263,6 +290,37 @@ mod tests {
         );
         assert!(layered.is_callable(&"whatever".into()));
         assert!(!layered.is_hardcoded(&"whatever".into()));
+    }
+
+    #[test]
+    fn supported_methods_unions_layers_minus_disabled() {
+        let default = default_with(&["eth_call", "admin_shutdown"], &[("net_version", "\"1\"")]);
+        let configured = cfg(
+            vec![MethodConfig {
+                name: "parity_trace".into(),
+                quorum: None,
+                static_value: None,
+            }],
+            vec![MethodConfig {
+                name: "admin_shutdown".into(),
+                quorum: None,
+                static_value: None,
+            }],
+        );
+        let layered = LayeredMethods::new(default, configured);
+        let supported = layered.supported_methods();
+
+        // User-enabled and default callable + hardcoded are all present...
+        assert!(supported.contains(&"eth_call".to_string()));
+        assert!(supported.contains(&"parity_trace".to_string()));
+        assert!(supported.contains(&"net_version".to_string()));
+        // ...but the disabled method is removed, even though it was a default.
+        assert!(!supported.contains(&"admin_shutdown".to_string()));
+        // Sorted, no duplicates.
+        let mut sorted = supported.clone();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(supported, sorted);
     }
 
     #[test]

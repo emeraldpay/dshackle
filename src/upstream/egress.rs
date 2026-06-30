@@ -77,6 +77,10 @@ pub trait EgressSubscription: Send + Sync {
         method: &str,
         params: Option<serde_json::Value>,
     ) -> Result<SubscriptionStream, EgressError>;
+
+    /// Topics this egress can serve, for `Describe`'s `supportedSubscriptions`
+    /// (legacy `EgressSubscription.getAvailableTopics`).
+    fn available_topics(&self) -> Vec<String>;
 }
 
 /// What the egress needs from a chain's upstreams: the aggregate syncing state
@@ -129,6 +133,14 @@ impl EgressSubscription for EthereumEgress {
             )),
             other => Err(EgressError::UnsupportedMethod(other.to_string())),
         }
+    }
+
+    fn available_topics(&self) -> Vec<String> {
+        vec![
+            METHOD_NEW_HEADS.to_string(),
+            METHOD_SYNCING.to_string(),
+            METHOD_LOGS.to_string(),
+        ]
     }
 }
 

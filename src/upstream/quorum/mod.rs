@@ -70,6 +70,14 @@ pub trait QuorumFactory: Send + Sync {
     fn hardcoded_response(&self, _method: &RpcMethod) -> Option<&RawValue> {
         None
     }
+
+    /// Every method this configuration can serve — callable plus hardcoded —
+    /// as advertised by `Describe` (legacy `CallMethods.getSupportedMethods`).
+    /// Defaults to empty for pass-through factories that keep no explicit list
+    /// (e.g. Dshackle remotes), so they advertise nothing rather than guessing.
+    fn supported_methods(&self) -> Vec<String> {
+        Vec::new()
+    }
 }
 
 /// Decides when a request has gathered enough responses to be considered done.

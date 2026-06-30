@@ -20,7 +20,8 @@
 use crate::blockchain::TargetBlockchain;
 use crate::data::BlockContainer;
 use crate::rpc::native_call;
-use crate::upstream::UpstreamManager;
+use crate::upstream::traits::Capability;
+use crate::upstream::{Multistream, UpstreamManager};
 use crate::upstream::egress::EgressError;
 use emerald_api::proto::blockchain::blockchain_server::Blockchain;
 use emerald_api::proto::blockchain::*;
@@ -217,7 +218,64 @@ impl Blockchain for BlockchainRpcService {
         &self,
         _request: tonic::Request<DescribeRequest>,
     ) -> Result<tonic::Response<DescribeResponse>, tonic::Status> {
-        Err(tonic::Status::unimplemented("describe not yet implemented"))
+        // Discovery: advertise every configured chain with its status, the
+        // methods/subscriptions it can serve, and its nodes. Mirrors the legacy
+        // `Describe`. A Dshackle-behind-Dshackle upstream relies on `chain` and
+        // `supported_methods` here, so those two must always be populated.
+        let mut chains = Vec::new();
+        for chain in self.upstreams.chains() {
+            let Some(multistream) = self.upstreams.get(&chain) else {
+                continue;
+            };
+
+            // One node per upstream with quorum 1 (legacy `getQuorumByLabel`),
+            // carrying that upstream's configured labels.
+            let nodes = multistream
+                .upstreams()
+                .iter()
+                .map(|up| NodeDetails {
+                    quorum: 1,
+                    labels: up
+                        .labels()
+                        .iter()
+                        .map(|(name, value)| Label {
+                            name: name.clone(),
+                            value: value.clone(),
+                        })
+                        .collect(),
+                })
+                .collect();
+
+            let supported_subscriptions = self
+                .upstreams
+                .egress(&chain)
+                .map(|e| e.available_topics())
+                .unwrap_or_default();
+
+            // Union of every upstream's capabilities (legacy `Multistream`
+            // folds them the same way).
+            let mut capabilities: Vec<i32> = Vec::new();
+            for up in multistream.upstreams() {
+                for cap in up.capabilities() {
+                    let proto = capability_to_proto(cap);
+                    if !capabilities.contains(&proto) {
+                        capabilities.push(proto);
+                    }
+                }
+            }
+
+            chains.push(DescribeChain {
+                chain: chain.id(),
+                status: Some(chain_status(&chain, multistream)),
+                nodes,
+                supported_methods: multistream.supported_methods(),
+                excluded_methods: Vec::new(),
+                capabilities,
+                supported_subscriptions,
+            });
+        }
+
+        Ok(tonic::Response::new(DescribeResponse { chains }))
     }
 
     async fn subscribe_status(
@@ -239,6 +297,46 @@ fn parse_subscribe_params(payload: &[u8]) -> Result<Option<serde_json::Value>, t
     serde_json::from_slice(payload)
         .map(Some)
         .map_err(|e| tonic::Status::invalid_argument(format!("invalid subscribe params: {e}")))
+}
+
+/// Map an internal [`Capability`] to its `Describe` proto value.
+fn capability_to_proto(cap: Capability) -> i32 {
+    match cap {
+        Capability::Rpc => Capabilities::CapCalls as i32,
+        Capability::Balance => Capabilities::CapBalance as i32,
+        Capability::Allowance => Capabilities::CapAllowance as i32,
+    }
+}
+
+/// Build a `ChainStatus` for a chain: its aggregate availability plus the
+/// number of usable upstreams. Shared by `Describe` and (later)
+/// `SubscribeStatus`, mirroring the legacy `SubscribeStatus.chainStatus`.
+///
+/// The `UpstreamAvailability` discriminants line up 1:1 with the proto
+/// `AvailabilityEnum`, so the availability maps by a direct cast.
+///
+/// Note: legacy counts upstreams `> UNAVAILABLE`, which — given UNAVAILABLE is
+/// the worst (highest) ordinal — can never match and always yields 0. That is a
+/// latent bug; we report the intended count of non-unavailable upstreams.
+fn chain_status(chain: &TargetBlockchain, multistream: &Multistream) -> ChainStatus {
+    use crate::upstream::availability::UpstreamAvailability;
+
+    let availability = multistream.aggregate_availability();
+    let quorum = if availability == UpstreamAvailability::Unavailable {
+        0
+    } else {
+        multistream
+            .upstreams()
+            .iter()
+            .filter(|u| u.availability() != UpstreamAvailability::Unavailable)
+            .count() as u32
+    };
+
+    ChainStatus {
+        chain: chain.id(),
+        availability: availability as i32,
+        quorum,
+    }
 }
 
 /// Build a `ChainHead` gRPC message from a head block. `weight` carries the
@@ -324,6 +422,44 @@ mod tests {
         }
         fn state(&self) -> &Arc<UpstreamState> {
             &self.state
+        }
+    }
+
+    /// Upstream stub that advertises fixed labels and capabilities, to verify
+    /// `describe` surfaces per-upstream metadata through the trait (the
+    /// `IdentifiedUpstream` wrapper that carries this in production is
+    /// unit-tested separately).
+    struct MetaUpstream {
+        labels: HashMap<String, String>,
+        capabilities: Vec<crate::upstream::traits::Capability>,
+        state: Arc<UpstreamState>,
+    }
+
+    #[async_trait::async_trait]
+    impl RpcUpstream for MetaUpstream {
+        async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
+            Err(UpstreamError::Transport("meta".into()))
+        }
+        fn id(&self) -> &str {
+            "meta"
+        }
+        fn availability(&self) -> UpstreamAvailability {
+            UpstreamAvailability::Ok
+        }
+        fn head(&self) -> &dyn Head {
+            &NoHead
+        }
+        fn lag(&self) -> Option<u64> {
+            None
+        }
+        fn state(&self) -> &Arc<UpstreamState> {
+            &self.state
+        }
+        fn labels(&self) -> &HashMap<String, String> {
+            &self.labels
+        }
+        fn capabilities(&self) -> Vec<crate::upstream::traits::Capability> {
+            self.capabilities.clone()
         }
     }
 
@@ -508,6 +644,139 @@ mod tests {
             .err()
             .expect("expected an error status");
         assert_eq!(status.code(), tonic::Code::Unavailable);
+    }
+
+    // ── describe ─────────────────────────────────────────────────────────
+
+    /// Factory that reports a fixed supported-method list, so the `describe`
+    /// test can verify the handler forwards the chain's methods. The real
+    /// per-chain method tables are unit-tested in `upstream::methods`.
+    struct FixedMethods(Vec<String>);
+
+    impl QuorumFactory for FixedMethods {
+        fn quorum_for(&self, _method: &RpcMethod) -> Box<dyn CallQuorum> {
+            Box::new(AlwaysQuorum::new())
+        }
+        fn supported_methods(&self) -> Vec<String> {
+            self.0.clone()
+        }
+    }
+
+    /// Build a service whose Ethereum chain reports a known method set, so
+    /// `supported_methods` is populated.
+    fn service_with_default_methods(upstream: Arc<dyn RpcUpstream>) -> BlockchainRpcService {
+        let factory: Arc<dyn QuorumFactory> = Arc::new(FixedMethods(vec![
+            "eth_chainId".to_string(),
+            "eth_getBalance".to_string(),
+        ]));
+        let multistream = Arc::new(Multistream::new(vec![upstream], factory));
+        let mut chains: HashMap<TargetBlockchain, Arc<Multistream>> = HashMap::new();
+        chains.insert(
+            TargetBlockchain::Standard(ChainRef::ChainEthereum),
+            multistream,
+        );
+        let manager = Arc::new(UpstreamManager::from_parts(chains, HashMap::new()));
+        BlockchainRpcService::new(manager)
+    }
+
+    #[tokio::test]
+    async fn describe_reports_chain_methods_and_status() {
+        let service =
+            service_with_default_methods(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let resp = service
+            .describe(tonic::Request::new(DescribeRequest {}))
+            .await
+            .expect("describe failed")
+            .into_inner();
+
+        assert_eq!(resp.chains.len(), 1);
+        let c = &resp.chains[0];
+        assert_eq!(c.chain, ChainRef::ChainEthereum as i32);
+
+        // Methods advertised, from the real Ethereum default table.
+        assert!(c.supported_methods.contains(&"eth_getBalance".to_string()));
+        assert!(c.supported_methods.contains(&"eth_chainId".to_string()));
+
+        // NativeCall capability always present.
+        assert!(c.capabilities.contains(&(Capabilities::CapCalls as i32)));
+
+        // One node per upstream, quorum 1.
+        assert_eq!(c.nodes.len(), 1);
+        assert_eq!(c.nodes[0].quorum, 1);
+
+        // Status reflects the upstream's OK availability and one in-quorum node.
+        let status = c.status.as_ref().expect("status present");
+        assert_eq!(status.chain, ChainRef::ChainEthereum as i32);
+        assert_eq!(
+            status.availability,
+            crate::upstream::availability::UpstreamAvailability::Ok as i32
+        );
+        assert_eq!(status.quorum, 1);
+
+        // `from_parts` builds no merged head, so the chain can't serve egress
+        // subscriptions and advertises none.
+        assert!(c.supported_subscriptions.is_empty());
+    }
+
+    #[tokio::test]
+    async fn describe_reports_labels_and_capabilities() {
+        use crate::upstream::traits::Capability;
+        let upstream = Arc::new(MetaUpstream {
+            labels: [("provider", "infura"), ("region", "eu")]
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+            capabilities: vec![Capability::Rpc, Capability::Balance],
+            state: Arc::new(UpstreamState::new()),
+        });
+        let multistream = Arc::new(Multistream::new(
+            vec![upstream as Arc<dyn RpcUpstream>],
+            Arc::new(AlwaysFactory),
+        ));
+        let mut chains: HashMap<TargetBlockchain, Arc<Multistream>> = HashMap::new();
+        chains.insert(
+            TargetBlockchain::Standard(ChainRef::ChainEthereum),
+            multistream,
+        );
+        let manager = Arc::new(UpstreamManager::from_parts(chains, HashMap::new()));
+        let service = BlockchainRpcService::new(manager);
+
+        let resp = service
+            .describe(tonic::Request::new(DescribeRequest {}))
+            .await
+            .expect("describe failed")
+            .into_inner();
+
+        let c = &resp.chains[0];
+        // Node carries the upstream's labels.
+        assert_eq!(c.nodes.len(), 1);
+        let labels: HashMap<_, _> = c.nodes[0]
+            .labels
+            .iter()
+            .map(|l| (l.name.as_str(), l.value.as_str()))
+            .collect();
+        assert_eq!(labels.get("provider"), Some(&"infura"));
+        assert_eq!(labels.get("region"), Some(&"eu"));
+
+        // Capabilities surface both RPC (CAP_CALLS) and BALANCE.
+        assert!(c.capabilities.contains(&(Capabilities::CapCalls as i32)));
+        assert!(c.capabilities.contains(&(Capabilities::CapBalance as i32)));
+    }
+
+    #[test]
+    fn chain_status_counts_available_upstreams() {
+        let multistream = Multistream::new(
+            vec![ConcurrencyProbeUpstream::new(Duration::ZERO)],
+            Arc::new(AlwaysFactory),
+        );
+        let chain = TargetBlockchain::Standard(ChainRef::ChainEthereum);
+        let status = chain_status(&chain, &multistream);
+        assert_eq!(status.chain, ChainRef::ChainEthereum as i32);
+        assert_eq!(
+            status.availability,
+            crate::upstream::availability::UpstreamAvailability::Ok as i32
+        );
+        assert_eq!(status.quorum, 1);
     }
 
     #[tokio::test]
