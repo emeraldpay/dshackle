@@ -20,6 +20,7 @@ pub(crate) mod bitcoin;
 mod dshackle;
 pub mod egress;
 pub mod ethereum;
+pub mod fees;
 pub mod fork;
 pub mod head;
 mod identified;
@@ -60,6 +61,7 @@ use fork::{
     DifficultyForkChoice, ForkChoice, ForkMember, PriorityForkChoice, is_pos, start_fork_watch,
 };
 use egress::{ChainAccess, EgressSubscription, EthereumEgress};
+use fees::{ChainFees, EthereumFees};
 use head::CurrentHead;
 use identified::IdentifiedUpstream;
 use merged_head::MergedHead;
@@ -610,10 +612,48 @@ impl UpstreamManager {
         Some(Arc::new(EthereumEgress::new(Arc::clone(head), access)))
     }
 
+    /// Build the fee estimator for a chain, or `None` when fee estimation isn't
+    /// supported there. Only Ethereum-family chains are wired; Bitcoin fee
+    /// estimation needs UTXO resolution not yet ported (legacy `BitcoinFees`).
+    /// The EIP-1559 / legacy response shape is chosen per chain, mirroring the
+    /// legacy `EthereumMultistream` (`supportsEIP1559`).
+    pub fn fees(&self, chain: &TargetBlockchain) -> Option<Arc<dyn ChainFees>> {
+        if chain.blockchain_type() != BlockchainType::Ethereum {
+            return None;
+        }
+        let access: Arc<dyn ChainAccess> = self.get(chain)?.clone();
+        Some(Arc::new(EthereumFees::new(
+            access,
+            supports_eip1559(chain),
+            ETHEREUM_FEE_HEIGHT_LIMIT,
+        )))
+    }
+
     /// Look up the cache for a given blockchain.
     pub fn caches(&self, chain: &TargetBlockchain) -> Option<&Arc<Caches>> {
         self.caches.get(chain)
     }
+}
+
+/// How many blocks back a single Ethereum fee estimate may sample (legacy
+/// `EthereumMultistream` passes 256).
+const ETHEREUM_FEE_HEIGHT_LIMIT: u32 = 256;
+
+/// Whether the chain produces EIP-1559 (type-2) transactions, selecting the
+/// extended fee response. Matches the legacy `ChainOptions.supportsEIP1559`
+/// allow-list (mainnet plus the active PoS testnets — notably not Ethereum
+/// Classic or the sidechains).
+fn supports_eip1559(chain: &TargetBlockchain) -> bool {
+    matches!(
+        chain,
+        TargetBlockchain::Standard(
+            ChainRef::ChainEthereum
+                | ChainRef::ChainGoerli
+                | ChainRef::ChainHolesky
+                | ChainRef::ChainSepolia
+                | ChainRef::ChainHoodi
+        )
+    )
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────

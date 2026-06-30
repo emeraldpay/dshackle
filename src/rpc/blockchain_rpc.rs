@@ -23,6 +23,7 @@ use crate::rpc::native_call;
 use crate::upstream::traits::Capability;
 use crate::upstream::{Multistream, UpstreamManager};
 use crate::upstream::egress::EgressError;
+use crate::upstream::fees::{FeeError, FeeMode};
 use emerald_api::proto::blockchain::blockchain_server::Blockchain;
 use emerald_api::proto::blockchain::*;
 use emerald_api::proto::common;
@@ -186,11 +187,36 @@ impl Blockchain for BlockchainRpcService {
 
     async fn estimate_fee(
         &self,
-        _request: tonic::Request<EstimateFeeRequest>,
+        request: tonic::Request<EstimateFeeRequest>,
     ) -> Result<tonic::Response<EstimateFeeResponse>, tonic::Status> {
-        Err(tonic::Status::unimplemented(
-            "estimate_fee not yet implemented",
-        ))
+        let req = request.into_inner();
+
+        // An unconfigured (or non-fee-supporting, e.g. Bitcoin) chain is
+        // `UNAVAILABLE`; the fee estimator is `None` in both cases. Carry the
+        // raw requested chain value in the message, matching the legacy text.
+        let fees = TargetBlockchain::try_from(req.chain)
+            .ok()
+            .and_then(|chain| self.upstreams.fees(&chain))
+            .ok_or_else(|| {
+                tonic::Status::unavailable(format!("BLOCKCHAIN UNAVAILABLE: {}", req.chain))
+            })?;
+
+        // Reject an unusable mode up front (legacy `ChainFees.extractMode`).
+        let mode = FeeMode::from_proto(req.mode).ok_or_else(|| {
+            tonic::Status::unavailable(format!("UNSUPPORTED MODE: {}", req.mode))
+        })?;
+
+        match fees.estimate(mode, req.blocks).await {
+            Ok(response) => Ok(tonic::Response::new(response)),
+            // No head yet or too little data to sample — the chain can't answer
+            // right now (legacy returns an empty/!ready result here).
+            Err(FeeError::NotReady) => {
+                Err(tonic::Status::unavailable("upstream is not ready"))
+            }
+            Err(FeeError::NoData) => Err(tonic::Status::unavailable(
+                "not enough data to estimate fee",
+            )),
+        }
     }
 
     async fn native_subscribe(
@@ -915,6 +941,56 @@ mod tests {
             .expect("subscribe_status failed");
         let mut stream = resp.into_inner();
         assert!(stream.next().await.is_none());
+    }
+
+    // ── estimate_fee ─────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn estimate_fee_unconfigured_chain_is_unavailable() {
+        // `service_with` configures only Ethereum; Bitcoin has no estimator.
+        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let status = service
+            .estimate_fee(tonic::Request::new(EstimateFeeRequest {
+                chain: ChainRef::ChainBitcoin as i32,
+                mode: FeeEstimationMode::AvgLast as i32,
+                blocks: 5,
+            }))
+            .await
+            .err()
+            .expect("expected an error status");
+        assert_eq!(status.code(), tonic::Code::Unavailable);
+    }
+
+    #[tokio::test]
+    async fn estimate_fee_invalid_mode_is_rejected() {
+        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let status = service
+            .estimate_fee(tonic::Request::new(EstimateFeeRequest {
+                chain: ChainRef::ChainEthereum as i32,
+                mode: FeeEstimationMode::Invalid as i32,
+                blocks: 5,
+            }))
+            .await
+            .err()
+            .expect("expected an error status");
+        assert_eq!(status.code(), tonic::Code::Unavailable);
+        assert!(status.message().contains("UNSUPPORTED MODE"));
+    }
+
+    #[tokio::test]
+    async fn estimate_fee_without_head_is_unavailable() {
+        // The probe upstream reports no head height, so there's no window.
+        let service = service_with(ConcurrencyProbeUpstream::new(Duration::ZERO));
+        let status = service
+            .estimate_fee(tonic::Request::new(EstimateFeeRequest {
+                chain: ChainRef::ChainEthereum as i32,
+                mode: FeeEstimationMode::AvgLast as i32,
+                blocks: 5,
+            }))
+            .await
+            .err()
+            .expect("expected an error status");
+        assert_eq!(status.code(), tonic::Code::Unavailable);
     }
 
     #[tokio::test]

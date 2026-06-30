@@ -93,6 +93,14 @@ pub trait ChainAccess: Send + Sync {
     /// `observeStatus() != OK`.
     fn is_syncing(&self) -> bool;
 
+    /// The chain's current best height (max across upstreams), or `None` when no
+    /// upstream has reported a head yet. Used by fee estimation to choose the
+    /// block window (legacy `Multistream.getHead().getCurrentHeight()`). Defaults
+    /// to `None` for consumers that don't track a head.
+    fn current_height(&self) -> Option<u64> {
+        None
+    }
+
     /// Route a JSON-RPC request through the chain's upstreams (used to fetch
     /// `eth_getLogs` per head block).
     async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError>;

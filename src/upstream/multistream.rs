@@ -164,6 +164,13 @@ impl ChainAccess for Multistream {
         self.aggregate_availability() != UpstreamAvailability::Ok
     }
 
+    fn current_height(&self) -> Option<u64> {
+        self.upstreams
+            .iter()
+            .filter_map(|u| u.head().current_height())
+            .max()
+    }
+
     async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
         // The same routing core as `native_call::execute_call`, inlined to keep
         // the upstream layer from depending on the rpc layer.
