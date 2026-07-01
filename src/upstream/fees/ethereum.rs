@@ -27,8 +27,9 @@
 use super::{ChainFees, FeeError, FeeMode, block_range};
 use crate::jsonrpc::{JsonRpcRequest, RpcMethod};
 use crate::upstream::egress::ChainAccess;
-use alloy::primitives::U256;
+use alloy::primitives::{U64, U256};
 use serde_json::{Value, json};
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// Per-transaction fee components, all in Wei. Mirrors the legacy
@@ -224,21 +225,23 @@ fn aggregate(mode: FeeMode, fees: &[EthereumFee]) -> Option<EthereumFee> {
     })
 }
 
-/// Parse a `0x`-prefixed hex quantity as Wei, defaulting to zero when missing
-/// or malformed (the field genuinely may be absent, e.g. `baseFeePerGas` on a
-/// pre-1559 block).
+/// Parse a hex quantity as Wei, defaulting to zero when missing or malformed:
+/// the field is legitimately absent in places, e.g. `baseFeePerGas` on a
+/// pre-1559 block.
 fn wei(value: Option<&Value>) -> U256 {
     value
         .and_then(Value::as_str)
-        .and_then(|s| U256::from_str_radix(s.trim_start_matches("0x"), 16).ok())
+        .and_then(|s| U256::from_str(s).ok())
         .unwrap_or(U256::ZERO)
 }
 
-/// Parse a `0x`-prefixed hex quantity as a small integer (transaction `type`).
+/// Parse the transaction `type` as a small integer, defaulting to zero (legacy)
+/// when missing or malformed.
 fn int(value: Option<&Value>) -> u64 {
     value
         .and_then(Value::as_str)
-        .and_then(|s| u64::from_str_radix(s.trim_start_matches("0x"), 16).ok())
+        .and_then(|s| U64::from_str(s).ok())
+        .map(|v| v.to::<u64>())
         .unwrap_or(0)
 }
 
@@ -421,6 +424,39 @@ mod tests {
         let mut pinned = chain.pinned_heights.lock().unwrap().clone();
         pinned.sort();
         assert_eq!(pinned, vec![10, 11]);
+    }
+
+    #[tokio::test]
+    async fn uppercase_hex_type_is_classified_as_eip1559() {
+        // Tx `type` "0X2" (uppercase) must be read as 2 → the 1559 branch, not
+        // parsed as 0 → legacy. base 0x5 + priority 0x3 = 8, capped at max 0x100.
+        let tx = json!({
+            "type": "0X2", "maxFeePerGas": "0x100", "maxPriorityFeePerGas": "0x3"
+        });
+        let chain = FakeChain::new(Some(10)).with_block(10, block("0x5", vec![tx]));
+        let resp = estimate(chain, true, FeeMode::AvgLast, 1).await.unwrap();
+        match resp.fee_type.unwrap() {
+            FeeType::EthereumExtended(ext) => {
+                assert_eq!(ext.expect, "8");
+                assert_eq!(ext.priority, "3");
+                assert_eq!(ext.max, "256");
+            }
+            other => panic!("expected extended fee, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn uppercase_wei_value_beyond_u64_parses() {
+        // A gas price above u64::MAX with an uppercase prefix must parse as the
+        // full U256 value, not truncate or zero out.
+        let big = "0X1FFFFFFFFFFFFFFFF"; // 2^65 - 1
+        let chain =
+            FakeChain::new(Some(10)).with_block(10, block("0x0", vec![legacy_tx(big)]));
+        let resp = estimate(chain, false, FeeMode::AvgLast, 1).await.unwrap();
+        match resp.fee_type.unwrap() {
+            FeeType::EthereumStd(std) => assert_eq!(std.fee, "36893488147419103231"),
+            other => panic!("expected std fee, got {other:?}"),
+        }
     }
 
     #[tokio::test]
