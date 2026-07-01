@@ -127,10 +127,18 @@ impl EgressSubscription for EthereumEgress {
     ) -> Result<SubscriptionStream, EgressError> {
         match method {
             METHOD_NEW_HEADS => {
+                let access = Arc::clone(&self.access);
                 let stream = BroadcastStream::new(self.head.subscribe())
                     // Skip the gap markers the broadcast emits when a slow
                     // subscriber falls behind; only the latest head matters.
-                    .filter_map(|item| item.ok().map(|block| new_head_message(&block)));
+                    .filter_map(|item| item.ok())
+                    .then(move |block| {
+                        let access = Arc::clone(&access);
+                        async move {
+                            let raw = head_raw_header(&block, &*access).await;
+                            new_head_message(&block, raw.as_deref())
+                        }
+                    });
                 Ok(Box::pin(stream))
             }
             METHOD_SYNCING => Ok(syncing_stream(Arc::clone(&self.access))),
@@ -152,15 +160,50 @@ impl EgressSubscription for EthereumEgress {
     }
 }
 
-/// Build a `newHeads` message from a head block.
+/// Resolve the raw header JSON to source a head's `newHeads` header fields from.
+///
+/// Direct upstreams attach the header (or the full block) to the head, so this
+/// is a cheap clone. A head sourced from a remote Dshackle's `ChainHead` carries
+/// no header fields at all, so fetch the full block by hash — through the normal
+/// call path, so it hits the cache — and use that. Returns `None` when nothing
+/// is available; [`new_head_message`] then degrades to metadata only.
+async fn head_raw_header(block: &BlockContainer, access: &dyn ChainAccess) -> Option<Arc<[u8]>> {
+    if let Some(raw) = block.header_json.clone().or_else(|| block.json.clone()) {
+        return Some(raw);
+    }
+    fetch_block_json(access, &block.hash).await
+}
+
+/// Fetch a full block by hash (`eth_getBlockByHash` with tx hashes only) as raw
+/// JSON. Any failure — call error, JSON-RPC error, or an unknown block (`null`
+/// result) — yields `None` rather than tearing down the subscription.
+async fn fetch_block_json(access: &dyn ChainAccess, hash: &BlockId) -> Option<Arc<[u8]>> {
+    let request = JsonRpcRequest::new(
+        0,
+        RpcMethod::from("eth_getBlockByHash"),
+        json!([hash.to_hex_prefixed(), false]),
+    );
+    let response = access.call(&request).await.ok()?;
+    if response.error.is_some() {
+        return None;
+    }
+    let raw = response.result?;
+    // `eth_getBlockByHash` answers `null` for an unknown block — not a header.
+    if raw.get().trim() == "null" {
+        return None;
+    }
+    Some(Arc::from(raw.get().as_bytes()))
+}
+
+/// Build a `newHeads` message from a head block and its resolved raw header.
 ///
 /// The core fields come from the parsed block metadata; the remaining header
-/// fields are passed through verbatim from the raw header JSON (a `newHeads`
-/// notification or, as a fallback, the full block JSON — both carry the same
-/// header fields, already encoded as canonical hex by the node). When no raw
-/// header is available the message degrades to the metadata-only subset rather
-/// than guessing.
-fn new_head_message(block: &BlockContainer) -> Vec<u8> {
+/// fields are passed through verbatim from `raw_header` (a `newHeads`
+/// notification, the full block JSON, or a block fetched by hash — all carry the
+/// same header fields, already encoded as canonical hex by the node). When
+/// `raw_header` is `None` the message degrades to the metadata-only subset
+/// rather than guessing.
+fn new_head_message(block: &BlockContainer, raw_header: Option<&[u8]>) -> Vec<u8> {
     let mut msg = serde_json::Map::new();
     msg.insert("number".into(), json!(format!("0x{:x}", block.height)));
     msg.insert("hash".into(), json!(block.hash.to_hex_prefixed()));
@@ -176,8 +219,7 @@ fn new_head_message(block: &BlockContainer) -> Vec<u8> {
         json!(format!("0x{:x}", block.timestamp.as_second() as u64)),
     );
 
-    let raw = block.header_json.as_deref().or(block.json.as_deref());
-    if let Some(raw) = raw
+    if let Some(raw) = raw_header
         && let Ok(serde_json::Value::Object(header)) =
             serde_json::from_slice::<serde_json::Value>(raw)
     {
@@ -367,11 +409,13 @@ mod tests {
         }
     }
 
-    /// Stub chain access: a settable syncing flag and a canned `eth_getLogs`
-    /// result, capturing the params of the last call.
+    /// Stub chain access: a settable syncing flag, a canned `eth_getLogs`
+    /// result, and an optional `eth_getBlockByHash` result, capturing the params
+    /// of the last call.
     struct StubAccess {
         syncing: AtomicBool,
         logs: Vec<serde_json::Value>,
+        block_by_hash: Option<serde_json::Value>,
         last_params: Mutex<Option<serde_json::Value>>,
     }
 
@@ -380,6 +424,15 @@ mod tests {
             Arc::new(Self {
                 syncing: AtomicBool::new(syncing),
                 logs,
+                block_by_hash: None,
+                last_params: Mutex::new(None),
+            })
+        }
+        fn with_block(syncing: bool, block_by_hash: serde_json::Value) -> Arc<Self> {
+            Arc::new(Self {
+                syncing: AtomicBool::new(syncing),
+                logs: vec![],
+                block_by_hash: Some(block_by_hash),
                 last_params: Mutex::new(None),
             })
         }
@@ -398,9 +451,16 @@ mod tests {
         }
         async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             *self.last_params.lock().unwrap() = Some(request.params.clone());
+            let result = if request.method.as_ref() == "eth_getBlockByHash" {
+                self.block_by_hash
+                    .clone()
+                    .unwrap_or(serde_json::Value::Null)
+            } else {
+                serde_json::Value::Array(self.logs.clone())
+            };
             let body = format!(
                 r#"{{"jsonrpc":"2.0","id":1,"result":{}}}"#,
-                serde_json::to_string(&self.logs).unwrap()
+                serde_json::to_string(&result).unwrap()
             );
             Ok(serde_json::from_str(&body).unwrap())
         }
@@ -412,7 +472,8 @@ mod tests {
 
     #[test]
     fn new_head_message_carries_full_header_fields() {
-        let msg = new_head_message(&block_with_header(0x10, Some(HEADER_JSON)));
+        let block = block_with_header(0x10, Some(HEADER_JSON));
+        let msg = new_head_message(&block, block.header_json.as_deref());
         let value: serde_json::Value = serde_json::from_slice(&msg).unwrap();
         // Core fields from metadata.
         assert_eq!(value["number"], "0x10");
@@ -433,7 +494,7 @@ mod tests {
 
     #[test]
     fn new_head_message_degrades_without_raw_header() {
-        let msg = new_head_message(&block_with_header(0x10, None));
+        let msg = new_head_message(&block_with_header(0x10, None), None);
         let value: serde_json::Value = serde_json::from_slice(&msg).unwrap();
         assert_eq!(value["number"], "0x10");
         assert!(value.get("difficulty").is_none());
@@ -446,7 +507,7 @@ mod tests {
         // carries the `parentHash` key, as `null` — never dropped.
         let mut block = block_with_header(0x10, None);
         block.parent_hash = None;
-        let msg = new_head_message(&block);
+        let msg = new_head_message(&block, None);
         let value: serde_json::Value = serde_json::from_slice(&msg).unwrap();
         assert!(value.as_object().unwrap().contains_key("parentHash"));
         assert!(value["parentHash"].is_null());
@@ -465,6 +526,31 @@ mod tests {
         let value: serde_json::Value = serde_json::from_slice(&msg).unwrap();
         assert_eq!(value["number"], "0x20");
         assert_eq!(value["gasLimit"], "0x1c9c380");
+    }
+
+    #[tokio::test]
+    async fn new_heads_fetches_header_for_headerless_remote_dshackle_head() {
+        // A head from a remote Dshackle's `ChainHead` carries no header; the
+        // egress fetches the full block by hash to recover the header fields.
+        let head = Arc::new(CurrentHead::new());
+        let merged = MergedHead::new(vec![Arc::clone(&head)]);
+        let block_by_hash: serde_json::Value = serde_json::from_str(HEADER_JSON).unwrap();
+        let access = StubAccess::with_block(false, block_by_hash);
+        let egress = egress(merged, Arc::clone(&access) as Arc<dyn ChainAccess>);
+
+        let mut stream = egress.subscribe(METHOD_NEW_HEADS, None).unwrap();
+        head.update_with_block(block_with_header(0x20, None));
+
+        let msg = stream.next().await.unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&msg).unwrap();
+        assert_eq!(value["number"], "0x20");
+        // Header fields came from the fetched block, not the (headerless) head.
+        assert_eq!(value["gasLimit"], "0x1c9c380");
+        assert_eq!(value["miner"], "0xcafe");
+        // The fetch was scoped to the head's block hash.
+        let params = access.last_params().expect("eth_getBlockByHash was called");
+        assert!(params[0].as_str().unwrap().starts_with("0x"));
+        assert_eq!(params[1], false);
     }
 
     #[tokio::test]
