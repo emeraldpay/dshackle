@@ -68,6 +68,31 @@ impl QuorumFactory for DefaultMethods {
     }
 }
 
+/// Method config for a remote Dshackle upstream. The remote enforces its own
+/// method filtering and quorum, so — like [`DefaultMethods`] — every method is
+/// treated as callable and gets a pass-through quorum. Unlike `DefaultMethods`
+/// it carries the concrete method list the remote reported during `Describe`
+/// discovery, so the local `Describe` re-advertises it instead of nothing.
+pub struct RemoteMethods {
+    supported: Vec<String>,
+}
+
+impl RemoteMethods {
+    pub fn new(supported: Vec<String>) -> Self {
+        Self { supported }
+    }
+}
+
+impl QuorumFactory for RemoteMethods {
+    fn quorum_for(&self, _method: &RpcMethod) -> Box<dyn CallQuorum> {
+        Box::new(AlwaysQuorum::new())
+    }
+
+    fn supported_methods(&self) -> Vec<String> {
+        self.supported.clone()
+    }
+}
+
 /// Aggregates multiple per-upstream method configs into one. Mirrors the
 /// legacy `AggregatedCallMethods`: a method is considered callable/hardcoded
 /// if *any* delegate claims it, and the quorum is taken from the first
@@ -129,6 +154,36 @@ mod tests {
             SelectorHint::Available => {}
             other => panic!("unexpected: {other:?}"),
         }
+    }
+
+    // ── RemoteMethods ────────────────────────────────────────────────────
+
+    #[test]
+    fn remote_methods_advertise_discovered_list_but_stay_pass_through() {
+        let remote = RemoteMethods::new(vec!["eth_call".into(), "eth_getBalance".into()]);
+        // Advertised for `Describe`...
+        assert_eq!(remote.supported_methods(), vec!["eth_call", "eth_getBalance"]);
+        // ...yet still pass-through: any method is callable and gets the
+        // permissive quorum, since the remote enforces its own filtering.
+        assert!(remote.is_callable(&"debug_traceTransaction".into()));
+        assert!(matches!(
+            remote.quorum_for(&"eth_call".into()).selector(),
+            SelectorHint::Available
+        ));
+    }
+
+    #[test]
+    fn remote_only_chain_advertises_its_methods() {
+        // Regression: a chain whose sole upstream is a remote Dshackle used to
+        // report an empty method list because it was wired with `DefaultMethods`.
+        let agg = AggregatedMethods::new(vec![Arc::new(RemoteMethods::new(vec![
+            "eth_call".into(),
+            "eth_blockNumber".into(),
+        ]))]);
+        assert_eq!(
+            agg.supported_methods(),
+            vec!["eth_blockNumber", "eth_call"]
+        );
     }
 
     // ── AggregatedMethods ────────────────────────────────────────────────

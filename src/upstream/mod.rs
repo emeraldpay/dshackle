@@ -86,6 +86,7 @@ use methods::DefaultMethods;
 use methods::HardcodedMethods;
 use methods::LayeredMethods;
 use methods::MethodFilter;
+use methods::RemoteMethods;
 use methods::bitcoin::DefaultBitcoinMethods;
 use methods::ethereum::DefaultEthereumMethods;
 use quorum::QuorumFactory;
@@ -493,26 +494,32 @@ impl UpstreamManager {
                     .await
                     {
                         Ok(discovered) => {
-                            for (chain, reader, caps, allowance_client) in discovered {
+                            for dc in discovered {
                                 // Remember a remote that can serve allowances so
                                 // `address_allowance` can forward to it.
-                                if let Some(client) = allowance_client {
-                                    allowance_clients.entry(chain).or_insert(client);
+                                if let Some(client) = dc.allowance_client {
+                                    allowance_clients.entry(dc.chain).or_insert(client);
                                 }
                                 // Outermost layer: this relay's configured
                                 // labels plus the capabilities the remote
                                 // reported.
                                 let reader: Arc<dyn RpcUpstream> = Arc::new(
-                                    IdentifiedUpstream::new(reader, upstream.labels.clone(), caps),
+                                    IdentifiedUpstream::new(
+                                        dc.reader,
+                                        upstream.labels.clone(),
+                                        dc.capabilities,
+                                    ),
                                 );
-                                per_chain.entry(chain).or_default().push(reader);
+                                per_chain.entry(dc.chain).or_default().push(reader);
                                 // Remote Dshackles handle their own quorum
-                                // internally; use `DefaultMethods` so the
-                                // aggregator treats their methods as callable.
+                                // internally, so this factory keeps every method
+                                // callable — but it carries the remote's
+                                // discovered methods so `Describe` re-advertises
+                                // them instead of nothing.
                                 per_chain_methods
-                                    .entry(chain)
+                                    .entry(dc.chain)
                                     .or_default()
-                                    .push(Arc::new(DefaultMethods));
+                                    .push(Arc::new(RemoteMethods::new(dc.supported_methods)));
                             }
                         }
                         Err(e) => {
@@ -1048,20 +1055,27 @@ fn quorum_factory_for(chain: TargetBlockchain) -> Arc<dyn QuorumFactory> {
 
 /// Connects to a remote Dshackle instance, calls `Describe` to discover
 /// available chains, and creates a per-chain upstream for each.
+/// One chain discovered on a remote Dshackle, wired and ready to add to the
+/// local cluster.
+struct DiscoveredChain {
+    chain: TargetBlockchain,
+    reader: Arc<dyn RpcUpstream>,
+    capabilities: Vec<Capability>,
+    /// The remote's gRPC client, kept only when it advertises the allowance
+    /// capability so `address_allowance` can forward to it.
+    allowance_client: Option<BlockchainClient<Channel>>,
+    /// Methods the remote reported via `Describe`; re-advertised by the local
+    /// `Describe` for this chain (empty when the remote listed none).
+    supported_methods: Vec<String>,
+}
+
 async fn connect_dshackle(
     upstream_id: &str,
     url: &str,
     redis_conn: Option<&redis::aio::ConnectionManager>,
     caches_map: &mut HashMap<TargetBlockchain, Arc<Caches>>,
     caching_heads: &mut HashMap<TargetBlockchain, CachingHead>,
-) -> anyhow::Result<
-    Vec<(
-        TargetBlockchain,
-        Arc<dyn RpcUpstream>,
-        Vec<Capability>,
-        Option<BlockchainClient<Channel>>,
-    )>,
-> {
+) -> anyhow::Result<Vec<DiscoveredChain>> {
     let endpoint = tonic::transport::Endpoint::from_shared(url.to_string())?;
     let channel = endpoint.connect().await?;
     let mut client = BlockchainClient::new(channel);
@@ -1147,7 +1161,7 @@ async fn connect_dshackle(
         // Use the supported methods from Describe as the allowed set.
         // The remote Dshackle already handles hardcoded responses, so we
         // only need a MethodFilter — no HardcodedMethods wrapper.
-        if !desc_chain.supported_methods.is_empty() {
+        let reader = if !desc_chain.supported_methods.is_empty() {
             let callable: HashSet<_> = desc_chain
                 .supported_methods
                 .iter()
@@ -1155,12 +1169,18 @@ async fn connect_dshackle(
                 .collect();
             let methods: Arc<dyn QuorumFactory> =
                 Arc::new(ConfiguredMethods::allowed_only(callable));
-            let reader = Arc::new(MethodFilter::new(reader, methods));
-            results.push((chain, reader as Arc<dyn RpcUpstream>, caps, allowance_client));
+            Arc::new(MethodFilter::new(reader, methods)) as Arc<dyn RpcUpstream>
         } else {
             // No method list — pass everything through
-            results.push((chain, reader, caps, allowance_client));
-        }
+            reader
+        };
+        results.push(DiscoveredChain {
+            chain,
+            reader,
+            capabilities: caps,
+            allowance_client,
+            supported_methods: desc_chain.supported_methods.clone(),
+        });
     }
 
     tracing::info!(
