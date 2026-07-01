@@ -28,6 +28,7 @@ use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::egress::ChainAccess;
 use crate::upstream::quorum::{CallQuorum, QuorumFactory, SelectorHint};
 use crate::upstream::router;
+use crate::upstream::status_signal::{StatusChanges, StatusSignal};
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -41,6 +42,9 @@ pub struct Multistream {
     cursor: AtomicUsize,
     /// Per-method quorum picker for this chain (Ethereum / Bitcoin / default).
     quorum_factory: Arc<dyn QuorumFactory>,
+    /// Wakes on every upstream status change, shared with each upstream's state.
+    /// Drives the event-driven `syncing` egress and gRPC `SubscribeStatus`.
+    status_signal: Arc<StatusSignal>,
 }
 
 impl Multistream {
@@ -52,11 +56,28 @@ impl Multistream {
             !upstreams.is_empty(),
             "Multistream requires at least one upstream"
         );
+        // One signal per chain, shared into every upstream's state so any status
+        // writer (lag tracker, validator, fork watcher, remote status) wakes the
+        // chain's status consumers.
+        let status_signal = Arc::new(StatusSignal::new());
+        for upstream in &upstreams {
+            upstream
+                .state()
+                .attach_status_signal(Arc::clone(&status_signal));
+        }
         Self {
             upstreams,
             cursor: AtomicUsize::new(0),
             quorum_factory,
+            status_signal,
         }
+    }
+
+    /// A subscription that wakes whenever some upstream's availability may have
+    /// changed. Backs the event-driven `syncing` egress and gRPC
+    /// `SubscribeStatus`, replacing their former fixed-interval polls.
+    pub fn status_changes(&self) -> StatusChanges {
+        self.status_signal.subscribe()
     }
 
     /// Build the `CallQuorum` strategy appropriate for the given RPC method.
@@ -162,6 +183,10 @@ impl Multistream {
 impl ChainAccess for Multistream {
     fn is_syncing(&self) -> bool {
         self.aggregate_availability() != UpstreamAvailability::Ok
+    }
+
+    fn status_changes(&self) -> StatusChanges {
+        Multistream::status_changes(self)
     }
 
     fn current_height(&self) -> Option<u64> {

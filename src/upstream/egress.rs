@@ -22,12 +22,12 @@
 use crate::data::{BlockContainer, BlockId};
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::merged_head::MergedHead;
+use crate::upstream::status_signal::StatusChanges;
 use crate::upstream::traits::UpstreamError;
 use serde_json::json;
 use std::collections::VecDeque;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::error::RecvError;
 use tokio_stream::wrappers::BroadcastStream;
@@ -51,12 +51,6 @@ const NEW_HEAD_HEADER_FIELDS: [&str; 6] = [
     "miner",
     "baseFeePerGas",
 ];
-
-/// How often the `syncing` topic re-checks the chain's status. The legacy
-/// implementation is event-driven off `observeStatus`; the Rust upstreams
-/// expose no status-change signal yet, so the egress polls and emits only on
-/// change. The poll cadence is the one behavioral difference.
-const SYNCING_POLL_INTERVAL: Duration = Duration::from_secs(1);
 
 /// A stream of JSON-encoded subscription messages.
 pub type SubscriptionStream = Pin<Box<dyn Stream<Item = Vec<u8>> + Send>>;
@@ -104,6 +98,13 @@ pub trait ChainAccess: Send + Sync {
     /// Route a JSON-RPC request through the chain's upstreams (used to fetch
     /// `eth_getLogs` per head block).
     async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError>;
+
+    /// A subscription that wakes when the chain's aggregate status may have
+    /// changed, so `syncing` reacts without polling. Defaults to a signal that
+    /// never fires, for chain accessors that don't track upstream status.
+    fn status_changes(&self) -> StatusChanges {
+        StatusChanges::never()
+    }
 }
 
 /// Ethereum egress: `newHeads` and `logs` from the chain's merged head and
@@ -237,20 +238,26 @@ fn new_head_message(block: &BlockContainer, raw_header: Option<&[u8]>) -> Vec<u8
 }
 
 /// Stream of `syncing` booleans: the current value immediately, then a new
-/// value each time the chain's status flips. Polls on [`SYNCING_POLL_INTERVAL`]
-/// while the value is unchanged.
+/// value each time the chain's status flips. Driven by the chain's
+/// status-change signal (legacy `observeStatus`) rather than a poll, so a flip
+/// and recovery in quick succession is never collapsed away.
 fn syncing_stream(access: Arc<dyn ChainAccess>) -> SubscriptionStream {
+    let changes = access.status_changes();
     let stream = futures::stream::unfold(
-        (access, Option::<bool>::None),
-        |(access, last)| async move {
+        (access, changes, Option::<bool>::None),
+        |(access, mut changes, last)| async move {
             loop {
                 let syncing = access.is_syncing();
                 if last != Some(syncing) {
                     let msg = serde_json::to_vec(&serde_json::Value::Bool(syncing))
                         .expect("bool always serializes");
-                    return Some((msg, (access, Some(syncing))));
+                    return Some((msg, (access, changes, Some(syncing))));
                 }
-                tokio::time::sleep(SYNCING_POLL_INTERVAL).await;
+                // No change yet — wait for the next status signal. `false` means
+                // the chain is gone, so end the stream.
+                if !changes.changed().await {
+                    return None;
+                }
             }
         },
     );
@@ -383,6 +390,7 @@ fn log_message(mut log: serde_json::Value) -> Option<Vec<u8>> {
 mod tests {
     use super::*;
     use crate::upstream::head::CurrentHead;
+    use crate::upstream::status_signal::StatusSignal;
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -409,11 +417,13 @@ mod tests {
         }
     }
 
-    /// Stub chain access: a settable syncing flag, a canned `eth_getLogs`
-    /// result, and an optional `eth_getBlockByHash` result, capturing the params
-    /// of the last call.
+    /// Stub chain access: a settable syncing flag (changes wake the status
+    /// signal, like a real upstream), a canned `eth_getLogs` result, and an
+    /// optional `eth_getBlockByHash` result, capturing the params of the last
+    /// call.
     struct StubAccess {
         syncing: AtomicBool,
+        signal: StatusSignal,
         logs: Vec<serde_json::Value>,
         block_by_hash: Option<serde_json::Value>,
         last_params: Mutex<Option<serde_json::Value>>,
@@ -423,6 +433,7 @@ mod tests {
         fn new(syncing: bool, logs: Vec<serde_json::Value>) -> Arc<Self> {
             Arc::new(Self {
                 syncing: AtomicBool::new(syncing),
+                signal: StatusSignal::new(),
                 logs,
                 block_by_hash: None,
                 last_params: Mutex::new(None),
@@ -431,6 +442,7 @@ mod tests {
         fn with_block(syncing: bool, block_by_hash: serde_json::Value) -> Arc<Self> {
             Arc::new(Self {
                 syncing: AtomicBool::new(syncing),
+                signal: StatusSignal::new(),
                 logs: vec![],
                 block_by_hash: Some(block_by_hash),
                 last_params: Mutex::new(None),
@@ -438,6 +450,7 @@ mod tests {
         }
         fn set(&self, syncing: bool) {
             self.syncing.store(syncing, Ordering::Relaxed);
+            self.signal.notify();
         }
         fn last_params(&self) -> Option<serde_json::Value> {
             self.last_params.lock().unwrap().clone()
@@ -448,6 +461,9 @@ mod tests {
     impl ChainAccess for StubAccess {
         fn is_syncing(&self) -> bool {
             self.syncing.load(Ordering::Relaxed)
+        }
+        fn status_changes(&self) -> StatusChanges {
+            self.signal.subscribe()
         }
         async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             *self.last_params.lock().unwrap() = Some(request.params.clone());
@@ -565,12 +581,40 @@ mod tests {
         let first: serde_json::Value = serde_json::from_slice(&stream.next().await.unwrap()).unwrap();
         assert_eq!(first, serde_json::json!(false));
 
-        // The change is observed on the next poll, which happens as soon as the
-        // stream is polled again — no waiting on the interval.
+        // `set` wakes the status signal; the stream re-checks and emits the new
+        // value with no interval to wait on.
         access.set(true);
         let second: serde_json::Value =
             serde_json::from_slice(&stream.next().await.unwrap()).unwrap();
         assert_eq!(second, serde_json::json!(true));
+    }
+
+    #[tokio::test]
+    async fn syncing_wakes_a_parked_subscriber() {
+        // A subscriber already awaiting (nothing has changed) is woken by the
+        // status signal from another task — the event-driven path, not a poll.
+        let access = StubAccess::new(false, vec![]);
+        let merged = MergedHead::new(vec![]);
+        let egress = egress(merged, Arc::clone(&access) as Arc<dyn ChainAccess>);
+        let mut stream = egress.subscribe(METHOD_SYNCING, None).unwrap();
+
+        // Drain the initial `false`, leaving the stream parked on the signal.
+        let first: serde_json::Value =
+            serde_json::from_slice(&stream.next().await.unwrap()).unwrap();
+        assert_eq!(first, serde_json::json!(false));
+
+        // Park the next read, then flip the status from another task.
+        let next = tokio::spawn(async move { stream.next().await });
+        let flipper = tokio::spawn(async move {
+            // Yield so the reader reaches its await before we signal.
+            tokio::task::yield_now().await;
+            access.set(true);
+        });
+        flipper.await.unwrap();
+
+        let msg = next.await.unwrap().unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&msg).unwrap();
+        assert_eq!(value, serde_json::json!(true));
     }
 
     #[tokio::test]

@@ -33,15 +33,8 @@ use emerald_api::proto::common;
 use futures::stream::{self, FuturesUnordered, StreamExt};
 use std::pin::Pin;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio_stream::Stream;
 use tokio_stream::wrappers::BroadcastStream;
-
-/// How often [`subscribe_status`] re-checks a configured chain's aggregate
-/// status while it is unchanged. The legacy `SubscribeStatus` is event-driven
-/// off `Multistream.observeStatus`; until an event-driven status signal exists
-/// (roadmap 4.1) we poll, the same approach as the `syncing` egress.
-const STATUS_POLL_INTERVAL: Duration = Duration::from_secs(1);
 
 /// The Dshackle implementation of the `Blockchain` gRPC service.
 pub struct BlockchainRpcService {
@@ -377,23 +370,28 @@ fn chain_unavailable(chain_id: i32) -> ChainStatus {
 /// Stream a chain's [`ChainStatus`]: the current value immediately, then a new
 /// value each time its aggregate availability or in-quorum upstream count
 /// changes. Mirrors the legacy `SubscribeStatus` subscribing to
-/// `Multistream.observeStatus`; polls on [`STATUS_POLL_INTERVAL`] while
-/// unchanged (see the note there).
+/// `Multistream.observeStatus` — driven by the chain's status-change signal, not
+/// a poll, so a change that reverts before the next tick is no longer missed.
 fn chain_status_stream(
     chain: TargetBlockchain,
     multistream: Arc<Multistream>,
 ) -> BoxStream<ChainStatus> {
+    let changes = multistream.status_changes();
     // `ChainStatus` is `Copy + Eq`, so we keep the last emitted value and only
-    // yield on a real change — `distinctUntilChanged` over the poll.
+    // yield on a real change — `distinctUntilChanged` over the signal.
     let stream = stream::unfold(
-        (chain, multistream, Option::<ChainStatus>::None),
-        |(chain, multistream, last)| async move {
+        (chain, multistream, changes, Option::<ChainStatus>::None),
+        |(chain, multistream, mut changes, last)| async move {
             loop {
                 let status = chain_status(&chain, &multistream);
                 if last != Some(status) {
-                    return Some((Ok(status), (chain, multistream, Some(status))));
+                    return Some((Ok(status), (chain, multistream, changes, Some(status))));
                 }
-                tokio::time::sleep(STATUS_POLL_INTERVAL).await;
+                // No change yet — wait for the next status signal. `false` means
+                // the chain is gone, so end the stream.
+                if !changes.changed().await {
+                    return None;
+                }
             }
         },
     );

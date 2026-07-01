@@ -21,7 +21,9 @@
 //! reads the combination of the two.
 
 use crate::upstream::availability::UpstreamAvailability;
+use crate::upstream::status_signal::StatusSignal;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU8, Ordering};
+use std::sync::{Arc, OnceLock};
 
 const NO_LAG: i64 = -1;
 
@@ -45,6 +47,11 @@ pub struct UpstreamState {
     /// Lag threshold above which the upstream is considered syncing.
     /// Ethereum uses 6 (blocks come every ~12s), Bitcoin uses 2 (blocks every ~10min).
     syncing_lag: u64,
+    /// The chain's status-change signal, attached when the upstream is grouped
+    /// into its `Multistream`. Each mutation wakes it so the chain's status
+    /// consumers (`syncing`, gRPC `SubscribeStatus`) react without polling.
+    /// Absent for upstreams built standalone or in tests, which mutate silently.
+    signal: OnceLock<Arc<StatusSignal>>,
 }
 
 impl UpstreamState {
@@ -65,6 +72,22 @@ impl UpstreamState {
             reported_status: AtomicU8::new(UpstreamAvailability::Ok as u8),
             always_valid: AtomicBool::new(false),
             syncing_lag,
+            signal: OnceLock::new(),
+        }
+    }
+
+    /// Attach the chain's status-change signal. Called once, when the upstream
+    /// is grouped into its `Multistream`; a second call is ignored. Subsequent
+    /// mutations wake the chain's status consumers.
+    pub fn attach_status_signal(&self, signal: Arc<StatusSignal>) {
+        let _ = self.signal.set(signal);
+    }
+
+    /// Wake the chain's status consumers after a mutation. A no-op until a
+    /// signal is attached.
+    fn notify_change(&self) {
+        if let Some(signal) = self.signal.get() {
+            signal.notify();
         }
     }
 
@@ -103,6 +126,7 @@ impl UpstreamState {
         self.lag.store(lag as i64, Ordering::Relaxed);
         let avail = availability_from_lag(lag, height, self.syncing_lag);
         self.lag_status.store(avail as u8, Ordering::Relaxed);
+        self.notify_change();
     }
 
     /// Mark the upstream as having unknown lag (e.g. when head height is not available).
@@ -110,12 +134,14 @@ impl UpstreamState {
         self.lag.store(NO_LAG, Ordering::Relaxed);
         self.lag_status
             .store(UpstreamAvailability::Ok as u8, Ordering::Relaxed);
+        self.notify_change();
     }
 
     /// Record the result of a validation round.
     pub fn set_validation(&self, status: UpstreamAvailability) {
         self.validation_status
             .store(status as u8, Ordering::Relaxed);
+        self.notify_change();
     }
 
     /// The last recorded validation result.
@@ -133,6 +159,7 @@ impl UpstreamState {
             UpstreamAvailability::Ok
         };
         self.fork_status.store(status as u8, Ordering::Relaxed);
+        self.notify_change();
     }
 
     /// Record the availability a remote Dshackle upstream reports about itself
@@ -141,6 +168,7 @@ impl UpstreamState {
     /// rotation here too.
     pub fn set_reported(&self, status: UpstreamAvailability) {
         self.reported_status.store(status as u8, Ordering::Relaxed);
+        self.notify_change();
     }
 
     /// Declare the upstream always valid (`disable-validation`): availability

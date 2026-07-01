@@ -33,6 +33,7 @@ pub mod quorum;
 pub mod router;
 pub mod state;
 mod status;
+pub mod status_signal;
 pub mod tx_status;
 mod switch;
 pub mod traits;
