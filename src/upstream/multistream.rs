@@ -203,13 +203,38 @@ impl ChainAccess for Multistream {
         let candidates = self.select_for(quorum.selector(), &request.method);
         router::route(candidates, quorum, request).await
     }
+
+    async fn call_at_height(
+        &self,
+        request: &JsonRpcRequest,
+        min_height: u64,
+    ) -> Result<JsonRpcResponse, UpstreamError> {
+        let quorum = self.quorum_for(&request.method);
+        let candidates = self.select_for(quorum.selector(), &request.method);
+        // Keep only upstreams that have actually reached the block; a plain
+        // `call` may pick one lagging within the method's tolerance, which
+        // answers the read with `null`.
+        let at_height: Vec<Arc<dyn RpcUpstream>> = candidates
+            .iter()
+            .filter(|u| u.head().current_height().is_some_and(|h| h >= min_height))
+            .cloned()
+            .collect();
+        // Fall back to the unfiltered set when no upstream reports a head at or
+        // above the block — best effort, the block may genuinely be unavailable.
+        let candidates = if at_height.is_empty() {
+            candidates
+        } else {
+            at_height
+        };
+        router::route(candidates, quorum, request).await
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
-    use crate::upstream::head::{Head, NoHead};
+    use crate::upstream::head::{CurrentHead, Head, NoHead};
     use crate::upstream::methods::DefaultMethods;
     use crate::upstream::state::UpstreamState;
     use crate::upstream::traits::UpstreamError;
@@ -220,6 +245,9 @@ mod tests {
         availability: AtomicU8,
         lag: Option<u64>,
         state: Arc<UpstreamState>,
+        head: Arc<CurrentHead>,
+        /// Canned result served for any call, when set.
+        result: Option<serde_json::Value>,
     }
 
     impl MockUpstream {
@@ -237,6 +265,23 @@ mod tests {
                 availability: AtomicU8::new(availability as u8),
                 lag,
                 state: Arc::new(UpstreamState::new()),
+                head: Arc::new(CurrentHead::new()),
+                result: None,
+            })
+        }
+
+        /// A healthy mock whose head is at `height` and which serves `result`
+        /// for any call — used to exercise height-aware routing.
+        fn serving(label: &str, height: u64, result: serde_json::Value) -> Arc<Self> {
+            let head = CurrentHead::new();
+            head.update(height);
+            Arc::new(Self {
+                label: label.to_string(),
+                availability: AtomicU8::new(UpstreamAvailability::Ok as u8),
+                lag: Some(0),
+                state: Arc::new(UpstreamState::new()),
+                head: Arc::new(head),
+                result: Some(result),
             })
         }
 
@@ -248,7 +293,16 @@ mod tests {
     #[async_trait::async_trait]
     impl RpcUpstream for MockUpstream {
         async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
-            unimplemented!()
+            match &self.result {
+                Some(value) => {
+                    let body = format!(
+                        r#"{{"jsonrpc":"2.0","id":1,"result":{}}}"#,
+                        serde_json::to_string(value).unwrap()
+                    );
+                    Ok(serde_json::from_str(&body).unwrap())
+                }
+                None => unimplemented!(),
+            }
         }
         fn id(&self) -> &str {
             &self.label
@@ -257,7 +311,7 @@ mod tests {
             UpstreamAvailability::from_u8(self.availability.load(Ordering::Relaxed))
         }
         fn head(&self) -> &dyn Head {
-            &NoHead
+            self.head.as_ref()
         }
         fn lag(&self) -> Option<u64> {
             self.lag
@@ -406,6 +460,44 @@ mod tests {
     #[should_panic(expected = "at least one upstream")]
     fn panics_on_empty() {
         let _ms = Multistream::new(vec![], Arc::new(DefaultMethods));
+    }
+
+    #[tokio::test]
+    async fn call_at_height_reads_from_an_upstream_that_has_the_block() {
+        // `lagging` is first in round-robin order and would answer a height-100
+        // read with null; only `tip` actually has block 100. `call_at_height`
+        // must skip `lagging` and read from `tip`.
+        let lagging = MockUpstream::serving("lagging", 99, serde_json::Value::Null);
+        let tip = MockUpstream::serving("tip", 100, serde_json::json!({ "number": "0x64" }));
+        let ms = ms_of(vec![lagging, tip]);
+
+        let req = JsonRpcRequest::new(
+            0,
+            "eth_getBlockByNumber".into(),
+            serde_json::json!(["0x64", true]),
+        );
+        let resp = ms.call_at_height(&req, 100).await.unwrap();
+        let result: serde_json::Value =
+            serde_json::from_str(resp.result.unwrap().get()).unwrap();
+        assert_eq!(result["number"], "0x64");
+    }
+
+    #[tokio::test]
+    async fn call_at_height_falls_back_when_no_upstream_reports_the_block() {
+        // No upstream has reached height 200; rather than routing to nobody,
+        // it best-efforts the read against the available upstream.
+        let a = MockUpstream::serving("a", 100, serde_json::json!({ "number": "0x64" }));
+        let ms = ms_of(vec![a]);
+
+        let req = JsonRpcRequest::new(
+            0,
+            "eth_getBlockByNumber".into(),
+            serde_json::json!(["0xc8", true]),
+        );
+        let resp = ms.call_at_height(&req, 200).await.unwrap();
+        let result: serde_json::Value =
+            serde_json::from_str(resp.result.unwrap().get()).unwrap();
+        assert_eq!(result["number"], "0x64");
     }
 
     /// Mock upstream with a hardcoded allow-list, used to verify that the

@@ -99,6 +99,20 @@ pub trait ChainAccess: Send + Sync {
     /// `eth_getLogs` per head block).
     async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError>;
 
+    /// Route a read of a specific block to an upstream that has actually reached
+    /// `min_height`. A plain [`call`](Self::call) may pick an upstream lagging
+    /// within the method's tolerance (e.g. `eth_getBlockByNumber` allows a
+    /// one-block lag), which answers a tip read with `null` and can empty a
+    /// small fee-sampling window. Defaults to `call` for accessors that don't
+    /// track per-upstream heights.
+    async fn call_at_height(
+        &self,
+        request: &JsonRpcRequest,
+        _min_height: u64,
+    ) -> Result<JsonRpcResponse, UpstreamError> {
+        self.call(request).await
+    }
+
     /// A subscription that wakes when the chain's aggregate status may have
     /// changed, so `syncing` reacts without polling. Defaults to a signal that
     /// never fires, for chain accessors that don't track upstream status.

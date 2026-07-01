@@ -73,7 +73,9 @@ impl EthereumFees {
             RpcMethod::from("eth_getBlockByNumber"),
             json!([format!("0x{height:x}"), true]),
         );
-        let response = self.access.call(&request).await.ok()?;
+        // Pin the read to an upstream that has this block, so a small window
+        // doesn't empty out when an upstream lags a block behind the head.
+        let response = self.access.call_at_height(&request, height).await.ok()?;
         if response.error.is_some() {
             return None;
         }
@@ -254,6 +256,9 @@ mod tests {
     struct FakeChain {
         height: Option<u64>,
         blocks: Mutex<HashMap<u64, Value>>,
+        /// `min_height` recorded for each `call_at_height`, so a test can assert
+        /// the estimator pins reads to the block being sampled.
+        pinned_heights: Mutex<Vec<u64>>,
     }
 
     impl FakeChain {
@@ -261,6 +266,7 @@ mod tests {
             Self {
                 height,
                 blocks: Mutex::new(HashMap::new()),
+                pinned_heights: Mutex::new(Vec::new()),
             }
         }
 
@@ -297,6 +303,14 @@ mod tests {
                 serde_json::to_string(&result).unwrap()
             );
             Ok(serde_json::from_str(&body).unwrap())
+        }
+        async fn call_at_height(
+            &self,
+            request: &JsonRpcRequest,
+            min_height: u64,
+        ) -> Result<JsonRpcResponse, UpstreamError> {
+            self.pinned_heights.lock().unwrap().push(min_height);
+            self.call(request).await
         }
     }
 
@@ -389,6 +403,24 @@ mod tests {
             FeeType::EthereumStd(std) => assert_eq!(std.fee, "20"),
             other => panic!("expected std fee, got {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn reads_are_pinned_to_each_sampled_block_height() {
+        // Guards that the estimator routes each read via `call_at_height` with
+        // the block's own height, so a lagging upstream can't answer a tip read
+        // with null and empty the window.
+        let chain = Arc::new(
+            FakeChain::new(Some(11))
+                .with_block(10, block("0x0", vec![legacy_tx("0x10")]))
+                .with_block(11, block("0x0", vec![legacy_tx("0x20")])),
+        );
+        let fees = EthereumFees::new(chain.clone() as Arc<dyn ChainAccess>, false, 256);
+        fees.estimate(FeeMode::AvgLast, 2).await.unwrap();
+
+        let mut pinned = chain.pinned_heights.lock().unwrap().clone();
+        pinned.sort();
+        assert_eq!(pinned, vec![10, 11]);
     }
 
     #[tokio::test]
