@@ -28,7 +28,7 @@
 use crate::cache::{CacheTag, Caches};
 use crate::data::{BlockId, TxContainer, TxId};
 use crate::jsonrpc::JsonRpcRequest;
-use crate::upstream::bitcoin::head::parse_btc_block;
+use crate::upstream::bitcoin::head::parse_btc_block_value;
 use crate::upstream::egress::ChainAccess;
 use serde_json::value::RawValue;
 use serde_json::{Value, json};
@@ -85,12 +85,16 @@ impl BitcoinReader {
 
         let request = JsonRpcRequest::new(0, "getblock".into(), json!([hash.to_hex(), 1]));
         let raw = self.call_result(&request).await?;
-        // Cache the typed block write-through; an unparsable block just isn't
-        // cached (the JSON is still returned to the caller).
-        if let (Some(caches), Some(block)) = (&self.caches, parse_btc_block(raw.get())) {
-            caches.cache(CacheTag::Requested, block);
+        let block: Value = serde_json::from_str(raw.get()).ok()?;
+        // Cache the typed block write-through, reusing the parsed JSON; an
+        // unparsable block (or no cache) just isn't cached. Deriving the typed
+        // block only when a cache exists keeps the parse off the no-cache path.
+        if let Some(caches) = &self.caches
+            && let Some(typed) = parse_btc_block_value(raw.get(), &block)
+        {
+            caches.cache(CacheTag::Requested, typed);
         }
-        serde_json::from_str(raw.get()).ok()
+        Some(block)
     }
 
     /// Read transaction `txid` with inputs/outputs decoded

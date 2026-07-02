@@ -20,7 +20,6 @@
 use crate::blockchain::TargetBlockchain;
 use crate::data::BlockContainer;
 use crate::rpc::native_call;
-use crate::upstream::traits::Capability;
 use crate::upstream::{Multistream, UpstreamManager};
 use crate::upstream::allowance::AllowanceError;
 use crate::upstream::balance::BalanceError;
@@ -301,7 +300,7 @@ impl Blockchain for BlockchainRpcService {
             let mut capabilities: Vec<i32> = Vec::new();
             for up in multistream.upstreams() {
                 for cap in up.capabilities() {
-                    let proto = capability_to_proto(cap);
+                    let proto = cap.to_proto() as i32;
                     if !capabilities.contains(&proto) {
                         capabilities.push(proto);
                     }
@@ -407,15 +406,6 @@ fn parse_subscribe_params(payload: &[u8]) -> Result<Option<serde_json::Value>, t
     serde_json::from_slice(payload)
         .map(Some)
         .map_err(|e| tonic::Status::invalid_argument(format!("invalid subscribe params: {e}")))
-}
-
-/// Map an internal [`Capability`] to its `Describe` proto value.
-fn capability_to_proto(cap: Capability) -> i32 {
-    match cap {
-        Capability::Rpc => Capabilities::CapCalls as i32,
-        Capability::Balance => Capabilities::CapBalance as i32,
-        Capability::Allowance => Capabilities::CapAllowance as i32,
-    }
 }
 
 /// Build a `ChainStatus` for a chain: its aggregate availability plus the

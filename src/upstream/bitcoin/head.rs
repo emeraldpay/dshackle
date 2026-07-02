@@ -143,8 +143,17 @@ async fn poll_best_block(
 /// Bitcoin block JSON uses plain integers for height and time (unix seconds),
 /// and hex strings without `0x` prefix for hashes.
 pub(crate) fn parse_btc_block(raw_json: &str) -> Option<BlockContainer> {
-    let v: serde_json::Value = serde_json::from_str(raw_json).ok()?;
+    parse_btc_block_value(raw_json, &serde_json::from_str(raw_json).ok()?)
+}
 
+/// [`parse_btc_block`] from an already-decoded value, so a caller that has
+/// parsed the JSON to return it doesn't parse it a second time to cache it.
+/// `raw_json` is the same bytes `v` was decoded from, retained verbatim as the
+/// block's stored JSON.
+pub(crate) fn parse_btc_block_value(
+    raw_json: &str,
+    v: &serde_json::Value,
+) -> Option<BlockContainer> {
     let hash: BlockId = v.get("hash")?.as_str()?.parse().ok()?;
     let height = v.get("height")?.as_u64()?;
     let parent_hash = v

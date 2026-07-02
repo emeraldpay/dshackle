@@ -21,13 +21,10 @@ use super::{Ttl, TxReader, TxState, confirmations};
 use crate::jsonrpc::JsonRpcRequest;
 use crate::upstream::egress::ChainAccess;
 use crate::upstream::ethereum::parse_hex_quantity;
+use alloy::primitives::{B256, TxHash, U64};
 use serde_json::{Value, json};
 use std::sync::Arc;
 use std::time::Duration;
-
-/// The all-zero block hash a pending transaction may carry — treated as "not
-/// mined" (legacy `ZERO_BLOCK`).
-const ZERO_BLOCK_HASH: &str = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
 /// TTL cutoffs for Ethereum tracking (legacy `TrackEthereumTx`): give up a
 /// minute after a never-seen transaction, two minutes after a seen-but-unmined
@@ -43,20 +40,32 @@ pub fn ttl() -> Ttl {
 /// Reads an Ethereum transaction's status via JSON-RPC.
 pub struct EthereumTxReader {
     access: Arc<dyn ChainAccess>,
+    /// The requested hash, parsed once. `None` when the id was malformed; like
+    /// Bitcoin, that is reported as not-found rather than erroring.
+    hash: Option<TxHash>,
     /// Echoed id: lowercase hex without the `0x` prefix (legacy `TxId.toHex`).
     tx_id: String,
-    /// `0x`-prefixed hash for the RPC call.
-    hash_param: String,
 }
 
 impl EthereumTxReader {
     pub fn new(access: Arc<dyn ChainAccess>, tx_id: String) -> Self {
-        let stripped = strip_0x(&tx_id).to_lowercase();
-        let hash_param = format!("0x{stripped}");
+        let hash = tx_id.parse::<TxHash>().ok();
         Self {
             access,
-            tx_id: stripped,
-            hash_param,
+            hash,
+            // A valid hash echoes in canonical form; a malformed one falls back
+            // to the best-effort normalized input so the response still names it:
+            // drop any `0x` prefix and lowercase.
+            tx_id: hash.map_or_else(
+                || {
+                    tx_id
+                        .strip_prefix("0x")
+                        .or_else(|| tx_id.strip_prefix("0X"))
+                        .unwrap_or(&tx_id)
+                        .to_lowercase()
+                },
+                |h| format!("{h:x}"),
+            ),
         }
     }
 
@@ -84,10 +93,15 @@ impl TxReader for EthereumTxReader {
 
     async fn read(&self) -> Result<TxState, tonic::Status> {
         let head_height = self.access.current_height();
+        let Some(hash) = self.hash else {
+            // A malformed id can never be found — report it as such rather than
+            // erroring, matching the Bitcoin reader.
+            return Ok(TxState::not_found());
+        };
         let request = JsonRpcRequest::new(
             0,
             "eth_getTransactionByHash".into(),
-            json!([self.hash_param]),
+            json!([format!("{hash:#x}")]),
         );
         let response = self
             .access
@@ -109,17 +123,21 @@ impl TxReader for EthereumTxReader {
             return Ok(TxState::not_found());
         }
 
-        // A non-null transaction is broadcast. It's mined once it has a block
+        // A non-null transaction is broadcast. It's mined once it carries a block
         // number and a non-zero block hash.
-        let block_hash = tx.get("blockHash").and_then(Value::as_str);
-        let block_number = tx
+        let block_hash = tx
+            .get("blockHash")
+            .and_then(Value::as_str)
+            .and_then(|s| s.parse::<B256>().ok());
+        let height = tx
             .get("blockNumber")
             .and_then(Value::as_str)
-            .and_then(parse_hex_quantity);
-        let (Some(block_hash), Some(height)) = (block_hash, block_number) else {
+            .and_then(|s| s.parse::<U64>().ok())
+            .map(|n| n.to::<u64>());
+        let (Some(block_hash), Some(height)) = (block_hash, height) else {
             return Ok(TxState::pending());
         };
-        if block_hash == ZERO_BLOCK_HASH {
+        if block_hash.is_zero() {
             return Ok(TxState::pending());
         }
 
@@ -127,16 +145,12 @@ impl TxReader for EthereumTxReader {
             found: true,
             mined: true,
             height: Some(height),
-            block_id: Some(strip_0x(block_hash).to_lowercase()),
+            // Legacy renders the block id as lowercase hex without the `0x`.
+            block_id: Some(format!("{block_hash:x}")),
             block_time: self.block_time_millis(height).await,
             confirmations: confirmations(head_height, height),
         })
     }
-}
-
-/// Drop a leading `0x`/`0X` prefix.
-fn strip_0x(s: &str) -> &str {
-    s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")).unwrap_or(s)
 }
 
 #[cfg(test)]
@@ -192,7 +206,9 @@ mod tests {
         }
     }
 
-    const TX: &str = "0xAABB";
+    // A full 32-byte tx hash in mixed case, to exercise canonicalization.
+    const TX: &str = "0xaBaBaBaBaBaBaBaBaBaBaBaBaBaBaBaBaBaBaBaBaBaBaBaBaBaBaBaBaBaBaBaB";
+    const TX_CANON: &str = "abababababababababababababababababababababababababababababababab";
 
     fn reader(chain: Arc<FakeChain>) -> EthereumTxReader {
         EthereumTxReader::new(chain, TX.to_string())
@@ -220,18 +236,28 @@ mod tests {
         assert_eq!(state.confirmations, 0);
     }
 
+    // A full 32-byte block hash and its `block_id` rendering (lowercase, no `0x`).
+    const BLOCK_HASH: &str =
+        "0x00000000000000000000000000000000000000000000000000000000DeadBeef";
+    const ZERO_BLOCK_HASH: &str =
+        "0x0000000000000000000000000000000000000000000000000000000000000000";
+
     #[tokio::test]
     async fn mined_tx_reports_block_and_confirmations() {
         let chain = FakeChain::new(Some(105));
         chain.with(
             "eth_getTransactionByHash",
-            json!({ "blockHash": "0xDEAD", "blockNumber": "0x64" }), // height 100
+            json!({ "blockHash": BLOCK_HASH, "blockNumber": "0x64" }), // height 100
         );
         chain.with("eth_getBlockByNumber", json!({ "timestamp": "0x6553f100" }));
         let state = reader(chain).read().await.unwrap();
         assert!(state.mined);
         assert_eq!(state.height, Some(100));
-        assert_eq!(state.block_id.as_deref(), Some("dead"));
+        // The `0x` is dropped and the mixed-case input is canonicalized to lowercase.
+        assert_eq!(
+            state.block_id.as_deref(),
+            Some("00000000000000000000000000000000000000000000000000000000deadbeef")
+        );
         // 105 - 100 + 1 = 6 confirmations.
         assert_eq!(state.confirmations, 6);
         // 0x6553f100 seconds → millis.
@@ -272,7 +298,18 @@ mod tests {
     #[test]
     fn tx_id_is_canonicalized() {
         let chain = FakeChain::new(None);
-        // 0x-stripped, lowercased.
-        assert_eq!(reader(chain).tx_id(), "aabb");
+        // Parsed as a TxHash, then rendered 0x-stripped and lowercased.
+        assert_eq!(reader(chain).tx_id(), TX_CANON);
+    }
+
+    #[tokio::test]
+    async fn malformed_tx_id_is_not_found() {
+        // A non-32-byte id can't be a real hash: reported as not-found (as for
+        // Bitcoin), and echoed back best-effort rather than erroring.
+        let chain = FakeChain::new(Some(100));
+        let reader = EthereumTxReader::new(chain, "0xABBA".to_string());
+        assert_eq!(reader.tx_id(), "abba");
+        let state = reader.read().await.unwrap();
+        assert!(!state.found);
     }
 }

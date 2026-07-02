@@ -20,6 +20,7 @@ use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
 use crate::upstream::state::UpstreamState;
+use emerald_api::proto::blockchain::Capabilities;
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
 
@@ -34,6 +35,30 @@ pub enum Capability {
     Balance,
     /// ERC-20 allowance tracking (`CAP_ALLOWANCE`).
     Allowance,
+}
+
+impl Capability {
+    /// Every capability. Keep in sync with the enum; it's what makes proto
+    /// ingest ([`from_proto`](Self::from_proto)) derivable from the single
+    /// [`to_proto`](Self::to_proto) mapping instead of a second, hand-inverted
+    /// match that silently drops unmapped values.
+    const ALL: [Capability; 3] = [Capability::Rpc, Capability::Balance, Capability::Allowance];
+
+    /// This capability's proto `Capabilities` value, as advertised via `Describe`.
+    pub fn to_proto(self) -> Capabilities {
+        match self {
+            Capability::Rpc => Capabilities::CapCalls,
+            Capability::Balance => Capabilities::CapBalance,
+            Capability::Allowance => Capabilities::CapAllowance,
+        }
+    }
+
+    /// The capability a proto value denotes, or `None` for `CAP_NONE` and any
+    /// value we don't model. Derived from [`to_proto`](Self::to_proto) so the two
+    /// directions can't drift.
+    pub fn from_proto(proto: Capabilities) -> Option<Self> {
+        Self::ALL.into_iter().find(|cap| cap.to_proto() == proto)
+    }
 }
 
 /// Empty label map returned by the [`RpcUpstream::labels`] default, so the

@@ -1011,12 +1011,8 @@ fn capabilities_from_proto(proto: &[i32]) -> Vec<Capability> {
     use emerald_api::proto::blockchain::Capabilities;
     proto
         .iter()
-        .filter_map(|c| match Capabilities::try_from(*c) {
-            Ok(Capabilities::CapCalls) => Some(Capability::Rpc),
-            Ok(Capabilities::CapBalance) => Some(Capability::Balance),
-            Ok(Capabilities::CapAllowance) => Some(Capability::Allowance),
-            _ => None,
-        })
+        .filter_map(|c| Capabilities::try_from(*c).ok())
+        .filter_map(Capability::from_proto)
         .collect()
 }
 
