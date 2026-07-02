@@ -23,16 +23,19 @@
 //! Bitcoin derives a fee from input/output amount differences (see [`bitcoin`]).
 
 mod bitcoin;
+mod cache;
 mod ethereum;
 
 pub use bitcoin::BitcoinFees;
 pub use ethereum::EthereumFees;
 
+use cache::FeeCache;
+
 use emerald_api::proto::blockchain::EstimateFeeResponse;
 
 /// How the fee is estimated. Mirrors the legacy `ChainFees.Mode`; the proto
 /// `INVALID`/unrecognized values map to "no mode" (a request error).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum FeeMode {
     /// Average over the last transaction of each block.
     AvgLast,

@@ -24,7 +24,7 @@
 //! - **standard** (pre-1559): `EthereumStdFees` carrying the average
 //!   `gasPrice`.
 
-use super::{ChainFees, FeeError, FeeMode, block_range};
+use super::{ChainFees, FeeCache, FeeError, FeeMode, block_range};
 use crate::jsonrpc::{JsonRpcRequest, RpcMethod};
 use crate::upstream::egress::ChainAccess;
 use alloy::primitives::{U64, U256};
@@ -33,13 +33,13 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 /// Per-transaction fee components, all in Wei. Mirrors the legacy
-/// `EthereumFees.EthereumFee` (`max`, `priority`, `paid`, `base`).
+/// `EthereumFees.EthereumFee`, minus its `base` field, which was only ever
+/// stored and summed, never read back into a response.
 #[derive(Clone, Copy)]
 struct EthereumFee {
     max: U256,
     priority: U256,
     paid: U256,
-    base: U256,
 }
 
 /// Ethereum fee estimator. Reads full blocks (with transaction bodies) over the
@@ -52,6 +52,9 @@ pub struct EthereumFees {
     height_limit: u32,
     /// Whether to emit EIP-1559 extended fees. Fixed per chain at construction.
     extended: bool,
+    /// Per-block fees already computed, so overlapping windows don't re-fetch
+    /// the same blocks on every estimate.
+    cache: FeeCache<EthereumFee>,
 }
 
 impl EthereumFees {
@@ -62,6 +65,7 @@ impl EthereumFees {
             access,
             height_limit,
             extended,
+            cache: FeeCache::new(),
         }
     }
 
@@ -83,12 +87,19 @@ impl EthereumFees {
         serde_json::from_str(response.result?.get()).ok()
     }
 
-    /// Read and extract the sampled transaction's fee from the block at `height`.
+    /// Read and extract the sampled transaction's fee from the block at `height`,
+    /// serving from and populating the cache. As in legacy, blocks with no usable
+    /// transaction return `None` and are left uncached, so they are retried.
     async fn fee_at(&self, height: u64, mode: FeeMode) -> Option<EthereumFee> {
+        if let Some(fee) = self.cache.get(height, mode) {
+            return Some(fee);
+        }
         let block = self.read_block(height).await?;
         let txs = block.get("transactions")?.as_array()?;
         let index = mode.tx_index(txs.len())?;
-        Some(self.extract_fee(&block, &txs[index]))
+        let fee = self.extract_fee(&block, &txs[index]);
+        self.cache.put(height, mode, fee);
+        Some(fee)
     }
 
     /// Derive the fee components of one transaction. Mirrors
@@ -103,7 +114,6 @@ impl EthereumFees {
                 max: gas_price,
                 priority: gas_price,
                 paid: gas_price,
-                base: U256::ZERO,
             };
         }
 
@@ -113,12 +123,7 @@ impl EthereumFees {
             let max = wei(tx.get("maxFeePerGas"));
             let priority = wei(tx.get("maxPriorityFeePerGas"));
             let paid = base.saturating_add(priority).min(max);
-            EthereumFee {
-                max,
-                priority,
-                paid,
-                base,
-            }
+            EthereumFee { max, priority, paid }
         } else {
             // Legacy transaction on a 1559 chain: priority is whatever sits
             // above the base fee.
@@ -126,7 +131,6 @@ impl EthereumFees {
                 max: gas_price,
                 priority: gas_price.saturating_sub(base),
                 paid: gas_price,
-                base,
             }
         }
     }
@@ -200,7 +204,6 @@ fn aggregate(mode: FeeMode, fees: &[EthereumFee]) -> Option<EthereumFee> {
             max: a.max.max(b.max),
             priority: a.priority.max(b.priority),
             paid: a.paid.max(b.paid),
-            base: U256::ZERO,
         });
     }
 
@@ -209,19 +212,16 @@ fn aggregate(mode: FeeMode, fees: &[EthereumFee]) -> Option<EthereumFee> {
         max: U256::ZERO,
         priority: U256::ZERO,
         paid: U256::ZERO,
-        base: U256::ZERO,
     };
     for fee in fees {
         sum.max += fee.max;
         sum.priority += fee.priority;
         sum.paid += fee.paid;
-        sum.base += fee.base;
     }
     Some(EthereumFee {
         max: sum.max / count,
         priority: sum.priority / count,
         paid: sum.paid / count,
-        base: sum.base / count,
     })
 }
 
@@ -424,6 +424,52 @@ mod tests {
         let mut pinned = chain.pinned_heights.lock().unwrap().clone();
         pinned.sort();
         assert_eq!(pinned, vec![10, 11]);
+    }
+
+    #[tokio::test]
+    async fn repeated_estimates_reuse_cached_blocks() {
+        // A second estimate over the same window must serve every block from the
+        // cache, issuing no further reads.
+        let chain = Arc::new(
+            FakeChain::new(Some(11))
+                .with_block(10, block("0x0", vec![legacy_tx("0x10")]))
+                .with_block(11, block("0x0", vec![legacy_tx("0x20")])),
+        );
+        let fees = EthereumFees::new(chain.clone() as Arc<dyn ChainAccess>, false, 256);
+
+        let first = fees.estimate(FeeMode::AvgLast, 2).await.unwrap();
+        let reads_after_first = chain.pinned_heights.lock().unwrap().len();
+        assert_eq!(reads_after_first, 2, "first estimate reads both blocks");
+
+        let second = fees.estimate(FeeMode::AvgLast, 2).await.unwrap();
+        assert_eq!(
+            chain.pinned_heights.lock().unwrap().len(),
+            reads_after_first,
+            "second estimate reads nothing — all blocks served from cache"
+        );
+        assert_eq!(first.fee_type, second.fee_type);
+    }
+
+    #[tokio::test]
+    async fn cache_is_keyed_by_mode() {
+        // Same block, two modes selecting different transactions: the second mode
+        // must not read the first mode's cached fee.
+        let chain = Arc::new(FakeChain::new(Some(10)).with_block(
+            10,
+            block("0x0", vec![legacy_tx("0x10"), legacy_tx("0x20")]),
+        ));
+        let fees = EthereumFees::new(chain.clone() as Arc<dyn ChainAccess>, false, 256);
+
+        // AvgTop samples the first tx (0x10 = 16), AvgLast the last (0x20 = 32).
+        let top = fees.estimate(FeeMode::AvgTop, 1).await.unwrap();
+        let last = fees.estimate(FeeMode::AvgLast, 1).await.unwrap();
+        match (top.fee_type.unwrap(), last.fee_type.unwrap()) {
+            (FeeType::EthereumStd(t), FeeType::EthereumStd(l)) => {
+                assert_eq!(t.fee, "16");
+                assert_eq!(l.fee, "32");
+            }
+            other => panic!("expected std fees, got {other:?}"),
+        }
     }
 
     #[tokio::test]
