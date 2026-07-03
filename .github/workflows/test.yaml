@@ -1,13 +1,11 @@
 name: Tests
 
 on:
-  # if pushed directly
   push:
     branches:
       - master
       - release/*
       - ci/*
-  # on a pull request
   pull_request:
     branches:
       - master
@@ -20,22 +18,57 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Set up JDK
-        uses: actions/setup-java@v1
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
         with:
-          java-version: 21
+          profile: minimal
+          toolchain: stable
+          override: true
 
-      - name: Install System Libs
-        run: sudo apt-get install -y openssl libapr1
-
-      - name: Check
-        uses: eskatos/gradle-command-action@v1
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
         with:
-          arguments: check
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all --release -- --nocapture
         env:
-          CI: true
+          RUST_BACKTRACE: "1"
 
-      - name: Upload Coverage Report
-        uses: codecov/codecov-action@v1
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
         with:
-          file: ./build/reports/jacoco/test/jacocoTestReport.xml
+          toolchain: nightly
+          override: true
+
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # https://github.com/xd009642/tarpaulin
+      - name: Install Tarpaulin
+        run: cargo install cargo-tarpaulin
+
+      - name: Generate Code Coverage
+        uses: actions-rs/cargo@v1
+        with:
+          command: tarpaulin
+          args: --release --no-fail-fast --out Lcov --output-dir ./coverage
+          # coverage report is in ./coverage/lcov.info
+
+      - name: Upload to Coveralls
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v1

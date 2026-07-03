@@ -14,39 +14,76 @@ on:
 
 jobs:
 
-  publish-gcp:
+  publish-docker-nightly:
+    # only on a real push to master, not on PRs or other branches
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
 
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_KEY }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: |
+            emeraldpay/dshackle:nightly
+            emeraldpay/dshackle:${{ github.sha }}
+
+  publish-gcp:
+    name: Publish ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ "macos-latest", "ubuntu-latest", "macos-15-intel" ]
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
     steps:
       - name: Checkout the code
         uses: actions/checkout@v2
 
-      - name: Set up JDK
-        uses: actions/setup-java@v1
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
         with:
-          java-version: 21
+          profile: minimal
+          toolchain: stable
+          override: true
 
-      - name: Auth GCP
-        uses: google-github-actions/auth@v0
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Auth for GCP
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_ARTIFACTS_KEY }}
 
       - name: Setup GCP
-        uses: google-github-actions/setup-gcloud@v0
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
 
         # needed for GitVersion
       - name: Fetch all history
         run: git fetch --prune --unshallow
 
-      - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v0.9.7
+      - name: Get Date
+        id: date
+        uses: nanzm/get-time-action@v1.0
         with:
-          versionSpec: '5.x'
-
-        # step id used as reference for output values
-      - name: Use GitVersion
-        id: gitversion
-        uses: gittools/actions/gitversion/execute@v0.9.7
+          timeZone: 0
+          format: 'YYYYMMDD'
 
       - name: Get Time
         id: time
@@ -55,11 +92,55 @@ jobs:
           timeZone: 0
           format: 'YYYYMMDD-HHmm'
 
-      - name: Build zip
-        uses: eskatos/gradle-command-action@v1
+      - name: Build
+        uses: actions-rs/cargo@v1
         with:
-          arguments: distZip
+          command: build
+          args: --release
+
+      - name: Find target file
+        id: set-target-file
+        run: |
+          echo buildFile=$(cargo build --release --message-format json | jq -r 'select(.reason=="compiler-artifact") | select(.target.kind==["bin"]) | .filenames[0]') >> "$GITHUB_OUTPUT"
+          if [ ${{ runner.os }} == 'Windows' ]; then
+            echo "fileExtension=.exe" >> "$GITHUB_OUTPUT"
+          else
+            echo "fileExtension=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - id: runner-os
+        uses: vishalmamidi/lowercase-action@v1
+        with:
+          string: ${{ runner.os }}
+      - id: runner-arch
+        uses: vishalmamidi/lowercase-action@v1
+        with:
+          string: ${{ runner.arch }}
+
+      - name: Set output file
+        id: set-artifact-file
+        run: |
+          echo "filename=dshackle-${{ steps.runner-os.outputs.lowercase }}-${{ steps.runner-arch.outputs.lowercase }}${{ steps.set-target-file.outputs.fileExtension }}" >> "$GITHUB_OUTPUT"
+
+      - name: Rename file
+        run: |
+          mkdir upload
+          cp ${{ steps.set-target-file.outputs.buildFile }} upload/${{ steps.set-artifact-file.outputs.filename }}
 
       - name: Upload to GCP
         run: |
-          gsutil cp -n ./build/distributions/*.zip gs://artifacts.emerald.cash/builds/dshackle/${{ steps.gitversion.outputs.commitDate }}/${{ steps.time.outputs.time }}-${{ steps.gitversion.outputs.shortSha }}/
+          gsutil cp -n upload/* gs://artifacts.emerald.cash/builds/dshackle/${{ steps.date.outputs.time }}/${{ steps.time.outputs.time }}-${{ github.sha }}/
+
+      - name: Links to published artifacts
+        run: |
+          echo "Publishing artifacts to:"  >> $GITHUB_STEP_SUMMARY
+          echo "  https://artifacts.emerald.cash/builds/dshackle/${{ steps.date.outputs.time }}/${{ steps.time.outputs.time }}-${{ github.sha }}/${{ steps.set-artifact-file.outputs.filename }}"  >> $GITHUB_STEP_SUMMARY
+
+      - name: Attach artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          overwrite: true
+          path: |
+            target/release/dshackle
+            target/release/dshackle.exe

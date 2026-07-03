@@ -5,53 +5,106 @@ on:
 
 jobs:
 
-  publish-docker:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@master
-        with:
-          ref: ${{ github.ref }}
-      - name: Set up JDK
-        uses: actions/setup-java@v1
-        with:
-          java-version: 21
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_KEY }}
-      - name: Check
-        uses: eskatos/gradle-command-action@v1
-        with:
-          arguments: check
-      - name: Upload to Docker
-        uses: eskatos/gradle-command-action@v1
-        with:
-          arguments: jib
-
   publish-github:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ "macos-latest", "ubuntu-latest", "macos-15-intel" ]
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
     steps:
       - uses: actions/checkout@master
         with:
           ref: ${{ github.ref }}
-      - name: Set up JDK
-        uses: actions/setup-java@v1
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
         with:
-          java-version: 21
-      - name: Check
-        uses: eskatos/gradle-command-action@v1
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
         with:
-          arguments: check
-      - name: Build zip
-        uses: eskatos/gradle-command-action@v1
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build
+        uses: actions-rs/cargo@v1
         with:
-          arguments: distZip
+          command: build
+          args: --release
+
+      - name: Find target file
+        id: set-target-file
+        run: |
+          echo buildFile=$(cargo build --release --message-format json | jq -r 'select(.reason=="compiler-artifact") | select(.target.kind==["bin"]) | .filenames[0]') >> "$GITHUB_OUTPUT"
+          if [ ${{ runner.os }} == 'Windows' ]; then
+            echo "fileExtension=.exe" >> "$GITHUB_OUTPUT"
+          else
+            echo "fileExtension=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - id: runner-os
+        uses: vishalmamidi/lowercase-action@v1
+        with:
+          string: ${{ runner.os }}
+      - id: runner-arch
+        uses: vishalmamidi/lowercase-action@v1
+        with:
+          string: ${{ runner.arch }}
+
+      - name: Set output file
+        id: set-artifact-file
+        run: |
+          echo "filename=dshackle-${{ steps.runner-os.outputs.lowercase }}-${{ steps.runner-arch.outputs.lowercase }}${{ steps.set-target-file.outputs.fileExtension }}" >> "$GITHUB_OUTPUT"
+
+      - name: Rename file
+        run: |
+          mkdir upload
+          cp ${{ steps.set-target-file.outputs.buildFile }} upload/${{ steps.set-artifact-file.outputs.filename }}
+
       - name: Upload Release
         id: upload-release-asset
         uses: svenstaro/upload-release-action@v1-release
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref }}
-          file: ./build/distributions/*.zip
-          file_glob: true
+          file: upload/${{ steps.set-artifact-file.outputs.filename }}
+          asset_name: ${{ steps.set-artifact-file.outputs.filename }}
+          overwrite: true
+
+  publish-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_KEY }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Get Build Time
+        id: time
+        uses: nanzm/get-time-action@v1.0
+        with:
+          timeZone: 0
+          format: 'YYYYMMDDHHmmss'
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: |
+            emeraldpay/dshackle:snapshot
+            emeraldpay/dshackle:${{ github.ref_name }}
+            emeraldpay/dshackle:${{ steps.time.outputs.time }}
+            emeraldpay/dshackle:${{ github.sha }}
