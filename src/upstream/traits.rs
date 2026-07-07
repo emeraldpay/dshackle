@@ -119,8 +119,15 @@ pub trait RpcUpstream: Send + Sync {
 pub enum UpstreamError {
     /// HTTP transport failure (connection refused, timeout, DNS, etc.).
     Transport(String),
-    /// The upstream returned a non-200 HTTP status.
+    /// The upstream returned a non-200 HTTP status with no usable JSON-RPC error
+    /// body (only the status is known).
     HttpStatus(u16),
+    /// The upstream returned a non-200 HTTP status *and* a JSON-RPC error body.
+    /// Carries the provider's own message so it can be forwarded to the caller
+    /// (issue #251, and Bitcoin nodes that answer 500 with a real error). The
+    /// status is retained so the quorum can still decide whether the call is
+    /// retryable (429/401/502–504) or definitive (e.g. 500 "Already Spent").
+    Rejected { status: u16, message: String },
     /// The response body could not be parsed as valid JSON-RPC.
     InvalidResponse(String),
     /// The requested RPC method is not supported by this upstream.
@@ -132,6 +139,9 @@ impl std::fmt::Display for UpstreamError {
         match self {
             UpstreamError::Transport(msg) => write!(f, "transport error: {msg}"),
             UpstreamError::HttpStatus(code) => write!(f, "upstream returned HTTP {code}"),
+            // Rendered verbatim, with no wrapping prefix: this message is
+            // forwarded to the caller as the upstream's own error (issue #251).
+            UpstreamError::Rejected { message, .. } => write!(f, "{message}"),
             UpstreamError::InvalidResponse(msg) => write!(f, "invalid response: {msg}"),
             UpstreamError::MethodNotAllowed(method) => write!(f, "method not allowed: {method}"),
         }

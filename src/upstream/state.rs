@@ -23,9 +23,25 @@
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::status_signal::StatusSignal;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU8, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, LazyLock, OnceLock};
+use std::time::{Duration, Instant};
 
 const NO_LAG: i64 = -1;
+
+/// No rate-limit cooldown is active. A stored deadline is compared against
+/// [`monotonic_millis`], which starts at ~0 and only grows, so 0 always reads
+/// as already elapsed.
+const NO_COOLDOWN: i64 = 0;
+
+/// Process-relative monotonic clock. Lets a cooldown deadline live in a single
+/// atomic (millis since start) instead of a lock-guarded `Instant`, so the
+/// hot-path `availability()` read stays lock-free.
+static CLOCK_BASE: LazyLock<Instant> = LazyLock::new(Instant::now);
+
+/// Milliseconds elapsed since process start, on a monotonic clock.
+fn monotonic_millis() -> i64 {
+    CLOCK_BASE.elapsed().as_millis() as i64
+}
 
 /// Thread-safe upstream state updated by the status tracker and the validator.
 pub struct UpstreamState {
@@ -44,6 +60,10 @@ pub struct UpstreamState {
     /// `disable-validation` in the config: the operator declared this
     /// upstream always valid, so report `Ok` no matter what.
     always_valid: AtomicBool,
+    /// Monotonic deadline ([`monotonic_millis`]) until which the upstream is
+    /// parked after a rate-limit (HTTP 429) response, or [`NO_COOLDOWN`] when
+    /// none is active.
+    rate_limited_until: AtomicI64,
     /// Lag threshold above which the upstream is considered syncing.
     /// Ethereum uses 6 (blocks come every ~12s), Bitcoin uses 2 (blocks every ~10min).
     syncing_lag: u64,
@@ -71,6 +91,7 @@ impl UpstreamState {
             fork_status: AtomicU8::new(UpstreamAvailability::Ok as u8),
             reported_status: AtomicU8::new(UpstreamAvailability::Ok as u8),
             always_valid: AtomicBool::new(false),
+            rate_limited_until: AtomicI64::new(NO_COOLDOWN),
             syncing_lag,
             signal: OnceLock::new(),
         }
@@ -106,6 +127,12 @@ impl UpstreamState {
     /// deliberately stricter: each signal alone is enough to take an upstream
     /// out of rotation.
     pub fn availability(&self) -> UpstreamAvailability {
+        // Checked before `always_valid`: a provider actively refusing calls with
+        // HTTP 429 must leave rotation even when the operator disabled validation
+        // probes — `disable-validation` silences our own checks, not the provider.
+        if self.is_rate_limited() {
+            return UpstreamAvailability::Unavailable;
+        }
         if self.always_valid.load(Ordering::Relaxed) {
             return UpstreamAvailability::Ok;
         }
@@ -175,6 +202,23 @@ impl UpstreamState {
     /// is reported as `Ok` regardless of lag or validation results.
     pub fn set_always_valid(&self) {
         self.always_valid.store(true, Ordering::Relaxed);
+    }
+
+    /// Park the upstream for `cooldown` after a rate-limit (HTTP 429) response,
+    /// reporting it as `Unavailable` until the deadline passes. Overlapping hits
+    /// extend the deadline. Deliberately independent of `disable-validation`
+    /// (see [`availability`](Self::availability)).
+    pub fn set_rate_limited(&self, cooldown: Duration) {
+        let until = monotonic_millis().saturating_add(cooldown.as_millis() as i64);
+        // Keep the furthest deadline so a later, shorter cooldown can't cut a
+        // longer one short.
+        self.rate_limited_until.fetch_max(until, Ordering::Relaxed);
+        self.notify_change();
+    }
+
+    /// Whether a rate-limit cooldown is currently in effect.
+    fn is_rate_limited(&self) -> bool {
+        monotonic_millis() < self.rate_limited_until.load(Ordering::Relaxed)
     }
 }
 
@@ -328,6 +372,43 @@ mod tests {
         s.update(100, Some(100));
         s.set_validation(UpstreamAvailability::Unavailable);
         assert_eq!(s.availability(), UpstreamAvailability::Ok);
+    }
+
+    // ── Rate-limit cooldown (HTTP 429) ─────────────────────────────────
+
+    #[test]
+    fn rate_limited_reports_unavailable() {
+        let s = UpstreamState::new();
+        s.set_rate_limited(Duration::from_secs(60));
+        assert_eq!(s.availability(), UpstreamAvailability::Unavailable);
+    }
+
+    #[test]
+    fn rate_limit_overrides_always_valid() {
+        // `disable-validation` must not shield an upstream a provider is actively
+        // rejecting with 429.
+        let s = UpstreamState::new();
+        s.set_always_valid();
+        s.set_rate_limited(Duration::from_secs(60));
+        assert_eq!(s.availability(), UpstreamAvailability::Unavailable);
+    }
+
+    #[test]
+    fn expired_cooldown_restores_availability() {
+        let s = UpstreamState::new();
+        s.update(0, Some(100));
+        // A zero cooldown is already in the past on the monotonic clock.
+        s.set_rate_limited(Duration::from_millis(0));
+        assert_eq!(s.availability(), UpstreamAvailability::Ok);
+    }
+
+    #[test]
+    fn overlapping_cooldown_keeps_furthest_deadline() {
+        let s = UpstreamState::new();
+        s.set_rate_limited(Duration::from_secs(60));
+        // A shorter, already-expired hit must not cut the live cooldown short.
+        s.set_rate_limited(Duration::from_millis(0));
+        assert_eq!(s.availability(), UpstreamAvailability::Unavailable);
     }
 
     // ── Bitcoin threshold of 2 ─────────────────────────────────────────

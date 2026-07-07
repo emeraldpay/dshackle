@@ -25,6 +25,7 @@ pub mod ethereum;
 pub mod fees;
 pub mod fork;
 pub mod head;
+pub mod http_error;
 mod identified;
 pub mod merged_head;
 mod methods;

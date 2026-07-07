@@ -18,7 +18,8 @@ use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::{CurrentHead, Head};
 use crate::upstream::state::UpstreamState;
-use crate::upstream::traits::{RpcUpstream, UpstreamError, sanitize_error_body};
+use crate::upstream::http_error::classify_non_200;
+use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use std::sync::Arc;
 
 /// Lag threshold for Bitcoin: with ~10 minute block times, a gap of more than
@@ -87,14 +88,8 @@ impl RpcUpstream for BitcoinHttpUpstream {
 
         let status = resp.status().as_u16();
         if status != 200 {
-            if (500..600).contains(&status) {
-                let body = resp.text().await.unwrap_or_default();
-                let sanitized = sanitize_error_body(&body);
-                tracing::debug!(upstream = %self.id, status, body = %sanitized, "HTTP 5xx response");
-            } else {
-                tracing::trace!(upstream = %self.id, status, "HTTP non-200 response");
-            }
-            return Err(UpstreamError::HttpStatus(status));
+            let body = resp.text().await.unwrap_or_default();
+            return Err(classify_non_200(&self.id, &self.state, status, &body));
         }
 
         let body = resp

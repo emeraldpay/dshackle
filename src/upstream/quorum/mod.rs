@@ -151,12 +151,21 @@ pub enum QuorumOutcome {
 pub fn is_connection_unavailable(err: &UpstreamError) -> bool {
     match err {
         UpstreamError::Transport(_) => true,
-        UpstreamError::HttpStatus(code) => {
-            *code == 401 || *code == 429 || (502..=504).contains(code)
-        }
+        UpstreamError::HttpStatus(code) => is_unavailable_status(*code),
+        UpstreamError::Rejected { status, .. } => is_unavailable_status(*status),
         UpstreamError::MethodNotAllowed(_) => true,
         UpstreamError::InvalidResponse(_) => false,
     }
+}
+
+/// Whether an HTTP status marks the upstream as temporarily unavailable — the
+/// call may be retried on another upstream, and the provider should be parked.
+///
+/// 401 (Unauthorized), 429 (Too Many Requests), and 502–504 are commonly
+/// returned by overloaded or auth-rejecting proxies (e.g. Infura). A 500 with a
+/// JSON-RPC body, by contrast, is a definitive answer about the request itself.
+pub fn is_unavailable_status(code: u16) -> bool {
+    code == 401 || code == 429 || (502..=504).contains(&code)
 }
 
 #[cfg(test)]
