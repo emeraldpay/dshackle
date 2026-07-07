@@ -59,9 +59,10 @@ use dshackle::head::start_head_subscriber;
 use dshackle::status::start_status_subscriber;
 use emerald_api::proto::blockchain::AddressAllowanceRequest;
 use emerald_api::proto::blockchain::BalanceRequest;
-use emerald_api::proto::blockchain::DescribeRequest;
+use emerald_api::proto::blockchain::{DescribeChain, DescribeRequest};
 use emerald_api::proto::blockchain::TxStatusRequest;
 use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
+use std::time::Duration;
 use tonic::transport::Channel;
 use emerald_api::proto::common::ChainRef;
 use ethereum::EthereumWsUpstream;
@@ -117,6 +118,14 @@ pub struct UpstreamManager {
     allowance_clients: HashMap<TargetBlockchain, BlockchainClient<Channel>>,
 }
 
+/// How long to wait for a remote Dshackle upstream's connect + `Describe`
+/// during startup before giving up on it. A slow or unreachable remote must not
+/// hold back the whole server: the legacy implementation connected in the
+/// background with backoff, so here we cap the wait and start without any remote
+/// that doesn't answer in time (it is simply skipped, as an outright connection
+/// failure already is).
+const DSHACKLE_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
 impl UpstreamManager {
     /// Build upstreams from the parsed configuration.
     ///
@@ -159,6 +168,11 @@ impl UpstreamManager {
         // one upstream matching the ALLOWANCE capability).
         let mut allowance_clients: HashMap<TargetBlockchain, BlockchainClient<Channel>> =
             HashMap::new();
+        // Remote Dshackle upstreams to connect after the main loop. Their chains
+        // and methods are only known from the remote's `Describe`, so they are
+        // discovered concurrently (each bounded by `DSHACKLE_CONNECT_TIMEOUT`)
+        // instead of blocking startup one-by-one.
+        let mut pending_dshackle: Vec<(&crate::config::upstreams::Upstream, String)> = Vec::new();
 
         for upstream in &config.upstreams {
             if !upstream.enabled {
@@ -483,55 +497,58 @@ impl UpstreamManager {
                         );
                     }
 
-                    tracing::info!("Connecting to remote Dshackle '{}' at {}", upstream.id, url,);
+                    // Defer the actual connect: it is done concurrently after the
+                    // loop so a slow remote can't stall the rest of startup.
+                    pending_dshackle.push((upstream, url));
+                }
+            }
+        }
 
-                    match connect_dshackle(
-                        &upstream.id,
-                        &url,
-                        redis.as_ref(),
-                        &mut per_chain_caches,
-                        &mut per_chain_caching_heads,
-                    )
-                    .await
-                    {
-                        Ok(discovered) => {
-                            for dc in discovered {
-                                // Remember a remote that can serve allowances so
-                                // `address_allowance` can forward to it.
-                                if let Some(client) = dc.allowance_client {
-                                    allowance_clients.entry(dc.chain).or_insert(client);
-                                }
-                                // Outermost layer: this relay's configured
-                                // labels plus the capabilities the remote
-                                // reported.
-                                let reader: Arc<dyn RpcUpstream> = Arc::new(
-                                    IdentifiedUpstream::new(
-                                        dc.reader,
-                                        upstream.labels.clone(),
-                                        dc.capabilities,
-                                    ),
-                                );
-                                per_chain.entry(dc.chain).or_default().push(reader);
-                                // Remote Dshackles handle their own quorum
-                                // internally, so this factory keeps every method
-                                // callable — but it carries the remote's
-                                // discovered methods so `Describe` re-advertises
-                                // them instead of nothing.
-                                per_chain_methods
-                                    .entry(dc.chain)
-                                    .or_default()
-                                    .push(Arc::new(RemoteMethods::new(dc.supported_methods)));
-                            }
-                        }
-                        Err(e) => {
-                            tracing::warn!(
-                                "Upstream {}: failed to connect to Dshackle at {}: {}",
-                                upstream.id,
-                                url,
-                                e
-                            );
-                        }
-                    }
+        // Connect to the remote Dshackle upstreams concurrently, each bounded by
+        // `DSHACKLE_CONNECT_TIMEOUT`, then wire the ones that answered. Wiring
+        // runs sequentially because it mutates the shared per-chain maps; the
+        // slow part (connect + `Describe` over the network) already happened in
+        // parallel, so a single unreachable remote no longer blocks startup.
+        for (upstream, url) in &pending_dshackle {
+            tracing::info!("Connecting to remote Dshackle '{}' at {}", upstream.id, url);
+        }
+        let discoveries = futures::future::join_all(pending_dshackle.iter().map(
+            |(upstream, url)| async move {
+                let outcome =
+                    tokio::time::timeout(DSHACKLE_CONNECT_TIMEOUT, connect_and_describe(url)).await;
+                (*upstream, url.clone(), outcome)
+            },
+        ))
+        .await;
+
+        for (upstream, url, outcome) in discoveries {
+            match outcome {
+                Ok(Ok((client, chains))) => wire_remote_dshackle(
+                    upstream,
+                    client,
+                    chains,
+                    redis.as_ref(),
+                    &mut per_chain_caches,
+                    &mut per_chain_caching_heads,
+                    &mut per_chain,
+                    &mut per_chain_methods,
+                    &mut allowance_clients,
+                ),
+                Ok(Err(e)) => {
+                    tracing::warn!(
+                        "Upstream {}: failed to connect to Dshackle at {}: {}",
+                        upstream.id,
+                        url,
+                        e
+                    );
+                }
+                Err(_elapsed) => {
+                    tracing::warn!(
+                        "Upstream {}: timed out after {:?} connecting to Dshackle at {}, starting without it",
+                        upstream.id,
+                        DSHACKLE_CONNECT_TIMEOUT,
+                        url
+                    );
                 }
             }
         }
@@ -1050,46 +1067,50 @@ fn quorum_factory_for(chain: TargetBlockchain) -> Arc<dyn QuorumFactory> {
     }
 }
 
-/// Connects to a remote Dshackle instance, calls `Describe` to discover
-/// available chains, and creates a per-chain upstream for each.
-/// One chain discovered on a remote Dshackle, wired and ready to add to the
-/// local cluster.
-struct DiscoveredChain {
-    chain: TargetBlockchain,
-    reader: Arc<dyn RpcUpstream>,
-    capabilities: Vec<Capability>,
-    /// The remote's gRPC client, kept only when it advertises the allowance
-    /// capability so `address_allowance` can forward to it.
-    allowance_client: Option<BlockchainClient<Channel>>,
-    /// Methods the remote reported via `Describe`; re-advertised by the local
-    /// `Describe` for this chain (empty when the remote listed none).
-    supported_methods: Vec<String>,
-}
-
-async fn connect_dshackle(
-    upstream_id: &str,
+/// Connects to a remote Dshackle instance and calls `Describe` to discover its
+/// available chains. Network-only so it can run concurrently for many remotes;
+/// the per-chain wiring (which mutates shared state) is done by
+/// [`wire_remote_dshackle`].
+async fn connect_and_describe(
     url: &str,
-    redis_conn: Option<&redis::aio::ConnectionManager>,
-    caches_map: &mut HashMap<TargetBlockchain, Arc<Caches>>,
-    caching_heads: &mut HashMap<TargetBlockchain, CachingHead>,
-) -> anyhow::Result<Vec<DiscoveredChain>> {
+) -> anyhow::Result<(BlockchainClient<Channel>, Vec<DescribeChain>)> {
     let endpoint = tonic::transport::Endpoint::from_shared(url.to_string())?;
     let channel = endpoint.connect().await?;
     let mut client = BlockchainClient::new(channel);
 
     let describe_resp = client.describe(DescribeRequest {}).await?;
-    let chains = describe_resp.into_inner().chains;
+    Ok((client, describe_resp.into_inner().chains))
+}
+
+/// Wire the chains a remote Dshackle reported into the local cluster: one
+/// per-chain upstream each, with head/status subscribers, a method filter from
+/// the remote's advertised methods, and the relay's labels/capabilities.
+///
+/// Runs on the build task (not concurrently) because it mutates the shared
+/// per-chain maps.
+#[allow(clippy::too_many_arguments)]
+fn wire_remote_dshackle(
+    upstream: &crate::config::upstreams::Upstream,
+    client: BlockchainClient<Channel>,
+    chains: Vec<DescribeChain>,
+    redis_conn: Option<&redis::aio::ConnectionManager>,
+    caches_map: &mut HashMap<TargetBlockchain, Arc<Caches>>,
+    caching_heads: &mut HashMap<TargetBlockchain, CachingHead>,
+    per_chain: &mut HashMap<TargetBlockchain, Vec<Arc<dyn RpcUpstream>>>,
+    per_chain_methods: &mut HashMap<TargetBlockchain, Vec<Arc<dyn QuorumFactory>>>,
+    allowance_clients: &mut HashMap<TargetBlockchain, BlockchainClient<Channel>>,
+) {
+    let upstream_id = &upstream.id;
 
     if chains.is_empty() {
         tracing::warn!(
             "Dshackle '{}': remote reported no available chains",
             upstream_id
         );
-        return Ok(Vec::new());
+        return;
     }
 
-    let mut results = Vec::new();
-
+    let mut connected = 0;
     for desc_chain in &chains {
         let chain_ref = match ChainRef::try_from(desc_chain.chain) {
             Ok(c) if c != ChainRef::ChainUnspecified => c,
@@ -1151,9 +1172,9 @@ async fn connect_dshackle(
 
         // Keep the gRPC client to forward allowance requests to, when the
         // remote advertises that capability (legacy `allowanceUpstreamMatcher`).
-        let allowance_client = caps
-            .contains(&Capability::Allowance)
-            .then(|| client.clone());
+        if caps.contains(&Capability::Allowance) {
+            allowance_clients.entry(chain).or_insert_with(|| client.clone());
+        }
 
         // Use the supported methods from Describe as the allowed set.
         // The remote Dshackle already handles hardcoded responses, so we
@@ -1171,20 +1192,25 @@ async fn connect_dshackle(
             // No method list — pass everything through
             reader
         };
-        results.push(DiscoveredChain {
-            chain,
-            reader,
-            capabilities: caps,
-            allowance_client,
-            supported_methods: desc_chain.supported_methods.clone(),
-        });
+
+        // Outermost layer: this relay's configured labels plus the capabilities
+        // the remote reported.
+        let reader: Arc<dyn RpcUpstream> =
+            Arc::new(IdentifiedUpstream::new(reader, upstream.labels.clone(), caps));
+        per_chain.entry(chain).or_default().push(reader);
+        // Remote Dshackles handle their own quorum internally, so this factory
+        // keeps every method callable — but it carries the remote's discovered
+        // methods so `Describe` re-advertises them instead of nothing.
+        per_chain_methods
+            .entry(chain)
+            .or_default()
+            .push(Arc::new(RemoteMethods::new(desc_chain.supported_methods.clone())));
+        connected += 1;
     }
 
     tracing::info!(
         "Dshackle '{}': connected with {} chain(s)",
         upstream_id,
-        results.len(),
+        connected,
     );
-
-    Ok(results)
 }
