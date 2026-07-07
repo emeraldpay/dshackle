@@ -29,7 +29,7 @@ use crate::upstream::egress::ChainAccess;
 use crate::upstream::quorum::{CallQuorum, QuorumFactory, SelectorHint};
 use crate::upstream::router;
 use crate::upstream::status_signal::{StatusChanges, StatusSignal};
-use crate::upstream::traits::{RpcUpstream, UpstreamError};
+use crate::upstream::traits::{Capability, RpcUpstream, UpstreamError};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -132,7 +132,9 @@ impl Multistream {
     /// one on each call so that load spreads across upstreams over time.
     pub fn select_available(&self, method: &RpcMethod) -> Vec<Arc<dyn RpcUpstream>> {
         self.select_where(|u| {
-            u.availability() <= UpstreamAvailability::Immature && u.allows_method(method)
+            serves_rpc(u)
+                && u.availability() <= UpstreamAvailability::Immature
+                && u.allows_method(method)
         })
     }
 
@@ -146,6 +148,9 @@ impl Multistream {
         max_lag: u64,
     ) -> Vec<Arc<dyn RpcUpstream>> {
         self.select_where(|u| {
+            if !serves_rpc(u) {
+                return false;
+            }
             if u.availability() > UpstreamAvailability::Immature {
                 return false;
             }
@@ -177,6 +182,14 @@ impl Multistream {
         }
         out
     }
+}
+
+/// Whether an upstream may serve RPC (`NativeCall`) requests. Mirrors the legacy
+/// `Selector.CapabilityMatcher(Capability.RPC)`: a remote Dshackle advertising
+/// only `BALANCE` (and not `CALLS`) must be kept out of call routing even though
+/// it may list callable methods. Local upstreams always advertise `Rpc`.
+fn serves_rpc(u: &Arc<dyn RpcUpstream>) -> bool {
+    u.capabilities().contains(&Capability::Rpc)
 }
 
 #[async_trait::async_trait]

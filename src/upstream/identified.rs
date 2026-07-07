@@ -39,15 +39,20 @@ pub struct IdentifiedUpstream {
 }
 
 impl IdentifiedUpstream {
-    /// Wrap `inner`, advertising the given labels and capabilities. The
-    /// capability list is deduplicated and always includes [`Capability::Rpc`]
-    /// since any upstream that can take a call serves RPC.
+    /// Wrap `inner`, advertising the given labels and capabilities
+    /// (deduplicated, order preserved).
+    ///
+    /// Capabilities are advertised exactly as given — not upgraded. Local
+    /// upstreams pass [`Capability::Rpc`] explicitly (via `local_capabilities`),
+    /// while a remote Dshackle passes only what it reported over `Describe`. A
+    /// balance-only relay (`Balance` without `Rpc`) must stay balance-only, or it
+    /// would wrongly be picked for call routing (legacy `RemoteCapabilities`).
     pub fn new(
         inner: Arc<dyn RpcUpstream>,
         labels: HashMap<String, String>,
         capabilities: Vec<Capability>,
     ) -> Self {
-        let mut caps = vec![Capability::Rpc];
+        let mut caps: Vec<Capability> = Vec::new();
         for c in capabilities {
             if !caps.contains(&c) {
                 caps.push(c);
@@ -144,16 +149,15 @@ mod tests {
         let up = IdentifiedUpstream::new(
             Arc::new(StubUpstream),
             labels(&[("provider", "infura"), ("region", "us")]),
-            vec![Capability::Balance],
+            vec![Capability::Rpc, Capability::Balance],
         );
         assert_eq!(up.labels().get("provider").map(String::as_str), Some("infura"));
-        // RPC is always present, Balance was requested.
         assert!(up.capabilities().contains(&Capability::Rpc));
         assert!(up.capabilities().contains(&Capability::Balance));
     }
 
     #[test]
-    fn rpc_is_always_present_and_deduplicated() {
+    fn deduplicates_capabilities() {
         let up = IdentifiedUpstream::new(
             Arc::new(StubUpstream),
             HashMap::new(),
@@ -162,6 +166,19 @@ mod tests {
         let caps = up.capabilities();
         assert_eq!(caps.iter().filter(|c| **c == Capability::Rpc).count(), 1);
         assert_eq!(caps.len(), 2);
+    }
+
+    #[test]
+    fn balance_only_is_not_upgraded_to_rpc() {
+        // A remote Dshackle that reported only BALANCE must not gain RPC, or it
+        // would wrongly be selected for call routing.
+        let up = IdentifiedUpstream::new(
+            Arc::new(StubUpstream),
+            HashMap::new(),
+            vec![Capability::Balance],
+        );
+        assert!(!up.capabilities().contains(&Capability::Rpc));
+        assert!(up.capabilities().contains(&Capability::Balance));
     }
 
     #[test]
