@@ -143,6 +143,7 @@ impl Blockchain for BlockchainRpcService {
         let stream = self
             .upstreams
             .balance(&req, true)
+            .await
             .map_err(BalanceError::into_status)?;
         Ok(tonic::Response::new(stream))
     }
@@ -167,6 +168,7 @@ impl Blockchain for BlockchainRpcService {
         let stream = self
             .upstreams
             .balance(&req, false)
+            .await
             .map_err(BalanceError::into_status)?;
         Ok(tonic::Response::new(stream))
     }

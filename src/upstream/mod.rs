@@ -116,6 +116,11 @@ pub struct UpstreamManager {
     /// `ALLOWANCE` capability, used to forward allowance requests (legacy
     /// `TrackERC20Allowance` proxies to such an upstream).
     allowance_clients: HashMap<TargetBlockchain, BlockchainClient<Channel>>,
+    /// Per-chain gRPC client of a remote Dshackle upstream that advertises the
+    /// `BALANCE` capability. A Bitcoin balance request is forwarded to it rather
+    /// than computed from local UTXO RPC (legacy `CurrentUnspentReader` →
+    /// `RemoteUnspentReader`).
+    balance_clients: HashMap<TargetBlockchain, BlockchainClient<Channel>>,
 }
 
 /// How long to wait for a remote Dshackle upstream's connect + `Describe`
@@ -167,6 +172,10 @@ impl UpstreamManager {
         // First allowance-capable remote Dshackle client per chain (legacy picks
         // one upstream matching the ALLOWANCE capability).
         let mut allowance_clients: HashMap<TargetBlockchain, BlockchainClient<Channel>> =
+            HashMap::new();
+        // First BALANCE-capable remote Dshackle client per chain, used to forward
+        // Bitcoin balance requests.
+        let mut balance_clients: HashMap<TargetBlockchain, BlockchainClient<Channel>> =
             HashMap::new();
         // Remote Dshackle upstreams to connect after the main loop. Their chains
         // and methods are only known from the remote's `Describe`, so they are
@@ -533,6 +542,7 @@ impl UpstreamManager {
                     &mut per_chain,
                     &mut per_chain_methods,
                     &mut allowance_clients,
+                    &mut balance_clients,
                 ),
                 Ok(Err(e)) => {
                     tracing::warn!(
@@ -623,6 +633,7 @@ impl UpstreamManager {
             heads,
             tokens: build_token_registry(tokens),
             allowance_clients,
+            balance_clients,
         })
     }
 
@@ -639,6 +650,7 @@ impl UpstreamManager {
             heads: HashMap::new(),
             tokens: HashMap::new(),
             allowance_clients: HashMap::new(),
+            balance_clients: HashMap::new(),
         }
     }
 
@@ -703,7 +715,7 @@ impl UpstreamManager {
     /// `trackAddress.find { it.isSupported(request) }`: native Ether
     /// (`TrackEthereumAddress`), ERC-20 by token code or contract
     /// (`TrackERC20Address`), and native Bitcoin (`TrackBitcoinAddress`).
-    pub fn balance(
+    pub async fn balance(
         &self,
         request: &BalanceRequest,
         subscribe: bool,
@@ -711,6 +723,18 @@ impl UpstreamManager {
         use emerald_api::proto::blockchain::balance_request::BalanceType;
 
         let chain = balance::request_chain(request)?;
+
+        // Bitcoin: when a remote Dshackle advertises the BALANCE capability it
+        // serves `GetBalance` directly, so forward to it rather than compute from
+        // local UTXO RPC (legacy `CurrentUnspentReader` → `RemoteUnspentReader`).
+        if chain.blockchain_type() == BlockchainType::Bitcoin {
+            if let Some(client) = self.balance_clients.get(&chain) {
+                return self
+                    .remote_balance(client.clone(), request.clone(), subscribe)
+                    .await;
+            }
+        }
+
         let access: Arc<dyn ChainAccess> = self
             .get(&chain)
             .ok_or(BalanceError::Unavailable(chain.id()))?
@@ -812,6 +836,24 @@ impl UpstreamManager {
             _ => return Err(BalanceError::Unsupported),
         };
         Ok(stream)
+    }
+
+    /// Forward a `GetBalance` / `SubscribeBalance` request to a remote Dshackle
+    /// upstream advertising the BALANCE capability, relaying its stream (legacy
+    /// `RemoteUnspentReader`). `subscribe` selects the remote's streaming method.
+    async fn remote_balance(
+        &self,
+        mut client: BlockchainClient<Channel>,
+        request: BalanceRequest,
+        subscribe: bool,
+    ) -> Result<BalanceStream, BalanceError> {
+        let response = if subscribe {
+            client.subscribe_balance(request).await
+        } else {
+            client.get_balance(request).await
+        }
+        .map_err(BalanceError::Remote)?;
+        Ok(Box::pin(response.into_inner()))
     }
 
     /// The contract address of an ERC-20 token configured under `name` for
@@ -1099,6 +1141,7 @@ fn wire_remote_dshackle(
     per_chain: &mut HashMap<TargetBlockchain, Vec<Arc<dyn RpcUpstream>>>,
     per_chain_methods: &mut HashMap<TargetBlockchain, Vec<Arc<dyn QuorumFactory>>>,
     allowance_clients: &mut HashMap<TargetBlockchain, BlockchainClient<Channel>>,
+    balance_clients: &mut HashMap<TargetBlockchain, BlockchainClient<Channel>>,
 ) {
     let upstream_id = &upstream.id;
 
@@ -1174,6 +1217,11 @@ fn wire_remote_dshackle(
         // remote advertises that capability (legacy `allowanceUpstreamMatcher`).
         if caps.contains(&Capability::Allowance) {
             allowance_clients.entry(chain).or_insert_with(|| client.clone());
+        }
+        // Likewise for balance: a BALANCE-capable remote serves `GetBalance`
+        // directly, so Bitcoin balance requests forward to it.
+        if caps.contains(&Capability::Balance) {
+            balance_clients.entry(chain).or_insert_with(|| client.clone());
         }
 
         // Use the supported methods from Describe as the allowed set.

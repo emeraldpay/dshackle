@@ -51,7 +51,7 @@ use tokio_stream::Stream;
 pub type BalanceStream = Pin<Box<dyn Stream<Item = Result<AddressBalance, tonic::Status>> + Send>>;
 
 /// Why a balance request can't be served.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum BalanceError {
     /// The request set neither `asset` nor `erc20_asset`.
     NoAsset,
@@ -63,6 +63,9 @@ pub enum BalanceError {
     Unavailable(i32),
     /// No tracker supports this chain + asset combination yet.
     Unsupported,
+    /// A remote Dshackle upstream (to which the balance request was forwarded)
+    /// returned an error.
+    Remote(tonic::Status),
 }
 
 impl BalanceError {
@@ -82,6 +85,7 @@ impl BalanceError {
             BalanceError::Unsupported => {
                 tonic::Status::unimplemented("balance tracking is not supported for this asset")
             }
+            BalanceError::Remote(status) => status,
         }
     }
 }
@@ -321,16 +325,19 @@ mod tests {
             include_utxo: false,
             balance_type: None,
         };
-        assert_eq!(request_chain(&req).unwrap_err(), BalanceError::NoAsset);
+        assert!(matches!(
+            request_chain(&req).unwrap_err(),
+            BalanceError::NoAsset
+        ));
     }
 
     #[test]
     fn unknown_chain_is_unavailable() {
         let req = asset_request(999_999, "ether", single("0xabc"));
-        assert_eq!(
+        assert!(matches!(
             request_chain(&req).unwrap_err(),
             BalanceError::Unavailable(999_999)
-        );
+        ));
     }
 
     #[test]
@@ -378,10 +385,10 @@ mod tests {
 
     #[test]
     fn missing_address_is_error() {
-        assert_eq!(
+        assert!(matches!(
             resolve_addresses(&None).unwrap_err(),
             BalanceError::NoAddress
-        );
+        ));
     }
 
     #[test]
@@ -395,7 +402,7 @@ mod tests {
     #[test]
     fn eth_address_invalid_is_rejected() {
         let err = parse_eth_addresses(vec!["0xnothex".into()]).unwrap_err();
-        assert_eq!(err, BalanceError::InvalidAddress("0xnothex".to_string()));
+        assert!(matches!(err, BalanceError::InvalidAddress(s) if s == "0xnothex"));
     }
 
     #[test]

@@ -297,10 +297,10 @@ mod tests {
             .is_ok()
         );
         // Not an address at all.
-        assert_eq!(
+        assert!(matches!(
             validate_addresses(vec!["not-an-address".into()], mainnet).unwrap_err(),
-            BalanceError::InvalidAddress("not-an-address".to_string())
-        );
+            BalanceError::InvalidAddress(s) if s == "not-an-address"
+        ));
         // A testnet address rejected against the mainnet chain.
         assert!(
             validate_addresses(
