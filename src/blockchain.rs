@@ -48,6 +48,33 @@ impl TargetBlockchain {
         }
     }
 
+    /// Full chain name as the legacy implementation printed it — the constant
+    /// name of the Java `io.emeraldpay.api.Chain` enum. Used in outputs that
+    /// must stay text-compatible with legacy, e.g. the health check.
+    pub fn legacy_name(&self) -> &'static str {
+        match self {
+            TargetBlockchain::Standard(chain) => match chain {
+                ChainRef::ChainBitcoin => "BITCOIN",
+                ChainRef::ChainEthereum => "ETHEREUM",
+                ChainRef::ChainEthereumClassic => "ETHEREUM_CLASSIC",
+                ChainRef::ChainFantom => "FANTOM",
+                ChainRef::ChainMatic => "MATIC",
+                ChainRef::ChainRsk => "RSK",
+                ChainRef::ChainMorden => "TESTNET_MORDEN",
+                ChainRef::ChainKovan => "TESTNET_KOVAN",
+                ChainRef::ChainTestnetBitcoin => "TESTNET_BITCOIN",
+                ChainRef::ChainTestnetBitcoin4 => "TESTNET_BITCOIN_V4",
+                ChainRef::ChainGoerli => "TESTNET_GOERLI",
+                ChainRef::ChainRopsten => "TESTNET_ROPSTEN",
+                ChainRef::ChainRinkeby => "TESTNET_RINKEBY",
+                ChainRef::ChainHolesky => "TESTNET_HOLESKY",
+                ChainRef::ChainSepolia => "TESTNET_SEPOLIA",
+                ChainRef::ChainHoodi => "TESTNET_HOODI",
+                _ => "UNSPECIFIED",
+            },
+        }
+    }
+
     /// Classify the chain into its protocol family.
     pub fn blockchain_type(&self) -> BlockchainType {
         match self {

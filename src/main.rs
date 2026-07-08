@@ -19,6 +19,7 @@ mod cache;
 mod config;
 mod data;
 mod global;
+mod health;
 mod jsonrpc;
 mod metrics;
 mod proxy;
@@ -140,6 +141,10 @@ async fn main() {
         };
 
     metrics::register_upstreams(Arc::clone(&upstreams) as Arc<dyn metrics::UpstreamsStatus>);
+
+    if config.health.is_enabled() {
+        health::start(&config.health, Arc::clone(&upstreams));
+    }
 
     // Start the JSON-RPC HTTP proxy alongside the gRPC server, if enabled.
     if let Some(proxy_config) = &config.proxy {
