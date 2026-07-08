@@ -27,6 +27,7 @@
 mod fork;
 mod grpc;
 mod jsonrpc;
+mod monitoring_logs;
 mod server;
 mod state;
 mod upstream;
@@ -66,6 +67,11 @@ lazy_static! {
         m.grpc.register(&REGISTRY);
         m.upstream.register(&REGISTRY);
         m.fork.register(&REGISTRY);
+        // The log pipeline self-metrics are an extended-only subset, like the
+        // legacy `LogMetrics.Enabled` gated on `Global.metricsExtended`.
+        if EXTENDED.load(Ordering::Relaxed) {
+            m.monitoring_logs.register(&REGISTRY);
+        }
         m
     };
 }
@@ -75,6 +81,7 @@ struct Metrics {
     grpc: grpc::GrpcMetrics,
     upstream: upstream::UpstreamMetrics,
     fork: fork::ForkMetrics,
+    monitoring_logs: monitoring_logs::MonitoringLogsMetrics,
 }
 
 impl Metrics {
@@ -84,8 +91,14 @@ impl Metrics {
             grpc: grpc::GrpcMetrics::new(PREFIX),
             upstream: upstream::UpstreamMetrics::new(PREFIX),
             fork: fork::ForkMetrics::new(PREFIX),
+            monitoring_logs: monitoring_logs::MonitoringLogsMetrics::new(PREFIX),
         }
     }
+}
+
+/// Whether the extended-only metrics record anything.
+fn extended_enabled() -> bool {
+    ENABLED.load(Ordering::Relaxed) && EXTENDED.load(Ordering::Relaxed)
 }
 
 /// Enable metrics recording and start the Prometheus scrape endpoint (unless
@@ -276,6 +289,50 @@ pub fn upstream_finished(upstream: &str, chain: &TargetBlockchain) {
         return;
     }
     METRICS.upstream.on_finished(upstream, &chain.code());
+}
+
+// ── Log pipeline self-metrics (legacy `monitoringLogs_*`, extended only) ────
+
+/// A log writer was started. Creates the category's zero-valued series so the
+/// pipeline is visible in the scrape before its first event.
+pub fn log_writer_created(category: &'static str) {
+    if !extended_enabled() {
+        return;
+    }
+    METRICS.monitoring_logs.on_created(category);
+}
+
+/// A log event was submitted to a writer of the given category
+/// (`access` / `request`).
+pub fn log_produced(category: &'static str) {
+    if !extended_enabled() {
+        return;
+    }
+    METRICS.monitoring_logs.on_produced(category);
+}
+
+/// `count` log events were successfully written to the storage.
+pub fn log_collected(category: &'static str, count: u64) {
+    if !extended_enabled() {
+        return;
+    }
+    METRICS.monitoring_logs.on_collected(category, count);
+}
+
+/// A log event was dropped without writing (the queue was full).
+pub fn log_dropped(category: &'static str) {
+    if !extended_enabled() {
+        return;
+    }
+    METRICS.monitoring_logs.on_dropped(category);
+}
+
+/// The current number of log events waiting to be written.
+pub fn log_queue_size(category: &'static str, size: u64) {
+    if !extended_enabled() {
+        return;
+    }
+    METRICS.monitoring_logs.on_queue_size(category, size);
 }
 
 // ── Fork detection (legacy `forkwatch.*`) ───────────────────────────────────

@@ -23,6 +23,8 @@
 use super::ProxyRoute;
 use super::handler;
 use super::protocol::{self, BodyKind, ProxyRequest};
+use crate::logs;
+use crate::logs::access;
 use crate::upstream::egress::EgressError;
 use futures::{SinkExt, StreamExt};
 use std::collections::HashMap;
@@ -64,7 +66,7 @@ fn next_subscription_id() -> String {
 /// the bounded channel back-pressures producers when the client can't keep up.
 /// The per-connection subscription registry is touched only by this read loop,
 /// so it needs no locking.
-pub async fn serve(socket: WebSocket, route: Arc<ProxyRoute>) {
+pub async fn serve(socket: WebSocket, route: Arc<ProxyRoute>, ctx: Arc<logs::IngressContext>) {
     let (mut sink, mut stream) = socket.split();
     let (out_tx, mut out_rx) = mpsc::channel::<Message>(OUTBOUND_CHANNEL_CAPACITY);
 
@@ -100,7 +102,9 @@ pub async fn serve(socket: WebSocket, route: Arc<ProxyRoute>) {
         };
 
         match req.method.as_str() {
-            METHOD_SUBSCRIBE => handle_subscribe(&route, &req, &out_tx, &mut subscriptions).await,
+            METHOD_SUBSCRIBE => {
+                handle_subscribe(&route, &req, &out_tx, &mut subscriptions, &ctx).await
+            }
             METHOD_UNSUBSCRIBE => handle_unsubscribe(&req, &out_tx, &mut subscriptions).await,
             _ => {
                 // Plain call: run it off the read loop so a slow upstream never
@@ -108,10 +112,12 @@ pub async fn serve(socket: WebSocket, route: Arc<ProxyRoute>) {
                 let multistream = Arc::clone(&route.multistream);
                 let chain = route.chain;
                 let out_tx = out_tx.clone();
-                tokio::spawn(async move {
-                    let response = handler::run(&multistream, &chain, &req).await;
+                let ctx = Arc::clone(&ctx);
+                tokio::spawn(logs::with_context((*ctx).clone(), async move {
+                    let access = handler::AccessMeta::new(logs::Channel::WsJsonRpc, ctx);
+                    let response = handler::run(&multistream, &chain, &req, access.as_ref(), 0).await;
                     let _ = out_tx.send(Message::text(response)).await;
-                });
+                }));
             }
         }
     }
@@ -142,6 +148,7 @@ async fn handle_subscribe(
     req: &ProxyRequest,
     out_tx: &mpsc::Sender<Message>,
     subscriptions: &mut HashMap<String, AbortHandle>,
+    ctx: &Arc<logs::IngressContext>,
 ) {
     // A malformed subscribe (no topic, or too many params) is ignored, matching
     // the legacy `splitMethodParams` returning null.
@@ -175,12 +182,32 @@ async fn handle_subscribe(
 
             let out = out_tx.clone();
             let id = sub_id.clone();
+            let ctx = Arc::clone(ctx);
+            let chain = route.chain;
             let handle = tokio::spawn(async move {
                 while let Some(event) = stream.next().await {
                     // Bad event JSON or a closed channel stops the pump.
                     let Some(msg) = subscription_message(&id, &event) else {
                         break;
                     };
+                    if logs::access_enabled() {
+                        logs::access_log(&access::AccessRecord::new(
+                            logs::Channel::WsJsonRpc,
+                            access::Payload::NativeSubscribe(access::OnBlockchain::new(
+                                Some(&chain),
+                                access::NativeSubscribe {
+                                    request: ctx.request_details(),
+                                    payload_size_bytes: event.len() as u64,
+                                    native_subscribe: access::NativeSubscribeItemDetails {
+                                        method: topic.clone(),
+                                        payload_size_bytes: event.len() as u64,
+                                    },
+                                    response_body: logs::include_messages()
+                                        .then(|| String::from_utf8_lossy(&event).into_owned()),
+                                },
+                            )),
+                        ));
+                    }
                     if out.send(Message::text(msg)).await.is_err() {
                         break;
                     }

@@ -21,12 +21,41 @@ use super::protocol::{
 };
 use crate::blockchain::TargetBlockchain;
 use crate::jsonrpc::{JsonRpcRequest, RpcMethod};
+use crate::logs;
+use crate::logs::access;
 use crate::metrics;
 use crate::rpc::native_call::execute_call;
 use crate::upstream::Multistream;
 use futures::future::join_all;
 use futures::stream::{FuturesUnordered, StreamExt};
 use serde_json::value::RawValue;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+/// Access-log identity shared by every call of one proxy request: the client
+/// request details plus the batch position counters. `None` when the access
+/// log is off.
+#[derive(Clone)]
+pub(super) struct AccessMeta {
+    pub channel: logs::Channel,
+    pub ctx: Arc<logs::IngressContext>,
+    /// Calls in the batch (1 for a single request).
+    pub total: usize,
+    /// Reply order across the batch — the legacy `index` increments as
+    /// replies complete, not in request order.
+    pub index: Arc<AtomicUsize>,
+}
+
+impl AccessMeta {
+    pub fn new(channel: logs::Channel, ctx: Arc<logs::IngressContext>) -> Option<Self> {
+        logs::access_enabled().then(|| Self {
+            channel,
+            ctx,
+            total: 1,
+            index: Arc::new(AtomicUsize::new(0)),
+        })
+    }
+}
 
 /// Produce the JSON-RPC response body for a request body. The returned string
 /// is always valid JSON and is served with HTTP 200 — JSON-RPC errors live in
@@ -36,6 +65,7 @@ pub async fn process(
     multistream: &Multistream,
     chain: &TargetBlockchain,
     preserve_order: bool,
+    access: Option<AccessMeta>,
 ) -> String {
     let kind = match protocol::detect_kind(body) {
         Ok(kind) => kind,
@@ -48,10 +78,10 @@ pub async fn process(
 
     match kind {
         BodyKind::Single => match protocol::validate_item(&parsed) {
-            Ok(req) => run(multistream, chain, &req).await,
+            Ok(req) => run(multistream, chain, &req, access.as_ref(), 0).await,
             Err(e) => protocol::build_protocol_error(&e),
         },
-        BodyKind::Batch => process_batch(parsed, multistream, chain, preserve_order).await,
+        BodyKind::Batch => process_batch(parsed, multistream, chain, preserve_order, access).await,
     }
 }
 
@@ -60,6 +90,7 @@ async fn process_batch(
     multistream: &Multistream,
     chain: &TargetBlockchain,
     preserve_order: bool,
+    access: Option<AccessMeta>,
 ) -> String {
     let Some(items) = parsed.as_array() else {
         // First byte was `[` but the value isn't an array — malformed.
@@ -84,15 +115,29 @@ async fn process_batch(
         }
     }
 
+    // Every item of the batch shares the meta; only `total` reflects the
+    // batch size now that it is known.
+    let access = access.map(|meta| AccessMeta {
+        total: requests.len(),
+        ..meta
+    });
+
     let bodies = if preserve_order {
         // `join_all` resolves concurrently but yields results in request order.
-        join_all(requests.iter().map(|req| run(multistream, chain, req))).await
+        join_all(
+            requests
+                .iter()
+                .enumerate()
+                .map(|(pos, req)| run(multistream, chain, req, access.as_ref(), pos)),
+        )
+        .await
     } else {
         // Emit in completion order — cheaper and the default, since clients
         // correlate by id anyway.
         let mut pending: FuturesUnordered<_> = requests
             .iter()
-            .map(|req| run(multistream, chain, req))
+            .enumerate()
+            .map(|(pos, req)| run(multistream, chain, req, access.as_ref(), pos))
             .collect();
         let mut out = Vec::with_capacity(requests.len());
         while let Some(body) = pending.next().await {
@@ -104,32 +149,98 @@ async fn process_batch(
     format!("[{}]", bodies.join(","))
 }
 
+/// What a call ended with, for the access log record.
+struct CallOutcome {
+    succeed: bool,
+    /// Response and error payloads, filled only under `include-messages`.
+    response: Option<String>,
+    error: Option<String>,
+}
+
 /// Execute one validated request and serialize its response object. Shared with
 /// the WebSocket transport, which dispatches one validated call at a time.
+/// `pos` is the call's position in its batch (0 for a single request).
 pub(super) async fn run(
     multistream: &Multistream,
     chain: &TargetBlockchain,
     req: &ProxyRequest,
+    access: Option<&AccessMeta>,
+    pos: usize,
 ) -> String {
     metrics::jsonrpc_request(chain, &req.method);
     let start = std::time::Instant::now();
-    let body = execute(multistream, chain, req).await;
+    let (body, outcome) = execute(multistream, chain, req).await;
     metrics::jsonrpc_call(chain, &req.method, start.elapsed());
+
+    if let Some(meta) = access {
+        // The params are the "payload" of a proxy call, matching the legacy
+        // proxy that carried the params JSON as the item payload.
+        let params_size = params_json_size(&req.params) as u64;
+        logs::access_log(&access::AccessRecord::new(
+            meta.channel,
+            access::Payload::NativeCall(access::OnBlockchain::new(
+                Some(chain),
+                access::NativeCall {
+                    request: meta.ctx.request_details(),
+                    total: meta.total,
+                    index: meta.index.fetch_add(1, Ordering::Relaxed),
+                    selector: None,
+                    quorum: None,
+                    min_availability: None,
+                    succeed: outcome.succeed,
+                    rpc_error: None,
+                    payload_size_bytes: params_size,
+                    native_call: access::NativeCallItemDetails {
+                        method: req.method.clone(),
+                        id: pos as u32,
+                        payload_size_bytes: params_size,
+                        nonce: 0,
+                        request_params: logs::include_messages().then(|| req.params.to_string()),
+                    },
+                    response_body: outcome.response,
+                    error_message: outcome.error,
+                    nonce: None,
+                    signature: None,
+                },
+            )),
+        ));
+    }
+
     body
+}
+
+/// The byte size of the params payload — zero when the request carried none
+/// (the legacy proxy treated absent params as an empty payload).
+fn params_json_size(params: &serde_json::Value) -> usize {
+    if params.is_null() {
+        0
+    } else {
+        params.to_string().len()
+    }
 }
 
 async fn execute(
     multistream: &Multistream,
     chain: &TargetBlockchain,
     req: &ProxyRequest,
-) -> String {
+) -> (String, CallOutcome) {
+    let include = logs::access_enabled() && logs::include_messages();
     let method = match req.method.parse::<RpcMethod>() {
         Ok(method) => method,
         Err(_) => {
             // The transport never sees a malformed method name; report it the
             // way a node would rather than forwarding garbage.
             metrics::jsonrpc_err(chain, &req.method);
-            return protocol::build_error(&req.id, -32601, "Method not found".to_string(), None);
+            let body =
+                protocol::build_error(&req.id, -32601, "Method not found".to_string(), None);
+            return (
+                body,
+                CallOutcome {
+                    succeed: false,
+                    response: None,
+                    error: include.then(|| "Method not found".to_string()),
+                },
+            );
         }
     };
 
@@ -141,17 +252,43 @@ async fn execute(
         Ok(resp) => {
             if let Some(err) = resp.error {
                 metrics::jsonrpc_err(chain, &req.method);
-                protocol::build_error(&req.id, err.code, err.message, err.data)
+                let outcome = CallOutcome {
+                    succeed: false,
+                    response: None,
+                    error: include.then(|| err.message.clone()),
+                };
+                (
+                    protocol::build_error(&req.id, err.code, err.message, err.data),
+                    outcome,
+                )
             } else if let Some(result) = resp.result {
-                protocol::build_success(&req.id, &result)
+                let outcome = CallOutcome {
+                    succeed: true,
+                    response: include.then(|| result.get().to_string()),
+                    error: None,
+                };
+                (protocol::build_success(&req.id, &result), outcome)
             } else {
                 let null = RawValue::from_string("null".to_string()).expect("valid json");
-                protocol::build_success(&req.id, &null)
+                let outcome = CallOutcome {
+                    succeed: true,
+                    response: include.then(|| "null".to_string()),
+                    error: None,
+                };
+                (protocol::build_success(&req.id, &null), outcome)
             }
         }
         Err(e) => {
             metrics::jsonrpc_fail(chain, &req.method);
-            protocol::build_error(&req.id, CODE_CALL_FAILURE, e.to_string(), None)
+            let outcome = CallOutcome {
+                succeed: false,
+                response: None,
+                error: include.then(|| e.to_string()),
+            };
+            (
+                protocol::build_error(&req.id, CODE_CALL_FAILURE, e.to_string(), None),
+                outcome,
+            )
         }
     }
 }
@@ -231,6 +368,7 @@ mod tests {
             &ms,
             &chain(),
             false,
+            None,
         )
         .await;
         assert_eq!(body, r#"{"jsonrpc":"2.0","id":42,"result":"0xabc"}"#);
@@ -243,7 +381,8 @@ mod tests {
             br#"[{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber"},{"jsonrpc":"2.0","id":2,"method":"eth_blockNumber"}]"#,
             &ms,
             &chain(),
-            true, // preserve order
+            true, // preserve order,
+            None
         )
         .await;
         assert_eq!(
@@ -255,14 +394,14 @@ mod tests {
     #[tokio::test]
     async fn empty_batch_returns_empty_array() {
         let ms = multistream(r#""0x1""#);
-        let body = process(b"[]", &ms, &chain(), false).await;
+        let body = process(b"[]", &ms, &chain(), false, None).await;
         assert_eq!(body, "[]");
     }
 
     #[tokio::test]
     async fn parse_error_returns_single_object_with_fallback_id() {
         let ms = multistream(r#""0x1""#);
-        let body = process(b"not json", &ms, &chain(), false).await;
+        let body = process(b"not json", &ms, &chain(), false, None).await;
         assert_eq!(
             body,
             r#"{"jsonrpc":"2.0","id":-1,"error":{"code":-32700,"message":"Failed to parse JSON"}}"#
@@ -278,6 +417,7 @@ mod tests {
             &ms,
             &chain(),
             false,
+            None,
         )
         .await;
         assert_eq!(
@@ -324,6 +464,7 @@ mod tests {
             &ms,
             &chain(),
             false,
+            None,
         )
         .await;
         assert_eq!(

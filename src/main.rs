@@ -21,6 +21,7 @@ mod data;
 mod global;
 mod health;
 mod jsonrpc;
+mod logs;
 mod metrics;
 mod proxy;
 mod rpc;
@@ -112,9 +113,10 @@ async fn main() {
 
     let config = global::CONFIG.get().expect("CONFIG must be initialized");
 
-    // Metrics must be live before the first upstream connection is made, so
-    // even startup requests (validation, describe) are counted.
+    // Metrics and logs must be live before the first upstream connection is
+    // made, so even startup requests (validation, head polls) are counted.
     metrics::init(&config.monitoring);
+    logs::init(&config.access_log, &config.request_log);
 
     // Build upstreams from configuration
     let upstreams_config = match &config.upstreams {

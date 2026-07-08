@@ -25,6 +25,7 @@ mod ws;
 
 use crate::blockchain::TargetBlockchain;
 use crate::config::proxy::ProxyConfig;
+use crate::logs;
 use crate::upstream::egress::EgressSubscription;
 use crate::upstream::{Multistream, UpstreamManager};
 use bytes::Bytes;
@@ -33,6 +34,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use warp::Filter;
 use warp::Reply;
+use warp::http::HeaderMap;
 use warp::http::header::{
     ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_ALLOW_ORIGIN, CONTENT_TYPE, HeaderValue,
 };
@@ -117,9 +119,15 @@ fn routes_filter(
     let ws_route = warp::path::param::<String>()
         .and(warp::path::end())
         .and(warp::ws())
+        .and(warp::addr::remote())
+        .and(warp::header::headers_cloned())
         .and(warp::any().map(move || Arc::clone(&ws_state)))
         .map(
-            |segment: String, upgrade: warp::ws::Ws, state: Arc<ProxyState>| {
+            |segment: String,
+             upgrade: warp::ws::Ws,
+             peer: Option<SocketAddr>,
+             headers: HeaderMap,
+             state: Arc<ProxyState>| {
                 if !state.websocket {
                     // WS disabled: the path only serves POST/OPTIONS, so the
                     // upgrade (a GET) is not allowed here.
@@ -129,8 +137,13 @@ fn routes_filter(
                 match state.routes.get(&segment) {
                     Some(route) => {
                         let route = Arc::clone(route);
+                        // The whole connection is one client request in the
+                        // access log: every call and subscription reply on it
+                        // shares the identity created at the upgrade.
+                        let ctx =
+                            Arc::new(logs::IngressContext::new(Some(remote_details(peer, &headers))));
                         upgrade
-                            .on_upgrade(move |socket| ws::serve(socket, route))
+                            .on_upgrade(move |socket| ws::serve(socket, route, ctx))
                             .into_response()
                     }
                     None => {
@@ -144,10 +157,23 @@ fn routes_filter(
         .and(warp::path::end())
         .and(warp::method())
         .and(warp::body::bytes())
+        .and(warp::addr::remote())
+        .and(warp::header::headers_cloned())
         .and(warp::any().map(move || Arc::clone(&state)))
         .then(handle);
 
     ws_route.or(http_route).unify()
+}
+
+/// Who is making the request, from the transport peer and forwarding headers.
+fn remote_details(peer: Option<SocketAddr>, headers: &HeaderMap) -> logs::Remote {
+    let header = |name: &str| headers.get(name).and_then(|v| v.to_str().ok());
+    logs::Remote::from_request(
+        peer.map(|addr| addr.ip()),
+        header("x-real-ip"),
+        header("x-forwarded-for"),
+        header("user-agent"),
+    )
 }
 
 /// Build the path → route map, skipping routes whose blockchain is unknown or
@@ -195,6 +221,8 @@ async fn handle(
     segment: String,
     method: Method,
     body: Bytes,
+    peer: Option<SocketAddr>,
+    headers: HeaderMap,
     state: Arc<ProxyState>,
 ) -> warp::reply::Response {
     let Some(route) = state.routes.get(&segment) else {
@@ -204,11 +232,21 @@ async fn handle(
 
     match method {
         Method::POST => {
-            let body = handler::process(
-                &body,
-                &route.multistream,
-                &route.chain,
-                state.preserve_batch_order,
+            let ctx = Arc::new(logs::IngressContext::new(Some(remote_details(
+                peer, &headers,
+            ))));
+            let access = handler::AccessMeta::new(logs::Channel::JsonRpc, Arc::clone(&ctx));
+            // The context makes the upstream calls attributable to this
+            // client request in the request log.
+            let body = logs::with_context(
+                (*ctx).clone(),
+                handler::process(
+                    &body,
+                    &route.multistream,
+                    &route.chain,
+                    state.preserve_batch_order,
+                    access,
+                ),
             )
             .await;
             // Always HTTP 200; JSON-RPC errors are carried in the body.

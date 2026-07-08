@@ -19,6 +19,8 @@
 
 use crate::blockchain::TargetBlockchain;
 use crate::data::BlockContainer;
+use crate::logs;
+use crate::logs::access;
 use crate::metrics::{self, GrpcRequestType};
 use crate::rpc::native_call;
 use crate::upstream::{Multistream, UpstreamManager};
@@ -33,8 +35,160 @@ use emerald_api::proto::common;
 use futures::stream::{self, FuturesUnordered, StreamExt};
 use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio_stream::Stream;
 use tokio_stream::wrappers::BroadcastStream;
+
+/// Access-log identity of one gRPC call, from the request peer and metadata.
+fn ingress_context<T>(request: &tonic::Request<T>) -> Arc<logs::IngressContext> {
+    let meta = |name: &str| {
+        request
+            .metadata()
+            .get(name)
+            .and_then(|value| value.to_str().ok())
+    };
+    let remote = logs::Remote::from_request(
+        request.remote_addr().map(|addr| addr.ip()),
+        meta("x-real-ip"),
+        meta("x-forwarded-for"),
+        meta("user-agent"),
+    );
+    Arc::new(logs::IngressContext::new(Some(remote)))
+}
+
+/// The `blockchain` label of an access record for a possibly-unknown chain.
+fn chain_log_name(chain: Option<&TargetBlockchain>) -> &'static str {
+    chain.map(|c| c.legacy_name()).unwrap_or("UNSPECIFIED")
+}
+
+/// The `addressType` detail: the name of the address oneof case, as the
+/// legacy records printed it.
+fn addr_type_name(address: Option<&common::AnyAddress>) -> String {
+    use emerald_api::proto::common::any_address::AddrType;
+    match address.and_then(|a| a.addr_type.as_ref()) {
+        Some(AddrType::AddressSingle(_)) => "ADDRESS_SINGLE",
+        Some(AddrType::AddressMulti(_)) => "ADDRESS_MULTI",
+        Some(AddrType::AddressXpub(_)) => "ADDRESS_XPUB",
+        Some(AddrType::AddressRef(_)) => "ADDRESS_REF",
+        None => "",
+    }
+    .to_string()
+}
+
+/// Per-request state of the balance access records: the request details are
+/// captured once, then one record is written per streamed balance. `make`
+/// picks the record method — `Payload::SubscribeBalance` or
+/// `Payload::GetBalance`.
+struct BalanceLog {
+    make: fn(access::OnBlockchain<access::Balance>) -> access::Payload,
+    blockchain: &'static str,
+    /// `None` when the access log is off — replies are not recorded.
+    ctx: Option<Arc<logs::IngressContext>>,
+    details: access::BalanceRequest,
+    index: AtomicUsize,
+}
+
+impl BalanceLog {
+    fn new(
+        make: fn(access::OnBlockchain<access::Balance>) -> access::Payload,
+        req: &BalanceRequest,
+        chain: Option<&TargetBlockchain>,
+        ctx: Arc<logs::IngressContext>,
+    ) -> Self {
+        use emerald_api::proto::blockchain::balance_request::BalanceType;
+        let asset = match &req.balance_type {
+            Some(BalanceType::Asset(asset)) => asset.code.to_uppercase(),
+            _ => String::new(),
+        };
+        Self {
+            make,
+            blockchain: chain_log_name(chain),
+            ctx: logs::access_enabled().then_some(ctx),
+            details: access::BalanceRequest {
+                asset,
+                address_type: addr_type_name(req.address.as_ref()),
+            },
+            index: AtomicUsize::new(0),
+        }
+    }
+
+    fn on_reply(&self, balance: &AddressBalance) {
+        use emerald_api::proto::blockchain::address_balance::BalanceType;
+        let Some(ctx) = &self.ctx else {
+            return;
+        };
+        let payload = (self.make)(access::OnBlockchain {
+            blockchain: self.blockchain,
+            value: access::Balance {
+                request: ctx.request_details(),
+                balance_request: self.details.clone(),
+                address_balance: access::AddressBalance {
+                    asset: match &balance.balance_type {
+                        Some(BalanceType::Asset(asset)) => asset.code.to_uppercase(),
+                        _ => String::new(),
+                    },
+                    address: balance
+                        .address
+                        .as_ref()
+                        .map(|a| a.address.clone())
+                        .unwrap_or_default(),
+                },
+                index: self.index.fetch_add(1, Ordering::Relaxed),
+            },
+        });
+        logs::access_log(&access::AccessRecord::new(logs::Channel::Dshackle, payload));
+    }
+}
+
+/// Per-request state of the allowance access records, mirroring [`BalanceLog`].
+struct AllowanceLog {
+    make: fn(access::OnBlockchain<access::Allowance>) -> access::Payload,
+    blockchain: &'static str,
+    ctx: Option<Arc<logs::IngressContext>>,
+    details: access::AddressAllowanceRequest,
+    index: AtomicUsize,
+}
+
+impl AllowanceLog {
+    fn new(
+        make: fn(access::OnBlockchain<access::Allowance>) -> access::Payload,
+        req: &AddressAllowanceRequest,
+        chain: Option<&TargetBlockchain>,
+        ctx: Arc<logs::IngressContext>,
+    ) -> Self {
+        Self {
+            make,
+            blockchain: chain_log_name(chain),
+            ctx: logs::access_enabled().then_some(ctx),
+            details: access::AddressAllowanceRequest {
+                address_type: addr_type_name(req.address.as_ref()),
+            },
+            index: AtomicUsize::new(0),
+        }
+    }
+
+    fn on_reply(&self, allowance: &AddressAllowance) {
+        let Some(ctx) = &self.ctx else {
+            return;
+        };
+        let payload = (self.make)(access::OnBlockchain {
+            blockchain: self.blockchain,
+            value: access::Allowance {
+                request: ctx.request_details(),
+                address_allowance_request: self.details.clone(),
+                address_allowance: access::AddressAllowance {
+                    address: allowance
+                        .address
+                        .as_ref()
+                        .map(|a| a.address.clone())
+                        .unwrap_or_default(),
+                },
+                index: self.index.fetch_add(1, Ordering::Relaxed),
+            },
+        });
+        logs::access_log(&access::AccessRecord::new(logs::Channel::Dshackle, payload));
+    }
+}
 
 /// The Dshackle implementation of the `Blockchain` gRPC service.
 pub struct BlockchainRpcService {
@@ -66,6 +220,7 @@ impl Blockchain for BlockchainRpcService {
         &self,
         request: tonic::Request<NativeCallRequest>,
     ) -> Result<tonic::Response<Self::NativeCallStream>, tonic::Status> {
+        let ctx = ingress_context(&request);
         let req = request.into_inner();
         tracing::trace!(
             chain = req.chain,
@@ -90,6 +245,23 @@ impl Blockchain for BlockchainRpcService {
             })?
             .clone();
 
+        // The requested items, kept for the per-reply access records.
+        let log_items: Option<Vec<access::NativeCallItemDetails>> =
+            logs::access_enabled().then(|| {
+                req.items
+                    .iter()
+                    .map(|item| access::NativeCallItemDetails {
+                        method: item.method.clone(),
+                        id: item.id,
+                        payload_size_bytes: item.payload.len() as u64,
+                        nonce: item.nonce,
+                        request_params: logs::include_messages()
+                            .then(|| String::from_utf8(item.payload.clone()).unwrap_or_default()),
+                    })
+                    .collect()
+            });
+        let total = req.items.len();
+
         // Each item is dispatched independently and in parallel.
         // Replies stream out in completion order; the client correlates them via `NativeCallReplyItem.id`.
         let tasks: FuturesUnordered<_> = req
@@ -97,12 +269,15 @@ impl Blockchain for BlockchainRpcService {
             .into_iter()
             .map(|item| {
                 let multistream = multistream.clone();
-                tokio::spawn(async move {
+                // Re-establish the request context inside the spawned task, so
+                // the upstream calls are attributed in the request log.
+                tokio::spawn(logs::with_context((*ctx).clone(), async move {
                     native_call::execute_native_call(multistream.as_ref(), &item).await
-                })
+                }))
             })
             .collect();
 
+        let mut log_index = 0usize;
         let stream = tasks.map(move |joined| match joined {
             Ok(reply) => {
                 if reply.succeed {
@@ -114,6 +289,49 @@ impl Blockchain for BlockchainRpcService {
                     );
                 } else {
                     metrics::grpc_response_err(GrpcRequestType::NativeCall, Some(&chain));
+                }
+                if let Some(detail) = log_items
+                    .as_ref()
+                    .and_then(|items| items.iter().find(|d| d.id == reply.id))
+                {
+                    logs::access_log(&access::AccessRecord::new(
+                        logs::Channel::Dshackle,
+                        access::Payload::NativeCall(access::OnBlockchain::new(
+                            Some(&chain),
+                            access::NativeCall {
+                                request: ctx.request_details(),
+                                total,
+                                index: {
+                                    let index = log_index;
+                                    log_index += 1;
+                                    index
+                                },
+                                selector: None,
+                                quorum: None,
+                                min_availability: None,
+                                succeed: reply.succeed,
+                                rpc_error: None,
+                                payload_size_bytes: detail.payload_size_bytes,
+                                native_call: detail.clone(),
+                                response_body: logs::include_messages().then(|| {
+                                    String::from_utf8(reply.payload.clone()).unwrap_or_default()
+                                }),
+                                error_message: logs::include_messages()
+                                    .then(|| reply.error_message.clone()),
+                                // Always present for gRPC replies, zero/empty
+                                // without a signature — matching the legacy
+                                // record.
+                                nonce: Some(reply.signature.as_ref().map(|s| s.nonce).unwrap_or(0)),
+                                signature: Some(
+                                    reply
+                                        .signature
+                                        .as_ref()
+                                        .map(|s| hex::encode(&s.signature))
+                                        .unwrap_or_default(),
+                                ),
+                            },
+                        )),
+                    ));
                 }
                 Ok(reply)
             }
@@ -134,6 +352,7 @@ impl Blockchain for BlockchainRpcService {
         &self,
         request: tonic::Request<common::Chain>,
     ) -> Result<tonic::Response<Self::SubscribeHeadStream>, tonic::Status> {
+        let ctx = ingress_context(&request);
         let chain = TargetBlockchain::try_from(request.into_inner().r#type).map_err(|id| {
             tracing::trace!(chain = id, "unknown chain id");
             tonic::Status::invalid_argument(format!("unknown chain id {id}"))
@@ -147,13 +366,30 @@ impl Blockchain for BlockchainRpcService {
         })?;
 
         let chain_id = chain.id();
+        let log_index = Arc::new(AtomicUsize::new(0));
         // Map each merged-head block to a `ChainHead`, skipping the gaps the
         // broadcast channel reports when a subscriber lags behind.
-        let stream = BroadcastStream::new(head.subscribe()).filter_map(move |item| async move {
-            item.ok().map(|block| {
-                metrics::grpc_reply(GrpcRequestType::SubscribeHead, Some(&chain));
-                Ok(chain_head(chain_id, &block))
-            })
+        let stream = BroadcastStream::new(head.subscribe()).filter_map(move |item| {
+            let ctx = Arc::clone(&ctx);
+            let log_index = Arc::clone(&log_index);
+            async move {
+                item.ok().map(|block| {
+                    metrics::grpc_reply(GrpcRequestType::SubscribeHead, Some(&chain));
+                    if logs::access_enabled() {
+                        logs::access_log(&access::AccessRecord::new(
+                            logs::Channel::Dshackle,
+                            access::Payload::SubscribeHead(access::OnBlockchain::new(
+                                Some(&chain),
+                                access::SubscribeHead {
+                                    request: ctx.request_details(),
+                                    index: log_index.fetch_add(1, Ordering::Relaxed),
+                                },
+                            )),
+                        ));
+                    }
+                    Ok(chain_head(chain_id, &block))
+                })
+            }
         });
 
         Ok(tonic::Response::new(Box::pin(stream)))
@@ -163,17 +399,20 @@ impl Blockchain for BlockchainRpcService {
         &self,
         request: tonic::Request<BalanceRequest>,
     ) -> Result<tonic::Response<Self::SubscribeBalanceStream>, tonic::Status> {
+        let ctx = ingress_context(&request);
         let req = request.into_inner();
         let chain = request_balance_chain(&req);
         metrics::grpc_request(GrpcRequestType::SubscribeBalance, chain.as_ref());
+        let balance_log = BalanceLog::new(access::Payload::SubscribeBalance, &req, chain.as_ref(), ctx);
         let stream = self
             .upstreams
             .balance(&req, true)
             .await
             .map_err(BalanceError::into_status)?;
         let stream = stream.map(move |item| {
-            if item.is_ok() {
+            if let Ok(balance) = &item {
                 metrics::grpc_reply(GrpcRequestType::SubscribeBalance, chain.as_ref());
+                balance_log.on_reply(balance);
             }
             item
         });
@@ -184,25 +423,51 @@ impl Blockchain for BlockchainRpcService {
         &self,
         request: tonic::Request<TxStatusRequest>,
     ) -> Result<tonic::Response<Self::SubscribeTxStatusStream>, tonic::Status> {
+        let ctx = ingress_context(&request);
         let req = request.into_inner();
-        metrics::grpc_request(
-            GrpcRequestType::SubscribeTx,
-            TargetBlockchain::try_from(req.chain).ok().as_ref(),
-        );
+        let chain = TargetBlockchain::try_from(req.chain).ok();
+        metrics::grpc_request(GrpcRequestType::SubscribeTx, chain.as_ref());
+        let tx_id = req.tx_id.clone();
+        let log_index = Arc::new(AtomicUsize::new(0));
         let stream = self
             .upstreams
             .tx_status(&req)
             .map_err(TxStatusError::into_status)?;
-        Ok(tonic::Response::new(stream))
+        let stream = stream.map(move |item| {
+            if let Ok(status) = &item
+                && logs::access_enabled()
+            {
+                logs::access_log(&access::AccessRecord::new(
+                    logs::Channel::Dshackle,
+                    access::Payload::SubscribeTxStatus(access::OnBlockchain::new(
+                        chain.as_ref(),
+                        access::TxStatus {
+                            request: ctx.request_details(),
+                            tx_status_request: access::TxStatusRequest {
+                                tx_id: tx_id.clone(),
+                            },
+                            tx_status: access::TxStatusResponse {
+                                confirmations: status.confirmations,
+                            },
+                            index: log_index.fetch_add(1, Ordering::Relaxed),
+                        },
+                    )),
+                ));
+            }
+            item
+        });
+        Ok(tonic::Response::new(Box::pin(stream)))
     }
 
     async fn get_balance(
         &self,
         request: tonic::Request<BalanceRequest>,
     ) -> Result<tonic::Response<Self::GetBalanceStream>, tonic::Status> {
+        let ctx = ingress_context(&request);
         let req = request.into_inner();
         let chain = request_balance_chain(&req);
         metrics::grpc_request(GrpcRequestType::GetBalance, chain.as_ref());
+        let balance_log = BalanceLog::new(access::Payload::GetBalance, &req, chain.as_ref(), ctx);
         let start = std::time::Instant::now();
         let stream = self
             .upstreams
@@ -210,13 +475,14 @@ impl Blockchain for BlockchainRpcService {
             .await
             .map_err(BalanceError::into_status)?;
         let stream = stream.map(move |item| {
-            if item.is_ok() {
+            if let Ok(balance) = &item {
                 metrics::grpc_response(GrpcRequestType::GetBalance, chain.as_ref());
                 metrics::grpc_response_time(
                     GrpcRequestType::GetBalance,
                     chain.as_ref(),
                     start.elapsed(),
                 );
+                balance_log.on_reply(balance);
             }
             item
         });
@@ -227,9 +493,11 @@ impl Blockchain for BlockchainRpcService {
         &self,
         request: tonic::Request<AddressAllowanceRequest>,
     ) -> Result<tonic::Response<Self::GetAddressAllowanceStream>, tonic::Status> {
+        let ctx = ingress_context(&request);
         let req = request.into_inner();
         let chain = TargetBlockchain::try_from(req.chain).ok();
         metrics::grpc_request(GrpcRequestType::GetAllowance, chain.as_ref());
+        let allowance_log = AllowanceLog::new(access::Payload::GetAddressAllowance, &req, chain.as_ref(), ctx);
         let start = std::time::Instant::now();
         let stream = self
             .upstreams
@@ -237,13 +505,14 @@ impl Blockchain for BlockchainRpcService {
             .await
             .map_err(AllowanceError::into_status)?;
         let stream = stream.map(move |item| {
-            if item.is_ok() {
+            if let Ok(allowance) = &item {
                 metrics::grpc_response(GrpcRequestType::GetAllowance, chain.as_ref());
                 metrics::grpc_response_time(
                     GrpcRequestType::GetAllowance,
                     chain.as_ref(),
                     start.elapsed(),
                 );
+                allowance_log.on_reply(allowance);
             }
             item
         });
@@ -254,17 +523,21 @@ impl Blockchain for BlockchainRpcService {
         &self,
         request: tonic::Request<AddressAllowanceRequest>,
     ) -> Result<tonic::Response<Self::SubscribeAddressAllowanceStream>, tonic::Status> {
+        let ctx = ingress_context(&request);
         let req = request.into_inner();
         let chain = TargetBlockchain::try_from(req.chain).ok();
         metrics::grpc_request(GrpcRequestType::SubscribeAllowance, chain.as_ref());
+        let allowance_log =
+            AllowanceLog::new(access::Payload::SubscribeAddressAllowance, &req, chain.as_ref(), ctx);
         let stream = self
             .upstreams
             .address_allowance(req, true)
             .await
             .map_err(AllowanceError::into_status)?;
         let stream = stream.map(move |item| {
-            if item.is_ok() {
+            if let Ok(allowance) = &item {
                 metrics::grpc_response(GrpcRequestType::SubscribeAllowance, chain.as_ref());
+                allowance_log.on_reply(allowance);
             }
             item
         });
@@ -275,6 +548,7 @@ impl Blockchain for BlockchainRpcService {
         &self,
         request: tonic::Request<EstimateFeeRequest>,
     ) -> Result<tonic::Response<EstimateFeeResponse>, tonic::Status> {
+        let ctx = ingress_context(&request);
         let req = request.into_inner();
         let chain = TargetBlockchain::try_from(req.chain).ok();
         metrics::grpc_request(GrpcRequestType::EstimateFee, chain.as_ref());
@@ -303,6 +577,21 @@ impl Blockchain for BlockchainRpcService {
                     chain.as_ref(),
                     start.elapsed(),
                 );
+                if logs::access_enabled() {
+                    logs::access_log(&access::AccessRecord::new(
+                        logs::Channel::Dshackle,
+                        access::Payload::EstimateFee(access::OnBlockchain::new(
+                            chain.as_ref(),
+                            access::EstimateFee {
+                                request: ctx.request_details(),
+                                estimate_fee: access::EstimateFeeDetails {
+                                    mode: req.mode().as_str_name().to_string(),
+                                    blocks: req.blocks as u32,
+                                },
+                            },
+                        )),
+                    ));
+                }
                 Ok(tonic::Response::new(response))
             }
             // No head yet or too little data to sample — the chain can't answer
@@ -320,6 +609,7 @@ impl Blockchain for BlockchainRpcService {
         &self,
         request: tonic::Request<NativeSubscribeRequest>,
     ) -> Result<tonic::Response<Self::NativeSubscribeStream>, tonic::Status> {
+        let ctx = ingress_context(&request);
         let req = request.into_inner();
 
         let chain = TargetBlockchain::try_from(req.chain)
@@ -336,8 +626,27 @@ impl Blockchain for BlockchainRpcService {
 
         match egress.subscribe(&req.method, params) {
             Ok(stream) => {
+                let topic = req.method.clone();
                 let mapped = stream.map(move |payload| {
                     metrics::grpc_response(GrpcRequestType::NativeSubscribe, Some(&chain));
+                    if logs::access_enabled() {
+                        logs::access_log(&access::AccessRecord::new(
+                            logs::Channel::Dshackle,
+                            access::Payload::NativeSubscribe(access::OnBlockchain::new(
+                                Some(&chain),
+                                access::NativeSubscribe {
+                                    request: ctx.request_details(),
+                                    payload_size_bytes: payload.len() as u64,
+                                    native_subscribe: access::NativeSubscribeItemDetails {
+                                        method: topic.clone(),
+                                        payload_size_bytes: payload.len() as u64,
+                                    },
+                                    response_body: logs::include_messages()
+                                        .then(|| String::from_utf8_lossy(&payload).into_owned()),
+                                },
+                            )),
+                        ));
+                    }
                     Ok(NativeSubscribeReplyItem { payload })
                 });
                 Ok(tonic::Response::new(Box::pin(mapped)))
@@ -352,6 +661,7 @@ impl Blockchain for BlockchainRpcService {
         &self,
         _request: tonic::Request<DescribeRequest>,
     ) -> Result<tonic::Response<DescribeResponse>, tonic::Status> {
+        let ctx = ingress_context(&_request);
         metrics::grpc_request(GrpcRequestType::Describe, None);
         // Discovery: advertise every configured chain with its status, the
         // methods/subscriptions it can serve, and its nodes. Mirrors the legacy
@@ -410,6 +720,15 @@ impl Blockchain for BlockchainRpcService {
             });
         }
 
+        if logs::access_enabled() {
+            logs::access_log(&access::AccessRecord::new(
+                logs::Channel::Dshackle,
+                access::Payload::Describe(access::Describe {
+                    request: ctx.request_details(),
+                }),
+            ));
+        }
+
         Ok(tonic::Response::new(DescribeResponse { chains }))
     }
 
@@ -417,6 +736,7 @@ impl Blockchain for BlockchainRpcService {
         &self,
         request: tonic::Request<StatusRequest>,
     ) -> Result<tonic::Response<Self::SubscribeStatusStream>, tonic::Status> {
+        let ctx = ingress_context(&request);
         let req = request.into_inner();
         metrics::grpc_request(GrpcRequestType::SubscribeStatus, None);
 
@@ -438,7 +758,24 @@ impl Blockchain for BlockchainRpcService {
             })
             .collect();
 
-        Ok(tonic::Response::new(Box::pin(stream::select_all(streams))))
+        let merged = stream::select_all(streams).map(move |item| {
+            if let Ok(status) = &item
+                && logs::access_enabled()
+            {
+                logs::access_log(&access::AccessRecord::new(
+                    logs::Channel::Dshackle,
+                    access::Payload::Status(access::OnBlockchain::new(
+                        TargetBlockchain::try_from(status.chain).ok().as_ref(),
+                        access::Status {
+                            request: ctx.request_details(),
+                        },
+                    )),
+                ));
+            }
+            item
+        });
+
+        Ok(tonic::Response::new(Box::pin(merged)))
     }
 }
 
