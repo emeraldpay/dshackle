@@ -28,6 +28,7 @@ pub mod head;
 pub mod http_error;
 mod identified;
 pub mod merged_head;
+mod metered;
 mod methods;
 pub mod multistream;
 pub mod quorum;
@@ -81,6 +82,7 @@ use egress::{ChainAccess, EgressSubscription, EthereumEgress};
 use fees::{BitcoinFees, ChainFees, EthereumFees};
 use head::CurrentHead;
 use identified::IdentifiedUpstream;
+use metered::MeteredUpstream;
 use merged_head::MergedHead;
 use methods::AggregatedMethods;
 use methods::ConfiguredMethods;
@@ -263,9 +265,17 @@ impl UpstreamManager {
                         (None, Some(http_up)) => {
                             let head = http_up.head_height();
                             caching_head.follow(&head);
+                            // The poller's requests go through a metered view of
+                            // the transport: the legacy head poller shares the
+                            // instrumented client, so its calls are counted too.
                             start_head_poller(
                                 upstream.id.clone(),
-                                Arc::clone(http_up) as Arc<dyn RpcUpstream>,
+                                Arc::new(MeteredUpstream::new(
+                                    Arc::clone(http_up) as Arc<dyn RpcUpstream>,
+                                    crate::metrics::UpstreamProtocol::Rpc,
+                                    upstream.id.clone(),
+                                    chain,
+                                )),
                                 head,
                             );
                         }
@@ -281,10 +291,25 @@ impl UpstreamManager {
                         .map(|u| u.head_height())
                         .or_else(|| http_upstream.as_ref().map(|u| u.head_height()));
 
-                    let ws_rpc: Option<Arc<dyn RpcUpstream>> =
-                        ws_upstream.map(|u| u as Arc<dyn RpcUpstream>);
-                    let http_rpc: Option<Arc<dyn RpcUpstream>> =
-                        http_upstream.map(|u| u as Arc<dyn RpcUpstream>);
+                    // Metering sits directly above each transport, so requests
+                    // are attributed to the connection that carried them even
+                    // when the WS/HTTP switch picks between the two.
+                    let ws_rpc: Option<Arc<dyn RpcUpstream>> = ws_upstream.map(|u| {
+                        Arc::new(MeteredUpstream::new(
+                            u,
+                            crate::metrics::UpstreamProtocol::Ws,
+                            upstream.id.clone(),
+                            chain,
+                        )) as Arc<dyn RpcUpstream>
+                    });
+                    let http_rpc: Option<Arc<dyn RpcUpstream>> = http_upstream.map(|u| {
+                        Arc::new(MeteredUpstream::new(
+                            u,
+                            crate::metrics::UpstreamProtocol::Rpc,
+                            upstream.id.clone(),
+                            chain,
+                        )) as Arc<dyn RpcUpstream>
+                    });
 
                     let reader: Arc<dyn RpcUpstream> = match (ws_rpc, http_rpc) {
                         (Some(ws), Some(http)) => {
@@ -427,7 +452,12 @@ impl UpstreamManager {
                         &mut per_chain_caching_heads,
                     );
                     caching_head.follow(&head);
-                    let reader: Arc<dyn RpcUpstream> = Arc::new(http_up);
+                    let reader: Arc<dyn RpcUpstream> = Arc::new(MeteredUpstream::new(
+                        Arc::new(http_up),
+                        crate::metrics::UpstreamProtocol::Rpc,
+                        upstream.id.clone(),
+                        chain,
+                    ));
                     let fork_head = Arc::clone(&head);
                     start_btc_head_poller(upstream.id.clone(), Arc::clone(&reader), head);
 
@@ -585,6 +615,7 @@ impl UpstreamManager {
             for member in members {
                 start_fork_watch(
                     member.id,
+                    chain,
                     member.head,
                     member.state,
                     Arc::clone(&fork_choice),
@@ -962,6 +993,27 @@ impl UpstreamManager {
     }
 }
 
+impl crate::metrics::UpstreamsStatus for UpstreamManager {
+    fn chains_status(&self) -> Vec<crate::metrics::ChainStatus> {
+        self.upstreams
+            .iter()
+            .map(|(chain, multistream)| crate::metrics::ChainStatus {
+                chain: *chain,
+                upstreams: multistream
+                    .upstreams()
+                    .iter()
+                    .map(|up| crate::metrics::UpstreamStatus {
+                        id: up.id().to_string(),
+                        availability: up.availability(),
+                        lag: up.lag(),
+                        height: up.head().current_height(),
+                    })
+                    .collect(),
+            })
+            .collect()
+    }
+}
+
 /// How many blocks back a single Ethereum fee estimate may sample (legacy
 /// `EthereumMultistream` passes 256).
 const ETHEREUM_FEE_HEIGHT_LIMIT: u32 = 256;
@@ -1206,7 +1258,12 @@ fn wire_remote_dshackle(
             ds_upstream.state_handle(),
         );
 
-        let reader: Arc<dyn RpcUpstream> = Arc::new(ds_upstream);
+        let reader: Arc<dyn RpcUpstream> = Arc::new(MeteredUpstream::new(
+            Arc::new(ds_upstream),
+            crate::metrics::UpstreamProtocol::Grpc,
+            upstream_id.clone(),
+            chain,
+        ));
 
         // Capabilities come from the remote's own report (legacy
         // `RemoteCapabilities.extract`), so a Dshackle relay re-advertises what

@@ -57,9 +57,29 @@ pub enum ForkStatus {
 }
 
 impl ForkStatus {
+    /// Every status, for reports that must cover the full range.
+    pub const ALL: [ForkStatus; 5] = [
+        ForkStatus::New,
+        ForkStatus::Outrun,
+        ForkStatus::Equal,
+        ForkStatus::Fallbehind,
+        ForkStatus::Rejected,
+    ];
+
     /// `true` unless the upstream is forked away from the recognized chain.
     pub fn is_ok(&self) -> bool {
         !matches!(self, ForkStatus::Rejected)
+    }
+
+    /// The `status` metric label — the legacy enum constant name.
+    pub fn metrics_label(&self) -> &'static str {
+        match self {
+            ForkStatus::New => "NEW",
+            ForkStatus::Outrun => "OUTRUN",
+            ForkStatus::Equal => "EQUAL",
+            ForkStatus::Fallbehind => "FALLBEHIND",
+            ForkStatus::Rejected => "REJECTED",
+        }
     }
 }
 

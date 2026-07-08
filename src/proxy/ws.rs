@@ -106,9 +106,10 @@ pub async fn serve(socket: WebSocket, route: Arc<ProxyRoute>) {
                 // Plain call: run it off the read loop so a slow upstream never
                 // blocks later frames on this connection.
                 let multistream = Arc::clone(&route.multistream);
+                let chain = route.chain;
                 let out_tx = out_tx.clone();
                 tokio::spawn(async move {
-                    let response = handler::run(&multistream, &req).await;
+                    let response = handler::run(&multistream, &chain, &req).await;
                     let _ = out_tx.send(Message::text(response)).await;
                 });
             }

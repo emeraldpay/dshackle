@@ -19,7 +19,9 @@
 use super::protocol::{
     self, BodyKind, CODE_CALL_FAILURE, CODE_INVALID_JSON, ProtocolError, ProxyRequest, RequestId,
 };
+use crate::blockchain::TargetBlockchain;
 use crate::jsonrpc::{JsonRpcRequest, RpcMethod};
+use crate::metrics;
 use crate::rpc::native_call::execute_call;
 use crate::upstream::Multistream;
 use futures::future::join_all;
@@ -29,7 +31,12 @@ use serde_json::value::RawValue;
 /// Produce the JSON-RPC response body for a request body. The returned string
 /// is always valid JSON and is served with HTTP 200 — JSON-RPC errors live in
 /// the body, never the HTTP status (matching the legacy proxy).
-pub async fn process(body: &[u8], multistream: &Multistream, preserve_order: bool) -> String {
+pub async fn process(
+    body: &[u8],
+    multistream: &Multistream,
+    chain: &TargetBlockchain,
+    preserve_order: bool,
+) -> String {
     let kind = match protocol::detect_kind(body) {
         Ok(kind) => kind,
         Err(e) => return protocol::build_protocol_error(&e),
@@ -41,16 +48,17 @@ pub async fn process(body: &[u8], multistream: &Multistream, preserve_order: boo
 
     match kind {
         BodyKind::Single => match protocol::validate_item(&parsed) {
-            Ok(req) => run(multistream, &req).await,
+            Ok(req) => run(multistream, chain, &req).await,
             Err(e) => protocol::build_protocol_error(&e),
         },
-        BodyKind::Batch => process_batch(parsed, multistream, preserve_order).await,
+        BodyKind::Batch => process_batch(parsed, multistream, chain, preserve_order).await,
     }
 }
 
 async fn process_batch(
     parsed: serde_json::Value,
     multistream: &Multistream,
+    chain: &TargetBlockchain,
     preserve_order: bool,
 ) -> String {
     let Some(items) = parsed.as_array() else {
@@ -78,12 +86,14 @@ async fn process_batch(
 
     let bodies = if preserve_order {
         // `join_all` resolves concurrently but yields results in request order.
-        join_all(requests.iter().map(|req| run(multistream, req))).await
+        join_all(requests.iter().map(|req| run(multistream, chain, req))).await
     } else {
         // Emit in completion order — cheaper and the default, since clients
         // correlate by id anyway.
-        let mut pending: FuturesUnordered<_> =
-            requests.iter().map(|req| run(multistream, req)).collect();
+        let mut pending: FuturesUnordered<_> = requests
+            .iter()
+            .map(|req| run(multistream, chain, req))
+            .collect();
         let mut out = Vec::with_capacity(requests.len());
         while let Some(body) = pending.next().await {
             out.push(body);
@@ -96,12 +106,29 @@ async fn process_batch(
 
 /// Execute one validated request and serialize its response object. Shared with
 /// the WebSocket transport, which dispatches one validated call at a time.
-pub(super) async fn run(multistream: &Multistream, req: &ProxyRequest) -> String {
+pub(super) async fn run(
+    multistream: &Multistream,
+    chain: &TargetBlockchain,
+    req: &ProxyRequest,
+) -> String {
+    metrics::jsonrpc_request(chain, &req.method);
+    let start = std::time::Instant::now();
+    let body = execute(multistream, chain, req).await;
+    metrics::jsonrpc_call(chain, &req.method, start.elapsed());
+    body
+}
+
+async fn execute(
+    multistream: &Multistream,
+    chain: &TargetBlockchain,
+    req: &ProxyRequest,
+) -> String {
     let method = match req.method.parse::<RpcMethod>() {
         Ok(method) => method,
         Err(_) => {
             // The transport never sees a malformed method name; report it the
             // way a node would rather than forwarding garbage.
+            metrics::jsonrpc_err(chain, &req.method);
             return protocol::build_error(&req.id, -32601, "Method not found".to_string(), None);
         }
     };
@@ -113,6 +140,7 @@ pub(super) async fn run(multistream: &Multistream, req: &ProxyRequest) -> String
     match execute_call(multistream, &request).await {
         Ok(resp) => {
             if let Some(err) = resp.error {
+                metrics::jsonrpc_err(chain, &req.method);
                 protocol::build_error(&req.id, err.code, err.message, err.data)
             } else if let Some(result) = resp.result {
                 protocol::build_success(&req.id, &result)
@@ -121,7 +149,10 @@ pub(super) async fn run(multistream: &Multistream, req: &ProxyRequest) -> String
                 protocol::build_success(&req.id, &null)
             }
         }
-        Err(e) => protocol::build_error(&req.id, CODE_CALL_FAILURE, e.to_string(), None),
+        Err(e) => {
+            metrics::jsonrpc_fail(chain, &req.method);
+            protocol::build_error(&req.id, CODE_CALL_FAILURE, e.to_string(), None)
+        }
     }
 }
 
@@ -181,6 +212,10 @@ mod tests {
         }
     }
 
+    fn chain() -> TargetBlockchain {
+        "ethereum".parse().unwrap()
+    }
+
     fn multistream(result: &'static str) -> Multistream {
         Multistream::new(
             vec![StubUpstream::with_result(result)],
@@ -194,6 +229,7 @@ mod tests {
         let body = process(
             br#"{"jsonrpc":"2.0","id":42,"method":"eth_blockNumber","params":[]}"#,
             &ms,
+            &chain(),
             false,
         )
         .await;
@@ -206,6 +242,7 @@ mod tests {
         let body = process(
             br#"[{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber"},{"jsonrpc":"2.0","id":2,"method":"eth_blockNumber"}]"#,
             &ms,
+            &chain(),
             true, // preserve order
         )
         .await;
@@ -218,14 +255,14 @@ mod tests {
     #[tokio::test]
     async fn empty_batch_returns_empty_array() {
         let ms = multistream(r#""0x1""#);
-        let body = process(b"[]", &ms, false).await;
+        let body = process(b"[]", &ms, &chain(), false).await;
         assert_eq!(body, "[]");
     }
 
     #[tokio::test]
     async fn parse_error_returns_single_object_with_fallback_id() {
         let ms = multistream(r#""0x1""#);
-        let body = process(b"not json", &ms, false).await;
+        let body = process(b"not json", &ms, &chain(), false).await;
         assert_eq!(
             body,
             r#"{"jsonrpc":"2.0","id":-1,"error":{"code":-32700,"message":"Failed to parse JSON"}}"#
@@ -239,6 +276,7 @@ mod tests {
         let body = process(
             br#"[{"jsonrpc":"2.0","id":1,"method":"m"},{"jsonrpc":"2.0","method":"m"}]"#,
             &ms,
+            &chain(),
             false,
         )
         .await;
@@ -284,6 +322,7 @@ mod tests {
         let body = process(
             br#"{"jsonrpc":"2.0","id":9,"method":"eth_foo"}"#,
             &ms,
+            &chain(),
             false,
         )
         .await;

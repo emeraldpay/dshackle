@@ -14,7 +14,9 @@
 
 //! The fork watcher: feeds each upstream's blocks to its chain's fork choice.
 
-use super::ForkChoice;
+use super::{ForkChoice, ForkStatus};
+use crate::blockchain::TargetBlockchain;
+use crate::metrics;
 use crate::upstream::head::CurrentHead;
 use crate::upstream::state::UpstreamState;
 use std::sync::Arc;
@@ -38,16 +40,20 @@ pub struct ForkMember {
 /// here, so every upstream's blocks reach the shared fork choice.
 pub fn start_fork_watch(
     id: String,
+    chain: TargetBlockchain,
     head: Arc<CurrentHead>,
     state: Arc<UpstreamState>,
     fork_choice: Arc<dyn ForkChoice>,
 ) {
+    let status_labels: Vec<&str> = ForkStatus::ALL.iter().map(|s| s.metrics_label()).collect();
+    metrics::fork_watch_created(fork_choice.name(), &status_labels, &chain);
     tokio::spawn(async move {
         let mut blocks = head.subscribe_blocks();
         loop {
             match blocks.recv().await {
                 Ok(block) => {
                     let status = fork_choice.submit(&block, &id);
+                    metrics::fork_status(fork_choice.name(), status.metrics_label(), &chain);
                     state.set_fork(!status.is_ok());
                     if !status.is_ok() {
                         tracing::warn!(

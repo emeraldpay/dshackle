@@ -19,6 +19,7 @@
 
 use crate::blockchain::TargetBlockchain;
 use crate::data::BlockContainer;
+use crate::metrics::{self, GrpcRequestType};
 use crate::rpc::native_call;
 use crate::upstream::{Multistream, UpstreamManager};
 use crate::upstream::allowance::AllowanceError;
@@ -77,6 +78,9 @@ impl Blockchain for BlockchainRpcService {
             tonic::Status::invalid_argument(format!("unknown chain id {id}"))
         })?;
 
+        metrics::grpc_request(GrpcRequestType::NativeCall, Some(&chain));
+        let start = std::time::Instant::now();
+
         let multistream = self
             .upstreams
             .get(&chain)
@@ -99,11 +103,26 @@ impl Blockchain for BlockchainRpcService {
             })
             .collect();
 
-        let stream = tasks.map(|joined| match joined {
-            Ok(reply) => Ok(reply),
-            Err(e) => Err(tonic::Status::internal(format!(
-                "native_call task failed: {e}"
-            ))),
+        let stream = tasks.map(move |joined| match joined {
+            Ok(reply) => {
+                if reply.succeed {
+                    metrics::grpc_response(GrpcRequestType::NativeCall, Some(&chain));
+                    metrics::grpc_response_time(
+                        GrpcRequestType::NativeCall,
+                        Some(&chain),
+                        start.elapsed(),
+                    );
+                } else {
+                    metrics::grpc_response_err(GrpcRequestType::NativeCall, Some(&chain));
+                }
+                Ok(reply)
+            }
+            Err(e) => {
+                metrics::grpc_fail();
+                Err(tonic::Status::internal(format!(
+                    "native_call task failed: {e}"
+                )))
+            }
         });
 
         Ok(tonic::Response::new(Box::pin(stream)))
@@ -120,6 +139,8 @@ impl Blockchain for BlockchainRpcService {
             tonic::Status::invalid_argument(format!("unknown chain id {id}"))
         })?;
 
+        metrics::grpc_request(GrpcRequestType::SubscribeHead, Some(&chain));
+
         let head = self.upstreams.head(&chain).ok_or_else(|| {
             tracing::trace!(%chain, "no head stream for chain");
             tonic::Status::unavailable(format!("no upstream available for chain {chain}"))
@@ -129,7 +150,10 @@ impl Blockchain for BlockchainRpcService {
         // Map each merged-head block to a `ChainHead`, skipping the gaps the
         // broadcast channel reports when a subscriber lags behind.
         let stream = BroadcastStream::new(head.subscribe()).filter_map(move |item| async move {
-            item.ok().map(|block| Ok(chain_head(chain_id, &block)))
+            item.ok().map(|block| {
+                metrics::grpc_reply(GrpcRequestType::SubscribeHead, Some(&chain));
+                Ok(chain_head(chain_id, &block))
+            })
         });
 
         Ok(tonic::Response::new(Box::pin(stream)))
@@ -140,12 +164,20 @@ impl Blockchain for BlockchainRpcService {
         request: tonic::Request<BalanceRequest>,
     ) -> Result<tonic::Response<Self::SubscribeBalanceStream>, tonic::Status> {
         let req = request.into_inner();
+        let chain = request_balance_chain(&req);
+        metrics::grpc_request(GrpcRequestType::SubscribeBalance, chain.as_ref());
         let stream = self
             .upstreams
             .balance(&req, true)
             .await
             .map_err(BalanceError::into_status)?;
-        Ok(tonic::Response::new(stream))
+        let stream = stream.map(move |item| {
+            if item.is_ok() {
+                metrics::grpc_reply(GrpcRequestType::SubscribeBalance, chain.as_ref());
+            }
+            item
+        });
+        Ok(tonic::Response::new(Box::pin(stream)))
     }
 
     async fn subscribe_tx_status(
@@ -153,6 +185,10 @@ impl Blockchain for BlockchainRpcService {
         request: tonic::Request<TxStatusRequest>,
     ) -> Result<tonic::Response<Self::SubscribeTxStatusStream>, tonic::Status> {
         let req = request.into_inner();
+        metrics::grpc_request(
+            GrpcRequestType::SubscribeTx,
+            TargetBlockchain::try_from(req.chain).ok().as_ref(),
+        );
         let stream = self
             .upstreams
             .tx_status(&req)
@@ -165,36 +201,74 @@ impl Blockchain for BlockchainRpcService {
         request: tonic::Request<BalanceRequest>,
     ) -> Result<tonic::Response<Self::GetBalanceStream>, tonic::Status> {
         let req = request.into_inner();
+        let chain = request_balance_chain(&req);
+        metrics::grpc_request(GrpcRequestType::GetBalance, chain.as_ref());
+        let start = std::time::Instant::now();
         let stream = self
             .upstreams
             .balance(&req, false)
             .await
             .map_err(BalanceError::into_status)?;
-        Ok(tonic::Response::new(stream))
+        let stream = stream.map(move |item| {
+            if item.is_ok() {
+                metrics::grpc_response(GrpcRequestType::GetBalance, chain.as_ref());
+                metrics::grpc_response_time(
+                    GrpcRequestType::GetBalance,
+                    chain.as_ref(),
+                    start.elapsed(),
+                );
+            }
+            item
+        });
+        Ok(tonic::Response::new(Box::pin(stream)))
     }
 
     async fn get_address_allowance(
         &self,
         request: tonic::Request<AddressAllowanceRequest>,
     ) -> Result<tonic::Response<Self::GetAddressAllowanceStream>, tonic::Status> {
+        let req = request.into_inner();
+        let chain = TargetBlockchain::try_from(req.chain).ok();
+        metrics::grpc_request(GrpcRequestType::GetAllowance, chain.as_ref());
+        let start = std::time::Instant::now();
         let stream = self
             .upstreams
-            .address_allowance(request.into_inner(), false)
+            .address_allowance(req, false)
             .await
             .map_err(AllowanceError::into_status)?;
-        Ok(tonic::Response::new(stream))
+        let stream = stream.map(move |item| {
+            if item.is_ok() {
+                metrics::grpc_response(GrpcRequestType::GetAllowance, chain.as_ref());
+                metrics::grpc_response_time(
+                    GrpcRequestType::GetAllowance,
+                    chain.as_ref(),
+                    start.elapsed(),
+                );
+            }
+            item
+        });
+        Ok(tonic::Response::new(Box::pin(stream)))
     }
 
     async fn subscribe_address_allowance(
         &self,
         request: tonic::Request<AddressAllowanceRequest>,
     ) -> Result<tonic::Response<Self::SubscribeAddressAllowanceStream>, tonic::Status> {
+        let req = request.into_inner();
+        let chain = TargetBlockchain::try_from(req.chain).ok();
+        metrics::grpc_request(GrpcRequestType::SubscribeAllowance, chain.as_ref());
         let stream = self
             .upstreams
-            .address_allowance(request.into_inner(), true)
+            .address_allowance(req, true)
             .await
             .map_err(AllowanceError::into_status)?;
-        Ok(tonic::Response::new(stream))
+        let stream = stream.map(move |item| {
+            if item.is_ok() {
+                metrics::grpc_response(GrpcRequestType::SubscribeAllowance, chain.as_ref());
+            }
+            item
+        });
+        Ok(tonic::Response::new(Box::pin(stream)))
     }
 
     async fn estimate_fee(
@@ -202,6 +276,9 @@ impl Blockchain for BlockchainRpcService {
         request: tonic::Request<EstimateFeeRequest>,
     ) -> Result<tonic::Response<EstimateFeeResponse>, tonic::Status> {
         let req = request.into_inner();
+        let chain = TargetBlockchain::try_from(req.chain).ok();
+        metrics::grpc_request(GrpcRequestType::EstimateFee, chain.as_ref());
+        let start = std::time::Instant::now();
 
         // An unconfigured (or non-fee-supporting, e.g. Bitcoin) chain is
         // `UNAVAILABLE`; the fee estimator is `None` in both cases. Carry the
@@ -219,7 +296,15 @@ impl Blockchain for BlockchainRpcService {
         })?;
 
         match fees.estimate(mode, req.blocks).await {
-            Ok(response) => Ok(tonic::Response::new(response)),
+            Ok(response) => {
+                metrics::grpc_response(GrpcRequestType::EstimateFee, chain.as_ref());
+                metrics::grpc_response_time(
+                    GrpcRequestType::EstimateFee,
+                    chain.as_ref(),
+                    start.elapsed(),
+                );
+                Ok(tonic::Response::new(response))
+            }
             // No head yet or too little data to sample — the chain can't answer
             // right now (legacy returns an empty/!ready result here).
             Err(FeeError::NotReady) => {
@@ -239,6 +324,7 @@ impl Blockchain for BlockchainRpcService {
 
         let chain = TargetBlockchain::try_from(req.chain)
             .map_err(|id| tonic::Status::unavailable(format!("BLOCKCHAIN UNAVAILABLE: {id}")))?;
+        metrics::grpc_request(GrpcRequestType::NativeSubscribe, Some(&chain));
         let params = parse_subscribe_params(&req.payload)?;
 
         // No egress means the chain can't serve subscriptions: it tracks no
@@ -250,7 +336,10 @@ impl Blockchain for BlockchainRpcService {
 
         match egress.subscribe(&req.method, params) {
             Ok(stream) => {
-                let mapped = stream.map(|payload| Ok(NativeSubscribeReplyItem { payload }));
+                let mapped = stream.map(move |payload| {
+                    metrics::grpc_response(GrpcRequestType::NativeSubscribe, Some(&chain));
+                    Ok(NativeSubscribeReplyItem { payload })
+                });
                 Ok(tonic::Response::new(Box::pin(mapped)))
             }
             Err(EgressError::UnsupportedMethod(method)) => Err(tonic::Status::unimplemented(
@@ -263,6 +352,7 @@ impl Blockchain for BlockchainRpcService {
         &self,
         _request: tonic::Request<DescribeRequest>,
     ) -> Result<tonic::Response<DescribeResponse>, tonic::Status> {
+        metrics::grpc_request(GrpcRequestType::Describe, None);
         // Discovery: advertise every configured chain with its status, the
         // methods/subscriptions it can serve, and its nodes. Mirrors the legacy
         // `Describe`. A Dshackle-behind-Dshackle upstream relies on `chain` and
@@ -328,6 +418,7 @@ impl Blockchain for BlockchainRpcService {
         request: tonic::Request<StatusRequest>,
     ) -> Result<tonic::Response<Self::SubscribeStatusStream>, tonic::Status> {
         let req = request.into_inner();
+        metrics::grpc_request(GrpcRequestType::SubscribeStatus, None);
 
         // One sub-stream per requested chain, merged into a single response
         // stream (legacy `Flux.merge`). A configured chain streams its status
@@ -397,6 +488,14 @@ fn chain_status_stream(
         },
     );
     Box::pin(stream)
+}
+
+/// The chain a balance request refers to, for metric labels only — `None`
+/// (reported as `NA`) when the request carries no recognizable chain. The
+/// balance handler re-derives it with proper error reporting.
+fn request_balance_chain(request: &BalanceRequest) -> Option<TargetBlockchain> {
+    crate::upstream::balance::request_chain_id(request)
+        .and_then(|id| TargetBlockchain::try_from(id).ok())
 }
 
 /// Parse the optional JSON params object from a `NativeSubscribe` payload. An

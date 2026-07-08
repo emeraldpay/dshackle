@@ -35,6 +35,16 @@ pub enum UpstreamAvailability {
 }
 
 impl UpstreamAvailability {
+    /// Every status, for reports that must cover the full range (e.g. metrics
+    /// that publish zero counts for unused statuses).
+    pub const ALL: [UpstreamAvailability; 5] = [
+        UpstreamAvailability::Ok,
+        UpstreamAvailability::Lagging,
+        UpstreamAvailability::Immature,
+        UpstreamAvailability::Syncing,
+        UpstreamAvailability::Unavailable,
+    ];
+
     /// Reconstruct from the `u8` discriminant stored in atomics.
     pub fn from_u8(v: u8) -> Self {
         match v {

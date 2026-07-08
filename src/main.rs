@@ -20,6 +20,7 @@ mod config;
 mod data;
 mod global;
 mod jsonrpc;
+mod metrics;
 mod proxy;
 mod rpc;
 mod server;
@@ -110,6 +111,10 @@ async fn main() {
 
     let config = global::CONFIG.get().expect("CONFIG must be initialized");
 
+    // Metrics must be live before the first upstream connection is made, so
+    // even startup requests (validation, describe) are counted.
+    metrics::init(&config.monitoring);
+
     // Build upstreams from configuration
     let upstreams_config = match &config.upstreams {
         Some(cfg) => cfg,
@@ -133,6 +138,8 @@ async fn main() {
                 std::process::exit(1);
             }
         };
+
+    metrics::register_upstreams(Arc::clone(&upstreams) as Arc<dyn metrics::UpstreamsStatus>);
 
     // Start the JSON-RPC HTTP proxy alongside the gRPC server, if enabled.
     if let Some(proxy_config) = &config.proxy {

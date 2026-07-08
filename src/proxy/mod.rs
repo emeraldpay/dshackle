@@ -63,6 +63,7 @@ struct ProxyState {
 /// the chain tracks a head, the egress for `eth_subscribe`. `egress` is `None`
 /// for chains without a head — they answer calls but reject subscriptions.
 struct ProxyRoute {
+    chain: TargetBlockchain,
     multistream: Arc<Multistream>,
     egress: Option<Arc<dyn EgressSubscription>>,
 }
@@ -174,6 +175,7 @@ fn resolve_routes(
                 routes.insert(
                     route.id.clone(),
                     Arc::new(ProxyRoute {
+                        chain,
                         multistream: Arc::clone(multistream),
                         egress: upstreams.egress(&chain),
                     }),
@@ -202,8 +204,13 @@ async fn handle(
 
     match method {
         Method::POST => {
-            let body =
-                handler::process(&body, &route.multistream, state.preserve_batch_order).await;
+            let body = handler::process(
+                &body,
+                &route.multistream,
+                &route.chain,
+                state.preserve_batch_order,
+            )
+            .await;
             // Always HTTP 200; JSON-RPC errors are carried in the body.
             let mut response = warp::reply::with_status(body, StatusCode::OK).into_response();
             response
@@ -299,6 +306,7 @@ mod tests {
         routes.insert(
             "eth".to_string(),
             Arc::new(ProxyRoute {
+                chain: "ethereum".parse().unwrap(),
                 multistream: stub_multistream(),
                 egress: None,
             }),
@@ -512,6 +520,7 @@ mod tests {
         routes.insert(
             "eth".to_string(),
             Arc::new(ProxyRoute {
+                chain: "ethereum".parse().unwrap(),
                 multistream,
                 egress: Some(egress),
             }),
