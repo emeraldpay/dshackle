@@ -21,11 +21,13 @@
 
 mod handler;
 mod protocol;
+mod serve;
 mod ws;
 
 use crate::blockchain::TargetBlockchain;
 use crate::config::proxy::ProxyConfig;
 use crate::logs;
+use crate::tls::ServerTlsSetup;
 use crate::upstream::egress::EgressSubscription;
 use crate::upstream::{Multistream, UpstreamManager};
 use bytes::Bytes;
@@ -72,9 +74,14 @@ struct ProxyRoute {
 
 /// Start the JSON-RPC HTTP proxy. Runs until the server stops; intended to be
 /// spawned alongside the gRPC server.
-pub async fn start(config: &ProxyConfig, upstreams: Arc<UpstreamManager>) -> anyhow::Result<()> {
-    warn_unsupported(config);
-
+///
+/// With a TLS setup the proxy serves https/wss only; without one it serves
+/// plaintext.
+pub async fn start(
+    config: &ProxyConfig,
+    tls: Option<ServerTlsSetup>,
+    upstreams: Arc<UpstreamManager>,
+) -> anyhow::Result<()> {
     let routes = resolve_routes(config, &upstreams);
     if routes.is_empty() {
         tracing::warn!(
@@ -99,9 +106,16 @@ pub async fn start(config: &ProxyConfig, upstreams: Arc<UpstreamManager>) -> any
 
     let addr: SocketAddr = format!("{}:{}", config.host, config.port).parse()?;
 
-    tracing::info!("JSON-RPC HTTP proxy listening on {}", addr);
-    warp::serve(routes_filter(state)).run(addr).await;
-    Ok(())
+    let scheme = if tls.is_some() { "https" } else { "http" };
+    tracing::info!("JSON-RPC HTTP proxy listening on {scheme}://{addr}");
+    serve::serve(routes_filter(state), addr, tls.as_ref()).await
+}
+
+/// Remote peer address, extracted from the connection loop's request
+/// extension (see [`serve::PeerAddr`]).
+fn peer_addr() -> impl Filter<Extract = (Option<SocketAddr>,), Error = std::convert::Infallible> + Copy
+{
+    warp::ext::optional::<serve::PeerAddr>().map(|peer: Option<serve::PeerAddr>| peer.map(|p| p.0))
 }
 
 /// Build the request filter: a single exactly-matched segment (`/eth`, not
@@ -119,7 +133,7 @@ fn routes_filter(
     let ws_route = warp::path::param::<String>()
         .and(warp::path::end())
         .and(warp::ws())
-        .and(warp::addr::remote())
+        .and(peer_addr())
         .and(warp::header::headers_cloned())
         .and(warp::any().map(move || Arc::clone(&ws_state)))
         .map(
@@ -157,7 +171,7 @@ fn routes_filter(
         .and(warp::path::end())
         .and(warp::method())
         .and(warp::body::bytes())
-        .and(warp::addr::remote())
+        .and(peer_addr())
         .and(warp::header::headers_cloned())
         .and(warp::any().map(move || Arc::clone(&state)))
         .then(handle);
@@ -283,14 +297,6 @@ fn add_cors_headers(response: &mut warp::reply::Response, state: &ProxyState) {
     }
     if let Ok(allowed) = HeaderValue::from_str(&cors.allowed_headers) {
         headers.insert(ACCESS_CONTROL_ALLOW_HEADERS, allowed);
-    }
-}
-
-/// Warn loudly about config sections that are parsed but not yet honored, so
-/// operators aren't surprised by silently-ignored settings.
-fn warn_unsupported(config: &ProxyConfig) {
-    if config.tls.is_some() {
-        tracing::warn!("Proxy TLS is configured but not yet supported; serving plaintext HTTP");
     }
 }
 

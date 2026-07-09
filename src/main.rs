@@ -152,10 +152,20 @@ async fn main() {
     // Start the JSON-RPC HTTP proxy alongside the gRPC server, if enabled.
     if let Some(proxy_config) = &config.proxy {
         if proxy_config.enabled {
+            // Built here, not inside the spawned task, so an invalid TLS
+            // config stops the startup instead of just killing the proxy.
+            let proxy_tls =
+                match tls::server_tls("proxy", proxy_config.tls.as_ref(), &config.config_dir) {
+                    Ok(tls) => tls,
+                    Err(e) => {
+                        tracing::error!("Invalid TLS configuration: {e:#}");
+                        std::process::exit(1);
+                    }
+                };
             let proxy_config = proxy_config.clone();
             let proxy_upstreams = Arc::clone(&upstreams);
             tokio::spawn(async move {
-                if let Err(e) = proxy::start(&proxy_config, proxy_upstreams).await {
+                if let Err(e) = proxy::start(&proxy_config, proxy_tls, proxy_upstreams).await {
                     tracing::error!("JSON-RPC HTTP proxy failed: {e:#}");
                 }
             });
@@ -166,7 +176,7 @@ async fn main() {
     let service = rpc::blockchain_rpc::BlockchainRpcService::new(upstreams);
 
     let grpc_tls =
-        match tls::grpc_server_tls("Native gRPC", config.tls.as_ref(), &config.config_dir) {
+        match tls::server_tls("Native gRPC", config.tls.as_ref(), &config.config_dir) {
             Ok(tls) => tls,
             Err(e) => {
                 tracing::error!("Invalid TLS configuration: {e:#}");

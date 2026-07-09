@@ -41,6 +41,11 @@ tokio-stream = { version = "0.1", features = ["sync"] }
 tokio-tungstenite = { version = "0.29", features = ["rustls-tls-native-roots"] }
 url = "2"
 warp = { version = "0.4", features = ["server", "websocket"] }
+hyper = "1"
+hyper-util = { version = "0.1", features = ["server-auto", "tokio"] }
+tokio-rustls = "0.26"
+rustls-pemfile = "2"
+tower-service = "0.3"
 redis = { version = "1.2.2", features = ["tokio-comp", "connection-manager"] }
 prost = "0.14"
 

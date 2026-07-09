@@ -12,30 +12,88 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Builds the gRPC server TLS setup from the parsed configuration.
+//! Builds the server TLS setup from the parsed configuration, shared by the
+//! gRPC server and the JSON-RPC HTTP proxy. Each server maps the loaded
+//! material onto its own stack (tonic, warp).
 
 use crate::config::tls::{ServerTlsConfig, TlsClientRequirement};
 use anyhow::{bail, Context, Result};
 use std::path::Path;
-use tonic::transport::server::ServerTlsConfig as TonicServerTls;
-use tonic::transport::{Certificate, Identity};
 use tracing;
 
-/// Decides whether the gRPC server must run with TLS and, if so, loads the
-/// certificates and builds the tonic TLS config.
+/// TLS material for one server socket: PEM contents loaded from the configured
+/// files, plus the client-authentication mode.
+pub struct ServerTlsSetup {
+    pub certificate: Vec<u8>,
+    pub key: Vec<u8>,
+    pub client: ClientAuth,
+}
+
+impl ServerTlsSetup {
+    /// Builds a rustls server config for servers that terminate TLS
+    /// themselves (the JSON-RPC proxy). The gRPC server maps the same
+    /// material through tonic instead.
+    pub fn rustls_config(&self) -> Result<rustls::ServerConfig> {
+        let certs = rustls_pemfile::certs(&mut self.certificate.as_slice())
+            .collect::<Result<Vec<_>, _>>()
+            .context("parsing TLS certificate")?;
+        let key = rustls_pemfile::private_key(&mut self.key.as_slice())
+            .context("parsing TLS key")?
+            .ok_or_else(|| anyhow::anyhow!("no private key found in the TLS key file"))?;
+
+        let builder = rustls::ServerConfig::builder();
+        let builder = match &self.client {
+            ClientAuth::TrustAll => builder.with_no_client_auth(),
+            ClientAuth::Optional(ca) => {
+                builder.with_client_cert_verifier(client_verifier(ca, true)?)
+            }
+            ClientAuth::Required(ca) => {
+                builder.with_client_cert_verifier(client_verifier(ca, false)?)
+            }
+        };
+        builder
+            .with_single_cert(certs, key)
+            .context("invalid TLS certificate or key")
+    }
+}
+
+/// Builds a client-certificate verifier from a CA bundle. An "optional"
+/// verifier still validates a certificate when one is presented — it only
+/// stops requiring one, same as the gRPC side.
+fn client_verifier(
+    ca: &[u8],
+    allow_unauthenticated: bool,
+) -> Result<std::sync::Arc<dyn rustls::server::danger::ClientCertVerifier>> {
+    let mut roots = rustls::RootCertStore::empty();
+    for cert in rustls_pemfile::certs(&mut &ca[..]) {
+        roots.add(cert.context("parsing client CA")?)?;
+    }
+    let builder = rustls::server::WebPkiClientVerifier::builder(std::sync::Arc::new(roots));
+    let builder = if allow_unauthenticated {
+        builder.allow_unauthenticated()
+    } else {
+        builder
+    };
+    builder
+        .build()
+        .context("building client certificate verifier")
+}
+
+/// Decides whether a server must run with TLS and, if so, loads the
+/// certificates.
 ///
 /// Follows the legacy JVM decision logic: TLS is on when explicitly enabled or
 /// when a server certificate is configured, and explicitly `enabled: false`
 /// always wins. Missing certificate with `enabled: true` is a startup error.
 ///
 /// `category` only labels the log messages, matching the legacy output
-/// (e.g. "Native gRPC"). Relative certificate paths are resolved against
-/// `base_dir`, the directory of the config file.
-pub fn grpc_server_tls(
+/// (e.g. "Native gRPC", "proxy"). Relative certificate paths are resolved
+/// against `base_dir`, the directory of the config file.
+pub fn server_tls(
     category: &str,
     config: Option<&ServerTlsConfig>,
     base_dir: &Path,
-) -> Result<Option<TonicServerTls>> {
+) -> Result<Option<ServerTlsSetup>> {
     let Some(config) = config.filter(|c| c.is_enabled()) else {
         tracing::warn!("Using insecure transport for {category}");
         return Ok(None);
@@ -49,29 +107,19 @@ pub fn grpc_server_tls(
         .with_context(|| format!("reading TLS certificate for {category}"))?;
     let key = read_file(base_dir, &server.key)
         .with_context(|| format!("reading TLS certificate key for {category}"))?;
-    let mut tls = TonicServerTls::new().identity(Identity::from_pem(certificate, key));
+    let client = client_auth(category, config.client.as_ref(), base_dir)?;
 
-    match client_auth(category, config.client.as_ref(), base_dir)? {
-        ClientAuth::TrustAll => {}
-        ClientAuth::Optional(ca) => {
-            tls = tls
-                .client_ca_root(Certificate::from_pem(ca))
-                .client_auth_optional(true);
-        }
-        ClientAuth::Required(ca) => {
-            tls = tls
-                .client_ca_root(Certificate::from_pem(ca))
-                .client_auth_optional(false);
-        }
-    }
-
-    Ok(Some(tls))
+    Ok(Some(ServerTlsSetup {
+        certificate,
+        key,
+        client,
+    }))
 }
 
 /// How the server treats client certificates, decided from the `tls.client`
 /// config section.
 #[derive(Debug, PartialEq)]
-enum ClientAuth {
+pub enum ClientAuth {
     /// No CA configured: any client may connect, certificates are not requested.
     TrustAll,
     /// CA configured without `require`: a certificate is validated when
@@ -136,7 +184,7 @@ mod tests {
 
     #[test]
     fn no_config_is_insecure() {
-        let result = grpc_server_tls("test", None, Path::new(".")).unwrap();
+        let result = server_tls("test", None, Path::new(".")).unwrap();
         assert!(result.is_none());
     }
 
@@ -148,7 +196,7 @@ mod tests {
             server: Some(server_cert(dir.path())),
             client: None,
         };
-        let result = grpc_server_tls("test", Some(&config), dir.path()).unwrap();
+        let result = server_tls("test", Some(&config), dir.path()).unwrap();
         assert!(result.is_none());
     }
 
@@ -159,7 +207,7 @@ mod tests {
             server: None,
             client: None,
         };
-        let result = grpc_server_tls("test", Some(&config), Path::new("."));
+        let result = server_tls("test", Some(&config), Path::new("."));
         assert!(result.is_err());
     }
 
@@ -171,7 +219,7 @@ mod tests {
             server: Some(server_cert(dir.path())),
             client: None,
         };
-        let result = grpc_server_tls("test", Some(&config), dir.path()).unwrap();
+        let result = server_tls("test", Some(&config), dir.path()).unwrap();
         assert!(result.is_some());
     }
 
@@ -186,7 +234,7 @@ mod tests {
             }),
             client: None,
         };
-        let result = grpc_server_tls("test", Some(&config), dir.path());
+        let result = server_tls("test", Some(&config), dir.path());
         assert!(result.is_err());
     }
 
@@ -202,7 +250,7 @@ mod tests {
                 ca: Some("ca.crt".to_string()),
             }),
         };
-        let result = grpc_server_tls("test", Some(&config), dir.path()).unwrap();
+        let result = server_tls("test", Some(&config), dir.path()).unwrap();
         assert!(result.is_some());
     }
 
@@ -254,7 +302,7 @@ mod tests {
                 ca: None,
             }),
         };
-        let result = grpc_server_tls("test", Some(&config), dir.path());
+        let result = server_tls("test", Some(&config), dir.path());
         assert!(result.is_err());
     }
 }
