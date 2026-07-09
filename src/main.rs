@@ -133,6 +133,7 @@ async fn main() {
             upstreams_config,
             config.cache.as_ref(),
             &config.tokens,
+            &config.config_dir,
         )
         .await
         {

@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Builds the server TLS setup from the parsed configuration, shared by the
-//! gRPC server and the JSON-RPC HTTP proxy. Each server maps the loaded
-//! material onto its own stack (tonic, warp).
+//! Builds TLS setups from the parsed configuration: server-side (shared by the
+//! gRPC server and the JSON-RPC HTTP proxy) and client-side (outgoing upstream
+//! connections). Each consumer maps the loaded material onto its own stack
+//! (tonic, warp, reqwest).
 
-use crate::config::tls::{ServerTlsConfig, TlsClientRequirement};
+use crate::config::tls::{ClientTlsAuth, ServerTlsConfig, TlsClientRequirement};
 use anyhow::{bail, Context, Result};
 use std::path::Path;
 use tracing;
@@ -161,6 +162,91 @@ fn client_auth(
     }
 }
 
+/// Client-side TLS material for one outgoing upstream connection.
+///
+/// Present at all means "use TLS": with no fields set the connection uses the
+/// system trust roots (the legacy `auto-tls`); a CA narrows trust to that CA
+/// alone; a certificate/key pair adds mutual TLS.
+pub struct ClientTlsSetup {
+    /// Custom CA that replaces the system roots, matching the legacy
+    /// `trustManager(ca)` behavior of trusting only the configured CA.
+    pub ca: Option<Vec<u8>>,
+    /// Client certificate and key for mutual TLS.
+    pub identity: Option<ClientIdentity>,
+}
+
+/// A client certificate with its private key, as PEM bytes.
+pub struct ClientIdentity {
+    pub certificate: Vec<u8>,
+    pub key: Vec<u8>,
+}
+
+/// Loads the client TLS material for an outgoing connection.
+///
+/// `target` labels errors and logs (e.g. the upstream id). A certificate
+/// without a key (or vice versa) is a startup error rather than the legacy
+/// fallback of silently connecting with the CA only.
+pub fn client_tls(
+    target: &str,
+    config: Option<&ClientTlsAuth>,
+    base_dir: &Path,
+) -> Result<Option<ClientTlsSetup>> {
+    let Some(config) = config else {
+        return Ok(None);
+    };
+
+    let ca = match &config.ca {
+        Some(path) => Some(
+            read_file(base_dir, path)
+                .with_context(|| format!("reading TLS CA for {target}"))?,
+        ),
+        None => None,
+    };
+
+    let identity = match (&config.certificate, &config.key) {
+        (Some(cert_path), Some(key_path)) => Some(ClientIdentity {
+            certificate: read_file(base_dir, cert_path)
+                .with_context(|| format!("reading client TLS certificate for {target}"))?,
+            key: read_file(base_dir, key_path)
+                .with_context(|| format!("reading client TLS key for {target}"))?,
+        }),
+        (None, None) => None,
+        _ => {
+            bail!("Client TLS for {target} needs both tls.certificate and tls.key, only one is set");
+        }
+    };
+
+    Ok(Some(ClientTlsSetup { ca, identity }))
+}
+
+/// Builds a reqwest HTTP client honoring an optional client TLS setup.
+pub fn reqwest_client(tls: Option<&ClientTlsSetup>) -> Result<reqwest::Client> {
+    let mut builder = reqwest::Client::builder();
+    if let Some(setup) = tls {
+        if let Some(ca) = &setup.ca {
+            builder = builder
+                .tls_built_in_root_certs(false)
+                .add_root_certificate(
+                    reqwest::Certificate::from_pem(ca).context("parsing TLS CA")?,
+                );
+        }
+        if let Some(identity) = &setup.identity {
+            // reqwest's rustls backend takes the certificate and key as one
+            // PEM bundle.
+            let pem = [
+                identity.certificate.as_slice(),
+                b"\n",
+                identity.key.as_slice(),
+            ]
+            .concat();
+            builder = builder.identity(
+                reqwest::Identity::from_pem(&pem).context("parsing client TLS identity")?,
+            );
+        }
+    }
+    builder.build().context("building HTTP client")
+}
+
 /// Reads a file resolving a relative path against the config file directory,
 /// as the legacy FileResolver did.
 fn read_file(base_dir: &Path, path: &str) -> Result<Vec<u8>> {
@@ -171,7 +257,7 @@ fn read_file(base_dir: &Path, path: &str) -> Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::tls::{TlsClientRequirement, TlsServerCert};
+    use crate::config::tls::{ClientTlsAuth, TlsClientRequirement, TlsServerCert};
 
     fn server_cert(dir: &Path) -> TlsServerCert {
         std::fs::write(dir.join("server.crt"), "cert").unwrap();
@@ -304,5 +390,75 @@ mod tests {
         };
         let result = server_tls("test", Some(&config), dir.path());
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn client_tls_absent_is_none() {
+        let result = client_tls("test", None, Path::new(".")).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn client_tls_loads_ca_and_identity() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("ca.crt"), "ca").unwrap();
+        std::fs::write(dir.path().join("client.crt"), "cert").unwrap();
+        std::fs::write(dir.path().join("client.key"), "key").unwrap();
+        let config = ClientTlsAuth {
+            ca: Some("ca.crt".to_string()),
+            certificate: Some("client.crt".to_string()),
+            key: Some("client.key".to_string()),
+        };
+        let setup = client_tls("test", Some(&config), dir.path())
+            .unwrap()
+            .unwrap();
+        assert_eq!(setup.ca.as_deref(), Some(b"ca".as_slice()));
+        let identity = setup.identity.unwrap();
+        assert_eq!(identity.certificate, b"cert");
+        assert_eq!(identity.key, b"key");
+    }
+
+    #[test]
+    fn client_tls_certificate_without_key_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("client.crt"), "cert").unwrap();
+        let config = ClientTlsAuth {
+            ca: None,
+            certificate: Some("client.crt".to_string()),
+            key: None,
+        };
+        let result = client_tls("test", Some(&config), dir.path());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn client_tls_empty_section_means_tls_with_system_roots() {
+        let config = ClientTlsAuth {
+            ca: None,
+            certificate: None,
+            key: None,
+        };
+        let setup = client_tls("test", Some(&config), Path::new("."))
+            .unwrap()
+            .unwrap();
+        assert!(setup.ca.is_none());
+        assert!(setup.identity.is_none());
+    }
+
+    #[test]
+    fn reqwest_client_from_real_pem() {
+        let base = Path::new(env!("CARGO_MANIFEST_DIR")).join("testdata/tls-local");
+        let config = ClientTlsAuth {
+            ca: Some("ca.myhost.dev.crt".to_string()),
+            certificate: Some("127.0.0.1.crt".to_string()),
+            key: Some("127.0.0.1.p8.key".to_string()),
+        };
+        let setup = client_tls("test", Some(&config), &base).unwrap().unwrap();
+        reqwest_client(Some(&setup)).unwrap();
+    }
+
+    #[test]
+    fn reqwest_client_without_tls() {
+        reqwest_client(None).unwrap();
     }
 }

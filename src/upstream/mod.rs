@@ -146,6 +146,7 @@ impl UpstreamManager {
         config: &UpstreamsConfig,
         cache_config: Option<&CacheConfig>,
         tokens: &[TokenConfig],
+        config_dir: &std::path::Path,
     ) -> anyhow::Result<Self> {
         // A configured but unreachable Redis aborts the startup (matching
         // the legacy behavior): silently running without the expected shared
@@ -185,7 +186,11 @@ impl UpstreamManager {
         // and methods are only known from the remote's `Describe`, so they are
         // discovered concurrently (each bounded by `DSHACKLE_CONNECT_TIMEOUT`)
         // instead of blocking startup one-by-one.
-        let mut pending_dshackle: Vec<(&crate::config::upstreams::Upstream, String)> = Vec::new();
+        let mut pending_dshackle: Vec<(
+            &crate::config::upstreams::Upstream,
+            String,
+            Option<crate::tls::ClientTlsSetup>,
+        )> = Vec::new();
 
         for upstream in &config.upstreams {
             if !upstream.enabled {
@@ -225,31 +230,31 @@ impl UpstreamManager {
                         ))
                     });
 
-                    let http_upstream: Option<Arc<EthereumHttpUpstream>> =
-                        eth.rpc.as_ref().map(|rpc| {
+                    let http_upstream: Option<Arc<EthereumHttpUpstream>> = match &eth.rpc {
+                        Some(rpc) => {
                             if rpc.basic_auth.is_some() {
                                 tracing::warn!(
                                     "Upstream {}: basic auth not yet supported, ignoring",
                                     upstream.id
                                 );
                             }
-                            if rpc.tls.is_some() {
-                                tracing::warn!(
-                                    "Upstream {}: client TLS not yet supported, ignoring",
-                                    upstream.id
-                                );
-                            }
+                            let tls =
+                                crate::tls::client_tls(&upstream.id, rpc.tls.as_ref(), config_dir)?;
+                            let client = crate::tls::reqwest_client(tls.as_ref())?;
                             tracing::info!(
                                 "Using Ethereum HTTP upstream '{}' at {} for {}",
                                 upstream.id,
                                 rpc.url,
                                 blockchain_name,
                             );
-                            Arc::new(EthereumHttpUpstream::new(
+                            Some(Arc::new(EthereumHttpUpstream::new(
                                 upstream.id.clone(),
                                 rpc.url.clone(),
-                            ))
-                        });
+                                client,
+                            )))
+                        }
+                        None => None,
+                    };
 
                     // Start head tracking on exactly one transport per
                     // upstream and subscribe the per-chain CachingHead to it.
@@ -445,12 +450,8 @@ impl UpstreamManager {
                         }
                     };
 
-                    if rpc.tls.is_some() {
-                        tracing::warn!(
-                            "Upstream {}: client TLS not yet supported, ignoring",
-                            upstream.id
-                        );
-                    }
+                    let tls = crate::tls::client_tls(&upstream.id, rpc.tls.as_ref(), config_dir)?;
+                    let client = crate::tls::reqwest_client(tls.as_ref())?;
 
                     let basic_auth = rpc
                         .basic_auth
@@ -464,8 +465,12 @@ impl UpstreamManager {
                         blockchain_name,
                     );
 
-                    let http_up =
-                        BitcoinHttpUpstream::new(upstream.id.clone(), rpc.url.clone(), basic_auth);
+                    let http_up = BitcoinHttpUpstream::new(
+                        upstream.id.clone(),
+                        rpc.url.clone(),
+                        basic_auth,
+                        client,
+                    );
                     let head = http_up.head_height();
                     let caching_head = get_or_create_caching_head(
                         chain,
@@ -557,16 +562,11 @@ impl UpstreamManager {
                         }
                     };
 
-                    if ds.tls.is_some() {
-                        tracing::warn!(
-                            "Upstream {}: Dshackle TLS not yet supported, ignoring",
-                            upstream.id
-                        );
-                    }
+                    let tls = crate::tls::client_tls(&upstream.id, ds.tls.as_ref(), config_dir)?;
 
                     // Defer the actual connect: it is done concurrently after the
                     // loop so a slow remote can't stall the rest of startup.
-                    pending_dshackle.push((upstream, url));
+                    pending_dshackle.push((upstream, url, tls));
                 }
             }
         }
@@ -576,13 +576,16 @@ impl UpstreamManager {
         // runs sequentially because it mutates the shared per-chain maps; the
         // slow part (connect + `Describe` over the network) already happened in
         // parallel, so a single unreachable remote no longer blocks startup.
-        for (upstream, url) in &pending_dshackle {
+        for (upstream, url, _) in &pending_dshackle {
             tracing::info!("Connecting to remote Dshackle '{}' at {}", upstream.id, url);
         }
         let discoveries = futures::future::join_all(pending_dshackle.iter().map(
-            |(upstream, url)| async move {
-                let outcome =
-                    tokio::time::timeout(DSHACKLE_CONNECT_TIMEOUT, connect_and_describe(url)).await;
+            |(upstream, url, tls)| async move {
+                let outcome = tokio::time::timeout(
+                    DSHACKLE_CONNECT_TIMEOUT,
+                    connect_and_describe(url, tls.as_ref()),
+                )
+                .await;
                 (*upstream, url.clone(), outcome)
             },
         ))
@@ -1157,13 +1160,21 @@ fn capabilities_from_proto(proto: &[i32]) -> Vec<Capability> {
 }
 
 /// Resolves the gRPC URL for a Dshackle connection from its config.
+///
+/// tonic applies its TLS connector only to `https` URIs, so a configured TLS
+/// section must be reflected in the scheme.
 fn resolve_dshackle_url(ds: &crate::config::upstreams::DshackleConnection) -> Option<String> {
+    let secure = ds.tls.is_some();
     if let Some(url) = &ds.url {
+        if secure && url.starts_with("http://") {
+            return Some(url.replacen("http://", "https://", 1));
+        }
         return Some(url.clone());
     }
+    let scheme = if secure { "https" } else { "http" };
     ds.host.as_ref().map(|host| {
         let port = ds.port.unwrap_or(2448);
-        format!("http://{host}:{port}")
+        format!("{scheme}://{host}:{port}")
     })
 }
 
@@ -1195,8 +1206,24 @@ fn quorum_factory_for(chain: TargetBlockchain) -> Arc<dyn QuorumFactory> {
 /// [`wire_remote_dshackle`].
 async fn connect_and_describe(
     url: &str,
+    tls: Option<&crate::tls::ClientTlsSetup>,
 ) -> anyhow::Result<(BlockchainClient<Channel>, Vec<DescribeChain>)> {
-    let endpoint = tonic::transport::Endpoint::from_shared(url.to_string())?;
+    let mut endpoint = tonic::transport::Endpoint::from_shared(url.to_string())?;
+    if let Some(setup) = tls {
+        let tls_config = match &setup.ca {
+            Some(ca) => tonic::transport::ClientTlsConfig::new()
+                .ca_certificate(tonic::transport::Certificate::from_pem(ca)),
+            None => tonic::transport::ClientTlsConfig::new().with_native_roots(),
+        };
+        let tls_config = match &setup.identity {
+            Some(identity) => tls_config.identity(tonic::transport::Identity::from_pem(
+                &identity.certificate,
+                &identity.key,
+            )),
+            None => tls_config,
+        };
+        endpoint = endpoint.tls_config(tls_config)?;
+    }
     let channel = endpoint.connect().await?;
     let mut client = BlockchainClient::new(channel);
 

@@ -45,9 +45,14 @@ impl BitcoinHttpUpstream {
     /// Creates a new Bitcoin HTTP upstream.
     ///
     /// If `basic_auth` is provided it is applied to every outgoing request
-    /// (Bitcoin Core requires authentication by default).
-    pub fn new(id: String, url: String, basic_auth: Option<(String, String)>) -> Self {
-        let client = reqwest::Client::new();
+    /// (Bitcoin Core requires authentication by default). `client` carries the
+    /// transport-level options decided at wiring time (custom CA, mutual TLS).
+    pub fn new(
+        id: String,
+        url: String,
+        basic_auth: Option<(String, String)>,
+        client: reqwest::Client,
+    ) -> Self {
         let head = Arc::new(CurrentHead::new());
         let state = Arc::new(UpstreamState::with_syncing_lag(BITCOIN_SYNCING_LAG));
         Self {

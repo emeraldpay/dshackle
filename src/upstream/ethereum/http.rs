@@ -32,8 +32,9 @@ pub struct EthereumHttpUpstream {
 }
 
 impl EthereumHttpUpstream {
-    pub fn new(id: String, url: String) -> Self {
-        let client = reqwest::Client::new();
+    /// `client` carries the transport-level options decided at wiring time
+    /// (custom CA, mutual TLS).
+    pub fn new(id: String, url: String, client: reqwest::Client) -> Self {
         let head = Arc::new(CurrentHead::new());
         let state = Arc::new(UpstreamState::new());
         Self {
