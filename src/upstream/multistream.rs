@@ -214,7 +214,9 @@ impl ChainAccess for Multistream {
         // the upstream layer from depending on the rpc layer.
         let quorum = self.quorum_for(&request.method);
         let candidates = self.select_for(quorum.selector(), &request.method);
-        router::route(candidates, quorum, request).await
+        router::route(candidates, quorum, request)
+            .await
+            .map(|routed| routed.response)
     }
 
     async fn call_at_height(
@@ -239,7 +241,9 @@ impl ChainAccess for Multistream {
         } else {
             at_height
         };
-        router::route(candidates, quorum, request).await
+        router::route(candidates, quorum, request)
+            .await
+            .map(|routed| routed.response)
     }
 }
 

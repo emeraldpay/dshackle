@@ -193,11 +193,16 @@ impl AllowanceLog {
 /// The Dshackle implementation of the `Blockchain` gRPC service.
 pub struct BlockchainRpcService {
     upstreams: Arc<UpstreamManager>,
+    /// Signs `NativeCall` results when the client requests it with a nonce.
+    signer: Option<Arc<crate::signature::ResponseSigner>>,
 }
 
 impl BlockchainRpcService {
-    pub fn new(upstreams: Arc<UpstreamManager>) -> Self {
-        Self { upstreams }
+    pub fn new(
+        upstreams: Arc<UpstreamManager>,
+        signer: Option<Arc<crate::signature::ResponseSigner>>,
+    ) -> Self {
+        Self { upstreams, signer }
     }
 }
 
@@ -269,10 +274,16 @@ impl Blockchain for BlockchainRpcService {
             .into_iter()
             .map(|item| {
                 let multistream = multistream.clone();
+                let signer = self.signer.clone();
                 // Re-establish the request context inside the spawned task, so
                 // the upstream calls are attributed in the request log.
                 tokio::spawn(logs::with_context((*ctx).clone(), async move {
-                    native_call::execute_native_call(multistream.as_ref(), &item).await
+                    native_call::execute_native_call(
+                        multistream.as_ref(),
+                        &item,
+                        signer.as_deref(),
+                    )
+                    .await
                 }))
             })
             .collect();
@@ -1025,7 +1036,7 @@ mod tests {
             multistream,
         );
         let manager = Arc::new(UpstreamManager::from_parts(chains, HashMap::new()));
-        BlockchainRpcService::new(manager)
+        BlockchainRpcService::new(manager, None)
     }
 
     /// Drive `native_call` to completion: invoke it and drain the reply stream.
@@ -1220,7 +1231,7 @@ mod tests {
             multistream,
         );
         let manager = Arc::new(UpstreamManager::from_parts(chains, HashMap::new()));
-        BlockchainRpcService::new(manager)
+        BlockchainRpcService::new(manager, None)
     }
 
     #[tokio::test]
@@ -1283,7 +1294,7 @@ mod tests {
             multistream,
         );
         let manager = Arc::new(UpstreamManager::from_parts(chains, HashMap::new()));
-        let service = BlockchainRpcService::new(manager);
+        let service = BlockchainRpcService::new(manager, None);
 
         let resp = service
             .describe(tonic::Request::new(DescribeRequest {}))

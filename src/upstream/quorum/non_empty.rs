@@ -30,10 +30,11 @@ pub struct NonEmptyQuorum {
     max_tries: usize,
     tries: usize,
     /// First non-null response seen.
-    result: Option<JsonRpcResponse>,
+    result: Option<(JsonRpcResponse, String)>,
     /// Fallback for when every upstream returned null — better to forward a
     /// real `null` than a synthetic transport error.
-    last_empty_response: Option<JsonRpcResponse>,
+    last_empty_response: Option<(JsonRpcResponse, String)>,
+    resolved_source: Option<String>,
     last_error: Option<UpstreamError>,
 }
 
@@ -48,6 +49,7 @@ impl NonEmptyQuorum {
             tries: 0,
             result: None,
             last_empty_response: None,
+            resolved_source: None,
             last_error: None,
         }
     }
@@ -65,14 +67,14 @@ impl CallQuorum for NonEmptyQuorum {
         // intentionally keeps retrying because the data may arrive shortly.
     }
 
-    fn record_response(&mut self, response: JsonRpcResponse, _upstream: &dyn RpcUpstream) {
+    fn record_response(&mut self, response: JsonRpcResponse, upstream: &dyn RpcUpstream) {
         self.tries += 1;
         if response.is_non_empty_result() {
             if self.result.is_none() {
-                self.result = Some(response);
+                self.result = Some((response, upstream.id().to_string()));
             }
         } else if self.last_empty_response.is_none() {
-            self.last_empty_response = Some(response);
+            self.last_empty_response = Some((response, upstream.id().to_string()));
         }
     }
 
@@ -90,17 +92,23 @@ impl CallQuorum for NonEmptyQuorum {
     }
 
     fn take_outcome(&mut self) -> QuorumOutcome {
-        if let Some(r) = self.result.take() {
+        if let Some((r, source)) = self.result.take() {
+            self.resolved_source = Some(source);
             return QuorumOutcome::Resolved(r);
         }
         // Forward a real null result to the client rather than fabricating one.
-        if let Some(r) = self.last_empty_response.take() {
+        if let Some((r, source)) = self.last_empty_response.take() {
+            self.resolved_source = Some(source);
             return QuorumOutcome::Resolved(r);
         }
         if let Some(e) = self.last_error.take() {
             return QuorumOutcome::Failed(e);
         }
         QuorumOutcome::Empty
+    }
+
+    fn resolved_by(&self) -> Option<&str> {
+        self.resolved_source.as_deref()
     }
 }
 

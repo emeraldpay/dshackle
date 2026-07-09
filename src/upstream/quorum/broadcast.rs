@@ -32,11 +32,12 @@ pub struct BroadcastQuorum {
     target_calls: usize,
     calls: usize,
     /// First successful txid response, kept verbatim to forward to the client.
-    txid_response: Option<JsonRpcResponse>,
+    txid_response: Option<(JsonRpcResponse, String)>,
+    resolved_source: Option<String>,
     /// First non-success response (e.g. "transaction already known"). Used as
     /// a fallback when no upstream accepted the broadcast — the client is
     /// better served by the upstream's error message than by a generic one.
-    fallback_response: Option<JsonRpcResponse>,
+    fallback_response: Option<(JsonRpcResponse, String)>,
     /// Last transport-level error, used only when nothing else is available.
     last_transport_error: Option<UpstreamError>,
 }
@@ -55,6 +56,7 @@ impl BroadcastQuorum {
             target_calls: target_calls.max(1),
             calls: 0,
             txid_response: None,
+            resolved_source: None,
             fallback_response: None,
             last_transport_error: None,
         }
@@ -72,14 +74,14 @@ impl CallQuorum for BroadcastQuorum {
         self.target_calls = self.target_calls.min(total).max(1);
     }
 
-    fn record_response(&mut self, response: JsonRpcResponse, _upstream: &dyn RpcUpstream) {
+    fn record_response(&mut self, response: JsonRpcResponse, upstream: &dyn RpcUpstream) {
         self.calls += 1;
         // A successful broadcast returns the txid as a JSON string; anything
         // else (error response, non-string result) is a fallback.
         if self.txid_response.is_none() && response.result_as_string().is_some() {
-            self.txid_response = Some(response);
+            self.txid_response = Some((response, upstream.id().to_string()));
         } else if self.fallback_response.is_none() {
-            self.fallback_response = Some(response);
+            self.fallback_response = Some((response, upstream.id().to_string()));
         }
     }
 
@@ -98,19 +100,25 @@ impl CallQuorum for BroadcastQuorum {
     }
 
     fn take_outcome(&mut self) -> QuorumOutcome {
-        if let Some(r) = self.txid_response.take() {
+        if let Some((r, source)) = self.txid_response.take() {
+            self.resolved_source = Some(source);
             return QuorumOutcome::Resolved(r);
         }
         // No upstream returned a txid. Prefer to forward the upstream's own
         // error response (it carries useful detail like "nonce too low") over
         // a synthetic transport error.
-        if let Some(r) = self.fallback_response.take() {
+        if let Some((r, source)) = self.fallback_response.take() {
+            self.resolved_source = Some(source);
             return QuorumOutcome::Resolved(r);
         }
         if let Some(e) = self.last_transport_error.take() {
             return QuorumOutcome::Failed(e);
         }
         QuorumOutcome::Empty
+    }
+
+    fn resolved_by(&self) -> Option<&str> {
+        self.resolved_source.as_deref()
     }
 }
 

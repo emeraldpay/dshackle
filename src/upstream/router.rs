@@ -33,6 +33,14 @@ use crate::upstream::quorum::{CallQuorum, QuorumOutcome};
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use std::sync::Arc;
 
+/// A response accepted by the quorum, together with the id of the upstream
+/// that produced it (needed to attribute the response, e.g. for signing).
+#[derive(Debug)]
+pub struct Routed {
+    pub response: JsonRpcResponse,
+    pub source: Option<String>,
+}
+
 /// Execute `request` against the given `candidates` using the given quorum
 /// strategy.
 ///
@@ -42,7 +50,7 @@ pub async fn route(
     candidates: Vec<Arc<dyn RpcUpstream>>,
     mut quorum: Box<dyn CallQuorum>,
     request: &JsonRpcRequest,
-) -> Result<JsonRpcResponse, UpstreamError> {
+) -> Result<Routed, UpstreamError> {
     quorum.set_total_upstreams(candidates.len());
 
     if candidates.is_empty() {
@@ -68,7 +76,10 @@ pub async fn route(
     quorum.close();
 
     match quorum.take_outcome() {
-        QuorumOutcome::Resolved(r) => Ok(r),
+        QuorumOutcome::Resolved(r) => Ok(Routed {
+            response: r,
+            source: quorum.resolved_by().map(str::to_string),
+        }),
         QuorumOutcome::Failed(e) => Err(e),
         QuorumOutcome::Empty => Err(UpstreamError::Transport(
             "no upstream produced a response".into(),
@@ -174,7 +185,8 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(resp.result.unwrap().get(), r#""0xa""#);
+        assert_eq!(resp.response.result.unwrap().get(), r#""0xa""#);
+        assert_eq!(resp.source.as_deref(), Some("a"));
         assert_eq!(a.call_count(), 1);
         assert_eq!(b.call_count(), 0);
     }
@@ -192,7 +204,7 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(resp.result.unwrap().get(), r#""0xb""#);
+        assert_eq!(resp.response.result.unwrap().get(), r#""0xb""#);
         assert_eq!(a.call_count(), 1);
         assert_eq!(b.call_count(), 1);
     }

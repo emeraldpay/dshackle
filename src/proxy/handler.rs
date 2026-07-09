@@ -249,7 +249,8 @@ async fn execute(
     let request = JsonRpcRequest::new(0, method, req.params.clone());
 
     match execute_call(multistream, &request).await {
-        Ok(resp) => {
+        Ok(routed) => {
+            let resp = routed.response;
             if let Some(err) = resp.error {
                 metrics::jsonrpc_err(chain, &req.method);
                 let outcome = CallOutcome {

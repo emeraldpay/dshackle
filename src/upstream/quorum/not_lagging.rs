@@ -74,6 +74,10 @@ impl CallQuorum for NotLaggingQuorum {
         self.inner.take_outcome()
     }
 
+    fn resolved_by(&self) -> Option<&str> {
+        self.inner.resolved_by()
+    }
+
     fn selector(&self) -> SelectorHint {
         SelectorHint::NotLagging {
             max_lag: self.max_lag,

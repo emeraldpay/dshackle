@@ -26,6 +26,7 @@ mod metrics;
 mod proxy;
 mod rpc;
 mod server;
+mod signature;
 mod tls;
 mod upstream;
 
@@ -174,7 +175,20 @@ async fn main() {
     }
 
     // Start gRPC server
-    let service = rpc::blockchain_rpc::BlockchainRpcService::new(upstreams);
+    let signer = match config
+        .signature
+        .as_ref()
+        .map(|sig| signature::ResponseSigner::from_config(sig, &config.config_dir))
+        .transpose()
+    {
+        Ok(signer) => signer.flatten().map(Arc::new),
+        Err(e) => {
+            tracing::error!("Invalid signed-response configuration: {e:#}");
+            std::process::exit(1);
+        }
+    };
+
+    let service = rpc::blockchain_rpc::BlockchainRpcService::new(upstreams, signer);
 
     let grpc_tls =
         match tls::server_tls("Native gRPC", config.tls.as_ref(), &config.config_dir) {

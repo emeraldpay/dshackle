@@ -112,6 +112,13 @@ pub trait CallQuorum: Send {
     /// Consume the accumulated state and return the final outcome.
     fn take_outcome(&mut self) -> QuorumOutcome;
 
+    /// Id of the upstream whose response `take_outcome` resolved with, needed
+    /// to attribute the response (e.g. for signing). Only meaningful after
+    /// `take_outcome` returned `Resolved`.
+    fn resolved_by(&self) -> Option<&str> {
+        None
+    }
+
     /// Hint about which upstreams the router should consider. Quorums that
     /// require fresh data (e.g. `NotLagging`) override this to filter out
     /// stale upstreams up front; the default is "any available upstream".

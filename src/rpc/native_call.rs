@@ -16,11 +16,14 @@
 //! `Multistream` with a method-specific quorum policy, then converting the
 //! result back to a gRPC reply.
 
-use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
+use crate::jsonrpc::JsonRpcRequest;
+use crate::signature::ResponseSigner;
 use crate::upstream::Multistream;
-use crate::upstream::router;
+use crate::upstream::router::{self, Routed};
 use crate::upstream::traits::UpstreamError;
-use emerald_api::proto::blockchain::{NativeCallItem, NativeCallReplyItem};
+use emerald_api::proto::blockchain::{
+    NativeCallItem, NativeCallReplyItem, NativeCallReplySignature,
+};
 
 /// Route a single JSON-RPC request through a chain's upstreams using the
 /// method's quorum policy. The shared execution core behind both the gRPC
@@ -28,7 +31,7 @@ use emerald_api::proto::blockchain::{NativeCallItem, NativeCallReplyItem};
 pub async fn execute_call(
     multistream: &Multistream,
     request: &JsonRpcRequest,
-) -> Result<JsonRpcResponse, UpstreamError> {
+) -> Result<Routed, UpstreamError> {
     let quorum = multistream.quorum_for(&request.method);
     let candidates = multistream.select_for(quorum.selector(), &request.method);
     router::route(candidates, quorum, request).await
@@ -38,10 +41,12 @@ pub async fn execute_call(
 ///
 /// Looks up the per-method `CallQuorum` from the `Multistream`'s factory,
 /// asks the quorum which selector to use, and routes through the matching
-/// candidate set.
+/// candidate set. A successful result is signed when the client requested it
+/// (a non-zero `nonce`) and a signer is configured.
 pub async fn execute_native_call(
     multistream: &Multistream,
     item: &NativeCallItem,
+    signer: Option<&ResponseSigner>,
 ) -> NativeCallReplyItem {
     let params = match parse_payload(&item.payload) {
         Ok(v) => v,
@@ -60,17 +65,19 @@ pub async fn execute_native_call(
     tracing::trace!(id = item.id, method = %item.method, "executing native call item");
 
     match execute_call(multistream, &request).await {
-        Ok(resp) => {
+        Ok(routed) => {
+            let resp = routed.response;
             if let Some(result) = resp.result {
                 // Forward the raw JSON bytes as-is, without re-serialization
                 let payload = result.get().as_bytes().to_vec();
                 tracing::trace!(id = item.id, method = %item.method, bytes = payload.len(), "call succeeded");
+                let signature = build_signature(signer, item.nonce, &payload, routed.source);
                 NativeCallReplyItem {
                     id: item.id,
                     succeed: true,
                     payload,
                     error_message: String::new(),
-                    signature: None,
+                    signature,
                 }
             } else if let Some(err) = resp.error {
                 tracing::trace!(id = item.id, method = %item.method, error = %err, "call returned rpc error");
@@ -107,6 +114,34 @@ pub async fn execute_native_call(
             }
         }
     }
+}
+
+/// Signs a successful result when the client asked for it. A `nonce` of 0
+/// means "no signature requested" (proto3 default), matching the legacy
+/// behavior; without a configured signer the reply simply carries none.
+fn build_signature(
+    signer: Option<&ResponseSigner>,
+    nonce: u64,
+    payload: &[u8],
+    source: Option<String>,
+) -> Option<NativeCallReplySignature> {
+    if nonce == 0 {
+        return None;
+    }
+    let signer = signer?;
+    let Some(source) = source else {
+        // Should not happen: every quorum records the source of the response
+        // it resolves with. Better an unsigned reply than a wrong attribution.
+        tracing::warn!("Response source unknown, skipping signature");
+        return None;
+    };
+    let signature = signer.sign(nonce, payload, &source)?;
+    Some(NativeCallReplySignature {
+        nonce,
+        signature: signature.value,
+        key_id: signature.key_id,
+        upstream_id: signature.upstream_id,
+    })
 }
 
 /// Parse the raw payload bytes from the gRPC request into a `serde_json::Value`.

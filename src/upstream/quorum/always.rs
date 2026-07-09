@@ -28,7 +28,8 @@ use crate::upstream::traits::{RpcUpstream, UpstreamError};
 /// connection errors are deferred until no upstream succeeds.
 #[derive(Default)]
 pub struct AlwaysQuorum {
-    result: Option<JsonRpcResponse>,
+    result: Option<(JsonRpcResponse, String)>,
+    resolved_source: Option<String>,
     error: Option<UpstreamError>,
     /// Connection errors are only surfaced after all upstreams have been
     /// exhausted, so a single flaky node doesn't fail an otherwise routable
@@ -45,9 +46,9 @@ impl AlwaysQuorum {
 impl CallQuorum for AlwaysQuorum {
     fn set_total_upstreams(&mut self, _total: usize) {}
 
-    fn record_response(&mut self, response: JsonRpcResponse, _upstream: &dyn RpcUpstream) {
+    fn record_response(&mut self, response: JsonRpcResponse, upstream: &dyn RpcUpstream) {
         if self.result.is_none() {
-            self.result = Some(response);
+            self.result = Some((response, upstream.id().to_string()));
         }
     }
 
@@ -77,13 +78,18 @@ impl CallQuorum for AlwaysQuorum {
     }
 
     fn take_outcome(&mut self) -> QuorumOutcome {
-        if let Some(r) = self.result.take() {
+        if let Some((r, source)) = self.result.take() {
+            self.resolved_source = Some(source);
             return QuorumOutcome::Resolved(r);
         }
         if let Some(e) = self.error.take() {
             return QuorumOutcome::Failed(e);
         }
         QuorumOutcome::Empty
+    }
+
+    fn resolved_by(&self) -> Option<&str> {
+        self.resolved_source.as_deref()
     }
 }
 
