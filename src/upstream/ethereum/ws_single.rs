@@ -23,6 +23,7 @@
 //! When that connection drops the subscription channel closes and the caller
 //! should re-subscribe.
 
+use super::ws_conn::WsTarget;
 use super::ws_pool::WsConnectionPool;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
 use crate::upstream::availability::UpstreamAvailability;
@@ -50,8 +51,8 @@ impl EthereumWsUpstream {
     ///
     /// Connections are established in background tasks and automatically
     /// reconnect with exponential backoff on failure.
-    pub fn new(id: String, url: String, connections: u32) -> Self {
-        let pool = WsConnectionPool::start(id.clone(), url, connections.max(1));
+    pub fn new(id: String, target: WsTarget, connections: u32) -> Self {
+        let pool = WsConnectionPool::start(id.clone(), target, connections.max(1));
         let head = Arc::new(CurrentHead::new());
         let upstream_state = Arc::new(UpstreamState::new());
         Self {

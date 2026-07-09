@@ -1820,6 +1820,7 @@ dependencies = [
  "alloy",
  "anyhow",
  "async-trait",
+ "base64 0.22.1",
  "bitcoin",
  "bytes",
  "clap",

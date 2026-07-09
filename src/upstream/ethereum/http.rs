@@ -14,6 +14,7 @@
 
 //! Ethereum upstream that communicates via HTTP JSON-RPC.
 
+use crate::config::tls::BasicAuth;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::{CurrentHead, Head};
@@ -26,6 +27,7 @@ use std::sync::Arc;
 pub struct EthereumHttpUpstream {
     id: String,
     url: String,
+    basic_auth: Option<BasicAuth>,
     client: reqwest::Client,
     head: Arc<CurrentHead>,
     state: Arc<UpstreamState>,
@@ -33,13 +35,20 @@ pub struct EthereumHttpUpstream {
 
 impl EthereumHttpUpstream {
     /// `client` carries the transport-level options decided at wiring time
-    /// (custom CA, mutual TLS).
-    pub fn new(id: String, url: String, client: reqwest::Client) -> Self {
+    /// (custom CA, mutual TLS). If `basic_auth` is provided it is applied to
+    /// every outgoing request.
+    pub fn new(
+        id: String,
+        url: String,
+        basic_auth: Option<BasicAuth>,
+        client: reqwest::Client,
+    ) -> Self {
         let head = Arc::new(CurrentHead::new());
         let state = Arc::new(UpstreamState::new());
         Self {
             id,
             url,
+            basic_auth,
             client,
             head,
             state,
@@ -57,11 +66,17 @@ impl RpcUpstream for EthereumHttpUpstream {
     async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
         tracing::trace!(upstream = %self.id, method = %request.method, "HTTP request");
 
-        let resp = self
+        let mut req_builder = self
             .client
             .post(&self.url)
             .header("content-type", "application/json")
-            .json(request)
+            .json(request);
+
+        if let Some(auth) = &self.basic_auth {
+            req_builder = req_builder.basic_auth(&auth.username, Some(&auth.password));
+        }
+
+        let resp = req_builder
             .send()
             .await
             .map_err(|e| UpstreamError::Transport(e.to_string()))?;

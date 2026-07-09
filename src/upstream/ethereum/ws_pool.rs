@@ -20,7 +20,7 @@
 //! behavior). RPC calls are distributed round-robin across connected instances;
 //! subscriptions are pinned to one connection.
 
-use super::ws_conn::WsConnection;
+use super::ws_conn::{WsConnection, WsTarget};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
 
@@ -43,19 +43,22 @@ pub(super) struct WsConnectionPool {
 
 impl WsConnectionPool {
     /// Create a pool and start growing connections in the background.
-    pub(super) fn start(upstream_id: String, url: String, target: u32) -> Arc<Self> {
+    pub(super) fn start(upstream_id: String, ws_target: WsTarget, target: u32) -> Arc<Self> {
         let pool = Arc::new(Self {
             connections: RwLock::new(Vec::with_capacity(target as usize)),
             next_index: AtomicUsize::new(0),
         });
 
         if target > 1 {
-            tracing::info!("Upstream {upstream_id}: opening {target} WS connections to {url}");
+            tracing::info!(
+                "Upstream {upstream_id}: opening {target} WS connections to {}",
+                ws_target.url
+            );
         }
 
         let pool_clone = Arc::clone(&pool);
         tokio::spawn(async move {
-            grow_pool(pool_clone, upstream_id, url, target).await;
+            grow_pool(pool_clone, upstream_id, ws_target, target).await;
         });
 
         pool
@@ -93,7 +96,12 @@ impl WsConnectionPool {
 /// matching the legacy behavior where a broken connection pauses growth.
 /// After [`POOL_GROW_MAX_WAIT`] the next connection is added regardless,
 /// to avoid stalling forever on a flaky endpoint.
-async fn grow_pool(pool: Arc<WsConnectionPool>, upstream_id: String, url: String, target: u32) {
+async fn grow_pool(
+    pool: Arc<WsConnectionPool>,
+    upstream_id: String,
+    ws_target: WsTarget,
+    target: u32,
+) {
     for i in 0..target {
         let label = if target == 1 {
             format!("Upstream {upstream_id}")
@@ -101,7 +109,7 @@ async fn grow_pool(pool: Arc<WsConnectionPool>, upstream_id: String, url: String
             format!("Upstream {upstream_id}/{}", i + 1)
         };
 
-        let conn = Arc::new(WsConnection::new(label, url.clone()));
+        let conn = Arc::new(WsConnection::new(label, ws_target.clone()));
         {
             let mut conns = pool.connections.write().expect("connections lock poisoned");
             conns.push(conn);

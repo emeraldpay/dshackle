@@ -211,12 +211,6 @@ impl UpstreamManager {
                     // gives near-instant updates, while HTTP polls every 10s.
                     // The other transport is used for RPC calls only.
                     let ws_upstream: Option<Arc<EthereumWsUpstream>> = eth.ws.as_ref().map(|ws| {
-                        if ws.basic_auth.is_some() {
-                            tracing::warn!(
-                                "Upstream {}: WS basic auth not yet supported, ignoring",
-                                upstream.id
-                            );
-                        }
                         tracing::info!(
                             "Using Ethereum WS upstream '{}' at {} for {}",
                             upstream.id,
@@ -225,19 +219,17 @@ impl UpstreamManager {
                         );
                         Arc::new(EthereumWsUpstream::new(
                             upstream.id.clone(),
-                            ws.url.clone(),
+                            ethereum::WsTarget {
+                                url: ws.url.clone(),
+                                origin: ws.origin.clone(),
+                                basic_auth: ws.basic_auth.clone(),
+                            },
                             ws.connections.unwrap_or(1),
                         ))
                     });
 
                     let http_upstream: Option<Arc<EthereumHttpUpstream>> = match &eth.rpc {
                         Some(rpc) => {
-                            if rpc.basic_auth.is_some() {
-                                tracing::warn!(
-                                    "Upstream {}: basic auth not yet supported, ignoring",
-                                    upstream.id
-                                );
-                            }
                             let tls =
                                 crate::tls::client_tls(&upstream.id, rpc.tls.as_ref(), config_dir)?;
                             let client = crate::tls::reqwest_client(tls.as_ref())?;
@@ -250,6 +242,7 @@ impl UpstreamManager {
                             Some(Arc::new(EthereumHttpUpstream::new(
                                 upstream.id.clone(),
                                 rpc.url.clone(),
+                                rpc.basic_auth.clone(),
                                 client,
                             )))
                         }
@@ -453,11 +446,6 @@ impl UpstreamManager {
                     let tls = crate::tls::client_tls(&upstream.id, rpc.tls.as_ref(), config_dir)?;
                     let client = crate::tls::reqwest_client(tls.as_ref())?;
 
-                    let basic_auth = rpc
-                        .basic_auth
-                        .as_ref()
-                        .map(|auth| (auth.username.clone(), auth.password.clone()));
-
                     tracing::info!(
                         "Using Bitcoin HTTP upstream '{}' at {} for {}",
                         upstream.id,
@@ -468,7 +456,7 @@ impl UpstreamManager {
                     let http_up = BitcoinHttpUpstream::new(
                         upstream.id.clone(),
                         rpc.url.clone(),
-                        basic_auth,
+                        rpc.basic_auth.clone(),
                         client,
                     );
                     let head = http_up.head_height();

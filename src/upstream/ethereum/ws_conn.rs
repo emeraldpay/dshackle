@@ -19,8 +19,10 @@
 //! Also supports `eth_subscribe`-style subscriptions, which return a channel
 //! of raw JSON notification payloads tied to this specific connection.
 
+use crate::config::tls::BasicAuth;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
 use crate::upstream::traits::UpstreamError;
+use base64::Engine as _;
 use futures_util::{SinkExt, StreamExt};
 use serde_json::value::RawValue;
 use std::collections::HashMap;
@@ -28,6 +30,47 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot};
 use tokio_tungstenite::tungstenite;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+
+/// Where and how to open a WS connection to the node.
+#[derive(Clone)]
+pub struct WsTarget {
+    pub url: String,
+    pub origin: Option<String>,
+    pub basic_auth: Option<BasicAuth>,
+}
+
+impl WsTarget {
+    /// The WS handshake request, with the extra headers the legacy client
+    /// always sent: `Origin` (defaulting to http://localhost) and the
+    /// optional basic auth.
+    fn client_request(&self) -> Result<tungstenite::handshake::client::Request, String> {
+        let mut request = self
+            .url
+            .as_str()
+            .into_client_request()
+            .map_err(|e| format!("invalid WS URL: {e}"))?;
+        let headers = request.headers_mut();
+        let origin = self.origin.as_deref().unwrap_or("http://localhost");
+        headers.insert(
+            "Origin",
+            origin
+                .parse()
+                .map_err(|e| format!("invalid WS origin: {e}"))?,
+        );
+        if let Some(auth) = &self.basic_auth {
+            let token = base64::engine::general_purpose::STANDARD
+                .encode(format!("{}:{}", auth.username, auth.password));
+            headers.insert(
+                "Authorization",
+                format!("Basic {token}")
+                    .parse()
+                    .map_err(|e| format!("invalid WS basic auth: {e}"))?,
+            );
+        }
+        Ok(request)
+    }
+}
 
 /// Starting ID for the internal request sequence, matching the legacy implementation.
 const IDS_START: u32 = 100;
@@ -67,7 +110,7 @@ struct WsConnectionInner {
 
 impl WsConnection {
     /// Create a new WS connection and start its background reconnection loop.
-    pub(super) fn new(label: String, url: String) -> Self {
+    pub(super) fn new(label: String, target: WsTarget) -> Self {
         let (outgoing_tx, outgoing_rx) = mpsc::channel::<String>(256);
 
         let inner = Arc::new(WsConnectionInner {
@@ -81,7 +124,7 @@ impl WsConnection {
         let bg_inner = Arc::clone(&inner);
         let bg_label = label.clone();
         tokio::spawn(async move {
-            connection_loop(bg_label, url, bg_inner, outgoing_rx).await;
+            connection_loop(bg_label, target, bg_inner, outgoing_rx).await;
         });
 
         Self { label, inner }
@@ -196,16 +239,16 @@ impl WsConnection {
 /// Runs the persistent WebSocket connection, reconnecting on failure.
 async fn connection_loop(
     label: String,
-    url: String,
+    target: WsTarget,
     state: Arc<WsConnectionInner>,
     mut outgoing_rx: mpsc::Receiver<String>,
 ) {
     let mut backoff = BACKOFF_INITIAL;
 
     loop {
-        tracing::info!("{label}: connecting to WebSocket {url}");
+        tracing::info!("{label}: connecting to WebSocket {}", target.url);
 
-        match connect_and_run(&label, &url, &state, &mut outgoing_rx).await {
+        match connect_and_run(&label, &target, &state, &mut outgoing_rx).await {
             Ok(()) => {
                 tracing::info!("{label}: WebSocket connection closed normally");
             }
@@ -235,11 +278,11 @@ async fn connection_loop(
 /// Connect to the WS endpoint and run the read/write loops until disconnection.
 async fn connect_and_run(
     label: &str,
-    url: &str,
+    target: &WsTarget,
     state: &Arc<WsConnectionInner>,
     outgoing_rx: &mut mpsc::Receiver<String>,
 ) -> Result<(), String> {
-    let (ws_stream, _) = tokio_tungstenite::connect_async(url)
+    let (ws_stream, _) = tokio_tungstenite::connect_async(target.client_request()?)
         .await
         .map_err(|e| format!("connect failed: {e}"))?;
 
@@ -388,4 +431,46 @@ struct SubscriptionNotification {
 struct SubscriptionParams {
     subscription: String,
     result: Box<RawValue>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ws_request_has_default_origin_and_no_auth() {
+        let target = WsTarget {
+            url: "ws://localhost:8546".to_string(),
+            origin: None,
+            basic_auth: None,
+        };
+        let request = target.client_request().unwrap();
+        assert_eq!(
+            request.headers().get("Origin").unwrap(),
+            "http://localhost"
+        );
+        assert!(request.headers().get("Authorization").is_none());
+    }
+
+    #[test]
+    fn ws_request_carries_basic_auth_and_origin() {
+        let target = WsTarget {
+            url: "ws://localhost:8546".to_string(),
+            origin: Some("https://myapp.example.com".to_string()),
+            basic_auth: Some(BasicAuth {
+                username: "user".to_string(),
+                password: "pass".to_string(),
+            }),
+        };
+        let request = target.client_request().unwrap();
+        assert_eq!(
+            request.headers().get("Origin").unwrap(),
+            "https://myapp.example.com"
+        );
+        // echo -n 'user:pass' | base64
+        assert_eq!(
+            request.headers().get("Authorization").unwrap(),
+            "Basic dXNlcjpwYXNz"
+        );
+    }
 }

@@ -14,6 +14,7 @@
 
 //! Bitcoin upstream that communicates via HTTP JSON-RPC.
 
+use crate::config::tls::BasicAuth;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::{CurrentHead, Head};
@@ -35,7 +36,7 @@ const BITCOIN_SYNCING_LAG: u64 = 2;
 pub struct BitcoinHttpUpstream {
     id: String,
     url: String,
-    basic_auth: Option<(String, String)>,
+    basic_auth: Option<BasicAuth>,
     client: reqwest::Client,
     head: Arc<CurrentHead>,
     state: Arc<UpstreamState>,
@@ -50,7 +51,7 @@ impl BitcoinHttpUpstream {
     pub fn new(
         id: String,
         url: String,
-        basic_auth: Option<(String, String)>,
+        basic_auth: Option<BasicAuth>,
         client: reqwest::Client,
     ) -> Self {
         let head = Arc::new(CurrentHead::new());
@@ -82,8 +83,8 @@ impl RpcUpstream for BitcoinHttpUpstream {
             .header("content-type", "application/json")
             .json(request);
 
-        if let Some((user, pass)) = &self.basic_auth {
-            req_builder = req_builder.basic_auth(user, Some(pass));
+        if let Some(auth) = &self.basic_auth {
+            req_builder = req_builder.basic_auth(&auth.username, Some(&auth.password));
         }
 
         let resp = req_builder

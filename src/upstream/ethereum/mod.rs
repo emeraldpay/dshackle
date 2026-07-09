@@ -21,6 +21,7 @@ mod ws_conn;
 mod ws_pool;
 mod ws_single;
 
+pub use ws_conn::WsTarget;
 pub use ws_single::EthereumWsUpstream;
 
 /// Parse an Ethereum-style hex quantity (`"0x10d4f"`, `0x10d4f`, `"0x"` for
