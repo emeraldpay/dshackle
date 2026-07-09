@@ -17,18 +17,28 @@
 use crate::rpc::blockchain_rpc::BlockchainRpcService;
 use emerald_api::proto::blockchain::blockchain_server::BlockchainServer;
 use std::net::SocketAddr;
+use tonic::transport::server::ServerTlsConfig;
 
 /// Start the gRPC server listening on the given host and port.
+///
+/// With a TLS config the server accepts only TLS connections; without one it
+/// serves plaintext.
 pub async fn start_grpc_server(
     host: &str,
     port: u16,
+    tls: Option<ServerTlsConfig>,
     service: BlockchainRpcService,
 ) -> anyhow::Result<()> {
     let addr: SocketAddr = format!("{host}:{port}").parse()?;
 
+    let mut builder = tonic::transport::Server::builder();
+    if let Some(tls) = tls {
+        builder = builder.tls_config(tls)?;
+    }
+
     tracing::info!("gRPC server listening on {}", addr);
 
-    tonic::transport::Server::builder()
+    builder
         .add_service(BlockchainServer::new(service))
         .serve(addr)
         .await?;

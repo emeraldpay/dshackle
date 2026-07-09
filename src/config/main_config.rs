@@ -26,7 +26,7 @@ use crate::config::tokens::TokenConfig;
 use crate::config::upstreams::{RawUpstreamsConfig, UpstreamsConfig};
 use anyhow::{Context, Result};
 use serde::Deserialize;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tracing::{info, warn};
 
 /// The top-level Dshackle configuration.
@@ -45,6 +45,10 @@ pub struct MainConfig {
     pub request_log: RequestLogConfig,
     pub health: HealthConfig,
     pub signature: Option<SignatureConfig>,
+    /// Directory of the config file itself; relative paths mentioned in the
+    /// config (TLS certificates, keys) are resolved against it, same as the
+    /// legacy FileResolver did.
+    pub config_dir: PathBuf,
 }
 
 /// Raw YAML structure that maps directly to the config file format.
@@ -128,7 +132,7 @@ fn parse_main_config(yaml: &str, config_dir: &Path) -> Result<MainConfig> {
             if let Some(include) = raw_cluster.include {
                 let paths: Vec<String> = include.into();
                 for include_path in paths {
-                    let resolved = resolve_include(config_dir, &include_path);
+                    let resolved = crate::config::resolve_file(config_dir, &include_path);
                     match read_included_upstreams(&resolved) {
                         Ok(included) => {
                             config.upstreams.extend(included.upstreams);
@@ -159,17 +163,8 @@ fn parse_main_config(yaml: &str, config_dir: &Path) -> Result<MainConfig> {
         request_log: raw.request_log,
         health: raw.health,
         signature: raw.signature,
+        config_dir: config_dir.to_path_buf(),
     })
-}
-
-/// Resolves an include path relative to the config directory.
-fn resolve_include(config_dir: &Path, path: &str) -> std::path::PathBuf {
-    let p = Path::new(path);
-    if p.is_absolute() {
-        p.to_path_buf()
-    } else {
-        config_dir.join(p)
-    }
 }
 
 /// Reads an included upstream config file.

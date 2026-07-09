@@ -34,6 +34,18 @@ use std::path::{Path, PathBuf};
 const DEFAULT_CONFIG: &str = "/etc/dshackle/dshackle.yaml";
 const LOCAL_CONFIG: &str = "./dshackle.yaml";
 
+/// Resolves a file path mentioned in the config (includes, certificates)
+/// against the config file directory, keeping absolute paths as-is — the
+/// legacy FileResolver behavior.
+pub fn resolve_file(base_dir: &Path, path: &str) -> PathBuf {
+    let p = Path::new(path);
+    if p.is_absolute() {
+        p.to_path_buf()
+    } else {
+        base_dir.join(p)
+    }
+}
+
 /// Resolves the configuration file path.
 ///
 /// Resolution order:

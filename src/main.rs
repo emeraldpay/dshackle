@@ -26,6 +26,7 @@ mod metrics;
 mod proxy;
 mod rpc;
 mod server;
+mod tls;
 mod upstream;
 
 use clap::Parser;
@@ -164,7 +165,16 @@ async fn main() {
     // Start gRPC server
     let service = rpc::blockchain_rpc::BlockchainRpcService::new(upstreams);
 
-    if let Err(e) = server::start_grpc_server(&config.host, config.port, service).await {
+    let grpc_tls =
+        match tls::grpc_server_tls("Native gRPC", config.tls.as_ref(), &config.config_dir) {
+            Ok(tls) => tls,
+            Err(e) => {
+                tracing::error!("Invalid TLS configuration: {e:#}");
+                std::process::exit(1);
+            }
+        };
+
+    if let Err(e) = server::start_grpc_server(&config.host, config.port, grpc_tls, service).await {
         tracing::error!("gRPC server failed: {e:#}");
         std::process::exit(1);
     }
