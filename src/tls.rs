@@ -18,7 +18,7 @@
 //! (tonic, warp, reqwest).
 
 use crate::config::tls::{ClientTlsAuth, ServerTlsConfig, TlsClientRequirement};
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use std::path::Path;
 use tracing;
 
@@ -100,7 +100,9 @@ pub fn server_tls(
         return Ok(None);
     };
     let Some(server) = &config.server else {
-        bail!("tls.server.certificate property for {category} is not set (path to server TLS certificate) but TLS is enabled");
+        bail!(
+            "tls.server.certificate property for {category} is not set (path to server TLS certificate) but TLS is enabled"
+        );
     };
 
     tracing::info!("Using TLS for {category}");
@@ -153,7 +155,9 @@ fn client_auth(
             require: true,
             ca: None,
         }) => {
-            bail!("Client Certificate not set for {category}: tls.client.require is enabled but tls.client.ca is missing");
+            bail!(
+                "Client Certificate not set for {category}: tls.client.require is enabled but tls.client.ca is missing"
+            );
         }
         _ => {
             tracing::warn!("Trust all clients for {category}");
@@ -197,8 +201,7 @@ pub fn client_tls(
 
     let ca = match &config.ca {
         Some(path) => Some(
-            read_file(base_dir, path)
-                .with_context(|| format!("reading TLS CA for {target}"))?,
+            read_file(base_dir, path).with_context(|| format!("reading TLS CA for {target}"))?,
         ),
         None => None,
     };
@@ -212,7 +215,9 @@ pub fn client_tls(
         }),
         (None, None) => None,
         _ => {
-            bail!("Client TLS for {target} needs both tls.certificate and tls.key, only one is set");
+            bail!(
+                "Client TLS for {target} needs both tls.certificate and tls.key, only one is set"
+            );
         }
     };
 
@@ -224,11 +229,9 @@ pub fn reqwest_client(tls: Option<&ClientTlsSetup>) -> Result<reqwest::Client> {
     let mut builder = reqwest::Client::builder();
     if let Some(setup) = tls {
         if let Some(ca) = &setup.ca {
-            builder = builder
-                .tls_built_in_root_certs(false)
-                .add_root_certificate(
-                    reqwest::Certificate::from_pem(ca).context("parsing TLS CA")?,
-                );
+            builder = builder.tls_built_in_root_certs(false).add_root_certificate(
+                reqwest::Certificate::from_pem(ca).context("parsing TLS CA")?,
+            );
         }
         if let Some(identity) = &setup.identity {
             // reqwest's rustls backend takes the certificate and key as one

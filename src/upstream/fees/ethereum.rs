@@ -123,7 +123,11 @@ impl EthereumFees {
             let max = wei(tx.get("maxFeePerGas"));
             let priority = wei(tx.get("maxPriorityFeePerGas"));
             let paid = base.saturating_add(priority).min(max);
-            EthereumFee { max, priority, paid }
+            EthereumFee {
+                max,
+                priority,
+                paid,
+            }
         } else {
             // Legacy transaction on a 1559 chain: priority is whatever sits
             // above the base fee.
@@ -136,10 +140,7 @@ impl EthereumFees {
     }
 
     /// Render the aggregate as the proto response for this chain's fee shape.
-    fn to_response(
-        &self,
-        fee: EthereumFee,
-    ) -> emerald_api::proto::blockchain::EstimateFeeResponse {
+    fn to_response(&self, fee: EthereumFee) -> emerald_api::proto::blockchain::EstimateFeeResponse {
         use emerald_api::proto::blockchain::estimate_fee_response::FeeType;
         use emerald_api::proto::blockchain::{
             EstimateFeeResponse, EthereumExtFees, EthereumStdFees,
@@ -287,10 +288,7 @@ mod tests {
         fn current_height(&self) -> Option<u64> {
             self.height
         }
-        async fn call(
-            &self,
-            request: &JsonRpcRequest,
-        ) -> Result<JsonRpcResponse, UpstreamError> {
+        async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             // params: ["0x<height>", true]
             let height_hex = request.params[0].as_str().unwrap().trim_start_matches("0x");
             let height = u64::from_str_radix(height_hex, 16).unwrap();
@@ -454,10 +452,10 @@ mod tests {
     async fn cache_is_keyed_by_mode() {
         // Same block, two modes selecting different transactions: the second mode
         // must not read the first mode's cached fee.
-        let chain = Arc::new(FakeChain::new(Some(10)).with_block(
-            10,
-            block("0x0", vec![legacy_tx("0x10"), legacy_tx("0x20")]),
-        ));
+        let chain = Arc::new(
+            FakeChain::new(Some(10))
+                .with_block(10, block("0x0", vec![legacy_tx("0x10"), legacy_tx("0x20")])),
+        );
         let fees = EthereumFees::new(chain.clone() as Arc<dyn ChainAccess>, false, 256);
 
         // AvgTop samples the first tx (0x10 = 16), AvgLast the last (0x20 = 32).
@@ -496,8 +494,7 @@ mod tests {
         // A gas price above u64::MAX with an uppercase prefix must parse as the
         // full U256 value, not truncate or zero out.
         let big = "0X1FFFFFFFFFFFFFFFF"; // 2^65 - 1
-        let chain =
-            FakeChain::new(Some(10)).with_block(10, block("0x0", vec![legacy_tx(big)]));
+        let chain = FakeChain::new(Some(10)).with_block(10, block("0x0", vec![legacy_tx(big)]));
         let resp = estimate(chain, false, FeeMode::AvgLast, 1).await.unwrap();
         match resp.fee_type.unwrap() {
             FeeType::EthereumStd(std) => assert_eq!(std.fee, "36893488147419103231"),
@@ -509,7 +506,9 @@ mod tests {
     async fn no_height_is_not_ready() {
         let chain = FakeChain::new(None);
         assert_eq!(
-            estimate(chain, false, FeeMode::AvgLast, 2).await.unwrap_err(),
+            estimate(chain, false, FeeMode::AvgLast, 2)
+                .await
+                .unwrap_err(),
             FeeError::NotReady
         );
     }
@@ -518,7 +517,9 @@ mod tests {
     async fn no_transactions_anywhere_is_no_data() {
         let chain = FakeChain::new(Some(10)).with_block(10, block("0x0", vec![]));
         assert_eq!(
-            estimate(chain, false, FeeMode::AvgLast, 1).await.unwrap_err(),
+            estimate(chain, false, FeeMode::AvgLast, 1)
+                .await
+                .unwrap_err(),
             FeeError::NoData
         );
     }

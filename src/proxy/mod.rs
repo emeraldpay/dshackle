@@ -113,8 +113,8 @@ pub async fn start(
 
 /// Remote peer address, extracted from the connection loop's request
 /// extension (see [`serve::PeerAddr`]).
-fn peer_addr() -> impl Filter<Extract = (Option<SocketAddr>,), Error = std::convert::Infallible> + Copy
-{
+fn peer_addr()
+-> impl Filter<Extract = (Option<SocketAddr>,), Error = std::convert::Infallible> + Copy {
     warp::ext::optional::<serve::PeerAddr>().map(|peer: Option<serve::PeerAddr>| peer.map(|p| p.0))
 }
 
@@ -154,15 +154,15 @@ fn routes_filter(
                         // The whole connection is one client request in the
                         // access log: every call and subscription reply on it
                         // shares the identity created at the upgrade.
-                        let ctx =
-                            Arc::new(logs::IngressContext::new(Some(remote_details(peer, &headers))));
+                        let ctx = Arc::new(logs::IngressContext::new(Some(remote_details(
+                            peer, &headers,
+                        ))));
                         upgrade
                             .on_upgrade(move |socket| ws::serve(socket, route, ctx))
                             .into_response()
                     }
-                    None => {
-                        warp::reply::with_status(String::new(), StatusCode::NOT_FOUND).into_response()
-                    }
+                    None => warp::reply::with_status(String::new(), StatusCode::NOT_FOUND)
+                        .into_response(),
                 }
             },
         );
@@ -342,7 +342,11 @@ mod tests {
 
     fn stub_multistream() -> Arc<Multistream> {
         let upstream: Arc<dyn RpcUpstream> = Arc::new(StubUpstream(Arc::new(UpstreamState::new())));
-        Arc::new(Multistream::new(vec![upstream], Arc::new(AlwaysFactory)))
+        Arc::new(Multistream::new(
+            TargetBlockchain::Standard(emerald_api::proto::common::ChainRef::ChainEthereum),
+            vec![upstream],
+            Arc::new(AlwaysFactory),
+        ))
     }
 
     fn state_with(cors: Option<Cors>) -> Arc<ProxyState> {
@@ -557,8 +561,7 @@ mod tests {
         let head = Arc::new(CurrentHead::new());
         let merged = MergedHead::new(vec![Arc::clone(&head)]);
         let access: Arc<dyn ChainAccess> = multistream.clone();
-        let egress: Arc<dyn EgressSubscription> =
-            Arc::new(EthereumEgress::new(merged, access));
+        let egress: Arc<dyn EgressSubscription> = Arc::new(EthereumEgress::new(merged, access));
 
         let mut routes = HashMap::new();
         routes.insert(
@@ -582,9 +585,8 @@ mod tests {
         use crate::data::{BlockContainer, BlockId};
         let mut hash = [0u8; 32];
         hash[0] = height as u8;
-        let header = format!(
-            r#"{{"number":"0x{height:x}","gasLimit":"0x1c9c380","difficulty":"0x0"}}"#
-        );
+        let header =
+            format!(r#"{{"number":"0x{height:x}","gasLimit":"0x1c9c380","difficulty":"0x0"}}"#);
         BlockContainer {
             hash: BlockId::from_bytes(hash),
             height,
@@ -615,7 +617,10 @@ mod tests {
         let first: serde_json::Value =
             serde_json::from_str(client.recv().await.unwrap().to_str().unwrap()).unwrap();
         assert_eq!(first["id"], 1);
-        let sub_id = first["result"].as_str().expect("subscription id").to_string();
+        let sub_id = first["result"]
+            .as_str()
+            .expect("subscription id")
+            .to_string();
 
         // A new head is pushed as an eth_subscription envelope.
         head.update_with_block(head_block(0x42));
@@ -657,7 +662,9 @@ mod tests {
 
         // Unsubscribing an unknown id returns false.
         client
-            .send_text(r#"{"jsonrpc":"2.0","id":3,"method":"eth_unsubscribe","params":["deadbeef"]}"#)
+            .send_text(
+                r#"{"jsonrpc":"2.0","id":3,"method":"eth_unsubscribe","params":["deadbeef"]}"#,
+            )
             .await;
         let unknown: serde_json::Value =
             serde_json::from_str(client.recv().await.unwrap().to_str().unwrap()).unwrap();

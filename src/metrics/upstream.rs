@@ -47,8 +47,7 @@ impl ProtocolMetrics {
     fn new(conn_name: String, fail_name: String, size_name: String, what: &str) -> Self {
         // Response sizes from 128B to ~0.5GB; anything larger is effectively
         // "the last bucket" anyway.
-        let size_buckets =
-            exponential_buckets(128.0, 4.0, 12).expect("valid bucket definition");
+        let size_buckets = exponential_buckets(128.0, 4.0, 12).expect("valid bucket definition");
         Self {
             conn: HistogramVec::new(
                 HistogramOpts::new(conn_name, format!("Request time through {what}")),

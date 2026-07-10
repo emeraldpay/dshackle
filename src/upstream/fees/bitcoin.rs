@@ -258,10 +258,7 @@ mod tests {
         fn current_height(&self) -> Option<u64> {
             self.height
         }
-        async fn call(
-            &self,
-            request: &JsonRpcRequest,
-        ) -> Result<JsonRpcResponse, UpstreamError> {
+        async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             let param = match &request.params[0] {
                 Value::String(s) => s.clone(),
                 other => other.to_string(),
@@ -397,7 +394,10 @@ mod tests {
         assert_eq!(btc_to_satoshis(&json!(1.0)), Some(100_000_000));
         assert_eq!(btc_to_satoshis(&json!(0.1)), Some(10_000_000));
         assert_eq!(btc_to_satoshis(&json!(0.000_000_01)), Some(1));
-        assert_eq!(btc_to_satoshis(&json!(21_000_000.0)), Some(2_100_000_000_000_000));
+        assert_eq!(
+            btc_to_satoshis(&json!(21_000_000.0)),
+            Some(2_100_000_000_000_000)
+        );
         assert_eq!(btc_to_satoshis(&Value::Null), None);
     }
 
@@ -421,10 +421,7 @@ mod tests {
 
     #[test]
     fn average_divides_total_by_count() {
-        let fees = [
-            TxFee { count: 1, fee: 10 },
-            TxFee { count: 1, fee: 20 },
-        ];
+        let fees = [TxFee { count: 1, fee: 10 }, TxFee { count: 1, fee: 20 }];
         let agg = aggregate(FeeMode::AvgLast, &fees).unwrap();
         // (10 + 20) / 2 = 15.
         assert_eq!(sat_per_kb(to_response(agg)), 15);

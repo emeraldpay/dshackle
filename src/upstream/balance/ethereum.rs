@@ -84,7 +84,11 @@ pub struct EthereumBalance {
 
 impl EthereumBalance {
     /// Native Ether tracker echoing `asset` (the request's `ether` asset).
-    pub fn native(access: Arc<dyn ChainAccess>, head: Option<Arc<MergedHead>>, asset: Asset) -> Self {
+    pub fn native(
+        access: Arc<dyn ChainAccess>,
+        head: Option<Arc<MergedHead>>,
+        asset: Asset,
+    ) -> Self {
         Self {
             access,
             head,
@@ -140,9 +144,7 @@ impl EthereumBalance {
     /// touches the address. Backs `SubscribeBalance`.
     pub fn subscribe(&self, addresses: Vec<String>) -> BalanceStream {
         match &self.kind {
-            BalanceKind::Native(_) => {
-                super::subscribe(self.head.clone(), addresses, self.reader())
-            }
+            BalanceKind::Native(_) => super::subscribe(self.head.clone(), addresses, self.reader()),
             BalanceKind::Erc20 { contract, .. } => erc20_subscribe(
                 self.head.clone(),
                 Arc::clone(&self.access),
@@ -242,12 +244,10 @@ fn respond(kind: &BalanceKind, address: String, balance: U256) -> AddressBalance
         BalanceKind::Native(asset) => native_balance(asset.clone(), address, balance),
         BalanceKind::Erc20 { echo, .. } => {
             let balance_type = match echo {
-                Erc20Echo::Named { chain, name } => {
-                    address_balance::BalanceType::Asset(Asset {
-                        chain: *chain,
-                        code: name.to_uppercase(),
-                    })
-                }
+                Erc20Echo::Named { chain, name } => address_balance::BalanceType::Asset(Asset {
+                    chain: *chain,
+                    code: name.to_uppercase(),
+                }),
                 Erc20Echo::Contract { chain, contract } => {
                     address_balance::BalanceType::Erc20Asset(Erc20Asset {
                         chain: *chain,
@@ -494,10 +494,7 @@ mod tests {
         fn is_syncing(&self) -> bool {
             false
         }
-        async fn call(
-            &self,
-            request: &JsonRpcRequest,
-        ) -> Result<JsonRpcResponse, UpstreamError> {
+        async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             let key = match request.method.as_str() {
                 "eth_getBalance" => request.params[0].as_str().unwrap().to_string(),
                 "eth_call" => request.params[0]["to"].as_str().unwrap().to_string(),
@@ -675,10 +672,7 @@ mod tests {
             fn is_syncing(&self) -> bool {
                 false
             }
-            async fn call(
-                &self,
-                _: &JsonRpcRequest,
-            ) -> Result<JsonRpcResponse, UpstreamError> {
+            async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
                 Err(UpstreamError::Transport("upstream down".into()))
             }
         }
@@ -746,10 +740,7 @@ mod tests {
         fn current_height(&self) -> Option<u64> {
             Some(1)
         }
-        async fn call(
-            &self,
-            request: &JsonRpcRequest,
-        ) -> Result<JsonRpcResponse, UpstreamError> {
+        async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             let body = match request.method.as_str() {
                 "eth_call" => {
                     *self.calls.lock().unwrap() += 1;

@@ -346,8 +346,7 @@ fn logs_stream(
             }
             match state.rx.recv().await {
                 Ok(block) => {
-                    let logs =
-                        fetch_block_logs(&*state.access, &block.hash, &state.filter).await;
+                    let logs = fetch_block_logs(&*state.access, &block.hash, &state.filter).await;
                     state.pending.extend(logs);
                 }
                 // Skip the gap marker when a slow subscriber falls behind.
@@ -592,7 +591,8 @@ mod tests {
         let mut stream = egress.subscribe(METHOD_SYNCING, None).unwrap();
 
         // Initial value is emitted immediately.
-        let first: serde_json::Value = serde_json::from_slice(&stream.next().await.unwrap()).unwrap();
+        let first: serde_json::Value =
+            serde_json::from_slice(&stream.next().await.unwrap()).unwrap();
         assert_eq!(first, serde_json::json!(false));
 
         // `set` wakes the status signal; the stream re-checks and emits the new

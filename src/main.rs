@@ -129,21 +129,20 @@ async fn main() {
         }
     };
 
-    let upstreams =
-        match upstream::UpstreamManager::from_config(
-            upstreams_config,
-            config.cache.as_ref(),
-            &config.tokens,
-            &config.config_dir,
-        )
-        .await
-        {
-            Ok(mgr) => Arc::new(mgr),
-            Err(e) => {
-                tracing::error!("Failed to build upstreams: {e:#}");
-                std::process::exit(1);
-            }
-        };
+    let upstreams = match upstream::UpstreamManager::from_config(
+        upstreams_config,
+        config.cache.as_ref(),
+        &config.tokens,
+        &config.config_dir,
+    )
+    .await
+    {
+        Ok(mgr) => Arc::new(mgr),
+        Err(e) => {
+            tracing::error!("Failed to build upstreams: {e:#}");
+            std::process::exit(1);
+        }
+    };
 
     metrics::register_upstreams(Arc::clone(&upstreams) as Arc<dyn metrics::UpstreamsStatus>);
 
@@ -190,14 +189,13 @@ async fn main() {
 
     let service = rpc::blockchain_rpc::BlockchainRpcService::new(upstreams, signer);
 
-    let grpc_tls =
-        match tls::server_tls("Native gRPC", config.tls.as_ref(), &config.config_dir) {
-            Ok(tls) => tls,
-            Err(e) => {
-                tracing::error!("Invalid TLS configuration: {e:#}");
-                std::process::exit(1);
-            }
-        };
+    let grpc_tls = match tls::server_tls("Native gRPC", config.tls.as_ref(), &config.config_dir) {
+        Ok(tls) => tls,
+        Err(e) => {
+            tracing::error!("Invalid TLS configuration: {e:#}");
+            std::process::exit(1);
+        }
+    };
 
     if let Err(e) = server::start_grpc_server(&config.host, config.port, grpc_tls, service).await {
         tracing::error!("gRPC server failed: {e:#}");

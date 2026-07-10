@@ -109,7 +109,9 @@ impl JsonRpcMetrics {
     }
 
     pub fn on_err(&self, chain: &str, method: &str) {
-        self.err.with_label_values(&self.labels(chain, method)).inc();
+        self.err
+            .with_label_values(&self.labels(chain, method))
+            .inc();
     }
 
     pub fn on_fail(&self, chain: &str, method: &str) {

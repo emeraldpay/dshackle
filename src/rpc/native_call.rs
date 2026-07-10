@@ -18,34 +18,56 @@
 
 use crate::jsonrpc::JsonRpcRequest;
 use crate::signature::{ProvidedSignature, ResponseSigner};
-use crate::upstream::Multistream;
+use crate::upstream::egress::ChainAccess;
+use crate::upstream::ethereum::call_selector;
 use crate::upstream::router::{self, Routed};
+use crate::upstream::selector::LabelSelector;
 use crate::upstream::traits::UpstreamError;
+use crate::upstream::{Multistream, multistream};
 use emerald_api::proto::blockchain::{
     NativeCallItem, NativeCallReplyItem, NativeCallReplySignature,
 };
 
 /// Route a single JSON-RPC request through a chain's upstreams using the
 /// method's quorum policy. The shared execution core behind both the gRPC
-/// `NativeCall` and the JSON-RPC HTTP proxy.
+/// `NativeCall` and the JSON-RPC HTTP proxy (which always passes
+/// [`LabelSelector::Any`] — label selection is a gRPC-only feature, as in
+/// legacy).
+///
+/// Candidates must pass the client's label selector, and — for Ethereum state
+/// reads pinned to a block — must have reached that block. Both are hard
+/// filters: sending an `eth_call` for a historic block to a pruned node would
+/// return a wrong (empty) result rather than an error, so an empty candidate
+/// list must fail the request instead of falling back.
 pub async fn execute_call(
     multistream: &Multistream,
     request: &JsonRpcRequest,
+    labels: &LabelSelector,
 ) -> Result<Routed, UpstreamError> {
     let quorum = multistream.quorum_for(&request.method);
-    let candidates = multistream.select_for(quorum.selector(), &request.method);
-    router::route(candidates, quorum, request).await
+    let mut candidates = multistream.select_for(quorum.selector(), &request.method);
+    if *labels != LabelSelector::Any {
+        candidates.retain(|u| labels.matches_any_set(u.label_sets()));
+    }
+    let min_height =
+        call_selector::min_height_for(request, || ChainAccess::current_height(multistream));
+    if let Some(min_height) = min_height {
+        candidates = multistream::at_height(candidates, min_height);
+    }
+    router::route(multistream.chain(), candidates, quorum, request).await
 }
 
 /// Execute a single native call item against the upstreams of a chain.
 ///
 /// Looks up the per-method `CallQuorum` from the `Multistream`'s factory,
 /// asks the quorum which selector to use, and routes through the matching
-/// candidate set. A successful result is signed when the client requested it
-/// (a non-zero `nonce`) and a signer is configured.
+/// candidate set filtered by the request's label selector. A successful
+/// result is signed when the client requested it (a non-zero `nonce`) and a
+/// signer is configured.
 pub async fn execute_native_call(
     multistream: &Multistream,
     item: &NativeCallItem,
+    labels: &LabelSelector,
     signer: Option<&ResponseSigner>,
 ) -> NativeCallReplyItem {
     let params = match parse_payload(&item.payload) {
@@ -67,7 +89,7 @@ pub async fn execute_native_call(
     request.nonce = item.nonce;
     tracing::trace!(id = item.id, method = %item.method, "executing native call item");
 
-    match execute_call(multistream, &request).await {
+    match execute_call(multistream, &request, labels).await {
         Ok(routed) => {
             let resp = routed.response;
             let provided = resp.provided_signature;
@@ -333,6 +355,12 @@ mod tests {
         }
     }
 
+    fn test_chain() -> crate::blockchain::TargetBlockchain {
+        crate::blockchain::TargetBlockchain::Standard(
+            emerald_api::proto::common::ChainRef::ChainEthereum,
+        )
+    }
+
     struct AlwaysFactory;
     impl QuorumFactory for AlwaysFactory {
         fn quorum_for(&self, _method: &crate::jsonrpc::RpcMethod) -> Box<dyn CallQuorum> {
@@ -345,7 +373,7 @@ mod tests {
         let upstream = Arc::new(NullWithProvidedSignature {
             state: Arc::new(UpstreamState::new()),
         });
-        let ms = Multistream::new(vec![upstream], Arc::new(AlwaysFactory));
+        let ms = Multistream::new(test_chain(), vec![upstream], Arc::new(AlwaysFactory));
         let item = NativeCallItem {
             id: 1,
             method: "eth_getTransactionByHash".to_string(),
@@ -353,7 +381,7 @@ mod tests {
             nonce: 5,
         };
 
-        let reply = execute_native_call(&ms, &item, None).await;
+        let reply = execute_native_call(&ms, &item, &LabelSelector::Any, None).await;
 
         assert!(reply.succeed);
         assert_eq!(reply.payload, b"null");
@@ -364,6 +392,220 @@ mod tests {
         assert_eq!(sig.upstream_id, "remote-node");
         // Reply nonce is the client's, not the remote's echo.
         assert_eq!(sig.nonce, 5);
+    }
+
+    // ── Label- and height-constrained routing ─────────────────────────────
+
+    use crate::upstream::head::CurrentHead;
+    use std::collections::HashMap;
+
+    /// Upstream with fixed labels, head height, and availability, answering
+    /// every call with its own id — so tests can see who served the request.
+    struct LabeledUpstream {
+        label: String,
+        label_sets: Vec<HashMap<String, String>>,
+        head: CurrentHead,
+        availability: UpstreamAvailability,
+        state: Arc<UpstreamState>,
+    }
+
+    impl LabeledUpstream {
+        fn new(id: &str, labels: &[(&str, &str)], height: Option<u64>) -> Arc<Self> {
+            Self::with_availability(id, labels, height, UpstreamAvailability::Ok)
+        }
+
+        fn with_availability(
+            id: &str,
+            labels: &[(&str, &str)],
+            height: Option<u64>,
+            availability: UpstreamAvailability,
+        ) -> Arc<Self> {
+            let head = CurrentHead::new();
+            if let Some(h) = height {
+                head.update(h);
+            }
+            Arc::new(Self {
+                label: id.to_string(),
+                label_sets: vec![
+                    labels
+                        .iter()
+                        .map(|(k, v)| (k.to_string(), v.to_string()))
+                        .collect(),
+                ],
+                head,
+                availability,
+                state: Arc::new(UpstreamState::new()),
+            })
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl RpcUpstream for LabeledUpstream {
+        async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
+            let body = format!(r#"{{"jsonrpc":"2.0","id":1,"result":"{}"}}"#, self.label);
+            Ok(serde_json::from_str(&body).unwrap())
+        }
+        fn id(&self) -> &str {
+            &self.label
+        }
+        fn availability(&self) -> UpstreamAvailability {
+            self.availability
+        }
+        fn head(&self) -> &dyn Head {
+            &self.head
+        }
+        fn lag(&self) -> Option<u64> {
+            Some(0)
+        }
+        fn state(&self) -> &Arc<UpstreamState> {
+            &self.state
+        }
+        fn label_sets(&self) -> &[HashMap<String, String>] {
+            &self.label_sets
+        }
+    }
+
+    fn result_of(routed: &Routed) -> String {
+        routed
+            .response
+            .result
+            .as_ref()
+            .unwrap()
+            .get()
+            .trim_matches('"')
+            .to_string()
+    }
+
+    #[tokio::test]
+    async fn label_selector_routes_to_matching_upstream() {
+        let ms = Multistream::new(
+            test_chain(),
+            vec![
+                LabeledUpstream::new("plain", &[("archive", "false")], Some(100)),
+                LabeledUpstream::new("archive", &[("archive", "true")], Some(100)),
+            ],
+            Arc::new(AlwaysFactory),
+        );
+        let request = JsonRpcRequest::new(1, "eth_blockNumber".into(), serde_json::json!([]));
+        let selector = LabelSelector::Label {
+            name: "archive".into(),
+            values: vec!["true".into()],
+        };
+
+        // Repeated calls advance the round-robin cursor; the label filter must
+        // hold regardless of which upstream leads.
+        for _ in 0..4 {
+            let routed = execute_call(&ms, &request, &selector).await.unwrap();
+            assert_eq!(result_of(&routed), "archive");
+        }
+    }
+
+    #[tokio::test]
+    async fn label_selector_with_no_match_fails() {
+        let ms = Multistream::new(
+            test_chain(),
+            vec![LabeledUpstream::new(
+                "plain",
+                &[("archive", "false")],
+                Some(100),
+            )],
+            Arc::new(AlwaysFactory),
+        );
+        let request = JsonRpcRequest::new(1, "eth_blockNumber".into(), serde_json::json!([]));
+        let selector = LabelSelector::Exists("special".into());
+
+        let err = execute_call(&ms, &request, &selector).await.unwrap_err();
+        assert!(matches!(err, UpstreamError::Transport(_)));
+    }
+
+    #[tokio::test]
+    async fn historic_read_skips_upstreams_below_the_block() {
+        let ms = Multistream::new(
+            test_chain(),
+            vec![
+                LabeledUpstream::new("pruned", &[], Some(50)),
+                LabeledUpstream::new("full", &[], Some(200)),
+            ],
+            Arc::new(AlwaysFactory),
+        );
+        // eth_getBalance at block 0x64 (=100): only "full" has reached it.
+        let request = JsonRpcRequest::new(
+            1,
+            "eth_getBalance".into(),
+            serde_json::json!(["0x690b2bdf41f33f9f251ae0459e5898b856ed96be", "0x64"]),
+        );
+
+        for _ in 0..4 {
+            let routed = execute_call(&ms, &request, &LabelSelector::Any)
+                .await
+                .unwrap();
+            assert_eq!(result_of(&routed), "full");
+        }
+    }
+
+    #[tokio::test]
+    async fn latest_read_survives_an_unavailable_head_most_upstream() {
+        // "sick" once reported the highest head, then went unavailable — its
+        // height must not become the "latest" bar, or the healthy upstream
+        // one block behind would be filtered out and the whole chain errors.
+        let sick = LabeledUpstream::with_availability(
+            "sick",
+            &[],
+            Some(1005),
+            UpstreamAvailability::Unavailable,
+        );
+        let healthy = LabeledUpstream::new("healthy", &[], Some(1004));
+        let ms = Multistream::new(test_chain(), vec![sick, healthy], Arc::new(AlwaysFactory));
+
+        let request = JsonRpcRequest::new(
+            1,
+            "eth_getBalance".into(),
+            serde_json::json!(["0x690b2bdf41f33f9f251ae0459e5898b856ed96be", "latest"]),
+        );
+        let routed = execute_call(&ms, &request, &LabelSelector::Any)
+            .await
+            .unwrap();
+        assert_eq!(result_of(&routed), "healthy");
+    }
+
+    #[tokio::test]
+    async fn pinned_read_routes_during_startup_before_heads_are_known() {
+        // Right after a restart no upstream has reported a head yet; a pinned
+        // read must route best-effort instead of deterministically failing on
+        // every deploy.
+        let a = LabeledUpstream::new("a", &[], None);
+        let ms = Multistream::new(test_chain(), vec![a], Arc::new(AlwaysFactory));
+
+        let request = JsonRpcRequest::new(
+            1,
+            "eth_getBalance".into(),
+            serde_json::json!(["0x690b2bdf41f33f9f251ae0459e5898b856ed96be", "0x64"]),
+        );
+        let routed = execute_call(&ms, &request, &LabelSelector::Any)
+            .await
+            .unwrap();
+        assert_eq!(result_of(&routed), "a");
+    }
+
+    #[tokio::test]
+    async fn historic_read_fails_when_no_upstream_has_the_block() {
+        // Routing a historic read to a node without the block would return a
+        // wrong (empty) answer, so unlike other filters this must fail hard.
+        let ms = Multistream::new(
+            test_chain(),
+            vec![LabeledUpstream::new("pruned", &[], Some(50))],
+            Arc::new(AlwaysFactory),
+        );
+        let request = JsonRpcRequest::new(
+            1,
+            "eth_getBalance".into(),
+            serde_json::json!(["0x690b2bdf41f33f9f251ae0459e5898b856ed96be", "0x64"]),
+        );
+
+        let err = execute_call(&ms, &request, &LabelSelector::Any)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, UpstreamError::Transport(_)));
     }
 
     #[test]

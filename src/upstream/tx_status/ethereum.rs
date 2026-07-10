@@ -175,7 +175,10 @@ mod tests {
             })
         }
         fn with(self: &Arc<Self>, method: &str, result: Value) {
-            self.results.lock().unwrap().insert(method.to_string(), result);
+            self.results
+                .lock()
+                .unwrap()
+                .insert(method.to_string(), result);
         }
     }
 
@@ -187,10 +190,7 @@ mod tests {
         fn current_height(&self) -> Option<u64> {
             self.head
         }
-        async fn call(
-            &self,
-            request: &JsonRpcRequest,
-        ) -> Result<JsonRpcResponse, UpstreamError> {
+        async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             let result = self
                 .results
                 .lock()
@@ -237,8 +237,7 @@ mod tests {
     }
 
     // A full 32-byte block hash and its `block_id` rendering (lowercase, no `0x`).
-    const BLOCK_HASH: &str =
-        "0x00000000000000000000000000000000000000000000000000000000DeadBeef";
+    const BLOCK_HASH: &str = "0x00000000000000000000000000000000000000000000000000000000DeadBeef";
     const ZERO_BLOCK_HASH: &str =
         "0x0000000000000000000000000000000000000000000000000000000000000000";
 
@@ -284,10 +283,7 @@ mod tests {
             fn is_syncing(&self) -> bool {
                 false
             }
-            async fn call(
-                &self,
-                _: &JsonRpcRequest,
-            ) -> Result<JsonRpcResponse, UpstreamError> {
+            async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
                 Err(UpstreamError::Transport("down".into()))
             }
         }

@@ -23,6 +23,8 @@
 //! evenly without the router needing to know how many requests have come
 //! before.
 
+use crate::blockchain::TargetBlockchain;
+use crate::config::upstreams::UpstreamRole;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::egress::ChainAccess;
@@ -36,7 +38,13 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 /// Holds every configured upstream for one blockchain and answers queries
 /// about which ones are usable for a given request.
 pub struct Multistream {
+    chain: TargetBlockchain,
     upstreams: Vec<Arc<dyn RpcUpstream>>,
+    /// Upstreams grouped by routing role — primary, secondary, fallback —
+    /// preserving config order within each tier. Roles are fixed at wiring
+    /// time, so the partition is computed once here instead of on every
+    /// selection call.
+    tiers: [Vec<Arc<dyn RpcUpstream>>; 3],
     /// Round-robin cursor advanced on each selector call so that successive
     /// requests start from different upstreams.
     cursor: AtomicUsize,
@@ -49,6 +57,7 @@ pub struct Multistream {
 
 impl Multistream {
     pub fn new(
+        chain: TargetBlockchain,
         upstreams: Vec<Arc<dyn RpcUpstream>>,
         quorum_factory: Arc<dyn QuorumFactory>,
     ) -> Self {
@@ -65,12 +74,28 @@ impl Multistream {
                 .state()
                 .attach_status_signal(Arc::clone(&status_signal));
         }
+        let mut tiers: [Vec<Arc<dyn RpcUpstream>>; 3] = Default::default();
+        for upstream in &upstreams {
+            let tier = match upstream.role() {
+                UpstreamRole::Primary => 0,
+                UpstreamRole::Secondary => 1,
+                UpstreamRole::Fallback => 2,
+            };
+            tiers[tier].push(Arc::clone(upstream));
+        }
         Self {
+            chain,
             upstreams,
+            tiers,
             cursor: AtomicUsize::new(0),
             quorum_factory,
             status_signal,
         }
+    }
+
+    /// The blockchain all these upstreams serve.
+    pub fn chain(&self) -> &TargetBlockchain {
+        &self.chain
     }
 
     /// A subscription that wakes whenever some upstream's availability may have
@@ -164,20 +189,37 @@ impl Multistream {
         })
     }
 
-    /// Generic selector: returns matching upstreams starting from the next
-    /// round-robin position. Used internally by `select_available` and
-    /// available for future strategy-specific selectors.
+    /// Generic selector: returns matching upstreams grouped by role tier
+    /// (primary, then secondary, then fallback), each tier rotated by the
+    /// shared round-robin cursor.
+    ///
+    /// Mirrors the legacy `FilteredApis` ordering: a `Fallback` upstream is
+    /// only reached after every primary and secondary candidate failed, and
+    /// same-tier load still spreads round-robin. Unlike legacy there are no
+    /// delayed retry cycles — the router walks the list once, so fallbacks
+    /// are simply appended at the tail.
     fn select_where<F>(&self, predicate: F) -> Vec<Arc<dyn RpcUpstream>>
     where
         F: Fn(&Arc<dyn RpcUpstream>) -> bool,
     {
-        let n = self.upstreams.len();
-        let start = self.cursor.fetch_add(1, Ordering::Relaxed) % n;
-        let mut out = Vec::with_capacity(n);
-        for i in 0..n {
-            let u = &self.upstreams[(start + i) % n];
-            if predicate(u) {
-                out.push(Arc::clone(u));
+        crate::metrics::select_exist(
+            &self.chain,
+            self.tiers[0].len(),
+            self.tiers[1].len(),
+            self.tiers[2].len(),
+        );
+        let pos = self.cursor.fetch_add(1, Ordering::Relaxed);
+        let mut out = Vec::with_capacity(self.upstreams.len());
+        for tier in &self.tiers {
+            if tier.is_empty() {
+                continue;
+            }
+            let start = pos % tier.len();
+            for i in 0..tier.len() {
+                let u = &tier[(start + i) % tier.len()];
+                if predicate(u) {
+                    out.push(Arc::clone(u));
+                }
             }
         }
         out
@@ -192,6 +234,28 @@ fn serves_rpc(u: &Arc<dyn RpcUpstream>) -> bool {
     u.capabilities().contains(&Capability::Rpc)
 }
 
+/// Keep only candidates whose head has reached `min_height`, following the
+/// legacy `HeightMatcher`: an upstream that never reported a head counts as
+/// height 0.
+///
+/// When *no* candidate reports a height at all — the startup window before
+/// the first head poll — the list is returned unchanged. There is nothing to
+/// compare against yet, and failing every block-pinned read on each deploy
+/// would trade a possible stale answer for a guaranteed error (legacy masked
+/// the same window with its delayed retry cycles).
+pub fn at_height(
+    mut candidates: Vec<Arc<dyn RpcUpstream>>,
+    min_height: u64,
+) -> Vec<Arc<dyn RpcUpstream>> {
+    let any_known = candidates
+        .iter()
+        .any(|u| u.head().current_height().is_some());
+    if any_known {
+        candidates.retain(|u| u.head().current_height().unwrap_or(0) >= min_height);
+    }
+    candidates
+}
+
 #[async_trait::async_trait]
 impl ChainAccess for Multistream {
     fn is_syncing(&self) -> bool {
@@ -203,8 +267,13 @@ impl ChainAccess for Multistream {
     }
 
     fn current_height(&self) -> Option<u64> {
+        // An unavailable or syncing upstream's height cannot be trusted — a
+        // node that failed validation may report a bogus head, and using it
+        // as the chain's height would filter every healthy upstream out of
+        // height-constrained routing.
         self.upstreams
             .iter()
+            .filter(|u| u.availability() <= UpstreamAvailability::Immature)
             .filter_map(|u| u.head().current_height())
             .max()
     }
@@ -214,7 +283,7 @@ impl ChainAccess for Multistream {
         // the upstream layer from depending on the rpc layer.
         let quorum = self.quorum_for(&request.method);
         let candidates = self.select_for(quorum.selector(), &request.method);
-        router::route(candidates, quorum, request)
+        router::route(&self.chain, candidates, quorum, request)
             .await
             .map(|routed| routed.response)
     }
@@ -229,19 +298,16 @@ impl ChainAccess for Multistream {
         // Keep only upstreams that have actually reached the block; a plain
         // `call` may pick one lagging within the method's tolerance, which
         // answers the read with `null`.
-        let at_height: Vec<Arc<dyn RpcUpstream>> = candidates
-            .iter()
-            .filter(|u| u.head().current_height().is_some_and(|h| h >= min_height))
-            .cloned()
-            .collect();
+        let filtered = at_height(candidates.clone(), min_height);
         // Fall back to the unfiltered set when no upstream reports a head at or
         // above the block — best effort, the block may genuinely be unavailable.
-        let candidates = if at_height.is_empty() {
+        // (Client-facing routing in `execute_call` instead fails hard here.)
+        let candidates = if filtered.is_empty() {
             candidates
         } else {
-            at_height
+            filtered
         };
-        router::route(candidates, quorum, request)
+        router::route(&self.chain, candidates, quorum, request)
             .await
             .map(|routed| routed.response)
     }
@@ -263,6 +329,7 @@ mod tests {
         lag: Option<u64>,
         state: Arc<UpstreamState>,
         head: Arc<CurrentHead>,
+        role: UpstreamRole,
         /// Canned result served for any call, when set.
         result: Option<serde_json::Value>,
     }
@@ -283,6 +350,19 @@ mod tests {
                 lag,
                 state: Arc::new(UpstreamState::new()),
                 head: Arc::new(CurrentHead::new()),
+                role: UpstreamRole::Primary,
+                result: None,
+            })
+        }
+
+        fn with_role(label: &str, role: UpstreamRole) -> Arc<Self> {
+            Arc::new(Self {
+                label: label.to_string(),
+                availability: AtomicU8::new(UpstreamAvailability::Ok as u8),
+                lag: Some(0),
+                state: Arc::new(UpstreamState::new()),
+                head: Arc::new(CurrentHead::new()),
+                role,
                 result: None,
             })
         }
@@ -298,6 +378,7 @@ mod tests {
                 lag: Some(0),
                 state: Arc::new(UpstreamState::new()),
                 head: Arc::new(head),
+                role: UpstreamRole::Primary,
                 result: Some(result),
             })
         }
@@ -336,6 +417,13 @@ mod tests {
         fn state(&self) -> &Arc<UpstreamState> {
             &self.state
         }
+        fn role(&self) -> UpstreamRole {
+            self.role
+        }
+    }
+
+    fn test_chain() -> TargetBlockchain {
+        TargetBlockchain::Standard(emerald_api::proto::common::ChainRef::ChainEthereum)
     }
 
     fn ms_of(upstreams: Vec<Arc<MockUpstream>>) -> Multistream {
@@ -343,7 +431,7 @@ mod tests {
             .into_iter()
             .map(|u| u as Arc<dyn RpcUpstream>)
             .collect();
-        Multistream::new(dyn_ups, Arc::new(DefaultMethods))
+        Multistream::new(test_chain(), dyn_ups, Arc::new(DefaultMethods))
     }
 
     fn ids(items: &[Arc<dyn RpcUpstream>]) -> Vec<&str> {
@@ -474,9 +562,106 @@ mod tests {
     }
 
     #[test]
+    fn fallback_selected_after_primary_regardless_of_config_order() {
+        let ms = ms_of(vec![
+            MockUpstream::with_role("backup", UpstreamRole::Fallback),
+            MockUpstream::with_role("main", UpstreamRole::Primary),
+        ]);
+
+        assert_eq!(
+            ids(&ms.select_available(&"any".into())),
+            vec!["main", "backup"]
+        );
+    }
+
+    #[test]
+    fn tiers_ordered_primary_secondary_fallback() {
+        let ms = ms_of(vec![
+            MockUpstream::with_role("f", UpstreamRole::Fallback),
+            MockUpstream::with_role("s", UpstreamRole::Secondary),
+            MockUpstream::with_role("p", UpstreamRole::Primary),
+        ]);
+
+        assert_eq!(
+            ids(&ms.select_available(&"any".into())),
+            vec!["p", "s", "f"]
+        );
+    }
+
+    #[test]
+    fn rotation_stays_within_tier() {
+        let ms = ms_of(vec![
+            MockUpstream::with_role("a", UpstreamRole::Primary),
+            MockUpstream::with_role("b", UpstreamRole::Primary),
+            MockUpstream::with_role("f", UpstreamRole::Fallback),
+        ]);
+
+        // The round-robin cursor rotates primaries between calls, but the
+        // fallback never leaves the tail position.
+        assert_eq!(
+            ids(&ms.select_available(&"any".into())),
+            vec!["a", "b", "f"]
+        );
+        assert_eq!(
+            ids(&ms.select_available(&"any".into())),
+            vec!["b", "a", "f"]
+        );
+        assert_eq!(
+            ids(&ms.select_available(&"any".into())),
+            vec!["a", "b", "f"]
+        );
+    }
+
+    #[test]
+    fn current_height_ignores_unavailable_upstreams() {
+        // A sick upstream may report a bogus (or stale-frozen) head; trusting
+        // it would filter every healthy upstream out of "latest" routing.
+        let sick = MockUpstream::serving("sick", 1005, serde_json::Value::Null);
+        let healthy = MockUpstream::serving("healthy", 1004, serde_json::Value::Null);
+        let ms = ms_of(vec![sick.clone(), healthy]);
+
+        assert_eq!(ChainAccess::current_height(&ms), Some(1005));
+        sick.set_availability(UpstreamAvailability::Unavailable);
+        assert_eq!(ChainAccess::current_height(&ms), Some(1004));
+    }
+
+    #[test]
+    fn at_height_keeps_only_upstreams_at_the_block() {
+        let pruned = MockUpstream::serving("pruned", 50, serde_json::Value::Null);
+        let full = MockUpstream::serving("full", 200, serde_json::Value::Null);
+        let candidates: Vec<Arc<dyn RpcUpstream>> = vec![pruned, full];
+
+        let kept = at_height(candidates, 100);
+        assert_eq!(ids(&kept), vec!["full"]);
+    }
+
+    #[test]
+    fn at_height_excludes_unknown_head_when_others_are_known() {
+        // Legacy `HeightMatcher`: an unreported head counts as height 0.
+        let unknown = MockUpstream::new("unknown", UpstreamAvailability::Ok);
+        let known = MockUpstream::serving("known", 200, serde_json::Value::Null);
+        let candidates: Vec<Arc<dyn RpcUpstream>> = vec![unknown, known];
+
+        let kept = at_height(candidates, 100);
+        assert_eq!(ids(&kept), vec!["known"]);
+    }
+
+    #[test]
+    fn at_height_passes_all_through_when_no_head_is_known_yet() {
+        // The startup window before the first head poll: with nothing to
+        // compare against, filtering would fail every pinned read on deploy.
+        let a = MockUpstream::new("a", UpstreamAvailability::Ok);
+        let b = MockUpstream::new("b", UpstreamAvailability::Ok);
+        let candidates: Vec<Arc<dyn RpcUpstream>> = vec![a, b];
+
+        let kept = at_height(candidates, 100);
+        assert_eq!(kept.len(), 2);
+    }
+
+    #[test]
     #[should_panic(expected = "at least one upstream")]
     fn panics_on_empty() {
-        let _ms = Multistream::new(vec![], Arc::new(DefaultMethods));
+        let _ms = Multistream::new(test_chain(), vec![], Arc::new(DefaultMethods));
     }
 
     #[tokio::test]
@@ -494,8 +679,7 @@ mod tests {
             serde_json::json!(["0x64", true]),
         );
         let resp = ms.call_at_height(&req, 100).await.unwrap();
-        let result: serde_json::Value =
-            serde_json::from_str(resp.result.unwrap().get()).unwrap();
+        let result: serde_json::Value = serde_json::from_str(resp.result.unwrap().get()).unwrap();
         assert_eq!(result["number"], "0x64");
     }
 
@@ -512,8 +696,7 @@ mod tests {
             serde_json::json!(["0xc8", true]),
         );
         let resp = ms.call_at_height(&req, 200).await.unwrap();
-        let result: serde_json::Value =
-            serde_json::from_str(resp.result.unwrap().get()).unwrap();
+        let result: serde_json::Value = serde_json::from_str(resp.result.unwrap().get()).unwrap();
         assert_eq!(result["number"], "0x64");
     }
 
@@ -565,7 +748,7 @@ mod tests {
             gated("b", &["debug_traceTransaction"]) as Arc<dyn RpcUpstream>,
             gated("c", &["eth_getBalance", "debug_traceTransaction"]) as Arc<dyn RpcUpstream>,
         ];
-        let ms = Multistream::new(dyn_ups, Arc::new(DefaultMethods));
+        let ms = Multistream::new(test_chain(), dyn_ups, Arc::new(DefaultMethods));
 
         // `b` doesn't support eth_getBalance — it must not appear.
         let picked = ms.select_available(&"eth_getBalance".into());
@@ -581,7 +764,7 @@ mod tests {
             gated("archive", &["debug_traceTransaction"]) as Arc<dyn RpcUpstream>,
             gated("basic", &["eth_getBalance"]) as Arc<dyn RpcUpstream>,
         ];
-        let ms = Multistream::new(dyn_ups, Arc::new(DefaultMethods));
+        let ms = Multistream::new(test_chain(), dyn_ups, Arc::new(DefaultMethods));
 
         let picked = ms.select_not_lagging(&"debug_traceTransaction".into(), 0);
         assert_eq!(ids(&picked), vec!["archive"]);

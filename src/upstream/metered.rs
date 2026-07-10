@@ -22,6 +22,7 @@
 //! where the legacy clients recorded them.
 
 use crate::blockchain::TargetBlockchain;
+use crate::config::upstreams::UpstreamRole;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::metrics::{self, UpstreamProtocol};
 use crate::upstream::availability::UpstreamAvailability;
@@ -113,8 +114,12 @@ impl RpcUpstream for MeteredUpstream {
         self.inner.allows_method(method)
     }
 
-    fn labels(&self) -> &HashMap<String, String> {
-        self.inner.labels()
+    fn label_sets(&self) -> &[HashMap<String, String>] {
+        self.inner.label_sets()
+    }
+
+    fn role(&self) -> UpstreamRole {
+        self.inner.role()
     }
 
     fn capabilities(&self) -> Vec<Capability> {

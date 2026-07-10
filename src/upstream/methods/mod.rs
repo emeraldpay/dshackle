@@ -162,7 +162,10 @@ mod tests {
     fn remote_methods_advertise_discovered_list_but_stay_pass_through() {
         let remote = RemoteMethods::new(vec!["eth_call".into(), "eth_getBalance".into()]);
         // Advertised for `Describe`...
-        assert_eq!(remote.supported_methods(), vec!["eth_call", "eth_getBalance"]);
+        assert_eq!(
+            remote.supported_methods(),
+            vec!["eth_call", "eth_getBalance"]
+        );
         // ...yet still pass-through: any method is callable and gets the
         // permissive quorum, since the remote enforces its own filtering.
         assert!(remote.is_callable(&"debug_traceTransaction".into()));
@@ -180,10 +183,7 @@ mod tests {
             "eth_call".into(),
             "eth_blockNumber".into(),
         ]))]);
-        assert_eq!(
-            agg.supported_methods(),
-            vec!["eth_blockNumber", "eth_call"]
-        );
+        assert_eq!(agg.supported_methods(), vec!["eth_blockNumber", "eth_call"]);
     }
 
     // ── AggregatedMethods ────────────────────────────────────────────────

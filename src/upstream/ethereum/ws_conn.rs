@@ -445,10 +445,7 @@ mod tests {
             basic_auth: None,
         };
         let request = target.client_request().unwrap();
-        assert_eq!(
-            request.headers().get("Origin").unwrap(),
-            "http://localhost"
-        );
+        assert_eq!(request.headers().get("Origin").unwrap(), "http://localhost");
         assert!(request.headers().get("Authorization").is_none());
     }
 

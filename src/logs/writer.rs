@@ -73,7 +73,10 @@ impl LogWriter {
                     tracing::error!("No port set for a {} socket target", label);
                     return None;
                 };
-                let host = config.host.clone().unwrap_or_else(|| "127.0.0.1".to_string());
+                let host = config
+                    .host
+                    .clone()
+                    .unwrap_or_else(|| "127.0.0.1".to_string());
                 let limit = config.buffer.unwrap_or(QUEUE_LIMIT);
                 let (writer, rx) = Self::new(limit, label);
                 tokio::spawn(run_socket(
@@ -137,7 +140,9 @@ impl LogWriter {
 /// Report `count` events written to the storage: the collect counter and the
 /// shrunk queue gauge.
 fn on_written(queued: &AtomicU64, label: &'static str, count: u64) {
-    let size = queued.fetch_sub(count, Ordering::Relaxed).saturating_sub(count);
+    let size = queued
+        .fetch_sub(count, Ordering::Relaxed)
+        .saturating_sub(count);
     metrics::log_collected(label, count);
     metrics::log_queue_size(label, size);
 }
@@ -311,7 +316,9 @@ mod tests {
 
         let (mut conn, _) = listener.accept().await.unwrap();
         let mut buf = vec![0u8; 64];
-        let n = tokio::io::AsyncReadExt::read(&mut conn, &mut buf).await.unwrap();
+        let n = tokio::io::AsyncReadExt::read(&mut conn, &mut buf)
+            .await
+            .unwrap();
         assert_eq!(&buf[..n], b"{\"n\":1}\n");
     }
 
@@ -331,7 +338,9 @@ mod tests {
 
         let (mut conn, _) = listener.accept().await.unwrap();
         let mut buf = vec![0u8; 64];
-        let n = tokio::io::AsyncReadExt::read(&mut conn, &mut buf).await.unwrap();
+        let n = tokio::io::AsyncReadExt::read(&mut conn, &mut buf)
+            .await
+            .unwrap();
         assert_eq!(&buf[..n], [&[0u8, 0, 0, 7][..], br#"{"n":1}"#].concat());
     }
 

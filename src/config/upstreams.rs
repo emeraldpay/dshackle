@@ -173,7 +173,7 @@ pub struct MethodConfig {
 // ─── Roles ───────────────────────────────────────────────────────────────────
 
 /// Upstream role in the load balancing hierarchy.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum UpstreamRole {
     #[default]
     Primary,

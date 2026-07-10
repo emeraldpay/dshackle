@@ -296,7 +296,7 @@ fn ttl_deadline(start: Instant, last: Option<&TxState>, ttl: &Ttl) -> Option<Ins
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::{BlockId, BlockContainer};
+    use crate::data::{BlockContainer, BlockId};
     use crate::upstream::head::CurrentHead;
     use std::collections::VecDeque;
     use std::sync::Mutex;

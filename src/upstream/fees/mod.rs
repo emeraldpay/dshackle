@@ -204,7 +204,10 @@ mod tests {
     #[test]
     fn known_modes_map() {
         use emerald_api::proto::blockchain::FeeEstimationMode as M;
-        assert_eq!(FeeMode::from_proto(M::AvgLast as i32), Some(FeeMode::AvgLast));
+        assert_eq!(
+            FeeMode::from_proto(M::AvgLast as i32),
+            Some(FeeMode::AvgLast)
+        );
         assert_eq!(
             FeeMode::from_proto(M::MinAlways as i32),
             Some(FeeMode::MinAlways)

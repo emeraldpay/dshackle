@@ -137,7 +137,9 @@ impl GrpcMetrics {
     }
 
     pub fn on_request(&self, request: GrpcRequestType, chain: &str) {
-        self.request.with_label_values(&[request.label(), chain]).inc();
+        self.request
+            .with_label_values(&[request.label(), chain])
+            .inc();
     }
 
     pub fn on_response(&self, request: GrpcRequestType, chain: &str) {
@@ -159,7 +161,9 @@ impl GrpcMetrics {
     }
 
     pub fn on_reply(&self, request: GrpcRequestType, chain: &str) {
-        self.reply.with_label_values(&[request.label(), chain]).inc();
+        self.reply
+            .with_label_values(&[request.label(), chain])
+            .inc();
     }
 
     pub fn on_fail(&self) {

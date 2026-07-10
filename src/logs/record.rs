@@ -154,7 +154,10 @@ mod tests {
 
     #[test]
     fn formats_instant_without_fraction() {
-        assert_eq!(ts("2023-10-11T12:13:14Z").to_string(), "2023-10-11T12:13:14Z");
+        assert_eq!(
+            ts("2023-10-11T12:13:14Z").to_string(),
+            "2023-10-11T12:13:14Z"
+        );
     }
 
     #[test]
@@ -197,7 +200,10 @@ mod tests {
             Some("test-agent"),
         );
         assert_eq!(remote.ip, "8.8.8.8");
-        assert_eq!(remote.ips, vec!["8.8.8.8", "10.0.0.1", "127.0.0.1", "127.0.0.1"]);
+        assert_eq!(
+            remote.ips,
+            vec!["8.8.8.8", "10.0.0.1", "127.0.0.1", "127.0.0.1"]
+        );
         assert_eq!(remote.user_agent, "test-agent");
     }
 

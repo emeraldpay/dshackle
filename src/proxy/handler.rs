@@ -26,6 +26,7 @@ use crate::logs::access;
 use crate::metrics;
 use crate::rpc::native_call::execute_call;
 use crate::upstream::Multistream;
+use crate::upstream::selector::LabelSelector;
 use futures::future::join_all;
 use futures::stream::{FuturesUnordered, StreamExt};
 use serde_json::value::RawValue;
@@ -231,8 +232,7 @@ async fn execute(
             // The transport never sees a malformed method name; report it the
             // way a node would rather than forwarding garbage.
             metrics::jsonrpc_err(chain, &req.method);
-            let body =
-                protocol::build_error(&req.id, -32601, "Method not found".to_string(), None);
+            let body = protocol::build_error(&req.id, -32601, "Method not found".to_string(), None);
             return (
                 body,
                 CallOutcome {
@@ -248,7 +248,8 @@ async fn execute(
     // caller's id is restored when the response is built.
     let request = JsonRpcRequest::new(0, method, req.params.clone());
 
-    match execute_call(multistream, &request).await {
+    // Proxy requests carry no label selector — that's a gRPC-only input.
+    match execute_call(multistream, &request, &LabelSelector::Any).await {
         Ok(routed) => {
             let resp = routed.response;
             if let Some(err) = resp.error {
@@ -356,6 +357,7 @@ mod tests {
 
     fn multistream(result: &'static str) -> Multistream {
         Multistream::new(
+            TargetBlockchain::Standard(emerald_api::proto::common::ChainRef::ChainEthereum),
             vec![StubUpstream::with_result(result)],
             Arc::new(AlwaysFactory),
         )
@@ -457,6 +459,7 @@ mod tests {
         }
 
         let ms = Multistream::new(
+            TargetBlockchain::Standard(emerald_api::proto::common::ChainRef::ChainEthereum),
             vec![Arc::new(ErrUpstream(Arc::new(UpstreamState::new()))) as Arc<dyn RpcUpstream>],
             Arc::new(AlwaysFactory),
         );

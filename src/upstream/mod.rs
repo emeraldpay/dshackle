@@ -34,14 +34,16 @@ mod methods;
 pub mod multistream;
 pub mod quorum;
 pub mod router;
+pub mod selector;
 pub mod state;
 mod status;
 pub mod status_signal;
-pub mod tx_status;
 mod switch;
 pub mod traits;
+pub mod tx_status;
 pub mod validation;
 
+pub use identified::IdentifiedUpstream;
 pub use multistream::Multistream;
 
 use crate::blockchain::{BlockchainType, TargetBlockchain};
@@ -52,6 +54,8 @@ use crate::cache::{
 use crate::config::cache::CacheConfig;
 use crate::config::tokens::{TokenConfig, TokenType};
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
+use allowance::{AllowanceError, AllowanceStream};
+use balance::{BalanceError, BalanceStream, BitcoinBalance, EthereumBalance};
 use bitcoin::head::start_head_poller as start_btc_head_poller;
 use bitcoin::http::BitcoinHttpUpstream;
 use bitcoin::reader::BitcoinReader;
@@ -59,33 +63,25 @@ use bitcoin::validator::BitcoinValidator;
 use dshackle::DshackleUpstream;
 use dshackle::head::start_head_subscriber;
 use dshackle::status::start_status_subscriber;
+use egress::{ChainAccess, EgressSubscription, EthereumEgress};
 use emerald_api::proto::blockchain::AddressAllowanceRequest;
 use emerald_api::proto::blockchain::BalanceRequest;
-use emerald_api::proto::blockchain::{DescribeChain, DescribeRequest};
 use emerald_api::proto::blockchain::TxStatusRequest;
 use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
-use std::time::Duration;
-use tonic::transport::Channel;
+use emerald_api::proto::blockchain::{DescribeChain, DescribeRequest};
 use emerald_api::proto::common::ChainRef;
 use ethereum::EthereumWsUpstream;
 use ethereum::head::{start_head_poller, start_ws_head};
 use ethereum::http::EthereumHttpUpstream;
 use ethereum::validator::EthereumValidator;
+use fees::{BitcoinFees, ChainFees, EthereumFees};
 use fork::{
     DifficultyForkChoice, ForkChoice, ForkMember, PriorityForkChoice, is_pos, start_fork_watch,
 };
-use allowance::{AllowanceError, AllowanceStream};
-use balance::{BalanceError, BalanceStream, BitcoinBalance, EthereumBalance};
-use tx_status::bitcoin::BitcoinTxReader;
-use tx_status::ethereum::EthereumTxReader;
-use tx_status::{TxStatusError, TxStatusStream};
-use egress::{ChainAccess, EgressSubscription, EthereumEgress};
-use fees::{BitcoinFees, ChainFees, EthereumFees};
 use head::CurrentHead;
-use identified::IdentifiedUpstream;
 use logged::LoggedUpstream;
-use metered::MeteredUpstream;
 use merged_head::MergedHead;
+use metered::MeteredUpstream;
 use methods::AggregatedMethods;
 use methods::ConfiguredMethods;
 use methods::DefaultMethods;
@@ -99,8 +95,13 @@ use quorum::QuorumFactory;
 use status::ChainStatus;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::time::Duration;
 use switch::SwitchClient;
+use tonic::transport::Channel;
 use traits::{Capability, RpcUpstream};
+use tx_status::bitcoin::BitcoinTxReader;
+use tx_status::ethereum::EthereumTxReader;
+use tx_status::{TxStatusError, TxStatusStream};
 
 /// Holds all configured upstreams, indexed by target blockchain.
 ///
@@ -414,12 +415,14 @@ impl UpstreamManager {
                         });
                     }
 
-                    // Outermost layer: attach the configured labels and
-                    // capabilities so `Describe` can report this upstream.
+                    // Outermost layer: attach the configured labels, capabilities,
+                    // and routing role so `Describe` and upstream selection can
+                    // read them.
                     let reader: Arc<dyn RpcUpstream> = Arc::new(IdentifiedUpstream::new(
                         reader,
-                        upstream.labels.clone(),
+                        vec![upstream.labels.clone()],
                         local_capabilities(options.balance),
+                        upstream.role,
                     ));
 
                     per_chain.entry(chain).or_default().push(reader);
@@ -528,11 +531,12 @@ impl UpstreamManager {
                     });
 
                     // Outermost layer: configured labels + capabilities for
-                    // `Describe`.
+                    // `Describe`, plus the routing role.
                     let reader: Arc<dyn RpcUpstream> = Arc::new(IdentifiedUpstream::new(
                         reader,
-                        upstream.labels.clone(),
+                        vec![upstream.labels.clone()],
                         local_capabilities(options.balance),
+                        upstream.role,
                     ));
 
                     per_chain.entry(chain).or_default().push(reader);
@@ -661,7 +665,7 @@ impl UpstreamManager {
             } else {
                 Arc::new(AggregatedMethods::new(delegates))
             };
-            upstreams.insert(chain, Arc::new(Multistream::new(readers, factory)));
+            upstreams.insert(chain, Arc::new(Multistream::new(chain, readers, factory)));
         }
 
         if upstreams.is_empty() {
@@ -828,8 +832,13 @@ impl UpstreamManager {
                     return Ok(balance::empty_stream());
                 };
                 let addresses = balance::parse_eth_addresses(addresses)?;
-                let t =
-                    EthereumBalance::erc20_named(access, head, chain_id, asset.code.clone(), contract);
+                let t = EthereumBalance::erc20_named(
+                    access,
+                    head,
+                    chain_id,
+                    asset.code.clone(),
+                    contract,
+                );
                 if subscribe {
                     t.subscribe(addresses)
                 } else {
@@ -930,10 +939,7 @@ impl UpstreamManager {
     /// Bitcoin's clamp intentionally differs from a latent legacy bug: legacy
     /// computes `max(min(1, limit), 12)`, which collapses to a constant 12; we
     /// honor the client's requested limit within `[1, 12]`.
-    pub fn tx_status(
-        &self,
-        request: &TxStatusRequest,
-    ) -> Result<TxStatusStream, TxStatusError> {
+    pub fn tx_status(&self, request: &TxStatusRequest) -> Result<TxStatusStream, TxStatusError> {
         let chain = TargetBlockchain::try_from(request.chain)
             .map_err(|_| TxStatusError::Unavailable(request.chain))?;
         let multistream = self
@@ -1045,9 +1051,7 @@ const BITCOIN_FEE_HEIGHT_LIMIT: u32 = 6;
 /// lowercased contract address, so a `GetBalance` request can name a token by
 /// its code. Tokens on an unrecognized blockchain are skipped. Legacy
 /// `TrackERC20Address.init`.
-fn build_token_registry(
-    tokens: &[TokenConfig],
-) -> HashMap<(TargetBlockchain, String), String> {
+fn build_token_registry(tokens: &[TokenConfig]) -> HashMap<(TargetBlockchain, String), String> {
     let mut registry = HashMap::new();
     for token in tokens {
         let TokenType::Erc20 = token.token_type;
@@ -1322,12 +1326,16 @@ fn wire_remote_dshackle(
         // Keep the gRPC client to forward allowance requests to, when the
         // remote advertises that capability (legacy `allowanceUpstreamMatcher`).
         if caps.contains(&Capability::Allowance) {
-            allowance_clients.entry(chain).or_insert_with(|| client.clone());
+            allowance_clients
+                .entry(chain)
+                .or_insert_with(|| client.clone());
         }
         // Likewise for balance: a BALANCE-capable remote serves `GetBalance`
         // directly, so Bitcoin balance requests forward to it.
         if caps.contains(&Capability::Balance) {
-            balance_clients.entry(chain).or_insert_with(|| client.clone());
+            balance_clients
+                .entry(chain)
+                .or_insert_with(|| client.clone());
         }
 
         // Use the supported methods from Describe as the allowed set.
@@ -1347,10 +1355,30 @@ fn wire_remote_dshackle(
             reader
         };
 
-        // Outermost layer: this relay's configured labels plus the capabilities
-        // the remote reported.
-        let reader: Arc<dyn RpcUpstream> =
-            Arc::new(IdentifiedUpstream::new(reader, upstream.labels.clone(), caps));
+        // Outermost layer: the capabilities the remote reported, plus one label
+        // set per node the remote advertises (legacy `GrpcUpstreamStatus`) so
+        // label selectors route through the relay without duplicating the
+        // remote's labels in the local config. Locally configured labels on
+        // the relay entry are kept as an extra set.
+        let mut label_sets: Vec<HashMap<String, String>> = desc_chain
+            .nodes
+            .iter()
+            .map(|node| {
+                node.labels
+                    .iter()
+                    .map(|l| (l.name.clone(), l.value.clone()))
+                    .collect()
+            })
+            .collect();
+        if !upstream.labels.is_empty() {
+            label_sets.push(upstream.labels.clone());
+        }
+        let reader: Arc<dyn RpcUpstream> = Arc::new(IdentifiedUpstream::new(
+            reader,
+            label_sets,
+            caps,
+            upstream.role,
+        ));
         per_chain.entry(chain).or_default().push(reader);
         // Remote Dshackles handle their own quorum internally, so this factory
         // keeps every method callable — but it carries the remote's discovered
@@ -1358,7 +1386,9 @@ fn wire_remote_dshackle(
         per_chain_methods
             .entry(chain)
             .or_default()
-            .push(Arc::new(RemoteMethods::new(desc_chain.supported_methods.clone())));
+            .push(Arc::new(RemoteMethods::new(
+                desc_chain.supported_methods.clone(),
+            )));
         connected += 1;
     }
 

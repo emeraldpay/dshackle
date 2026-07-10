@@ -125,7 +125,10 @@ impl BitcoinBalance {
 /// A failed call, an upstream error, or a missing result fails the read (legacy
 /// `RpcUnspentReader` errors with `DataUnavailable`); an empty list is a valid
 /// zero balance. Mirrors the legacy `RpcUnspentReader`.
-async fn read_unspent(access: &dyn ChainAccess, address: &str) -> Result<Vec<Unspent>, tonic::Status> {
+async fn read_unspent(
+    access: &dyn ChainAccess,
+    address: &str,
+) -> Result<Vec<Unspent>, tonic::Status> {
     let request = JsonRpcRequest::new(0, "listunspent".into(), json!([1, 9_999_999, [address]]));
     let response = access
         .call(&request)
@@ -161,7 +164,12 @@ fn unspent(item: &Value) -> Option<Unspent> {
 /// Sum the unspent outputs into an `AddressBalance`. The asset code is the
 /// legacy constant `BTC` regardless of the request's `bitcoin`/`btc`/`satoshi`
 /// spelling, and UTXOs are attached only when requested.
-fn build_balance(chain: i32, address: String, include_utxo: bool, unspent: &[Unspent]) -> AddressBalance {
+fn build_balance(
+    chain: i32,
+    address: String,
+    include_utxo: bool,
+    unspent: &[Unspent],
+) -> AddressBalance {
     let total: u64 = unspent.iter().map(|u| u.value).sum();
     let utxo = if include_utxo {
         unspent
@@ -216,10 +224,7 @@ mod tests {
         fn is_syncing(&self) -> bool {
             false
         }
-        async fn call(
-            &self,
-            request: &JsonRpcRequest,
-        ) -> Result<JsonRpcResponse, UpstreamError> {
+        async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             assert_eq!(request.method.as_str(), "listunspent");
             let body = format!(
                 r#"{{"jsonrpc":"2.0","id":1,"result":{}}}"#,

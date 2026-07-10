@@ -200,10 +200,7 @@ mod tests {
         fn is_syncing(&self) -> bool {
             false
         }
-        async fn call(
-            &self,
-            request: &JsonRpcRequest,
-        ) -> Result<JsonRpcResponse, UpstreamError> {
+        async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             self.calls.fetch_add(1, Ordering::SeqCst);
             let result = self
                 .responses

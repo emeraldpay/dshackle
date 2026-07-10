@@ -28,6 +28,7 @@
 //! logic (`AlwaysQuorum` stops on first success, `BroadcastQuorum` stops at
 //! the configured count, etc.).
 
+use crate::blockchain::TargetBlockchain;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
 use crate::upstream::quorum::{CallQuorum, QuorumOutcome};
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
@@ -42,11 +43,12 @@ pub struct Routed {
 }
 
 /// Execute `request` against the given `candidates` using the given quorum
-/// strategy.
+/// strategy. `chain` attributes the selection metrics (legacy `select.tried`).
 ///
 /// `candidates` should already be filtered to those the quorum is willing to
 /// consider — typically obtained from `Multistream::select_for(quorum.selector())`.
 pub async fn route(
+    chain: &TargetBlockchain,
     candidates: Vec<Arc<dyn RpcUpstream>>,
     mut quorum: Box<dyn CallQuorum>,
     request: &JsonRpcRequest,
@@ -54,12 +56,15 @@ pub async fn route(
     quorum.set_total_upstreams(candidates.len());
 
     if candidates.is_empty() {
+        crate::metrics::select_tried(chain, 0);
         return Err(UpstreamError::Transport(
             "no available upstream for request".into(),
         ));
     }
 
+    let mut tried = 0;
     for upstream in candidates {
+        tried += 1;
         match upstream.call(request).await {
             Ok(response) => {
                 quorum.record_response(response, upstream.as_ref());
@@ -72,6 +77,7 @@ pub async fn route(
             break;
         }
     }
+    crate::metrics::select_tried(chain, tried);
 
     quorum.close();
 
@@ -161,6 +167,10 @@ mod tests {
         }
     }
 
+    fn test_chain() -> TargetBlockchain {
+        TargetBlockchain::Standard(emerald_api::proto::common::ChainRef::ChainEthereum)
+    }
+
     fn dummy_request() -> JsonRpcRequest {
         JsonRpcRequest::new(1, "eth_blockNumber".into(), serde_json::json!([]))
     }
@@ -178,6 +188,7 @@ mod tests {
         let b = ScriptedUpstream::ok("b", r#"{"jsonrpc":"2.0","id":1,"result":"0xb"}"#);
 
         let resp = route(
+            &test_chain(),
             vec_of(&[a.clone(), b.clone()]),
             Box::new(AlwaysQuorum::new()),
             &dummy_request(),
@@ -197,6 +208,7 @@ mod tests {
         let b = ScriptedUpstream::ok("b", r#"{"jsonrpc":"2.0","id":1,"result":"0xb"}"#);
 
         let resp = route(
+            &test_chain(),
             vec_of(&[a.clone(), b.clone()]),
             Box::new(AlwaysQuorum::new()),
             &dummy_request(),
@@ -215,6 +227,7 @@ mod tests {
         let b = ScriptedUpstream::ok("b", r#"{"jsonrpc":"2.0","id":1,"result":"0xb"}"#);
 
         let result = route(
+            &test_chain(),
             vec_of(&[a.clone(), b.clone()]),
             Box::new(AlwaysQuorum::new()),
             &dummy_request(),
@@ -232,6 +245,7 @@ mod tests {
         let b = ScriptedUpstream::err("b", UpstreamError::HttpStatus(503));
 
         let err = route(
+            &test_chain(),
             vec_of(&[a.clone(), b.clone()]),
             Box::new(AlwaysQuorum::new()),
             &dummy_request(),
@@ -244,9 +258,14 @@ mod tests {
 
     #[tokio::test]
     async fn returns_transport_error_when_no_candidates() {
-        let err = route(vec![], Box::new(AlwaysQuorum::new()), &dummy_request())
-            .await
-            .unwrap_err();
+        let err = route(
+            &test_chain(),
+            vec![],
+            Box::new(AlwaysQuorum::new()),
+            &dummy_request(),
+        )
+        .await
+        .unwrap_err();
         assert!(matches!(err, UpstreamError::Transport(_)));
     }
 }

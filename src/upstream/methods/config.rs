@@ -183,8 +183,11 @@ impl QuorumFactory for ConfiguredMethods {
     /// with a static response. The chain default's methods are folded in by
     /// [`LayeredMethods`](super::LayeredMethods), which also applies `disabled`.
     fn supported_methods(&self) -> Vec<String> {
-        let mut names: HashSet<String> =
-            self.enabled.iter().map(|m| m.as_str().to_string()).collect();
+        let mut names: HashSet<String> = self
+            .enabled
+            .iter()
+            .map(|m| m.as_str().to_string())
+            .collect();
         names.extend(self.static_responses.keys().map(|m| m.as_str().to_string()));
         let mut out: Vec<String> = names.into_iter().collect();
         out.sort();

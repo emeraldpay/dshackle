@@ -117,9 +117,9 @@ pub fn resolve_addresses(
     let any = address.as_ref().ok_or(BalanceError::NoAddress)?;
     match any.addr_type.as_ref() {
         Some(AddrType::AddressSingle(single)) => Ok(Some(vec![single.address.clone()])),
-        Some(AddrType::AddressMulti(multi)) => {
-            Ok(Some(multi.addresses.iter().map(|a| a.address.clone()).collect()))
-        }
+        Some(AddrType::AddressMulti(multi)) => Ok(Some(
+            multi.addresses.iter().map(|a| a.address.clone()).collect(),
+        )),
         Some(AddrType::AddressXpub(_)) => Ok(None),
         _ => Err(BalanceError::NoAddress),
     }

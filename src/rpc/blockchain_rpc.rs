@@ -23,12 +23,13 @@ use crate::logs;
 use crate::logs::access;
 use crate::metrics::{self, GrpcRequestType};
 use crate::rpc::native_call;
-use crate::upstream::{Multistream, UpstreamManager};
 use crate::upstream::allowance::AllowanceError;
 use crate::upstream::balance::BalanceError;
 use crate::upstream::egress::EgressError;
 use crate::upstream::fees::{FeeError, FeeMode};
+use crate::upstream::selector::LabelSelector;
 use crate::upstream::tx_status::TxStatusError;
+use crate::upstream::{Multistream, UpstreamManager};
 use emerald_api::proto::blockchain::blockchain_server::Blockchain;
 use emerald_api::proto::blockchain::*;
 use emerald_api::proto::common;
@@ -267,6 +268,10 @@ impl Blockchain for BlockchainRpcService {
             });
         let total = req.items.len();
 
+        // The request-level label selector applies to every item; converted
+        // once and shared across the per-item tasks.
+        let labels = Arc::new(LabelSelector::from_proto(req.selector.as_ref()));
+
         // Each item is dispatched independently and in parallel.
         // Replies stream out in completion order; the client correlates them via `NativeCallReplyItem.id`.
         let tasks: FuturesUnordered<_> = req
@@ -275,12 +280,14 @@ impl Blockchain for BlockchainRpcService {
             .map(|item| {
                 let multistream = multistream.clone();
                 let signer = self.signer.clone();
+                let labels = Arc::clone(&labels);
                 // Re-establish the request context inside the spawned task, so
                 // the upstream calls are attributed in the request log.
                 tokio::spawn(logs::with_context((*ctx).clone(), async move {
                     native_call::execute_native_call(
                         multistream.as_ref(),
                         &item,
+                        &labels,
                         signer.as_deref(),
                     )
                     .await
@@ -414,7 +421,8 @@ impl Blockchain for BlockchainRpcService {
         let req = request.into_inner();
         let chain = request_balance_chain(&req);
         metrics::grpc_request(GrpcRequestType::SubscribeBalance, chain.as_ref());
-        let balance_log = BalanceLog::new(access::Payload::SubscribeBalance, &req, chain.as_ref(), ctx);
+        let balance_log =
+            BalanceLog::new(access::Payload::SubscribeBalance, &req, chain.as_ref(), ctx);
         let stream = self
             .upstreams
             .balance(&req, true)
@@ -508,7 +516,12 @@ impl Blockchain for BlockchainRpcService {
         let req = request.into_inner();
         let chain = TargetBlockchain::try_from(req.chain).ok();
         metrics::grpc_request(GrpcRequestType::GetAllowance, chain.as_ref());
-        let allowance_log = AllowanceLog::new(access::Payload::GetAddressAllowance, &req, chain.as_ref(), ctx);
+        let allowance_log = AllowanceLog::new(
+            access::Payload::GetAddressAllowance,
+            &req,
+            chain.as_ref(),
+            ctx,
+        );
         let start = std::time::Instant::now();
         let stream = self
             .upstreams
@@ -538,8 +551,12 @@ impl Blockchain for BlockchainRpcService {
         let req = request.into_inner();
         let chain = TargetBlockchain::try_from(req.chain).ok();
         metrics::grpc_request(GrpcRequestType::SubscribeAllowance, chain.as_ref());
-        let allowance_log =
-            AllowanceLog::new(access::Payload::SubscribeAddressAllowance, &req, chain.as_ref(), ctx);
+        let allowance_log = AllowanceLog::new(
+            access::Payload::SubscribeAddressAllowance,
+            &req,
+            chain.as_ref(),
+            ctx,
+        );
         let stream = self
             .upstreams
             .address_allowance(req, true)
@@ -576,9 +593,8 @@ impl Blockchain for BlockchainRpcService {
             })?;
 
         // Reject an unusable mode up front (legacy `ChainFees.extractMode`).
-        let mode = FeeMode::from_proto(req.mode).ok_or_else(|| {
-            tonic::Status::unavailable(format!("UNSUPPORTED MODE: {}", req.mode))
-        })?;
+        let mode = FeeMode::from_proto(req.mode)
+            .ok_or_else(|| tonic::Status::unavailable(format!("UNSUPPORTED MODE: {}", req.mode)))?;
 
         match fees.estimate(mode, req.blocks).await {
             Ok(response) => {
@@ -607,9 +623,7 @@ impl Blockchain for BlockchainRpcService {
             }
             // No head yet or too little data to sample — the chain can't answer
             // right now (legacy returns an empty/!ready result here).
-            Err(FeeError::NotReady) => {
-                Err(tonic::Status::unavailable("upstream is not ready"))
-            }
+            Err(FeeError::NotReady) => Err(tonic::Status::unavailable("upstream is not ready")),
             Err(FeeError::NoData) => Err(tonic::Status::unavailable(
                 "not enough data to estimate fee",
             )),
@@ -684,15 +698,16 @@ impl Blockchain for BlockchainRpcService {
                 continue;
             };
 
-            // One node per upstream with quorum 1 (legacy `getQuorumByLabel`),
-            // carrying that upstream's configured labels.
+            // One node per label set with quorum 1 (legacy `getQuorumByLabel`):
+            // a local upstream contributes one node with its configured labels,
+            // a Dshackle relay re-advertises each node the remote reported.
             let nodes = multistream
                 .upstreams()
                 .iter()
-                .map(|up| NodeDetails {
+                .flat_map(|up| up.label_sets())
+                .map(|set| NodeDetails {
                     quorum: 1,
-                    labels: up
-                        .labels()
+                    labels: set
                         .iter()
                         .map(|(name, value)| Label {
                             name: name.clone(),
@@ -979,7 +994,7 @@ mod tests {
     /// `IdentifiedUpstream` wrapper that carries this in production is
     /// unit-tested separately).
     struct MetaUpstream {
-        labels: HashMap<String, String>,
+        label_sets: Vec<HashMap<String, String>>,
         capabilities: Vec<crate::upstream::traits::Capability>,
         state: Arc<UpstreamState>,
     }
@@ -1004,8 +1019,8 @@ mod tests {
         fn state(&self) -> &Arc<UpstreamState> {
             &self.state
         }
-        fn labels(&self) -> &HashMap<String, String> {
-            &self.labels
+        fn label_sets(&self) -> &[HashMap<String, String>] {
+            &self.label_sets
         }
         fn capabilities(&self) -> Vec<crate::upstream::traits::Capability> {
             self.capabilities.clone()
@@ -1029,7 +1044,11 @@ mod tests {
     /// is intentionally left unconfigured so the "no upstream → unavailable"
     /// path can be exercised.
     fn eth_service_with(upstream: Arc<dyn RpcUpstream>) -> BlockchainRpcService {
-        let multistream = Arc::new(Multistream::new(vec![upstream], Arc::new(AlwaysFactory)));
+        let multistream = Arc::new(Multistream::new(
+            TargetBlockchain::Standard(emerald_api::proto::common::ChainRef::ChainEthereum),
+            vec![upstream],
+            Arc::new(AlwaysFactory),
+        ));
         let mut chains: HashMap<TargetBlockchain, Arc<Multistream>> = HashMap::new();
         chains.insert(
             TargetBlockchain::Standard(ChainRef::ChainEthereum),
@@ -1224,7 +1243,11 @@ mod tests {
             "eth_chainId".to_string(),
             "eth_getBalance".to_string(),
         ]));
-        let multistream = Arc::new(Multistream::new(vec![upstream], factory));
+        let multistream = Arc::new(Multistream::new(
+            TargetBlockchain::Standard(emerald_api::proto::common::ChainRef::ChainEthereum),
+            vec![upstream],
+            factory,
+        ));
         let mut chains: HashMap<TargetBlockchain, Arc<Multistream>> = HashMap::new();
         chains.insert(
             TargetBlockchain::Standard(ChainRef::ChainEthereum),
@@ -1236,8 +1259,15 @@ mod tests {
 
     #[tokio::test]
     async fn describe_reports_chain_methods_and_status() {
+        // Wrapped like production wiring: every upstream carries one label set
+        // (possibly empty), which is what makes it appear as a Describe node.
         let service =
-            service_with_default_methods(ConcurrencyProbeUpstream::new(Duration::ZERO));
+            service_with_default_methods(Arc::new(crate::upstream::IdentifiedUpstream::new(
+                ConcurrencyProbeUpstream::new(Duration::ZERO),
+                vec![HashMap::new()],
+                vec![crate::upstream::traits::Capability::Rpc],
+                crate::config::upstreams::UpstreamRole::Primary,
+            )));
         let resp = service
             .describe(tonic::Request::new(DescribeRequest {}))
             .await
@@ -1277,14 +1307,17 @@ mod tests {
     async fn describe_reports_labels_and_capabilities() {
         use crate::upstream::traits::Capability;
         let upstream = Arc::new(MetaUpstream {
-            labels: [("provider", "infura"), ("region", "eu")]
-                .iter()
-                .map(|(k, v)| (k.to_string(), v.to_string()))
-                .collect(),
+            label_sets: vec![
+                [("provider", "infura"), ("region", "eu")]
+                    .iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect(),
+            ],
             capabilities: vec![Capability::Rpc, Capability::Balance],
             state: Arc::new(UpstreamState::new()),
         });
         let multistream = Arc::new(Multistream::new(
+            TargetBlockchain::Standard(ChainRef::ChainEthereum),
             vec![upstream as Arc<dyn RpcUpstream>],
             Arc::new(AlwaysFactory),
         ));
@@ -1321,6 +1354,7 @@ mod tests {
     #[test]
     fn chain_status_counts_available_upstreams() {
         let multistream = Multistream::new(
+            TargetBlockchain::Standard(ChainRef::ChainEthereum),
             vec![ConcurrencyProbeUpstream::new(Duration::ZERO)],
             Arc::new(AlwaysFactory),
         );

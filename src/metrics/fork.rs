@@ -43,7 +43,9 @@ impl ForkMetrics {
     }
 
     pub fn on_status(&self, choice: &str, status: &str, chain: &str) {
-        self.status.with_label_values(&[choice, status, chain]).inc();
+        self.status
+            .with_label_values(&[choice, status, chain])
+            .inc();
     }
 
     /// Create the zero-valued series for every status upfront, like the legacy

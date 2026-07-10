@@ -115,7 +115,8 @@ pub async fn serve(socket: WebSocket, route: Arc<ProxyRoute>, ctx: Arc<logs::Ing
                 let ctx = Arc::clone(&ctx);
                 tokio::spawn(logs::with_context((*ctx).clone(), async move {
                     let access = handler::AccessMeta::new(logs::Channel::WsJsonRpc, ctx);
-                    let response = handler::run(&multistream, &chain, &req, access.as_ref(), 0).await;
+                    let response =
+                        handler::run(&multistream, &chain, &req, access.as_ref(), 0).await;
                     let _ = out_tx.send(Message::text(response)).await;
                 }));
             }

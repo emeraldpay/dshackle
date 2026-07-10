@@ -28,6 +28,7 @@ mod fork;
 mod grpc;
 mod jsonrpc;
 mod monitoring_logs;
+mod select;
 mod server;
 mod state;
 mod upstream;
@@ -71,6 +72,7 @@ lazy_static! {
         // legacy `LogMetrics.Enabled` gated on `Global.metricsExtended`.
         if EXTENDED.load(Ordering::Relaxed) {
             m.monitoring_logs.register(&REGISTRY);
+            m.select.register(&REGISTRY);
         }
         m
     };
@@ -82,6 +84,7 @@ struct Metrics {
     upstream: upstream::UpstreamMetrics,
     fork: fork::ForkMetrics,
     monitoring_logs: monitoring_logs::MonitoringLogsMetrics,
+    select: select::SelectMetrics,
 }
 
 impl Metrics {
@@ -92,6 +95,7 @@ impl Metrics {
             upstream: upstream::UpstreamMetrics::new(PREFIX),
             fork: fork::ForkMetrics::new(PREFIX),
             monitoring_logs: monitoring_logs::MonitoringLogsMetrics::new(PREFIX),
+            select: select::SelectMetrics::new(PREFIX),
         }
     }
 }
@@ -131,7 +135,9 @@ pub fn register_upstreams(source: Arc<dyn UpstreamsStatus>) {
 }
 
 fn chain_label(chain: Option<&TargetBlockchain>) -> String {
-    chain.map(|c| c.code()).unwrap_or_else(|| CHAIN_NA.to_string())
+    chain
+        .map(|c| c.code())
+        .unwrap_or_else(|| CHAIN_NA.to_string())
 }
 
 // ── JSON-RPC proxy requests (legacy `request.jsonrpc.*`) ────────────────────
@@ -166,6 +172,28 @@ pub fn jsonrpc_fail(chain: &TargetBlockchain, method: &str) {
         return;
     }
     METRICS.jsonrpc.on_fail(&chain.code(), method);
+}
+
+// ── Upstream selection (legacy `select.*`, extended only) ───────────────────
+
+/// A selection was made: how many upstreams of each role tier were up for
+/// consideration (legacy `FilteredApis.Monitoring.count*`).
+pub fn select_exist(chain: &TargetBlockchain, primary: usize, secondary: usize, fallback: usize) {
+    if !extended_enabled() {
+        return;
+    }
+    METRICS
+        .select
+        .on_selection(&chain.code(), primary, secondary, fallback);
+}
+
+/// A routed request finished after calling `count` upstreams (legacy
+/// `FilteredApis.Monitoring.tried`).
+pub fn select_tried(chain: &TargetBlockchain, count: usize) {
+    if !extended_enabled() {
+        return;
+    }
+    METRICS.select.on_tried(&chain.code(), count);
 }
 
 // ── gRPC API requests (legacy `request.grpc.*`) ─────────────────────────────
@@ -233,7 +261,9 @@ pub fn upstream_created(protocol: UpstreamProtocol, upstream: &str, chain: &Targ
     if !ENABLED.load(Ordering::Relaxed) {
         return;
     }
-    METRICS.upstream.on_created(protocol, upstream, &chain.code());
+    METRICS
+        .upstream
+        .on_created(protocol, upstream, &chain.code());
 }
 
 /// A request through an upstream connection completed in `elapsed`.
@@ -443,7 +473,9 @@ pub(crate) mod tests {
 
         let out = scrape();
         assert!(
-            out.contains(r#"dshackle_upstream_rpc_conn_seconds_count{chain="ETH",upstream="local"}"#)
+            out.contains(
+                r#"dshackle_upstream_rpc_conn_seconds_count{chain="ETH",upstream="local"}"#
+            )
         );
         assert!(out.contains(r#"dshackle_upstream_ws_fail_total{chain="ETH",upstream="local"}"#));
         assert!(out.contains(
@@ -454,7 +486,8 @@ pub(crate) mod tests {
         );
         upstream_finished("local", &chain);
         assert!(
-            scrape().contains(r#"dshackle_upstream_rpc_queue_size{chain="ETH",upstream="local"} 0"#)
+            scrape()
+                .contains(r#"dshackle_upstream_rpc_queue_size{chain="ETH",upstream="local"} 0"#)
         );
     }
 }

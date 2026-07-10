@@ -40,11 +40,7 @@ pub struct PeerAddr(pub SocketAddr);
 /// Accept connections on `addr` and serve the warp filter on each, upgrades
 /// (WebSocket) included. With a TLS setup every connection is TLS-terminated
 /// first. Runs until the listener fails.
-pub async fn serve<F>(
-    filter: F,
-    addr: SocketAddr,
-    tls: Option<&ServerTlsSetup>,
-) -> Result<()>
+pub async fn serve<F>(filter: F, addr: SocketAddr, tls: Option<&ServerTlsSetup>) -> Result<()>
 where
     F: Filter<Extract = (warp::reply::Response,), Error = warp::Rejection>
         + Clone

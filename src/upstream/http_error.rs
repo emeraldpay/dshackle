@@ -35,12 +35,7 @@ const RATE_LIMIT_COOLDOWN: Duration = Duration::from_secs(60);
 /// Map a non-200 response into an [`UpstreamError`], parking the upstream when
 /// the status marks it temporarily unavailable and forwarding the provider's own
 /// error message when the body is a JSON-RPC error.
-pub fn classify_non_200(
-    id: &str,
-    state: &UpstreamState,
-    status: u16,
-    body: &str,
-) -> UpstreamError {
+pub fn classify_non_200(id: &str, state: &UpstreamState, status: u16, body: &str) -> UpstreamError {
     if is_unavailable_status(status) {
         state.set_rate_limited(RATE_LIMIT_COOLDOWN);
     }
@@ -78,7 +73,9 @@ mod tests {
     fn forwards_body_message_and_parks_on_429() {
         let state = UpstreamState::new();
         let err = classify_non_200("u", &state, 429, ERROR_BODY);
-        assert!(matches!(&err, UpstreamError::Rejected { status: 429, message } if message == "too many request"));
+        assert!(
+            matches!(&err, UpstreamError::Rejected { status: 429, message } if message == "too many request")
+        );
         // A 429 takes the upstream out of rotation.
         assert_eq!(state.availability(), UpstreamAvailability::Unavailable);
     }
@@ -90,7 +87,9 @@ mod tests {
         let state = UpstreamState::new();
         let body = r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32600,"message":"Already Spent"}}"#;
         let err = classify_non_200("u", &state, 500, body);
-        assert!(matches!(&err, UpstreamError::Rejected { status: 500, message } if message == "Already Spent"));
+        assert!(
+            matches!(&err, UpstreamError::Rejected { status: 500, message } if message == "Already Spent")
+        );
         assert_eq!(state.availability(), UpstreamAvailability::Ok);
     }
 

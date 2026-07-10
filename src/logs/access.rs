@@ -355,7 +355,10 @@ mod tests {
                 index: 0,
             },
         };
-        let subscribe = record(Channel::Dshackle, Payload::SubscribeBalance(balance.clone()));
+        let subscribe = record(
+            Channel::Dshackle,
+            Payload::SubscribeBalance(balance.clone()),
+        );
         let get = record(Channel::Dshackle, Payload::GetBalance(balance));
         assert!(
             serde_json::to_string(&subscribe)

@@ -16,13 +16,14 @@
 //! Bitcoin, Dshackle gRPC) will implement `RpcUpstream` so the call pipeline
 //! can work with them uniformly.
 
+use crate::config::upstreams::UpstreamRole;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
 use crate::upstream::state::UpstreamState;
 use emerald_api::proto::blockchain::Capabilities;
 use std::collections::HashMap;
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
 /// What an upstream can serve, advertised through `Describe` and (eventually)
 /// used for capability-based upstream selection. Mirrors the legacy
@@ -61,10 +62,6 @@ impl Capability {
     }
 }
 
-/// Empty label map returned by the [`RpcUpstream::labels`] default, so the
-/// default needs no per-call allocation.
-static NO_LABELS: LazyLock<HashMap<String, String>> = LazyLock::new(HashMap::new);
-
 /// An upstream that can execute JSON-RPC calls.
 #[async_trait::async_trait]
 pub trait RpcUpstream: Send + Sync {
@@ -98,13 +95,25 @@ pub trait RpcUpstream: Send + Sync {
         true
     }
 
-    /// Configured labels for this upstream, advertised in `Describe` node
-    /// details and used for label-based selection. Defaults to empty; the
-    /// metadata-carrying wrapper installed during wiring overrides it. Inner
-    /// transports and wrappers keep the default — only the outermost layer the
-    /// `Multistream` holds is queried.
-    fn labels(&self) -> &HashMap<String, String> {
-        &NO_LABELS
+    /// Routing tier from config (legacy `UpstreamsConfig.UpstreamRole`).
+    /// `Multistream` tries `Fallback` upstreams only after every `Primary` and
+    /// `Secondary` candidate. Defaults to `Primary`; the metadata-carrying
+    /// wrapper installed during wiring overrides it.
+    fn role(&self) -> UpstreamRole {
+        UpstreamRole::Primary
+    }
+
+    /// Label sets for this upstream, advertised in `Describe` node details and
+    /// used for label-based selection. A label selector matches the upstream
+    /// when *any* set satisfies it (legacy `Upstream.getLabels()` returns a
+    /// collection for the same reason): a local upstream has exactly one set —
+    /// its configured labels — while a Dshackle relay carries one set per node
+    /// the remote advertises. Defaults to none; the metadata-carrying wrapper
+    /// installed during wiring overrides it. Inner transports and wrappers
+    /// keep the default — only the outermost layer the `Multistream` holds is
+    /// queried.
+    fn label_sets(&self) -> &[HashMap<String, String>] {
+        &[]
     }
 
     /// What this upstream can serve. Defaults to RPC-only; the metadata wrapper

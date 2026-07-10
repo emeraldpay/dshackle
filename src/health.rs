@@ -117,11 +117,7 @@ fn route(
     upstreams: Arc<UpstreamManager>,
 ) -> impl Filter<Extract = (Response<String>,), Error = warp::Rejection> + Clone {
     warp::path::full()
-        .and(
-            warp::query::raw()
-                .or(warp::any().map(String::new))
-                .unify(),
-        )
+        .and(warp::query::raw().or(warp::any().map(String::new)).unify())
         .and_then(move |full: warp::path::FullPath, query: String| {
             let checks = Arc::clone(&checks);
             let upstreams = Arc::clone(&upstreams);
@@ -307,9 +303,10 @@ mod tests {
         let upstreams = chains
             .into_iter()
             .map(|(chain, ups)| {
+                let chain = chain.parse::<TargetBlockchain>().unwrap();
                 (
-                    chain.parse::<TargetBlockchain>().unwrap(),
-                    Arc::new(Multistream::new(ups, Arc::new(AlwaysFactory))),
+                    chain,
+                    Arc::new(Multistream::new(chain, ups, Arc::new(AlwaysFactory))),
                 )
             })
             .collect();
@@ -333,7 +330,11 @@ mod tests {
     fn healthy_when_enough_upstreams() {
         let manager = manager(vec![(
             "ethereum",
-            vec![StubUpstream::new("local", UpstreamAvailability::Ok, Some(0))],
+            vec![StubUpstream::new(
+                "local",
+                UpstreamAvailability::Ok,
+                Some(0),
+            )],
         )]);
         let health = basic_health(&checks(vec![("ethereum", 1)]), &manager);
         assert!(health.ok);
@@ -358,7 +359,11 @@ mod tests {
     fn fails_for_chain_without_upstreams() {
         let manager = manager(vec![(
             "ethereum",
-            vec![StubUpstream::new("local", UpstreamAvailability::Ok, Some(0))],
+            vec![StubUpstream::new(
+                "local",
+                UpstreamAvailability::Ok,
+                Some(0),
+            )],
         )]);
         let health = basic_health(&checks(vec![("ethereum", 1), ("bitcoin", 1)]), &manager);
         assert!(!health.ok);
@@ -369,7 +374,11 @@ mod tests {
     fn unknown_configured_chain_always_fails() {
         let manager = manager(vec![(
             "ethereum",
-            vec![StubUpstream::new("local", UpstreamAvailability::Ok, Some(0))],
+            vec![StubUpstream::new(
+                "local",
+                UpstreamAvailability::Ok,
+                Some(0),
+            )],
         )]);
         let health = basic_health(&checks(vec![("what-is-this", 1)]), &manager);
         assert!(!health.ok);
@@ -432,7 +441,11 @@ mod tests {
     fn detailed_reports_missing_required_chain_first() {
         let manager = manager(vec![(
             "ethereum",
-            vec![StubUpstream::new("local", UpstreamAvailability::Ok, Some(0))],
+            vec![StubUpstream::new(
+                "local",
+                UpstreamAvailability::Ok,
+                Some(0),
+            )],
         )]);
         let health = detailed_health(&checks(vec![("ethereum", 1), ("bitcoin", 1)]), &manager);
         assert!(!health.ok);
@@ -444,7 +457,11 @@ mod tests {
     async fn responds_200_when_healthy() {
         let manager = manager(vec![(
             "ethereum",
-            vec![StubUpstream::new("local", UpstreamAvailability::Ok, Some(0))],
+            vec![StubUpstream::new(
+                "local",
+                UpstreamAvailability::Ok,
+                Some(0),
+            )],
         )]);
         let route = route(
             "/health".to_string(),
@@ -482,7 +499,11 @@ mod tests {
     async fn responds_detailed_on_query() {
         let manager = manager(vec![(
             "ethereum",
-            vec![StubUpstream::new("local", UpstreamAvailability::Ok, Some(0))],
+            vec![StubUpstream::new(
+                "local",
+                UpstreamAvailability::Ok,
+                Some(0),
+            )],
         )]);
         let route = route(
             "/health".to_string(),
