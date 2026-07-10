@@ -191,6 +191,7 @@ impl UpstreamManager {
             &crate::config::upstreams::Upstream,
             String,
             Option<crate::tls::ClientTlsSetup>,
+            Duration,
         )> = Vec::new();
 
         for upstream in &config.upstreams {
@@ -206,6 +207,9 @@ impl UpstreamManager {
                         None => continue,
                     };
                     let blockchain_name = upstream.blockchain.as_deref().unwrap_or("?");
+                    // Resolved before the transports: `options.timeout` bounds
+                    // every call the clients make.
+                    let options = config.options_for(upstream);
 
                     // Build WS and HTTP transports. Head tracking is started
                     // on only one of them — WS is preferred because newHeads
@@ -224,6 +228,7 @@ impl UpstreamManager {
                                 url: ws.url.clone(),
                                 origin: ws.origin.clone(),
                                 basic_auth: ws.basic_auth.clone(),
+                                call_timeout: options.timeout,
                             },
                             ws.connections.unwrap_or(1),
                         ))
@@ -233,7 +238,7 @@ impl UpstreamManager {
                         Some(rpc) => {
                             let tls =
                                 crate::tls::client_tls(&upstream.id, rpc.tls.as_ref(), config_dir)?;
-                            let client = crate::tls::reqwest_client(tls.as_ref())?;
+                            let client = crate::tls::reqwest_client(tls.as_ref(), options.timeout)?;
                             tracing::info!(
                                 "Using Ethereum HTTP upstream '{}' at {} for {}",
                                 upstream.id,
@@ -357,7 +362,6 @@ impl UpstreamManager {
                     // this point), below the method-filter and cache wrappers
                     // added later: a user's method allow-list must not fail
                     // the probes, and a cached answer must not pass them.
-                    let options = config.options_for(upstream);
                     if options.disable_validation {
                         tracing::warn!("Disable validation for upstream {}", upstream.id);
                         reader.state().set_always_valid();
@@ -434,6 +438,9 @@ impl UpstreamManager {
                         None => continue,
                     };
                     let blockchain_name = upstream.blockchain.as_deref().unwrap_or("?");
+                    // Resolved before the transport: `options.timeout` bounds
+                    // every call the client makes.
+                    let options = config.options_for(upstream);
 
                     let rpc = match &btc.rpc {
                         Some(rpc) => rpc,
@@ -447,7 +454,7 @@ impl UpstreamManager {
                     };
 
                     let tls = crate::tls::client_tls(&upstream.id, rpc.tls.as_ref(), config_dir)?;
-                    let client = crate::tls::reqwest_client(tls.as_ref())?;
+                    let client = crate::tls::reqwest_client(tls.as_ref(), options.timeout)?;
 
                     tracing::info!(
                         "Using Bitcoin HTTP upstream '{}' at {} for {}",
@@ -487,7 +494,6 @@ impl UpstreamManager {
 
                     // See the Ethereum branch for why validation targets the
                     // bare transport.
-                    let options = config.options_for(upstream);
                     if options.disable_validation {
                         tracing::warn!("Disable validation for upstream {}", upstream.id);
                         reader.state().set_always_valid();
@@ -556,9 +562,14 @@ impl UpstreamManager {
 
                     let tls = crate::tls::client_tls(&upstream.id, ds.tls.as_ref(), config_dir)?;
 
+                    // Only `timeout` applies to a dshackle connection; the
+                    // validation family is meaningless here and gets a warning.
+                    warn_inapplicable_dshackle_options(upstream);
+                    let options = config.options_for(upstream);
+
                     // Defer the actual connect: it is done concurrently after the
                     // loop so a slow remote can't stall the rest of startup.
-                    pending_dshackle.push((upstream, url, tls));
+                    pending_dshackle.push((upstream, url, tls, options.timeout));
                 }
             }
         }
@@ -568,27 +579,28 @@ impl UpstreamManager {
         // runs sequentially because it mutates the shared per-chain maps; the
         // slow part (connect + `Describe` over the network) already happened in
         // parallel, so a single unreachable remote no longer blocks startup.
-        for (upstream, url, _) in &pending_dshackle {
+        for (upstream, url, _, _) in &pending_dshackle {
             tracing::info!("Connecting to remote Dshackle '{}' at {}", upstream.id, url);
         }
         let discoveries = futures::future::join_all(pending_dshackle.iter().map(
-            |(upstream, url, tls)| async move {
+            |(upstream, url, tls, call_timeout)| async move {
                 let outcome = tokio::time::timeout(
                     DSHACKLE_CONNECT_TIMEOUT,
                     connect_and_describe(url, tls.as_ref()),
                 )
                 .await;
-                (*upstream, url.clone(), outcome)
+                (*upstream, url.clone(), *call_timeout, outcome)
             },
         ))
         .await;
 
-        for (upstream, url, outcome) in discoveries {
+        for (upstream, url, call_timeout, outcome) in discoveries {
             match outcome {
                 Ok(Ok((client, chains))) => wire_remote_dshackle(
                     upstream,
                     client,
                     chains,
+                    call_timeout,
                     redis.as_ref(),
                     &mut per_chain_caches,
                     &mut per_chain_caching_heads,
@@ -1229,11 +1241,46 @@ async fn connect_and_describe(
 ///
 /// Runs on the build task (not concurrently) because it mutates the shared
 /// per-chain maps.
+/// Configured options that have no effect on a dshackle connection, by their
+/// YAML names. The remote validates its own upstreams and reports availability
+/// over `SubscribeStatus` (as in legacy), so the local validation settings are
+/// meaningless there.
+fn inapplicable_dshackle_options(
+    options: &crate::config::upstreams::PartialOptions,
+) -> Vec<&'static str> {
+    [
+        ("disable-validation", options.disable_validation.is_some()),
+        ("validate-syncing", options.validate_syncing.is_some()),
+        ("validate-peers", options.validate_peers.is_some()),
+        ("min-peers", options.min_peers.is_some()),
+        ("validation-interval", options.validation_interval.is_some()),
+    ]
+    .iter()
+    .filter(|(_, set)| *set)
+    .map(|(name, _)| *name)
+    .collect()
+}
+
+/// A likely configuration mistake is called out loudly instead of being
+/// silently ignored (options that parse but do nothing are the riskiest
+/// migration gap).
+fn warn_inapplicable_dshackle_options(upstream: &crate::config::upstreams::Upstream) {
+    let ignored = inapplicable_dshackle_options(&upstream.options);
+    if !ignored.is_empty() {
+        tracing::warn!(
+            "Upstream {}: option(s) {} do not apply to a dshackle connection and are ignored (the remote validates its own upstreams)",
+            upstream.id,
+            ignored.join(", ")
+        );
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn wire_remote_dshackle(
     upstream: &crate::config::upstreams::Upstream,
     client: BlockchainClient<Channel>,
     chains: Vec<DescribeChain>,
+    call_timeout: Duration,
     redis_conn: Option<&redis::aio::ConnectionManager>,
     caches_map: &mut HashMap<TargetBlockchain, Arc<Caches>>,
     caching_heads: &mut HashMap<TargetBlockchain, CachingHead>,
@@ -1282,6 +1329,7 @@ fn wire_remote_dshackle(
             desc_chain.chain,
             client.clone(),
             syncing_lag,
+            call_timeout,
         );
 
         // Subscribe caching head before starting the poller so no blocks are missed
@@ -1397,4 +1445,41 @@ fn wire_remote_dshackle(
         upstream_id,
         connected,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::upstreams::PartialOptions;
+
+    #[test]
+    fn dshackle_options_all_applicable_by_default() {
+        assert!(inapplicable_dshackle_options(&PartialOptions::default()).is_empty());
+    }
+
+    #[test]
+    fn dshackle_options_flags_validation_settings() {
+        let options = PartialOptions {
+            min_peers: Some(3),
+            validate_syncing: Some(true),
+            ..Default::default()
+        };
+        assert_eq!(
+            inapplicable_dshackle_options(&options),
+            vec!["validate-syncing", "min-peers"]
+        );
+    }
+
+    #[test]
+    fn dshackle_options_timeout_is_applicable() {
+        // `timeout` is the one option legacy applied to a dshackle connection —
+        // it must not be flagged.
+        let options = PartialOptions {
+            timeout: Some(30),
+            priority: Some(100),
+            balance: Some(true),
+            ..Default::default()
+        };
+        assert!(inapplicable_dshackle_options(&options).is_empty());
+    }
 }

@@ -118,3 +118,43 @@ impl RpcUpstream for EthereumHttpUpstream {
         &self.state
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A connected-but-silent upstream must fail the call at the client's
+    /// timeout (`options.timeout` at wiring) instead of hanging the request —
+    /// the router needs the error to fall through to the next candidate.
+    #[tokio::test]
+    async fn call_times_out_on_a_silent_upstream() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        // Accept connections and hold them open without ever responding.
+        tokio::spawn(async move {
+            let mut open = Vec::new();
+            loop {
+                let Ok((socket, _)) = listener.accept().await else {
+                    return;
+                };
+                open.push(socket);
+            }
+        });
+
+        let client =
+            crate::tls::reqwest_client(None, std::time::Duration::from_millis(300)).unwrap();
+        let upstream = EthereumHttpUpstream::new(
+            "silent".to_string(),
+            format!("http://{addr}/"),
+            None,
+            client,
+        );
+
+        let request = JsonRpcRequest::new(1, "eth_blockNumber".into(), serde_json::json!([]));
+        let started = std::time::Instant::now();
+        let result = upstream.call(&request).await;
+
+        assert!(matches!(result, Err(UpstreamError::Transport(_))));
+        assert!(started.elapsed() < std::time::Duration::from_secs(5));
+    }
+}

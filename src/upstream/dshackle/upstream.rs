@@ -40,6 +40,9 @@ pub struct DshackleUpstream {
     id: String,
     chain_ref: i32,
     client: BlockchainClient<Channel>,
+    /// Overall bound on one `NativeCall` round-trip (the upstream's
+    /// `options.timeout`). The one place legacy applied that option.
+    call_timeout: std::time::Duration,
     head: Arc<CurrentHead>,
     state: Arc<UpstreamState>,
 }
@@ -55,11 +58,13 @@ impl DshackleUpstream {
         chain_ref: i32,
         client: BlockchainClient<Channel>,
         syncing_lag: u64,
+        call_timeout: std::time::Duration,
     ) -> Self {
         Self {
             id,
             chain_ref,
             client,
+            call_timeout,
             head: Arc::new(CurrentHead::new()),
             state: Arc::new(UpstreamState::with_syncing_lag(syncing_lag)),
         }
@@ -108,19 +113,29 @@ impl RpcUpstream for DshackleUpstream {
         };
 
         let mut client = self.client.clone();
-        let response = client
-            .native_call(native_request)
-            .await
-            .map_err(|e| UpstreamError::Transport(format!("gRPC error: {e}")))?;
-
-        let mut stream = response.into_inner();
-        let reply = stream
-            .message()
-            .await
-            .map_err(|e| UpstreamError::Transport(format!("gRPC stream error: {e}")))?
-            .ok_or_else(|| {
-                UpstreamError::InvalidResponse("empty NativeCall response stream".into())
-            })?;
+        // One deadline over the request and the first reply frame: a hung
+        // remote must fail the call so the router can try the next candidate.
+        let reply = tokio::time::timeout(self.call_timeout, async {
+            let response = client
+                .native_call(native_request)
+                .await
+                .map_err(|e| UpstreamError::Transport(format!("gRPC error: {e}")))?;
+            response
+                .into_inner()
+                .message()
+                .await
+                .map_err(|e| UpstreamError::Transport(format!("gRPC stream error: {e}")))?
+                .ok_or_else(|| {
+                    UpstreamError::InvalidResponse("empty NativeCall response stream".into())
+                })
+        })
+        .await
+        .map_err(|_| {
+            UpstreamError::Transport(format!(
+                "NativeCall timeout after {}s",
+                self.call_timeout.as_secs()
+            ))
+        })??;
 
         if !reply.succeed {
             return Err(UpstreamError::InvalidResponse(

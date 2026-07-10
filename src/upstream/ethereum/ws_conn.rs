@@ -38,6 +38,9 @@ pub struct WsTarget {
     pub url: String,
     pub origin: Option<String>,
     pub basic_auth: Option<BasicAuth>,
+    /// How long to wait for a call's response frame (the upstream's
+    /// `options.timeout`).
+    pub call_timeout: std::time::Duration,
 }
 
 impl WsTarget {
@@ -75,9 +78,6 @@ impl WsTarget {
 /// Starting ID for the internal request sequence, matching the legacy implementation.
 const IDS_START: u32 = 100;
 
-/// How long to wait for a response before giving up.
-const CALL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
-
 /// Initial reconnection delay.
 const BACKOFF_INITIAL: std::time::Duration = std::time::Duration::from_millis(100);
 
@@ -90,6 +90,8 @@ const BACKOFF_MAX: std::time::Duration = std::time::Duration::from_secs(300);
 pub(super) struct WsConnection {
     /// Human-readable label for logging (e.g. "Upstream my-node" or "Upstream my-node/2").
     label: String,
+    /// How long to wait for a call's response frame before giving up.
+    call_timeout: std::time::Duration,
     inner: Arc<WsConnectionInner>,
 }
 
@@ -121,13 +123,18 @@ impl WsConnection {
             connected: AtomicBool::new(false),
         });
 
+        let call_timeout = target.call_timeout;
         let bg_inner = Arc::clone(&inner);
         let bg_label = label.clone();
         tokio::spawn(async move {
             connection_loop(bg_label, target, bg_inner, outgoing_rx).await;
         });
 
-        Self { label, inner }
+        Self {
+            label,
+            call_timeout,
+            inner,
+        }
     }
 
     /// Whether this connection is currently established.
@@ -171,7 +178,7 @@ impl WsConnection {
             ));
         }
 
-        let result = tokio::time::timeout(CALL_TIMEOUT, rx).await;
+        let result = tokio::time::timeout(self.call_timeout, rx).await;
 
         // Always clean up — the entry may already be gone (consumed by the read
         // loop), but remove is idempotent.
@@ -192,7 +199,7 @@ impl WsConnection {
                 tracing::trace!(connection = %self.label, internal_id, "WS response timeout");
                 Err(UpstreamError::Transport(format!(
                     "WebSocket response timeout after {}s",
-                    CALL_TIMEOUT.as_secs()
+                    self.call_timeout.as_secs()
                 )))
             }
         }
@@ -437,12 +444,36 @@ struct SubscriptionParams {
 mod tests {
     use super::*;
 
+    /// With the connection never established the response can't arrive, so the
+    /// call must fail at the configured `call_timeout` (`options.timeout`)
+    /// instead of waiting forever.
+    #[tokio::test]
+    async fn call_times_out_at_configured_timeout() {
+        let target = WsTarget {
+            // Nothing listens here; the background loop keeps retrying while
+            // the call sits in the outgoing buffer.
+            url: "ws://127.0.0.1:1/".to_string(),
+            origin: None,
+            basic_auth: None,
+            call_timeout: std::time::Duration::from_millis(200),
+        };
+        let conn = WsConnection::new("test".to_string(), target);
+
+        let request = JsonRpcRequest::new(1, "eth_blockNumber".into(), serde_json::json!([]));
+        let started = std::time::Instant::now();
+        let result = conn.call(&request).await;
+
+        assert!(matches!(result, Err(UpstreamError::Transport(_))));
+        assert!(started.elapsed() < std::time::Duration::from_secs(5));
+    }
+
     #[test]
     fn ws_request_has_default_origin_and_no_auth() {
         let target = WsTarget {
             url: "ws://localhost:8546".to_string(),
             origin: None,
             basic_auth: None,
+            call_timeout: std::time::Duration::from_secs(60),
         };
         let request = target.client_request().unwrap();
         assert_eq!(request.headers().get("Origin").unwrap(), "http://localhost");
@@ -454,6 +485,7 @@ mod tests {
         let target = WsTarget {
             url: "ws://localhost:8546".to_string(),
             origin: Some("https://myapp.example.com".to_string()),
+            call_timeout: std::time::Duration::from_secs(60),
             basic_auth: Some(BasicAuth {
                 username: "user".to_string(),
                 password: "pass".to_string(),

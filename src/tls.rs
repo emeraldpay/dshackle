@@ -225,8 +225,15 @@ pub fn client_tls(
 }
 
 /// Builds a reqwest HTTP client honoring an optional client TLS setup.
-pub fn reqwest_client(tls: Option<&ClientTlsSetup>) -> Result<reqwest::Client> {
-    let mut builder = reqwest::Client::builder();
+///
+/// `timeout` bounds every request end-to-end (the upstream's `options.timeout`):
+/// without it a connected-but-silent upstream would hold a routed request
+/// open forever, and the router could never fall through to the next candidate.
+pub fn reqwest_client(
+    tls: Option<&ClientTlsSetup>,
+    timeout: std::time::Duration,
+) -> Result<reqwest::Client> {
+    let mut builder = reqwest::Client::builder().timeout(timeout);
     if let Some(setup) = tls {
         if let Some(ca) = &setup.ca {
             builder = builder.tls_built_in_root_certs(false).add_root_certificate(
@@ -457,11 +464,11 @@ mod tests {
             key: Some("127.0.0.1.p8.key".to_string()),
         };
         let setup = client_tls("test", Some(&config), &base).unwrap().unwrap();
-        reqwest_client(Some(&setup)).unwrap();
+        reqwest_client(Some(&setup), std::time::Duration::from_secs(60)).unwrap();
     }
 
     #[test]
     fn reqwest_client_without_tls() {
-        reqwest_client(None).unwrap();
+        reqwest_client(None, std::time::Duration::from_secs(60)).unwrap();
     }
 }
