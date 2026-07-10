@@ -16,7 +16,7 @@
 //! upstream) produced a result. Port of the legacy `EcdsaSigner`.
 
 use crate::config::signature::{SignatureAlgorithm, SignatureConfig};
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use k256::ecdsa::signature::Signer as _;
 use k256::pkcs8::{DecodePrivateKey, EncodePublicKey};
 use sha2::{Digest, Sha256};
@@ -36,6 +36,27 @@ pub struct ResponseSigner {
 enum SignerKey {
     Secp256k1(k256::ecdsa::SigningKey),
     NistP256(p256::ecdsa::SigningKey),
+}
+
+/// A signature received from a remote Dshackle upstream, to be passed through
+/// to the client unchanged.
+///
+/// In a chained deployment (edge → remote Dshackle → node) the edge forwards
+/// the client's nonce, and the remote — sitting closest to the node — signs the
+/// result. Passing that signature through instead of re-signing locally lets the
+/// client verify the instance nearest the node, so an intermediate edge cannot
+/// tamper with the payload. Port of the legacy `JsonRpcResponse.providedSignature`.
+///
+/// Carries no nonce: like legacy `ResponseSigner.Signature`, the reply's nonce
+/// is always the client's own, not whatever the remote echoed back.
+#[derive(Debug, Clone)]
+pub struct ProvidedSignature {
+    /// DER-encoded ECDSA signature bytes.
+    pub value: Vec<u8>,
+    /// Identifies the remote's signing key (its own `key_id`).
+    pub key_id: u64,
+    /// The upstream on the remote that produced the signed response.
+    pub upstream_id: String,
 }
 
 /// A produced signature together with the identifiers a client needs to
@@ -243,9 +264,11 @@ mod tests {
         assert_eq!(signature.key_id, signer.key_id);
 
         let public_pem = std::fs::read_to_string(testdata().join("test_key.pub")).unwrap();
-        let verifying_key = <k256::ecdsa::VerifyingKey as k256::pkcs8::DecodePublicKey>::
-            from_public_key_pem(&public_pem)
-        .unwrap();
+        let verifying_key =
+            <k256::ecdsa::VerifyingKey as k256::pkcs8::DecodePublicKey>::from_public_key_pem(
+                &public_pem,
+            )
+            .unwrap();
         let parsed = k256::ecdsa::Signature::from_der(&signature.value).unwrap();
         let wrapped = wrap_message(10, b"\"0x100001\"", "test-1");
         verifying_key

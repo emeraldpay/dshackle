@@ -49,6 +49,7 @@ impl RpcUpstream for HardcodedMethods {
                 id: serde_json::Value::from(request.id),
                 result: Some(result.to_owned()),
                 error: None,
+                provided_signature: None,
             });
         }
         self.delegate.call(request).await

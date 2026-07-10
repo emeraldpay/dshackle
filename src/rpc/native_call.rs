@@ -17,7 +17,7 @@
 //! result back to a gRPC reply.
 
 use crate::jsonrpc::JsonRpcRequest;
-use crate::signature::ResponseSigner;
+use crate::signature::{ProvidedSignature, ResponseSigner};
 use crate::upstream::Multistream;
 use crate::upstream::router::{self, Routed};
 use crate::upstream::traits::UpstreamError;
@@ -61,25 +61,17 @@ pub async fn execute_native_call(
         }
     };
 
-    let request = JsonRpcRequest::new(item.id, item.method.clone().into(), params);
+    let mut request = JsonRpcRequest::new(item.id, item.method.clone().into(), params);
+    // Carry the client's nonce down to the upstream so a remote Dshackle can
+    // sign its reply over it; other upstream types ignore it.
+    request.nonce = item.nonce;
     tracing::trace!(id = item.id, method = %item.method, "executing native call item");
 
     match execute_call(multistream, &request).await {
         Ok(routed) => {
             let resp = routed.response;
-            if let Some(result) = resp.result {
-                // Forward the raw JSON bytes as-is, without re-serialization
-                let payload = result.get().as_bytes().to_vec();
-                tracing::trace!(id = item.id, method = %item.method, bytes = payload.len(), "call succeeded");
-                let signature = build_signature(signer, item.nonce, &payload, routed.source);
-                NativeCallReplyItem {
-                    id: item.id,
-                    succeed: true,
-                    payload,
-                    error_message: String::new(),
-                    signature,
-                }
-            } else if let Some(err) = resp.error {
+            let provided = resp.provided_signature;
+            if let Some(err) = resp.error {
                 tracing::trace!(id = item.id, method = %item.method, error = %err, "call returned rpc error");
                 // Forward the JSON-RPC error object verbatim so callers see the
                 // upstream's exact `code`/`message`/`data`
@@ -92,14 +84,23 @@ pub async fn execute_native_call(
                     signature: None,
                 }
             } else {
-                // Neither result nor error — treat as null result
-                tracing::trace!(id = item.id, method = %item.method, "call returned null result");
+                // A present result forwards its raw JSON bytes as-is; a missing
+                // one becomes `null`. Both are signed (legacy signs over
+                // `resultOrEmpty`), so a null result the client asked to be
+                // signed still carries a signature.
+                let payload = match resp.result {
+                    Some(result) => result.get().as_bytes().to_vec(),
+                    None => b"null".to_vec(),
+                };
+                tracing::trace!(id = item.id, method = %item.method, bytes = payload.len(), "call succeeded");
+                let signature =
+                    build_signature(signer, item.nonce, &payload, routed.source, provided);
                 NativeCallReplyItem {
                     id: item.id,
                     succeed: true,
-                    payload: b"null".to_vec(),
+                    payload,
                     error_message: String::new(),
-                    signature: None,
+                    signature,
                 }
             }
         }
@@ -116,31 +117,44 @@ pub async fn execute_native_call(
     }
 }
 
-/// Signs a successful result when the client asked for it. A `nonce` of 0
-/// means "no signature requested" (proto3 default), matching the legacy
-/// behavior; without a configured signer the reply simply carries none.
+/// Builds the reply signature when the client asked for one. A `nonce` of 0
+/// means "no signature requested" (proto3 default); legacy suppresses the reply
+/// signature entirely in that case, including a remote-provided one.
+///
+/// When a signature is wanted, one already produced by a remote Dshackle
+/// upstream (`provided`) wins and is passed through verbatim — keeping the
+/// remote's `key_id`/`upstream_id` so the client verifies the instance closest
+/// to the node. Local signing is the fallback; without a configured signer the
+/// reply simply carries none. The reply's `nonce` is always the client's,
+/// matching legacy `ctx.nonce`.
 fn build_signature(
     signer: Option<&ResponseSigner>,
     nonce: u64,
     payload: &[u8],
     source: Option<String>,
+    provided: Option<ProvidedSignature>,
 ) -> Option<NativeCallReplySignature> {
     if nonce == 0 {
         return None;
     }
-    let signer = signer?;
-    let Some(source) = source else {
-        // Should not happen: every quorum records the source of the response
-        // it resolves with. Better an unsigned reply than a wrong attribution.
-        tracing::warn!("Response source unknown, skipping signature");
-        return None;
+    let (signature, key_id, upstream_id) = if let Some(provided) = provided {
+        (provided.value, provided.key_id, provided.upstream_id)
+    } else {
+        let signer = signer?;
+        let Some(source) = source else {
+            // Should not happen: every quorum records the source of the response
+            // it resolves with. Better an unsigned reply than a wrong attribution.
+            tracing::warn!("Response source unknown, skipping signature");
+            return None;
+        };
+        let signature = signer.sign(nonce, payload, &source)?;
+        (signature.value, signature.key_id, signature.upstream_id)
     };
-    let signature = signer.sign(nonce, payload, &source)?;
     Some(NativeCallReplySignature {
         nonce,
-        signature: signature.value,
-        key_id: signature.key_id,
-        upstream_id: signature.upstream_id,
+        signature,
+        key_id,
+        upstream_id,
     })
 }
 
@@ -160,6 +174,197 @@ fn parse_payload(payload: &[u8]) -> Result<serde_json::Value, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::signature::{SignatureAlgorithm, SignatureConfig};
+
+    /// Local edge signer loaded from the shared signer testdata (key_id
+    /// 0xd25f1ff2c1a57235), used to prove a remote signature outranks it.
+    fn local_signer() -> ResponseSigner {
+        let config = SignatureConfig {
+            enabled: true,
+            algorithm: SignatureAlgorithm::Secp256k1,
+            private_key: Some("test_key".to_string()),
+        };
+        let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("testdata/signer");
+        ResponseSigner::from_config(&config, &base)
+            .unwrap()
+            .unwrap()
+    }
+
+    fn remote_signature() -> ProvidedSignature {
+        ProvidedSignature {
+            value: vec![1, 2, 3],
+            key_id: 0xAABB,
+            upstream_id: "remote-node".to_string(),
+        }
+    }
+
+    #[test]
+    fn provided_signature_wins_over_local_signer() {
+        // Chained deployment: even with its own key, the edge must forward the
+        // remote's signature unchanged so the client verifies the remote's key.
+        let signer = local_signer();
+        let sig = build_signature(
+            Some(&signer),
+            7,
+            b"\"0x1\"",
+            Some("edge".to_string()),
+            Some(remote_signature()),
+        )
+        .expect("provided signature is returned");
+        assert_eq!(sig.key_id, 0xAABB);
+        assert_eq!(sig.upstream_id, "remote-node");
+        assert_eq!(sig.signature, vec![1, 2, 3]);
+        // The reply carries the client's nonce, not whatever the remote echoed.
+        assert_eq!(sig.nonce, 7);
+    }
+
+    #[test]
+    fn provided_signature_used_without_local_signer() {
+        // Edge without a signing key still passes the remote's signature through.
+        let sig = build_signature(
+            None,
+            10,
+            b"\"0x1\"",
+            Some("edge".to_string()),
+            Some(remote_signature()),
+        )
+        .expect("provided signature is returned");
+        assert_eq!(sig.key_id, 0xAABB);
+        assert_eq!(sig.upstream_id, "remote-node");
+    }
+
+    #[test]
+    fn no_signature_for_provided_when_nonce_zero() {
+        // Client didn't ask for a signature: legacy suppresses even a provided
+        // one, so nonce==0 must win over the pass-through.
+        assert!(
+            build_signature(
+                None,
+                0,
+                b"\"0x1\"",
+                Some("edge".to_string()),
+                Some(remote_signature())
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn falls_back_to_local_signing_without_provided() {
+        let signer = local_signer();
+        let sig = build_signature(
+            Some(&signer),
+            10,
+            b"\"0x1\"",
+            Some("test-1".to_string()),
+            None,
+        )
+        .expect("local signature is produced");
+        assert_eq!(sig.key_id, 0xd25f1ff2c1a57235);
+        assert_eq!(sig.upstream_id, "test-1");
+        assert_eq!(sig.nonce, 10);
+    }
+
+    #[test]
+    fn no_signature_when_nonce_zero() {
+        let signer = local_signer();
+        assert!(
+            build_signature(
+                Some(&signer),
+                0,
+                b"\"0x1\"",
+                Some("test-1".to_string()),
+                None
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn no_signature_without_signer_or_provided() {
+        assert!(build_signature(None, 10, b"\"0x1\"", Some("test-1".to_string()), None).is_none());
+    }
+
+    // ── Null-result pass-through (whole call path) ────────────────────────
+
+    use crate::jsonrpc::JsonRpcResponse;
+    use crate::upstream::availability::UpstreamAvailability;
+    use crate::upstream::head::{Head, NoHead};
+    use crate::upstream::quorum::{AlwaysQuorum, CallQuorum, QuorumFactory};
+    use crate::upstream::state::UpstreamState;
+    use crate::upstream::traits::RpcUpstream;
+    use std::sync::Arc;
+
+    /// Upstream that returns a null result (no `result`, no `error`) already
+    /// carrying a remote-provided signature — the shape a remote Dshackle sends
+    /// for a signed request whose result is JSON `null`.
+    struct NullWithProvidedSignature {
+        state: Arc<UpstreamState>,
+    }
+
+    #[async_trait::async_trait]
+    impl RpcUpstream for NullWithProvidedSignature {
+        async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
+            Ok(JsonRpcResponse {
+                id: serde_json::Value::from(1),
+                result: None,
+                error: None,
+                provided_signature: Some(ProvidedSignature {
+                    value: vec![9, 9, 9],
+                    key_id: 0xCAFE,
+                    upstream_id: "remote-node".to_string(),
+                }),
+            })
+        }
+        fn id(&self) -> &str {
+            "edge"
+        }
+        fn availability(&self) -> UpstreamAvailability {
+            UpstreamAvailability::Ok
+        }
+        fn head(&self) -> &dyn Head {
+            &NoHead
+        }
+        fn lag(&self) -> Option<u64> {
+            None
+        }
+        fn state(&self) -> &Arc<UpstreamState> {
+            &self.state
+        }
+    }
+
+    struct AlwaysFactory;
+    impl QuorumFactory for AlwaysFactory {
+        fn quorum_for(&self, _method: &crate::jsonrpc::RpcMethod) -> Box<dyn CallQuorum> {
+            Box::new(AlwaysQuorum::new())
+        }
+    }
+
+    #[tokio::test]
+    async fn null_result_still_passes_through_provided_signature() {
+        let upstream = Arc::new(NullWithProvidedSignature {
+            state: Arc::new(UpstreamState::new()),
+        });
+        let ms = Multistream::new(vec![upstream], Arc::new(AlwaysFactory));
+        let item = NativeCallItem {
+            id: 1,
+            method: "eth_getTransactionByHash".to_string(),
+            payload: b"[]".to_vec(),
+            nonce: 5,
+        };
+
+        let reply = execute_native_call(&ms, &item, None).await;
+
+        assert!(reply.succeed);
+        assert_eq!(reply.payload, b"null");
+        let sig = reply.signature.expect(
+            "a null result the client asked to sign must still carry the provided signature",
+        );
+        assert_eq!(sig.key_id, 0xCAFE);
+        assert_eq!(sig.upstream_id, "remote-node");
+        // Reply nonce is the client's, not the remote's echo.
+        assert_eq!(sig.nonce, 5);
+    }
 
     #[test]
     fn parse_empty_payload() {

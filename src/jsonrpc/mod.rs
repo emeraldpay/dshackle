@@ -117,6 +117,12 @@ pub struct JsonRpcRequest {
     pub id: u32,
     pub method: RpcMethod,
     pub params: serde_json::Value,
+    /// Signing nonce carried alongside the request (not serialized into the
+    /// JSON-RPC body). A non-zero value asks a remote Dshackle upstream to sign
+    /// its reply over this nonce; `0` means no signature was requested. Only the
+    /// Dshackle gRPC upstream forwards it — plain node upstreams ignore it.
+    #[serde(skip)]
+    pub nonce: u64,
 }
 
 impl JsonRpcRequest {
@@ -126,6 +132,7 @@ impl JsonRpcRequest {
             id,
             method,
             params,
+            nonce: 0,
         }
     }
 }
@@ -141,6 +148,12 @@ pub struct JsonRpcResponse {
     pub id: serde_json::Value,
     pub result: Option<Box<RawValue>>,
     pub error: Option<JsonRpcError>,
+    /// Signature supplied by a remote Dshackle upstream, to be passed through to
+    /// the client unchanged rather than re-signed locally. Absent for plain node
+    /// upstreams and never present in the wire JSON, so it is skipped during
+    /// deserialization and set by the Dshackle upstream after the gRPC reply.
+    #[serde(skip)]
+    pub provided_signature: Option<crate::signature::ProvidedSignature>,
 }
 
 impl JsonRpcResponse {

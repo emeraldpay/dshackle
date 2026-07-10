@@ -19,12 +19,13 @@
 //! tracking uses the `SubscribeHead` stream.
 
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
+use crate::signature::ProvidedSignature;
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::{CurrentHead, Head};
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
-use emerald_api::proto::blockchain::{NativeCallItem, NativeCallRequest};
+use emerald_api::proto::blockchain::{NativeCallItem, NativeCallReplySignature, NativeCallRequest};
 use serde_json::value::RawValue;
 use std::sync::Arc;
 use tonic::transport::Channel;
@@ -96,7 +97,10 @@ impl RpcUpstream for DshackleUpstream {
                 id: request.id,
                 method: request.method.to_string(),
                 payload,
-                nonce: 0,
+                // Forward the client's nonce so the remote signs its reply over
+                // it; the resulting signature is passed back to the client
+                // unchanged (end-to-end signing in a chained deployment).
+                nonce: request.nonce,
             }],
             selector: None,
             quorum: 0,
@@ -144,6 +148,7 @@ impl RpcUpstream for DshackleUpstream {
             id: serde_json::Value::from(request.id),
             result,
             error: None,
+            provided_signature: extract_signature(reply.signature),
         })
     }
 
@@ -165,5 +170,73 @@ impl RpcUpstream for DshackleUpstream {
 
     fn state(&self) -> &Arc<UpstreamState> {
         &self.state
+    }
+}
+
+/// Converts a remote's reply signature into a [`ProvidedSignature`] for
+/// pass-through, dropping it when the remote sent no usable signature.
+///
+/// Matches legacy `JsonRpcGrpcClient.extractSignature`: an empty signature or
+/// empty upstream id means "not signed", not a malformed signature to forward.
+fn extract_signature(signature: Option<NativeCallReplySignature>) -> Option<ProvidedSignature> {
+    let signature = signature?;
+    if signature.signature.is_empty() || signature.upstream_id.is_empty() {
+        return None;
+    }
+    Some(ProvidedSignature {
+        value: signature.signature,
+        key_id: signature.key_id,
+        upstream_id: signature.upstream_id,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extracts_populated_signature() {
+        let provided = extract_signature(Some(NativeCallReplySignature {
+            nonce: 10,
+            signature: vec![1, 2, 3],
+            key_id: 0xAABB,
+            upstream_id: "remote-node".to_string(),
+        }))
+        .expect("a populated signature is passed through");
+        assert_eq!(provided.value, vec![1, 2, 3]);
+        assert_eq!(provided.key_id, 0xAABB);
+        assert_eq!(provided.upstream_id, "remote-node");
+    }
+
+    #[test]
+    fn drops_absent_signature() {
+        assert!(extract_signature(None).is_none());
+    }
+
+    #[test]
+    fn drops_empty_signature_bytes() {
+        // An empty signature means the remote did not sign, not a signature to forward.
+        assert!(
+            extract_signature(Some(NativeCallReplySignature {
+                nonce: 10,
+                signature: Vec::new(),
+                key_id: 0xAABB,
+                upstream_id: "remote-node".to_string(),
+            }))
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn drops_empty_upstream_id() {
+        assert!(
+            extract_signature(Some(NativeCallReplySignature {
+                nonce: 10,
+                signature: vec![1, 2, 3],
+                key_id: 0xAABB,
+                upstream_id: String::new(),
+            }))
+            .is_none()
+        );
     }
 }

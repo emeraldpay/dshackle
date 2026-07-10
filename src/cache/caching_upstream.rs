@@ -204,6 +204,7 @@ fn json_response(request_id: u32, json: &[u8]) -> Option<JsonRpcResponse> {
         id: serde_json::Value::from(request_id),
         result: Some(raw),
         error: None,
+        provided_signature: None,
     })
 }
 
