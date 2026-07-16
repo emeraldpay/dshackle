@@ -17,6 +17,7 @@
 use super::{ForkChoice, ForkStatus};
 use crate::data::{BlockContainer, BlockId};
 use crate::upstream::availability::UpstreamAvailability;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::state::UpstreamState;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
@@ -30,7 +31,7 @@ const JOURNAL_LIMIT: usize = TRACK_LIMIT * 2;
 
 /// A registered upstream and the bits the fork choice needs from it.
 struct Member {
-    id: String,
+    id: UpstreamId,
     priority: i32,
     state: Arc<UpstreamState>,
 }
@@ -45,7 +46,7 @@ pub struct PriorityForkChoice {
     /// Recent parent→child relations, oldest at the front.
     journal: Mutex<VecDeque<(BlockId, BlockId)>>,
     /// The reconstructed recent chain for each upstream, oldest first.
-    blocks: Mutex<HashMap<String, Vec<BlockId>>>,
+    blocks: Mutex<HashMap<UpstreamId, Vec<BlockId>>>,
 }
 
 impl PriorityForkChoice {
@@ -59,7 +60,7 @@ impl PriorityForkChoice {
 
     /// Register an upstream with its priority. All upstreams are known at
     /// startup, so this replaces the legacy reactive registration.
-    pub fn add_upstream(&self, id: String, priority: i32, state: Arc<UpstreamState>) {
+    pub fn add_upstream(&self, id: UpstreamId, priority: i32, state: Arc<UpstreamState>) {
         let mut members = self.members.write().unwrap();
         if members.iter().any(|m| m.priority == priority && m.id != id) {
             tracing::warn!(
@@ -77,9 +78,9 @@ impl PriorityForkChoice {
     /// The best upstream ranked above `current_id` that is currently healthy,
     /// i.e. the one whose chain `current` should agree with. `None` when
     /// `current` is itself the top-priority healthy upstream.
-    fn preferential_upstream(&self, current_id: &str) -> Option<String> {
+    fn preferential_upstream(&self, current_id: &UpstreamId) -> Option<UpstreamId> {
         let members = self.members.read().unwrap();
-        let current_priority = members.iter().find(|m| m.id == current_id)?.priority;
+        let current_priority = members.iter().find(|m| &m.id == current_id)?.priority;
         members
             .iter()
             .filter(|m| m.priority > current_priority)
@@ -90,7 +91,7 @@ impl PriorityForkChoice {
             .map(|m| m.id.clone())
     }
 
-    fn get_blocks(&self, id: &str) -> Vec<BlockId> {
+    fn get_blocks(&self, id: &UpstreamId) -> Vec<BlockId> {
         self.blocks
             .lock()
             .unwrap()
@@ -99,8 +100,8 @@ impl PriorityForkChoice {
             .unwrap_or_default()
     }
 
-    fn set_blocks(&self, id: &str, chain: Vec<BlockId>) {
-        self.blocks.lock().unwrap().insert(id.to_string(), chain);
+    fn set_blocks(&self, id: &UpstreamId, chain: Vec<BlockId>) {
+        self.blocks.lock().unwrap().insert(id.clone(), chain);
     }
 
     /// Remember a parent→child relation for later gap-filling. Returns whether
@@ -198,11 +199,11 @@ impl PriorityForkChoice {
 }
 
 impl ForkChoice for PriorityForkChoice {
-    fn submit(&self, block: &BlockContainer, upstream_id: &str) -> ForkStatus {
+    fn submit(&self, block: &BlockContainer, upstream_id: &UpstreamId) -> ForkStatus {
         let Some(parent) = block.parent_hash else {
             // The legacy code throws on a missing parent and the watcher
             // treats the failure as a fork; mirror that.
-            tracing::warn!(upstream = upstream_id, "Block has no parent hash");
+            tracing::warn!(upstream = %upstream_id, "Block has no parent hash");
             return ForkStatus::Rejected;
         };
         self.keep_journal(parent, block.hash);
@@ -227,6 +228,10 @@ impl ForkChoice for PriorityForkChoice {
 mod tests {
     use super::*;
 
+    fn uid(s: &str) -> UpstreamId {
+        s.parse().unwrap()
+    }
+
     fn id(n: u8) -> BlockId {
         BlockId::from_bytes([n; 32])
     }
@@ -249,7 +254,7 @@ mod tests {
     fn register(fc: &PriorityForkChoice, id: &str, priority: i32) -> Arc<UpstreamState> {
         let state = Arc::new(UpstreamState::new());
         state.update(0, Some(100)); // Ok
-        fc.add_upstream(id.to_string(), priority, Arc::clone(&state));
+        fc.add_upstream(id.parse().unwrap(), priority, Arc::clone(&state));
         state
     }
 
@@ -258,7 +263,7 @@ mod tests {
         let fc = PriorityForkChoice::new();
         register(&fc, "top", 100);
         // No higher-priority upstream exists, so it's trusted.
-        assert_eq!(fc.submit(&block(2, 1, 1), "top"), ForkStatus::New);
+        assert_eq!(fc.submit(&block(2, 1, 1), &uid("top")), ForkStatus::New);
     }
 
     #[test]
@@ -266,8 +271,8 @@ mod tests {
         let fc = PriorityForkChoice::new();
         register(&fc, "top", 100);
         register(&fc, "low", 50);
-        fc.submit(&block(2, 1, 1), "top");
-        assert_eq!(fc.submit(&block(2, 1, 1), "low"), ForkStatus::Equal);
+        fc.submit(&block(2, 1, 1), &uid("top"));
+        assert_eq!(fc.submit(&block(2, 1, 1), &uid("low")), ForkStatus::Equal);
     }
 
     #[test]
@@ -276,9 +281,12 @@ mod tests {
         register(&fc, "top", 100);
         register(&fc, "low", 50);
         // top advances 1 -> 2 -> 3, low is still at 2
-        fc.submit(&block(2, 1, 1), "top");
-        fc.submit(&block(3, 2, 2), "top");
-        assert_eq!(fc.submit(&block(2, 1, 1), "low"), ForkStatus::Fallbehind);
+        fc.submit(&block(2, 1, 1), &uid("top"));
+        fc.submit(&block(3, 2, 2), &uid("top"));
+        assert_eq!(
+            fc.submit(&block(2, 1, 1), &uid("low")),
+            ForkStatus::Fallbehind
+        );
     }
 
     #[test]
@@ -286,9 +294,9 @@ mod tests {
         let fc = PriorityForkChoice::new();
         register(&fc, "top", 100);
         register(&fc, "low", 50);
-        fc.submit(&block(2, 1, 1), "top");
+        fc.submit(&block(2, 1, 1), &uid("top"));
         // low builds on top's head (2 -> 3) before top sees block 3
-        assert_eq!(fc.submit(&block(3, 2, 2), "low"), ForkStatus::Outrun);
+        assert_eq!(fc.submit(&block(3, 2, 2), &uid("low")), ForkStatus::Outrun);
     }
 
     #[test]
@@ -297,11 +305,14 @@ mod tests {
         register(&fc, "top", 100);
         register(&fc, "low", 50);
         // top: 1 -> 2 -> 3
-        fc.submit(&block(2, 1, 1), "top");
-        fc.submit(&block(3, 2, 2), "top");
+        fc.submit(&block(2, 1, 1), &uid("top"));
+        fc.submit(&block(3, 2, 2), &uid("top"));
         // low forks off a different parent: 10 -> 11, unrelated to top's chain
-        fc.submit(&block(10, 9, 1), "low");
-        assert_eq!(fc.submit(&block(11, 10, 2), "low"), ForkStatus::Rejected);
+        fc.submit(&block(10, 9, 1), &uid("low"));
+        assert_eq!(
+            fc.submit(&block(11, 10, 2), &uid("low")),
+            ForkStatus::Rejected
+        );
     }
 
     #[test]
@@ -310,7 +321,7 @@ mod tests {
         register(&fc, "top", 100);
         let mut b = block(2, 1, 1);
         b.parent_hash = None;
-        assert_eq!(fc.submit(&b, "top"), ForkStatus::Rejected);
+        assert_eq!(fc.submit(&b, &uid("top")), ForkStatus::Rejected);
     }
 
     #[test]
@@ -321,7 +332,7 @@ mod tests {
         // top is forked/immature, so it must not be used as the reference;
         // low then has no healthy upstream above it and is trusted as New.
         top.set_fork(true);
-        fc.submit(&block(2, 1, 1), "top");
-        assert_eq!(fc.submit(&block(10, 9, 1), "low"), ForkStatus::New);
+        fc.submit(&block(2, 1, 1), &uid("top"));
+        assert_eq!(fc.submit(&block(10, 9, 1), &uid("low")), ForkStatus::New);
     }
 }

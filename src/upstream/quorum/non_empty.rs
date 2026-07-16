@@ -20,6 +20,7 @@
 //! upstreams have been polled.
 
 use crate::jsonrpc::JsonRpcResponse;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::quorum::{CallQuorum, QuorumOutcome};
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 
@@ -30,11 +31,11 @@ pub struct NonEmptyQuorum {
     max_tries: usize,
     tries: usize,
     /// First non-null response seen.
-    result: Option<(JsonRpcResponse, String)>,
+    result: Option<(JsonRpcResponse, UpstreamId)>,
     /// Fallback for when every upstream returned null — better to forward a
     /// real `null` than a synthetic transport error.
-    last_empty_response: Option<(JsonRpcResponse, String)>,
-    resolved_source: Option<String>,
+    last_empty_response: Option<(JsonRpcResponse, UpstreamId)>,
+    resolved_source: Option<UpstreamId>,
     last_error: Option<UpstreamError>,
 }
 
@@ -71,10 +72,10 @@ impl CallQuorum for NonEmptyQuorum {
         self.tries += 1;
         if response.is_non_empty_result() {
             if self.result.is_none() {
-                self.result = Some((response, upstream.id().to_string()));
+                self.result = Some((response, upstream.id().clone()));
             }
         } else if self.last_empty_response.is_none() {
-            self.last_empty_response = Some((response, upstream.id().to_string()));
+            self.last_empty_response = Some((response, upstream.id().clone()));
         }
     }
 
@@ -107,8 +108,8 @@ impl CallQuorum for NonEmptyQuorum {
         QuorumOutcome::Empty
     }
 
-    fn resolved_by(&self) -> Option<&str> {
-        self.resolved_source.as_deref()
+    fn resolved_by(&self) -> Option<&UpstreamId> {
+        self.resolved_source.as_ref()
     }
 }
 
@@ -131,8 +132,8 @@ mod tests {
         async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             unimplemented!()
         }
-        fn id(&self) -> &str {
-            "stub"
+        fn id(&self) -> &UpstreamId {
+            crate::upstream::id::stub_id()
         }
         fn availability(&self) -> UpstreamAvailability {
             UpstreamAvailability::Ok

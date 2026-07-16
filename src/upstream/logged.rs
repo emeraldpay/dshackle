@@ -29,6 +29,7 @@ use crate::logs::request::{
 };
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{Capability, RpcUpstream, UpstreamError};
 use std::collections::HashMap;
@@ -40,7 +41,7 @@ use uuid::Uuid;
 pub struct LoggedUpstream {
     inner: Arc<dyn RpcUpstream>,
     /// The `upstream.id` of the records: the configured upstream id.
-    upstream: String,
+    upstream: UpstreamId,
     channel: Channel,
     chain: TargetBlockchain,
 }
@@ -49,7 +50,7 @@ impl LoggedUpstream {
     pub fn new(
         inner: Arc<dyn RpcUpstream>,
         channel: Channel,
-        upstream: String,
+        upstream: UpstreamId,
         chain: TargetBlockchain,
     ) -> Self {
         Self {
@@ -121,7 +122,7 @@ impl RpcUpstream for LoggedUpstream {
             id: Uuid::new_v4(),
             success,
             upstream: UpstreamDetails {
-                id: self.upstream.clone(),
+                id: self.upstream.to_string(),
                 channel: self.channel,
                 request_type: "JSONRPC",
             },
@@ -144,7 +145,7 @@ impl RpcUpstream for LoggedUpstream {
         result
     }
 
-    fn id(&self) -> &str {
+    fn id(&self) -> &UpstreamId {
         self.inner.id()
     }
 

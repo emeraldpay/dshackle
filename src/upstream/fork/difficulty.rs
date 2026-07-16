@@ -16,6 +16,7 @@
 
 use super::{ForkChoice, ForkStatus};
 use crate::data::BlockContainer;
+use crate::upstream::id::UpstreamId;
 use alloy::primitives::U256;
 use std::cmp::Ordering;
 use std::sync::Mutex;
@@ -40,7 +41,7 @@ impl DifficultyForkChoice {
 }
 
 impl ForkChoice for DifficultyForkChoice {
-    fn submit(&self, block: &BlockContainer, _upstream_id: &str) -> ForkStatus {
+    fn submit(&self, block: &BlockContainer, _upstream_id: &UpstreamId) -> ForkStatus {
         let difficulty = block.total_difficulty;
         let mut best = self.best.lock().unwrap();
         let previous = *best;
@@ -62,6 +63,10 @@ impl ForkChoice for DifficultyForkChoice {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn uid(s: &str) -> UpstreamId {
+        s.parse().unwrap()
+    }
     use crate::data::{BlockContainer, BlockId};
 
     fn block(difficulty: u64) -> BlockContainer {
@@ -80,34 +85,34 @@ mod tests {
     #[test]
     fn first_block_is_new() {
         let fc = DifficultyForkChoice::new();
-        assert_eq!(fc.submit(&block(100), "a"), ForkStatus::New);
+        assert_eq!(fc.submit(&block(100), &uid("up-a")), ForkStatus::New);
     }
 
     #[test]
     fn higher_difficulty_is_new() {
         let fc = DifficultyForkChoice::new();
-        fc.submit(&block(100), "a");
-        assert_eq!(fc.submit(&block(200), "b"), ForkStatus::New);
+        fc.submit(&block(100), &uid("up-a"));
+        assert_eq!(fc.submit(&block(200), &uid("up-b")), ForkStatus::New);
     }
 
     #[test]
     fn same_difficulty_is_equal() {
         let fc = DifficultyForkChoice::new();
-        fc.submit(&block(100), "a");
-        assert_eq!(fc.submit(&block(100), "b"), ForkStatus::Equal);
+        fc.submit(&block(100), &uid("up-a"));
+        assert_eq!(fc.submit(&block(100), &uid("up-b")), ForkStatus::Equal);
     }
 
     #[test]
     fn lower_difficulty_is_fallbehind() {
         let fc = DifficultyForkChoice::new();
-        fc.submit(&block(200), "a");
-        assert_eq!(fc.submit(&block(100), "b"), ForkStatus::Fallbehind);
+        fc.submit(&block(200), &uid("up-a"));
+        assert_eq!(fc.submit(&block(100), &uid("up-b")), ForkStatus::Fallbehind);
     }
 
     #[test]
     fn never_rejects() {
         let fc = DifficultyForkChoice::new();
-        fc.submit(&block(200), "a");
-        assert!(fc.submit(&block(1), "b").is_ok());
+        fc.submit(&block(200), &uid("up-a"));
+        assert!(fc.submit(&block(1), &uid("up-b")).is_ok());
     }
 }

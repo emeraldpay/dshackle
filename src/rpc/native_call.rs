@@ -23,7 +23,7 @@ use crate::upstream::ethereum::call_selector;
 use crate::upstream::router::{self, Routed};
 use crate::upstream::selector::LabelSelector;
 use crate::upstream::traits::UpstreamError;
-use crate::upstream::{Multistream, multistream};
+use crate::upstream::{Multistream, UpstreamId, multistream};
 use emerald_api::proto::blockchain::{
     NativeCallItem, NativeCallReplyItem, NativeCallReplySignature,
 };
@@ -153,7 +153,7 @@ fn build_signature(
     signer: Option<&ResponseSigner>,
     nonce: u64,
     payload: &[u8],
-    source: Option<String>,
+    source: Option<UpstreamId>,
     provided: Option<ProvidedSignature>,
 ) -> Option<NativeCallReplySignature> {
     if nonce == 0 {
@@ -169,14 +169,14 @@ fn build_signature(
             tracing::warn!("Response source unknown, skipping signature");
             return None;
         };
-        let signature = signer.sign(nonce, payload, &source)?;
+        let signature = signer.sign(nonce, payload, &source);
         (signature.value, signature.key_id, signature.upstream_id)
     };
     Some(NativeCallReplySignature {
         nonce,
         signature,
         key_id,
-        upstream_id,
+        upstream_id: upstream_id.to_string(),
     })
 }
 
@@ -216,7 +216,7 @@ mod tests {
         ProvidedSignature {
             value: vec![1, 2, 3],
             key_id: 0xAABB,
-            upstream_id: "remote-node".to_string(),
+            upstream_id: "remote-node".parse().unwrap(),
         }
     }
 
@@ -229,7 +229,7 @@ mod tests {
             Some(&signer),
             7,
             b"\"0x1\"",
-            Some("edge".to_string()),
+            Some("edge".parse().unwrap()),
             Some(remote_signature()),
         )
         .expect("provided signature is returned");
@@ -247,7 +247,7 @@ mod tests {
             None,
             10,
             b"\"0x1\"",
-            Some("edge".to_string()),
+            Some("edge".parse().unwrap()),
             Some(remote_signature()),
         )
         .expect("provided signature is returned");
@@ -264,7 +264,7 @@ mod tests {
                 None,
                 0,
                 b"\"0x1\"",
-                Some("edge".to_string()),
+                Some("edge".parse().unwrap()),
                 Some(remote_signature())
             )
             .is_none()
@@ -278,7 +278,7 @@ mod tests {
             Some(&signer),
             10,
             b"\"0x1\"",
-            Some("test-1".to_string()),
+            Some("test-1".parse().unwrap()),
             None,
         )
         .expect("local signature is produced");
@@ -295,7 +295,7 @@ mod tests {
                 Some(&signer),
                 0,
                 b"\"0x1\"",
-                Some("test-1".to_string()),
+                Some("test-1".parse().unwrap()),
                 None
             )
             .is_none()
@@ -304,7 +304,9 @@ mod tests {
 
     #[test]
     fn no_signature_without_signer_or_provided() {
-        assert!(build_signature(None, 10, b"\"0x1\"", Some("test-1".to_string()), None).is_none());
+        assert!(
+            build_signature(None, 10, b"\"0x1\"", Some("test-1".parse().unwrap()), None).is_none()
+        );
     }
 
     // ── Null-result pass-through (whole call path) ────────────────────────
@@ -334,12 +336,14 @@ mod tests {
                 provided_signature: Some(ProvidedSignature {
                     value: vec![9, 9, 9],
                     key_id: 0xCAFE,
-                    upstream_id: "remote-node".to_string(),
+                    upstream_id: "remote-node".parse().unwrap(),
                 }),
             })
         }
-        fn id(&self) -> &str {
-            "edge"
+        fn id(&self) -> &UpstreamId {
+            static ID: std::sync::LazyLock<UpstreamId> =
+                std::sync::LazyLock::new(|| "edge".parse().unwrap());
+            &ID
         }
         fn availability(&self) -> UpstreamAvailability {
             UpstreamAvailability::Ok
@@ -402,7 +406,7 @@ mod tests {
     /// Upstream with fixed labels, head height, and availability, answering
     /// every call with its own id — so tests can see who served the request.
     struct LabeledUpstream {
-        label: String,
+        label: UpstreamId,
         label_sets: Vec<HashMap<String, String>>,
         head: CurrentHead,
         availability: UpstreamAvailability,
@@ -425,7 +429,7 @@ mod tests {
                 head.update(h);
             }
             Arc::new(Self {
-                label: id.to_string(),
+                label: id.parse().unwrap(),
                 label_sets: vec![
                     labels
                         .iter()
@@ -445,7 +449,7 @@ mod tests {
             let body = format!(r#"{{"jsonrpc":"2.0","id":1,"result":"{}"}}"#, self.label);
             Ok(serde_json::from_str(&body).unwrap())
         }
-        fn id(&self) -> &str {
+        fn id(&self) -> &UpstreamId {
             &self.label
         }
         fn availability(&self) -> UpstreamAvailability {
@@ -573,7 +577,7 @@ mod tests {
         // Right after a restart no upstream has reported a head yet; a pinned
         // read must route best-effort instead of deterministically failing on
         // every deploy.
-        let a = LabeledUpstream::new("a", &[], None);
+        let a = LabeledUpstream::new("up-a", &[], None);
         let ms = Multistream::new(test_chain(), vec![a], Arc::new(AlwaysFactory));
 
         let request = JsonRpcRequest::new(
@@ -584,7 +588,7 @@ mod tests {
         let routed = execute_call(&ms, &request, &LabelSelector::Any)
             .await
             .unwrap();
-        assert_eq!(result_of(&routed), "a");
+        assert_eq!(result_of(&routed), "up-a");
     }
 
     #[tokio::test]

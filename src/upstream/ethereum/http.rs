@@ -19,13 +19,14 @@ use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::{CurrentHead, Head};
 use crate::upstream::http_error::classify_non_200;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use std::sync::Arc;
 
 /// An Ethereum upstream node accessed over HTTP JSON-RPC.
 pub struct EthereumHttpUpstream {
-    id: String,
+    id: UpstreamId,
     url: String,
     basic_auth: Option<BasicAuth>,
     client: reqwest::Client,
@@ -38,7 +39,7 @@ impl EthereumHttpUpstream {
     /// (custom CA, mutual TLS). If `basic_auth` is provided it is applied to
     /// every outgoing request.
     pub fn new(
-        id: String,
+        id: UpstreamId,
         url: String,
         basic_auth: Option<BasicAuth>,
         client: reqwest::Client,
@@ -98,7 +99,7 @@ impl RpcUpstream for EthereumHttpUpstream {
             .map_err(|e| UpstreamError::InvalidResponse(e.to_string()))
     }
 
-    fn id(&self) -> &str {
+    fn id(&self) -> &UpstreamId {
         &self.id
     }
 
@@ -144,7 +145,7 @@ mod tests {
         let client =
             crate::tls::reqwest_client(None, std::time::Duration::from_millis(300)).unwrap();
         let upstream = EthereumHttpUpstream::new(
-            "silent".to_string(),
+            "silent".parse().unwrap(),
             format!("http://{addr}/"),
             None,
             client,

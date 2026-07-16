@@ -16,6 +16,7 @@
 
 use super::{ForkChoice, ForkStatus};
 use crate::data::BlockContainer;
+use crate::upstream::id::UpstreamId;
 use std::cmp::Ordering;
 use std::sync::atomic::{AtomicU64, Ordering as MemOrder};
 
@@ -35,7 +36,7 @@ impl NeverForkChoice {
 }
 
 impl ForkChoice for NeverForkChoice {
-    fn submit(&self, block: &BlockContainer, _upstream_id: &str) -> ForkStatus {
+    fn submit(&self, block: &BlockContainer, _upstream_id: &UpstreamId) -> ForkStatus {
         let previous = self.height.fetch_max(block.height, MemOrder::Relaxed);
         match previous.cmp(&block.height) {
             Ordering::Greater => ForkStatus::Fallbehind,
@@ -52,6 +53,10 @@ impl ForkChoice for NeverForkChoice {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn uid(s: &str) -> UpstreamId {
+        s.parse().unwrap()
+    }
     use crate::data::BlockId;
 
     fn block(height: u64) -> BlockContainer {
@@ -70,9 +75,9 @@ mod tests {
     #[test]
     fn tracks_height_and_never_rejects() {
         let fc = NeverForkChoice::new();
-        assert_eq!(fc.submit(&block(10), "a"), ForkStatus::New);
-        assert_eq!(fc.submit(&block(10), "b"), ForkStatus::Equal);
-        assert_eq!(fc.submit(&block(5), "c"), ForkStatus::Fallbehind);
-        assert!(fc.submit(&block(1), "d").is_ok());
+        assert_eq!(fc.submit(&block(10), &uid("up-a")), ForkStatus::New);
+        assert_eq!(fc.submit(&block(10), &uid("up-b")), ForkStatus::Equal);
+        assert_eq!(fc.submit(&block(5), &uid("up-c")), ForkStatus::Fallbehind);
+        assert!(fc.submit(&block(1), &uid("up-d")).is_ok());
     }
 }

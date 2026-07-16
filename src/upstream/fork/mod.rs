@@ -37,6 +37,7 @@ pub use priority::PriorityForkChoice;
 pub use watch::{ForkMember, start_fork_watch};
 
 use crate::data::BlockContainer;
+use crate::upstream::id::UpstreamId;
 use emerald_api::proto::common::ChainRef;
 
 /// How one upstream's latest block relates to the chain's recognized head.
@@ -88,7 +89,7 @@ impl ForkStatus {
 /// submits its blocks to it, so the choice sees the whole picture.
 pub trait ForkChoice: Send + Sync {
     /// Classify `block` reported by the upstream identified by `upstream_id`.
-    fn submit(&self, block: &BlockContainer, upstream_id: &str) -> ForkStatus;
+    fn submit(&self, block: &BlockContainer, upstream_id: &UpstreamId) -> ForkStatus;
 
     /// Name of the strategy, for logging.
     fn name(&self) -> &'static str;

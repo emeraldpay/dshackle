@@ -36,6 +36,7 @@ pub use nonce::NonceQuorum;
 pub use not_lagging::NotLaggingQuorum;
 
 use crate::jsonrpc::{JsonRpcResponse, RpcMethod};
+use crate::upstream::id::UpstreamId;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use serde_json::value::RawValue;
 
@@ -115,7 +116,7 @@ pub trait CallQuorum: Send {
     /// Id of the upstream whose response `take_outcome` resolved with, needed
     /// to attribute the response (e.g. for signing). Only meaningful after
     /// `take_outcome` returned `Resolved`.
-    fn resolved_by(&self) -> Option<&str> {
+    fn resolved_by(&self) -> Option<&UpstreamId> {
         None
     }
 

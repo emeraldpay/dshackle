@@ -306,6 +306,7 @@ mod tests {
     use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
     use crate::upstream::availability::UpstreamAvailability;
     use crate::upstream::head::{Head, NoHead};
+    use crate::upstream::id::UpstreamId;
     use crate::upstream::quorum::{AlwaysQuorum, CallQuorum, QuorumFactory};
     use crate::upstream::state::UpstreamState;
     use crate::upstream::traits::{RpcUpstream, UpstreamError};
@@ -316,8 +317,8 @@ mod tests {
         async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             Ok(serde_json::from_str(r#"{"jsonrpc":"2.0","id":1,"result":"0x1"}"#).unwrap())
         }
-        fn id(&self) -> &str {
-            "stub"
+        fn id(&self) -> &UpstreamId {
+            crate::upstream::id::stub_id()
         }
         fn availability(&self) -> UpstreamAvailability {
             UpstreamAvailability::Ok

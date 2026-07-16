@@ -27,6 +27,7 @@ use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::metrics::{self, UpstreamProtocol};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{Capability, RpcUpstream, UpstreamError};
 use std::collections::HashMap;
@@ -39,9 +40,9 @@ pub struct MeteredUpstream {
     protocol: UpstreamProtocol,
     /// The `upstream` metric label: the configured upstream id. Passed
     /// explicitly because an inner id may carry extra qualifiers (a remote
-    /// Dshackle uses `id/chain`), while the legacy metrics were always tagged
+    /// Dshackle uses `id_chain`), while the legacy metrics were always tagged
     /// with the plain id.
-    upstream: String,
+    upstream: UpstreamId,
     chain: TargetBlockchain,
 }
 
@@ -49,10 +50,10 @@ impl MeteredUpstream {
     pub fn new(
         inner: Arc<dyn RpcUpstream>,
         protocol: UpstreamProtocol,
-        upstream: String,
+        upstream: UpstreamId,
         chain: TargetBlockchain,
     ) -> Self {
-        metrics::upstream_created(protocol, &upstream, &chain);
+        metrics::upstream_created(protocol, upstream.as_str(), &chain);
         Self {
             inner,
             protocol,
@@ -65,32 +66,37 @@ impl MeteredUpstream {
 #[async_trait::async_trait]
 impl RpcUpstream for MeteredUpstream {
     async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
-        metrics::upstream_enqueued(&self.upstream, &self.chain);
+        metrics::upstream_enqueued(self.upstream.as_str(), &self.chain);
         let start = std::time::Instant::now();
         let result = self.inner.call(request).await;
-        metrics::upstream_finished(&self.upstream, &self.chain);
+        metrics::upstream_finished(self.upstream.as_str(), &self.chain);
         match &result {
             Ok(response) => {
-                metrics::upstream_call(self.protocol, &self.upstream, &self.chain, start.elapsed());
+                metrics::upstream_call(
+                    self.protocol,
+                    self.upstream.as_str(),
+                    &self.chain,
+                    start.elapsed(),
+                );
                 // Like the legacy `RpcMetrics.processResponseSize`, the size is
                 // of the result payload — an error response records nothing.
                 if let Some(payload) = &response.result {
                     metrics::upstream_response_size(
                         self.protocol,
-                        &self.upstream,
+                        self.upstream.as_str(),
                         &self.chain,
                         payload.get().len(),
                     );
                 }
             }
             Err(_) => {
-                metrics::upstream_fail(self.protocol, &self.upstream, &self.chain);
+                metrics::upstream_fail(self.protocol, self.upstream.as_str(), &self.chain);
             }
         }
         result
     }
 
-    fn id(&self) -> &str {
+    fn id(&self) -> &UpstreamId {
         self.inner.id()
     }
 

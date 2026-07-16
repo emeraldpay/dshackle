@@ -146,12 +146,13 @@ mod tests {
     use super::*;
     use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
     use crate::upstream::head::{CurrentHead, Head};
+    use crate::upstream::id::UpstreamId;
     use crate::upstream::state::UpstreamState;
     use crate::upstream::traits::UpstreamError;
     use emerald_api::proto::common::ChainRef;
 
     struct StubUpstream {
-        name: String,
+        name: UpstreamId,
         head: Arc<CurrentHead>,
         state: Arc<UpstreamState>,
     }
@@ -163,7 +164,7 @@ mod tests {
                 head.update(h);
             }
             Arc::new(Self {
-                name: name.to_string(),
+                name: name.parse().unwrap(),
                 head,
                 state: Arc::new(UpstreamState::new()),
             })
@@ -175,7 +176,7 @@ mod tests {
         async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             unimplemented!()
         }
-        fn id(&self) -> &str {
+        fn id(&self) -> &UpstreamId {
             &self.name
         }
         fn availability(&self) -> UpstreamAvailability {

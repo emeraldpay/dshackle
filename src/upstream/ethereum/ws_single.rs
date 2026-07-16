@@ -28,6 +28,7 @@ use super::ws_pool::WsConnectionPool;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::{CurrentHead, Head};
+use crate::upstream::id::UpstreamId;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use serde_json::value::RawValue;
@@ -40,7 +41,7 @@ use tokio::sync::mpsc;
 /// field in the WS endpoint config). Multiple connections are grown gradually
 /// and RPC calls are distributed round-robin across them.
 pub struct EthereumWsUpstream {
-    id: String,
+    id: UpstreamId,
     pool: Arc<WsConnectionPool>,
     head: Arc<CurrentHead>,
     upstream_state: Arc<UpstreamState>,
@@ -51,7 +52,7 @@ impl EthereumWsUpstream {
     ///
     /// Connections are established in background tasks and automatically
     /// reconnect with exponential backoff on failure.
-    pub fn new(id: String, target: WsTarget, connections: u32) -> Self {
+    pub fn new(id: UpstreamId, target: WsTarget, connections: u32) -> Self {
         let pool = WsConnectionPool::start(id.clone(), target, connections.max(1));
         let head = Arc::new(CurrentHead::new());
         let upstream_state = Arc::new(UpstreamState::new());
@@ -94,7 +95,7 @@ impl RpcUpstream for EthereumWsUpstream {
         conn.call(request).await
     }
 
-    fn id(&self) -> &str {
+    fn id(&self) -> &UpstreamId {
         &self.id
     }
 

@@ -44,6 +44,7 @@ use crate::data::{BlockContainer, BlockId, TxContainer, TxId};
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use serde_json::value::RawValue;
@@ -154,7 +155,7 @@ impl CachingUpstream {
         match update {
             CacheUpdate::Block(block) => {
                 tracing::trace!(
-                    upstream = self.inner.id(),
+                    upstream = %self.inner.id(),
                     height = block.height,
                     "caching block response"
                 );
@@ -162,7 +163,7 @@ impl CachingUpstream {
             }
             CacheUpdate::FullBlock { block, txs } => {
                 tracing::trace!(
-                    upstream = self.inner.id(),
+                    upstream = %self.inner.id(),
                     height = block.height,
                     txs = txs.len(),
                     "caching full block response"
@@ -174,7 +175,7 @@ impl CachingUpstream {
             }
             CacheUpdate::Tx(tx) => {
                 tracing::trace!(
-                    upstream = self.inner.id(),
+                    upstream = %self.inner.id(),
                     hash = %tx.hash,
                     "caching transaction response"
                 );
@@ -182,7 +183,7 @@ impl CachingUpstream {
             }
             CacheUpdate::Receipt(receipt) => {
                 tracing::trace!(
-                    upstream = self.inner.id(),
+                    upstream = %self.inner.id(),
                     hash = %receipt.hash,
                     "caching receipt response"
                 );
@@ -219,7 +220,7 @@ impl RpcUpstream for CachingUpstream {
         if let Some(ref call) = call {
             if let Some(response) = self.read_from_cache(request.id, call).await {
                 tracing::trace!(
-                    upstream = self.inner.id(),
+                    upstream = %self.inner.id(),
                     method = %request.method,
                     call = ?call,
                     "served from cache"
@@ -246,7 +247,7 @@ impl RpcUpstream for CachingUpstream {
         Ok(response)
     }
 
-    fn id(&self) -> &str {
+    fn id(&self) -> &UpstreamId {
         self.inner.id()
     }
 
@@ -331,8 +332,8 @@ mod tests {
             let raw = format!(r#"{{"jsonrpc":"2.0","id":1,"result":{result}}}"#);
             Ok(serde_json::from_str(&raw).unwrap())
         }
-        fn id(&self) -> &str {
-            "stub"
+        fn id(&self) -> &UpstreamId {
+            crate::upstream::id::stub_id()
         }
         fn availability(&self) -> UpstreamAvailability {
             UpstreamAvailability::Ok

@@ -30,6 +30,7 @@
 
 use crate::blockchain::TargetBlockchain;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
+use crate::upstream::id::UpstreamId;
 use crate::upstream::quorum::{CallQuorum, QuorumOutcome};
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use std::sync::Arc;
@@ -39,7 +40,7 @@ use std::sync::Arc;
 #[derive(Debug)]
 pub struct Routed {
     pub response: JsonRpcResponse,
-    pub source: Option<String>,
+    pub source: Option<UpstreamId>,
 }
 
 /// Execute `request` against the given `candidates` using the given quorum
@@ -84,7 +85,7 @@ pub async fn route(
     match quorum.take_outcome() {
         QuorumOutcome::Resolved(r) => Ok(Routed {
             response: r,
-            source: quorum.resolved_by().map(str::to_string),
+            source: quorum.resolved_by().cloned(),
         }),
         QuorumOutcome::Failed(e) => Err(e),
         QuorumOutcome::Empty => Err(UpstreamError::Transport(
@@ -104,7 +105,7 @@ mod tests {
 
     /// Mock upstream that returns a scripted sequence of outcomes.
     struct ScriptedUpstream {
-        label: String,
+        label: UpstreamId,
         availability: AtomicU8,
         calls: AtomicU32,
         outcomes: std::sync::Mutex<Vec<Result<String, UpstreamError>>>,
@@ -114,7 +115,7 @@ mod tests {
     impl ScriptedUpstream {
         fn new(label: &str, outcomes: Vec<Result<String, UpstreamError>>) -> Arc<Self> {
             Arc::new(Self {
-                label: label.to_string(),
+                label: label.parse().unwrap(),
                 availability: AtomicU8::new(UpstreamAvailability::Ok as u8),
                 calls: AtomicU32::new(0),
                 outcomes: std::sync::Mutex::new(outcomes),
@@ -150,7 +151,7 @@ mod tests {
                 Err(e) => Err(e),
             }
         }
-        fn id(&self) -> &str {
+        fn id(&self) -> &UpstreamId {
             &self.label
         }
         fn availability(&self) -> UpstreamAvailability {
@@ -184,8 +185,8 @@ mod tests {
 
     #[tokio::test]
     async fn returns_first_successful_response() {
-        let a = ScriptedUpstream::ok("a", r#"{"jsonrpc":"2.0","id":1,"result":"0xa"}"#);
-        let b = ScriptedUpstream::ok("b", r#"{"jsonrpc":"2.0","id":1,"result":"0xb"}"#);
+        let a = ScriptedUpstream::ok("up-a", r#"{"jsonrpc":"2.0","id":1,"result":"0xa"}"#);
+        let b = ScriptedUpstream::ok("up-b", r#"{"jsonrpc":"2.0","id":1,"result":"0xb"}"#);
 
         let resp = route(
             &test_chain(),
@@ -197,15 +198,15 @@ mod tests {
         .unwrap();
 
         assert_eq!(resp.response.result.unwrap().get(), r#""0xa""#);
-        assert_eq!(resp.source.as_deref(), Some("a"));
+        assert_eq!(resp.source.map(|s| s.to_string()), Some("up-a".to_string()));
         assert_eq!(a.call_count(), 1);
         assert_eq!(b.call_count(), 0);
     }
 
     #[tokio::test]
     async fn falls_through_connection_error_to_next_upstream() {
-        let a = ScriptedUpstream::err("a", UpstreamError::HttpStatus(429));
-        let b = ScriptedUpstream::ok("b", r#"{"jsonrpc":"2.0","id":1,"result":"0xb"}"#);
+        let a = ScriptedUpstream::err("up-a", UpstreamError::HttpStatus(429));
+        let b = ScriptedUpstream::ok("up-b", r#"{"jsonrpc":"2.0","id":1,"result":"0xb"}"#);
 
         let resp = route(
             &test_chain(),
@@ -223,8 +224,8 @@ mod tests {
 
     #[tokio::test]
     async fn definitive_error_stops_routing() {
-        let a = ScriptedUpstream::err("a", UpstreamError::InvalidResponse("garbage".into()));
-        let b = ScriptedUpstream::ok("b", r#"{"jsonrpc":"2.0","id":1,"result":"0xb"}"#);
+        let a = ScriptedUpstream::err("up-a", UpstreamError::InvalidResponse("garbage".into()));
+        let b = ScriptedUpstream::ok("up-b", r#"{"jsonrpc":"2.0","id":1,"result":"0xb"}"#);
 
         let result = route(
             &test_chain(),
@@ -241,8 +242,8 @@ mod tests {
 
     #[tokio::test]
     async fn surfaces_deferred_error_when_all_fail() {
-        let a = ScriptedUpstream::err("a", UpstreamError::HttpStatus(429));
-        let b = ScriptedUpstream::err("b", UpstreamError::HttpStatus(503));
+        let a = ScriptedUpstream::err("up-a", UpstreamError::HttpStatus(429));
+        let b = ScriptedUpstream::err("up-b", UpstreamError::HttpStatus(503));
 
         let err = route(
             &test_chain(),

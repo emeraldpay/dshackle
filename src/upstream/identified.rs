@@ -26,6 +26,7 @@ use crate::config::upstreams::UpstreamRole;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{Capability, RpcUpstream, UpstreamError};
 use std::collections::HashMap;
@@ -82,7 +83,7 @@ impl RpcUpstream for IdentifiedUpstream {
         self.inner.call(request).await
     }
 
-    fn id(&self) -> &str {
+    fn id(&self) -> &UpstreamId {
         self.inner.id()
     }
 
@@ -134,8 +135,8 @@ mod tests {
         async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             Err(UpstreamError::Transport("stub".into()))
         }
-        fn id(&self) -> &str {
-            "stub"
+        fn id(&self) -> &UpstreamId {
+            crate::upstream::id::stub_id()
         }
         fn availability(&self) -> UpstreamAvailability {
             UpstreamAvailability::Ok

@@ -318,13 +318,14 @@ mod tests {
     use super::*;
     use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
     use crate::upstream::head::{CurrentHead, Head, NoHead};
+    use crate::upstream::id::UpstreamId;
     use crate::upstream::methods::DefaultMethods;
     use crate::upstream::state::UpstreamState;
     use crate::upstream::traits::UpstreamError;
     use std::sync::atomic::AtomicU8;
 
     struct MockUpstream {
-        label: String,
+        label: UpstreamId,
         availability: AtomicU8,
         lag: Option<u64>,
         state: Arc<UpstreamState>,
@@ -345,7 +346,7 @@ mod tests {
             lag: Option<u64>,
         ) -> Arc<Self> {
             Arc::new(Self {
-                label: label.to_string(),
+                label: label.parse().unwrap(),
                 availability: AtomicU8::new(availability as u8),
                 lag,
                 state: Arc::new(UpstreamState::new()),
@@ -357,7 +358,7 @@ mod tests {
 
         fn with_role(label: &str, role: UpstreamRole) -> Arc<Self> {
             Arc::new(Self {
-                label: label.to_string(),
+                label: label.parse().unwrap(),
                 availability: AtomicU8::new(UpstreamAvailability::Ok as u8),
                 lag: Some(0),
                 state: Arc::new(UpstreamState::new()),
@@ -373,7 +374,7 @@ mod tests {
             let head = CurrentHead::new();
             head.update(height);
             Arc::new(Self {
-                label: label.to_string(),
+                label: label.parse().unwrap(),
                 availability: AtomicU8::new(UpstreamAvailability::Ok as u8),
                 lag: Some(0),
                 state: Arc::new(UpstreamState::new()),
@@ -402,7 +403,7 @@ mod tests {
                 None => unimplemented!(),
             }
         }
-        fn id(&self) -> &str {
+        fn id(&self) -> &UpstreamId {
             &self.label
         }
         fn availability(&self) -> UpstreamAvailability {
@@ -435,15 +436,15 @@ mod tests {
     }
 
     fn ids(items: &[Arc<dyn RpcUpstream>]) -> Vec<&str> {
-        items.iter().map(|u| u.id()).collect()
+        items.iter().map(|u| u.id().as_str()).collect()
     }
 
     #[test]
     fn select_available_returns_all_when_healthy() {
         let ms = ms_of(vec![
-            MockUpstream::new("a", UpstreamAvailability::Ok),
-            MockUpstream::new("b", UpstreamAvailability::Lagging),
-            MockUpstream::new("c", UpstreamAvailability::Immature),
+            MockUpstream::new("up-a", UpstreamAvailability::Ok),
+            MockUpstream::new("up-b", UpstreamAvailability::Lagging),
+            MockUpstream::new("up-c", UpstreamAvailability::Immature),
         ]);
 
         assert_eq!(ms.select_available(&"any".into()).len(), 3);
@@ -452,56 +453,56 @@ mod tests {
     #[test]
     fn select_available_filters_syncing_and_unavailable() {
         let ms = ms_of(vec![
-            MockUpstream::new("a", UpstreamAvailability::Ok),
-            MockUpstream::new("b", UpstreamAvailability::Syncing),
-            MockUpstream::new("c", UpstreamAvailability::Unavailable),
+            MockUpstream::new("up-a", UpstreamAvailability::Ok),
+            MockUpstream::new("up-b", UpstreamAvailability::Syncing),
+            MockUpstream::new("up-c", UpstreamAvailability::Unavailable),
         ]);
 
-        assert_eq!(ids(&ms.select_available(&"any".into())), vec!["a"]);
+        assert_eq!(ids(&ms.select_available(&"any".into())), vec!["up-a"]);
     }
 
     #[test]
     fn select_available_rotates_starting_position() {
         let ms = ms_of(vec![
-            MockUpstream::new("a", UpstreamAvailability::Ok),
-            MockUpstream::new("b", UpstreamAvailability::Ok),
-            MockUpstream::new("c", UpstreamAvailability::Ok),
+            MockUpstream::new("up-a", UpstreamAvailability::Ok),
+            MockUpstream::new("up-b", UpstreamAvailability::Ok),
+            MockUpstream::new("up-c", UpstreamAvailability::Ok),
         ]);
 
-        // Cursor starts at 0 — first call begins at "a".
+        // Cursor starts at 0 — first call begins at "up-a".
         assert_eq!(
             ids(&ms.select_available(&"any".into())),
-            vec!["a", "b", "c"]
+            vec!["up-a", "up-b", "up-c"]
         );
         assert_eq!(
             ids(&ms.select_available(&"any".into())),
-            vec!["b", "c", "a"]
+            vec!["up-b", "up-c", "up-a"]
         );
         assert_eq!(
             ids(&ms.select_available(&"any".into())),
-            vec!["c", "a", "b"]
+            vec!["up-c", "up-a", "up-b"]
         );
         assert_eq!(
             ids(&ms.select_available(&"any".into())),
-            vec!["a", "b", "c"]
+            vec!["up-a", "up-b", "up-c"]
         );
     }
 
     #[test]
     fn select_available_respects_dynamic_state() {
-        let a = MockUpstream::new("a", UpstreamAvailability::Ok);
-        let b = MockUpstream::new("b", UpstreamAvailability::Ok);
+        let a = MockUpstream::new("up-a", UpstreamAvailability::Ok);
+        let b = MockUpstream::new("up-b", UpstreamAvailability::Ok);
         let ms = ms_of(vec![a.clone(), b.clone()]);
 
         a.set_availability(UpstreamAvailability::Unavailable);
-        assert_eq!(ids(&ms.select_available(&"any".into())), vec!["b"]);
+        assert_eq!(ids(&ms.select_available(&"any".into())), vec!["up-b"]);
     }
 
     #[test]
     fn select_available_returns_empty_when_all_unavailable() {
         let ms = ms_of(vec![
-            MockUpstream::new("a", UpstreamAvailability::Unavailable),
-            MockUpstream::new("b", UpstreamAvailability::Syncing),
+            MockUpstream::new("up-a", UpstreamAvailability::Unavailable),
+            MockUpstream::new("up-b", UpstreamAvailability::Syncing),
         ]);
 
         assert!(ms.select_available(&"any".into()).is_empty());
@@ -512,13 +513,13 @@ mod tests {
         let ms = ms_of(vec![
             MockUpstream::with_lag("fresh", UpstreamAvailability::Ok, Some(0)),
             MockUpstream::with_lag("stale", UpstreamAvailability::Lagging, Some(3)),
-            MockUpstream::with_lag("ok", UpstreamAvailability::Lagging, Some(1)),
+            MockUpstream::with_lag("up-ok", UpstreamAvailability::Lagging, Some(1)),
         ]);
 
         let picked = ms.select_not_lagging(&"any".into(), 1);
         let labels: Vec<&str> = ids(&picked);
         assert!(labels.contains(&"fresh"));
-        assert!(labels.contains(&"ok"));
+        assert!(labels.contains(&"up-ok"));
         assert!(!labels.contains(&"stale"));
     }
 
@@ -547,8 +548,8 @@ mod tests {
     #[test]
     fn select_for_dispatches_on_hint() {
         let ms = ms_of(vec![
-            MockUpstream::with_lag("a", UpstreamAvailability::Ok, Some(0)),
-            MockUpstream::with_lag("b", UpstreamAvailability::Lagging, Some(3)),
+            MockUpstream::with_lag("up-a", UpstreamAvailability::Ok, Some(0)),
+            MockUpstream::with_lag("up-b", UpstreamAvailability::Lagging, Some(3)),
         ]);
 
         assert_eq!(
@@ -557,7 +558,7 @@ mod tests {
         );
         assert_eq!(
             ids(&ms.select_for(SelectorHint::NotLagging { max_lag: 1 }, &"any".into())),
-            vec!["a"]
+            vec!["up-a"]
         );
     }
 
@@ -577,38 +578,38 @@ mod tests {
     #[test]
     fn tiers_ordered_primary_secondary_fallback() {
         let ms = ms_of(vec![
-            MockUpstream::with_role("f", UpstreamRole::Fallback),
-            MockUpstream::with_role("s", UpstreamRole::Secondary),
-            MockUpstream::with_role("p", UpstreamRole::Primary),
+            MockUpstream::with_role("up-f", UpstreamRole::Fallback),
+            MockUpstream::with_role("up-s", UpstreamRole::Secondary),
+            MockUpstream::with_role("up-p", UpstreamRole::Primary),
         ]);
 
         assert_eq!(
             ids(&ms.select_available(&"any".into())),
-            vec!["p", "s", "f"]
+            vec!["up-p", "up-s", "up-f"]
         );
     }
 
     #[test]
     fn rotation_stays_within_tier() {
         let ms = ms_of(vec![
-            MockUpstream::with_role("a", UpstreamRole::Primary),
-            MockUpstream::with_role("b", UpstreamRole::Primary),
-            MockUpstream::with_role("f", UpstreamRole::Fallback),
+            MockUpstream::with_role("up-a", UpstreamRole::Primary),
+            MockUpstream::with_role("up-b", UpstreamRole::Primary),
+            MockUpstream::with_role("up-f", UpstreamRole::Fallback),
         ]);
 
         // The round-robin cursor rotates primaries between calls, but the
         // fallback never leaves the tail position.
         assert_eq!(
             ids(&ms.select_available(&"any".into())),
-            vec!["a", "b", "f"]
+            vec!["up-a", "up-b", "up-f"]
         );
         assert_eq!(
             ids(&ms.select_available(&"any".into())),
-            vec!["b", "a", "f"]
+            vec!["up-b", "up-a", "up-f"]
         );
         assert_eq!(
             ids(&ms.select_available(&"any".into())),
-            vec!["a", "b", "f"]
+            vec!["up-a", "up-b", "up-f"]
         );
     }
 
@@ -650,8 +651,8 @@ mod tests {
     fn at_height_passes_all_through_when_no_head_is_known_yet() {
         // The startup window before the first head poll: with nothing to
         // compare against, filtering would fail every pinned read on deploy.
-        let a = MockUpstream::new("a", UpstreamAvailability::Ok);
-        let b = MockUpstream::new("b", UpstreamAvailability::Ok);
+        let a = MockUpstream::new("up-a", UpstreamAvailability::Ok);
+        let b = MockUpstream::new("up-b", UpstreamAvailability::Ok);
         let candidates: Vec<Arc<dyn RpcUpstream>> = vec![a, b];
 
         let kept = at_height(candidates, 100);
@@ -687,7 +688,7 @@ mod tests {
     async fn call_at_height_falls_back_when_no_upstream_reports_the_block() {
         // No upstream has reached height 200; rather than routing to nobody,
         // it best-efforts the read against the available upstream.
-        let a = MockUpstream::serving("a", 100, serde_json::json!({ "number": "0x64" }));
+        let a = MockUpstream::serving("up-a", 100, serde_json::json!({ "number": "0x64" }));
         let ms = ms_of(vec![a]);
 
         let req = JsonRpcRequest::new(
@@ -703,7 +704,7 @@ mod tests {
     /// Mock upstream with a hardcoded allow-list, used to verify that the
     /// selector skips upstreams that don't support the requested method.
     struct MethodGatedUpstream {
-        label: String,
+        label: UpstreamId,
         allows: Vec<String>,
         state: Arc<UpstreamState>,
     }
@@ -713,7 +714,7 @@ mod tests {
         async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             unimplemented!()
         }
-        fn id(&self) -> &str {
+        fn id(&self) -> &UpstreamId {
             &self.label
         }
         fn availability(&self) -> UpstreamAvailability {
@@ -735,7 +736,7 @@ mod tests {
 
     fn gated(label: &str, allows: &[&str]) -> Arc<MethodGatedUpstream> {
         Arc::new(MethodGatedUpstream {
-            label: label.to_string(),
+            label: label.parse().unwrap(),
             allows: allows.iter().map(|s| s.to_string()).collect(),
             state: Arc::new(UpstreamState::new()),
         })
@@ -744,18 +745,18 @@ mod tests {
     #[test]
     fn select_skips_upstreams_that_reject_method() {
         let dyn_ups: Vec<Arc<dyn RpcUpstream>> = vec![
-            gated("a", &["eth_getBalance"]) as Arc<dyn RpcUpstream>,
-            gated("b", &["debug_traceTransaction"]) as Arc<dyn RpcUpstream>,
-            gated("c", &["eth_getBalance", "debug_traceTransaction"]) as Arc<dyn RpcUpstream>,
+            gated("up-a", &["eth_getBalance"]) as Arc<dyn RpcUpstream>,
+            gated("up-b", &["debug_traceTransaction"]) as Arc<dyn RpcUpstream>,
+            gated("up-c", &["eth_getBalance", "debug_traceTransaction"]) as Arc<dyn RpcUpstream>,
         ];
         let ms = Multistream::new(test_chain(), dyn_ups, Arc::new(DefaultMethods));
 
         // `b` doesn't support eth_getBalance — it must not appear.
         let picked = ms.select_available(&"eth_getBalance".into());
         let labels = ids(&picked);
-        assert!(labels.contains(&"a"));
-        assert!(!labels.contains(&"b"));
-        assert!(labels.contains(&"c"));
+        assert!(labels.contains(&"up-a"));
+        assert!(!labels.contains(&"up-b"));
+        assert!(labels.contains(&"up-c"));
     }
 
     #[test]

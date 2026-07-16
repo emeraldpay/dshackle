@@ -41,28 +41,24 @@ const POLL_INTERVAL: Duration = Duration::from_secs(15);
 /// 1. Call `getbestblockhash` to get the tip hash
 /// 2. If the hash changed since last poll, call `getblock` to get full block info
 /// 3. Parse the block into a [`BlockContainer`] and push it to the head
-pub fn start_head_poller(
-    upstream_id: String,
-    upstream: Arc<dyn RpcUpstream>,
-    head: Arc<CurrentHead>,
-) {
+pub fn start_head_poller(upstream: Arc<dyn RpcUpstream>, head: Arc<CurrentHead>) {
     tokio::spawn(async move {
         let mut last_hash: Option<String> = None;
         let mut interval = tokio::time::interval(POLL_INTERVAL);
 
         loop {
             interval.tick().await;
-            poll_best_block(&upstream_id, upstream.as_ref(), &head, &mut last_hash).await;
+            poll_best_block(upstream.as_ref(), &head, &mut last_hash).await;
         }
     });
 }
 
 async fn poll_best_block(
-    upstream_id: &str,
     upstream: &dyn RpcUpstream,
     head: &CurrentHead,
     last_hash: &mut Option<String>,
 ) {
+    let upstream_id = upstream.id();
     // Step 1: get the best block hash
     let hash_request = JsonRpcRequest::new(0, "getbestblockhash".into(), serde_json::json!([]));
     let hash_str = match upstream.call(&hash_request).await {
@@ -70,21 +66,21 @@ async fn poll_best_block(
             Some(raw) => {
                 let s = raw.get().trim().trim_matches('"').to_string();
                 if s.is_empty() {
-                    tracing::warn!(upstream = upstream_id, "empty getbestblockhash response");
+                    tracing::warn!(upstream = %upstream_id, "empty getbestblockhash response");
                     return;
                 }
                 s
             }
             None => {
                 tracing::debug!(
-                    upstream = upstream_id,
+                    upstream = %upstream_id,
                     "getbestblockhash returned no result"
                 );
                 return;
             }
         },
         Err(e) => {
-            tracing::debug!(upstream = upstream_id, error = %e, "getbestblockhash poll failed");
+            tracing::debug!(upstream = %upstream_id, error = %e, "getbestblockhash poll failed");
             return;
         }
     };
@@ -103,7 +99,7 @@ async fn poll_best_block(
                 match parse_btc_block(raw.get()) {
                     Some(block) => {
                         tracing::trace!(
-                            upstream = upstream_id,
+                            upstream = %upstream_id,
                             height = block.height,
                             hash = %block.hash,
                             "head updated"
@@ -114,14 +110,14 @@ async fn poll_best_block(
                         // Fallback: try to extract at least the height
                         if let Some(h) = extract_block_height(raw.get()) {
                             tracing::debug!(
-                                upstream = upstream_id,
+                                upstream = %upstream_id,
                                 height = h,
                                 "partial head update (block parse failed)"
                             );
                             head.update(h);
                         } else {
                             tracing::warn!(
-                                upstream = upstream_id,
+                                upstream = %upstream_id,
                                 "failed to parse getblock response"
                             );
                         }
@@ -130,7 +126,7 @@ async fn poll_best_block(
             }
         }
         Err(e) => {
-            tracing::debug!(upstream = upstream_id, error = %e, "getblock call failed");
+            tracing::debug!(upstream = %upstream_id, error = %e, "getblock call failed");
         }
     }
 }

@@ -21,6 +21,7 @@
 //! subscriptions are pinned to one connection.
 
 use super::ws_conn::{WsConnection, WsTarget};
+use crate::upstream::id::UpstreamId;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
 
@@ -43,7 +44,7 @@ pub(super) struct WsConnectionPool {
 
 impl WsConnectionPool {
     /// Create a pool and start growing connections in the background.
-    pub(super) fn start(upstream_id: String, ws_target: WsTarget, target: u32) -> Arc<Self> {
+    pub(super) fn start(upstream_id: UpstreamId, ws_target: WsTarget, target: u32) -> Arc<Self> {
         let pool = Arc::new(Self {
             connections: RwLock::new(Vec::with_capacity(target as usize)),
             next_index: AtomicUsize::new(0),
@@ -98,7 +99,7 @@ impl WsConnectionPool {
 /// to avoid stalling forever on a flaky endpoint.
 async fn grow_pool(
     pool: Arc<WsConnectionPool>,
-    upstream_id: String,
+    upstream_id: UpstreamId,
     ws_target: WsTarget,
     target: u32,
 ) {

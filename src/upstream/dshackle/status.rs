@@ -25,6 +25,7 @@
 //! remote is still caught by lag tracking (its head stops advancing).
 
 use crate::upstream::availability::UpstreamAvailability;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::state::UpstreamState;
 use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
 use emerald_api::proto::blockchain::{AvailabilityEnum, StatusRequest};
@@ -38,7 +39,7 @@ const RETRY_DELAY: Duration = Duration::from_secs(5);
 /// Spawns a background task that subscribes to `SubscribeStatus` on the remote
 /// Dshackle for one chain and records the reported availability.
 pub fn start_status_subscriber(
-    upstream_id: String,
+    upstream_id: UpstreamId,
     chain_ref: i32,
     client: BlockchainClient<Channel>,
     state: Arc<UpstreamState>,
@@ -52,7 +53,7 @@ pub fn start_status_subscriber(
 }
 
 async fn subscribe_once(
-    upstream_id: &str,
+    upstream_id: &UpstreamId,
     chain_ref: i32,
     client: &BlockchainClient<Channel>,
     state: &UpstreamState,

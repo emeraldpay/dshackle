@@ -18,6 +18,7 @@
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use std::sync::Arc;
@@ -76,7 +77,7 @@ impl RpcUpstream for SwitchClient {
         }
     }
 
-    fn id(&self) -> &str {
+    fn id(&self) -> &UpstreamId {
         self.primary.id()
     }
 
@@ -135,8 +136,10 @@ mod tests {
             let raw = format!(r#"{{"jsonrpc":"2.0","id":1,"result":{}}}"#, self.value);
             Ok(serde_json::from_str(&raw).unwrap())
         }
-        fn id(&self) -> &str {
-            "mock-success"
+        fn id(&self) -> &UpstreamId {
+            static ID: std::sync::LazyLock<UpstreamId> =
+                std::sync::LazyLock::new(|| "mock-success".parse().unwrap());
+            &ID
         }
         fn availability(&self) -> UpstreamAvailability {
             UpstreamAvailability::Ok
@@ -175,8 +178,10 @@ mod tests {
             self.calls.fetch_add(1, Ordering::Relaxed);
             Err(UpstreamError::Transport("mock failure".into()))
         }
-        fn id(&self) -> &str {
-            "mock-fail"
+        fn id(&self) -> &UpstreamId {
+            static ID: std::sync::LazyLock<UpstreamId> =
+                std::sync::LazyLock::new(|| "mock-fail".parse().unwrap());
+            &ID
         }
         fn availability(&self) -> UpstreamAvailability {
             UpstreamAvailability::Ok

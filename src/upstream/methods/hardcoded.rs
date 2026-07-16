@@ -22,6 +22,7 @@
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::quorum::QuorumFactory;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
@@ -44,7 +45,7 @@ impl HardcodedMethods {
 impl RpcUpstream for HardcodedMethods {
     async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
         if let Some(result) = self.methods.hardcoded_response(&request.method) {
-            tracing::trace!(upstream = self.delegate.id(), method = %request.method, "hardcoded response");
+            tracing::trace!(upstream = %self.delegate.id(), method = %request.method, "hardcoded response");
             return Ok(JsonRpcResponse {
                 id: serde_json::Value::from(request.id),
                 result: Some(result.to_owned()),
@@ -55,7 +56,7 @@ impl RpcUpstream for HardcodedMethods {
         self.delegate.call(request).await
     }
 
-    fn id(&self) -> &str {
+    fn id(&self) -> &UpstreamId {
         self.delegate.id()
     }
 
@@ -101,8 +102,8 @@ mod tests {
             let raw = r#"{"jsonrpc":"2.0","id":1,"result":"0xfromupstream"}"#;
             Ok(serde_json::from_str(raw).unwrap())
         }
-        fn id(&self) -> &str {
-            "stub"
+        fn id(&self) -> &UpstreamId {
+            crate::upstream::id::stub_id()
         }
         fn availability(&self) -> UpstreamAvailability {
             UpstreamAvailability::Ok

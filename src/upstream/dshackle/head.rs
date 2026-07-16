@@ -23,6 +23,7 @@
 
 use crate::data::{BlockContainer, BlockId};
 use crate::upstream::head::CurrentHead;
+use crate::upstream::id::UpstreamId;
 use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
 use emerald_api::proto::common::Chain;
 use std::sync::Arc;
@@ -37,7 +38,7 @@ const RETRY_DELAY: Duration = Duration::from_secs(5);
 ///
 /// Re-subscribes automatically when the stream closes or encounters an error.
 pub fn start_head_subscriber(
-    upstream_id: String,
+    upstream_id: UpstreamId,
     chain_ref: i32,
     client: BlockchainClient<Channel>,
     head: Arc<CurrentHead>,
@@ -51,7 +52,7 @@ pub fn start_head_subscriber(
 }
 
 async fn subscribe_once(
-    upstream_id: &str,
+    upstream_id: &UpstreamId,
     chain_ref: i32,
     client: &BlockchainClient<Channel>,
     head: &CurrentHead,

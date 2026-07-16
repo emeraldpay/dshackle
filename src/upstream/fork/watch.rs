@@ -18,6 +18,7 @@ use super::{ForkChoice, ForkStatus};
 use crate::blockchain::TargetBlockchain;
 use crate::metrics;
 use crate::upstream::head::CurrentHead;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::state::UpstreamState;
 use std::sync::Arc;
 use tokio::sync::broadcast::error::RecvError;
@@ -25,7 +26,7 @@ use tokio::sync::broadcast::error::RecvError;
 /// An upstream as the fork wiring sees it: its id and priority, the head to
 /// watch, and the state to record the verdict on.
 pub struct ForkMember {
-    pub id: String,
+    pub id: UpstreamId,
     pub priority: i32,
     pub head: Arc<CurrentHead>,
     pub state: Arc<UpstreamState>,
@@ -39,7 +40,7 @@ pub struct ForkMember {
 /// followed the last-registered upstream — every upstream gets its own watcher
 /// here, so every upstream's blocks reach the shared fork choice.
 pub fn start_fork_watch(
-    id: String,
+    id: UpstreamId,
     chain: TargetBlockchain,
     head: Arc<CurrentHead>,
     state: Arc<UpstreamState>,

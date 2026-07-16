@@ -22,6 +22,7 @@ use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
 use crate::signature::ProvidedSignature;
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::{CurrentHead, Head};
+use crate::upstream::id::UpstreamId;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
@@ -37,7 +38,7 @@ use tonic::transport::Channel;
 /// tonic's `Channel` is designed to be cheaply cloned and shares the underlying
 /// HTTP/2 connection pool.
 pub struct DshackleUpstream {
-    id: String,
+    id: UpstreamId,
     chain_ref: i32,
     client: BlockchainClient<Channel>,
     /// Overall bound on one `NativeCall` round-trip (the upstream's
@@ -54,7 +55,7 @@ impl DshackleUpstream {
     /// on the remote. `syncing_lag` sets the lag threshold for availability
     /// (6 for Ethereum-like chains, 2 for Bitcoin).
     pub fn new(
-        id: String,
+        id: UpstreamId,
         chain_ref: i32,
         client: BlockchainClient<Channel>,
         syncing_lag: u64,
@@ -167,7 +168,7 @@ impl RpcUpstream for DshackleUpstream {
         })
     }
 
-    fn id(&self) -> &str {
+    fn id(&self) -> &UpstreamId {
         &self.id
     }
 
@@ -193,15 +194,28 @@ impl RpcUpstream for DshackleUpstream {
 ///
 /// Matches legacy `JsonRpcGrpcClient.extractSignature`: an empty signature or
 /// empty upstream id means "not signed", not a malformed signature to forward.
+///
+/// An upstream id that doesn't satisfy the id pattern is dropped too: a
+/// well-behaved remote only signs with ids it validated at its own config
+/// parse, so a malformed one (say, carrying the `/` separator of the signed
+/// message) cannot belong to an honestly produced signature — forwarding it
+/// would hand the client something unverifiable at best, forged at worst.
 fn extract_signature(signature: Option<NativeCallReplySignature>) -> Option<ProvidedSignature> {
     let signature = signature?;
     if signature.signature.is_empty() || signature.upstream_id.is_empty() {
         return None;
     }
+    let upstream_id: UpstreamId = match signature.upstream_id.parse() {
+        Ok(id) => id,
+        Err(e) => {
+            tracing::warn!("Dropping remote-provided signature: {e}");
+            return None;
+        }
+    };
     Some(ProvidedSignature {
         value: signature.signature,
         key_id: signature.key_id,
-        upstream_id: signature.upstream_id,
+        upstream_id,
     })
 }
 
@@ -253,5 +267,24 @@ mod tests {
             }))
             .is_none()
         );
+    }
+
+    #[test]
+    fn drops_signature_with_malformed_upstream_id() {
+        // An id that can't pass the id pattern can't belong to an honestly
+        // produced signature — especially one carrying the `/` separator of
+        // the signed-message format.
+        for id in ["bad/id", "ab", "-node"] {
+            assert!(
+                extract_signature(Some(NativeCallReplySignature {
+                    nonce: 10,
+                    signature: vec![1, 2, 3],
+                    key_id: 0xAABB,
+                    upstream_id: id.to_string(),
+                }))
+                .is_none(),
+                "signature with id `{id}` must be dropped"
+            );
+        }
     }
 }

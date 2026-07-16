@@ -24,6 +24,7 @@
 //! [`Multistream`]: crate::upstream::Multistream
 
 use crate::jsonrpc::JsonRpcResponse;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::quorum::{AlwaysQuorum, CallQuorum, QuorumOutcome, SelectorHint};
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 
@@ -74,7 +75,7 @@ impl CallQuorum for NotLaggingQuorum {
         self.inner.take_outcome()
     }
 
-    fn resolved_by(&self) -> Option<&str> {
+    fn resolved_by(&self) -> Option<&UpstreamId> {
         self.inner.resolved_by()
     }
 
@@ -104,8 +105,8 @@ mod tests {
         async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             unimplemented!()
         }
-        fn id(&self) -> &str {
-            "stub"
+        fn id(&self) -> &UpstreamId {
+            crate::upstream::id::stub_id()
         }
         fn availability(&self) -> UpstreamAvailability {
             UpstreamAvailability::Ok

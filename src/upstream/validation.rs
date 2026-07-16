@@ -56,7 +56,7 @@ pub fn start_validation(
             let state = upstream.state();
             if status != state.validation() {
                 tracing::info!(
-                    upstream = upstream.id(),
+                    upstream = %upstream.id(),
                     %status,
                     "upstream validation status changed"
                 );
@@ -81,19 +81,19 @@ pub(crate) async fn probe(
     match tokio::time::timeout(timeout, upstream.call(&request)).await {
         Err(_) => {
             tracing::warn!(
-                upstream = upstream.id(),
+                upstream = %upstream.id(),
                 method,
                 "no response to validation probe"
             );
             None
         }
         Ok(Err(e)) => {
-            tracing::debug!(upstream = upstream.id(), method, error = %e, "validation probe failed");
+            tracing::debug!(upstream = %upstream.id(), method, error = %e, "validation probe failed");
             None
         }
         Ok(Ok(response)) => {
             if let Some(error) = &response.error {
-                tracing::debug!(upstream = upstream.id(), method, %error, "validation probe rejected");
+                tracing::debug!(upstream = %upstream.id(), method, %error, "validation probe rejected");
                 return None;
             }
             let raw = response.result?;
@@ -107,6 +107,7 @@ mod tests {
     use super::*;
     use crate::jsonrpc::JsonRpcResponse;
     use crate::upstream::head::{Head, NoHead};
+    use crate::upstream::id::UpstreamId;
     use crate::upstream::state::UpstreamState;
     use crate::upstream::traits::UpstreamError;
 
@@ -129,8 +130,8 @@ mod tests {
         async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             Err(UpstreamError::Transport("not used".into()))
         }
-        fn id(&self) -> &str {
-            "stub"
+        fn id(&self) -> &UpstreamId {
+            crate::upstream::id::stub_id()
         }
         fn availability(&self) -> UpstreamAvailability {
             self.state.availability()

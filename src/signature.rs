@@ -16,6 +16,7 @@
 //! upstream) produced a result. Port of the legacy `EcdsaSigner`.
 
 use crate::config::signature::{SignatureAlgorithm, SignatureConfig};
+use crate::upstream::UpstreamId;
 use anyhow::{Context, Result, bail};
 use k256::ecdsa::signature::Signer as _;
 use k256::pkcs8::{DecodePrivateKey, EncodePublicKey};
@@ -55,8 +56,11 @@ pub struct ProvidedSignature {
     pub value: Vec<u8>,
     /// Identifies the remote's signing key (its own `key_id`).
     pub key_id: u64,
-    /// The upstream on the remote that produced the signed response.
-    pub upstream_id: String,
+    /// The upstream on the remote that produced the signed response. Validated
+    /// at ingest: a remote reporting an id that can't pass the id pattern
+    /// cannot have signed it honestly, so such a signature is dropped rather
+    /// than forwarded.
+    pub upstream_id: UpstreamId,
 }
 
 /// A produced signature together with the identifiers a client needs to
@@ -68,7 +72,7 @@ pub struct ResponseSignature {
     /// SHA-256 over the DER-encoded public key.
     pub key_id: u64,
     /// The upstream that produced the signed response.
-    pub upstream_id: String,
+    pub upstream_id: UpstreamId,
 }
 
 impl ResponseSigner {
@@ -129,16 +133,7 @@ impl ResponseSigner {
     }
 
     /// Signs one response payload for the given request nonce.
-    ///
-    /// Refuses (`None`) an upstream id containing `/` — that's the separator
-    /// of the wrapped message, so such an id could forge the other fields.
-    /// Legacy rejects those ids at config read; the Rust config does not yet,
-    /// so the signer is the last line of defense.
-    pub fn sign(&self, nonce: u64, message: &[u8], upstream_id: &str) -> Option<ResponseSignature> {
-        if upstream_id.contains('/') {
-            tracing::warn!("Upstream id '{upstream_id}' contains '/', refusing to sign");
-            return None;
-        }
+    pub fn sign(&self, nonce: u64, message: &[u8], upstream_id: &UpstreamId) -> ResponseSignature {
         let wrapped = wrap_message(nonce, message, upstream_id);
         let value = match &self.key {
             SignerKey::Secp256k1(key) => {
@@ -150,11 +145,11 @@ impl ResponseSigner {
                 sig.to_der().as_bytes().to_vec()
             }
         };
-        Some(ResponseSignature {
+        ResponseSignature {
             value,
             key_id: self.key_id,
-            upstream_id: upstream_id.to_string(),
-        })
+            upstream_id: upstream_id.clone(),
+        }
     }
 }
 
@@ -162,7 +157,7 @@ impl ResponseSigner {
 /// `DSHACKLESIG/<nonce>/<upstream_id>/<hex(sha256(message))>`, so no part of
 /// the message can bleed into another and the signature is bound to its
 /// source. Must stay byte-identical to the legacy `EcdsaSigner.wrapMessage`.
-fn wrap_message(nonce: u64, message: &[u8], upstream_id: &str) -> String {
+fn wrap_message(nonce: u64, message: &[u8], upstream_id: &UpstreamId) -> String {
     format!(
         "{MSG_PREFIX}/{nonce}/{upstream_id}/{}",
         hex::encode(Sha256::digest(message))
@@ -216,10 +211,14 @@ mod tests {
         assert!(result.is_err());
     }
 
+    fn upstream_id(id: &str) -> UpstreamId {
+        id.parse().unwrap()
+    }
+
     #[test]
     fn wraps_message_in_legacy_format() {
         // sha256("\"0x100001\"") over the raw JSON result bytes
-        let wrapped = wrap_message(10, b"\"0x100001\"", "test-1");
+        let wrapped = wrap_message(10, b"\"0x100001\"", &upstream_id("test-1"));
         let hash = hex::encode(Sha256::digest(b"\"0x100001\""));
         assert_eq!(wrapped, format!("DSHACKLESIG/10/test-1/{hash}"));
     }
@@ -227,7 +226,7 @@ mod tests {
     #[test]
     fn wraps_message_matching_legacy_test_vector() {
         // Test vector from the legacy EcdsaSignerSpec."Wrap message"
-        let wrapped = wrap_message(10, b"test", "infura");
+        let wrapped = wrap_message(10, b"test", &upstream_id("infura"));
         assert_eq!(
             wrapped,
             "DSHACKLESIG/10/infura/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
@@ -247,20 +246,12 @@ mod tests {
     }
 
     #[test]
-    fn refuses_upstream_id_with_slash() {
-        let signer = ResponseSigner::from_config(&test_config(), &testdata())
-            .unwrap()
-            .unwrap();
-        assert!(signer.sign(10, b"\"0x100001\"", "bad/id").is_none());
-    }
-
-    #[test]
     fn signature_verifies_with_public_key() {
         let signer = ResponseSigner::from_config(&test_config(), &testdata())
             .unwrap()
             .unwrap();
-        let signature = signer.sign(10, b"\"0x100001\"", "test-1").unwrap();
-        assert_eq!(signature.upstream_id, "test-1");
+        let signature = signer.sign(10, b"\"0x100001\"", &upstream_id("test-1"));
+        assert_eq!(signature.upstream_id.as_str(), "test-1");
         assert_eq!(signature.key_id, signer.key_id);
 
         let public_pem = std::fs::read_to_string(testdata().join("test_key.pub")).unwrap();
@@ -270,7 +261,7 @@ mod tests {
             )
             .unwrap();
         let parsed = k256::ecdsa::Signature::from_der(&signature.value).unwrap();
-        let wrapped = wrap_message(10, b"\"0x100001\"", "test-1");
+        let wrapped = wrap_message(10, b"\"0x100001\"", &upstream_id("test-1"));
         verifying_key
             .verify(wrapped.as_bytes(), &parsed)
             .expect("signature must verify");

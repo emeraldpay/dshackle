@@ -19,6 +19,7 @@ use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::{CurrentHead, Head};
 use crate::upstream::http_error::classify_non_200;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use std::sync::Arc;
@@ -34,7 +35,7 @@ const BITCOIN_SYNCING_LAG: u64 = 2;
 /// Ethereum there is no WebSocket transport — head tracking is done by
 /// polling (see [`super::head`]).
 pub struct BitcoinHttpUpstream {
-    id: String,
+    id: UpstreamId,
     url: String,
     basic_auth: Option<BasicAuth>,
     client: reqwest::Client,
@@ -49,7 +50,7 @@ impl BitcoinHttpUpstream {
     /// (Bitcoin Core requires authentication by default). `client` carries the
     /// transport-level options decided at wiring time (custom CA, mutual TLS).
     pub fn new(
-        id: String,
+        id: UpstreamId,
         url: String,
         basic_auth: Option<BasicAuth>,
         client: reqwest::Client,
@@ -109,7 +110,7 @@ impl RpcUpstream for BitcoinHttpUpstream {
             .map_err(|e| UpstreamError::InvalidResponse(e.to_string()))
     }
 
-    fn id(&self) -> &str {
+    fn id(&self) -> &UpstreamId {
         &self.id
     }
 

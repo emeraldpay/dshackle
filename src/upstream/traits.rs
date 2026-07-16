@@ -20,6 +20,7 @@ use crate::config::upstreams::UpstreamRole;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::state::UpstreamState;
 use emerald_api::proto::blockchain::Capabilities;
 use std::collections::HashMap;
@@ -69,7 +70,7 @@ pub trait RpcUpstream: Send + Sync {
     async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError>;
 
     /// Unique identifier for this upstream (from config).
-    fn id(&self) -> &str;
+    fn id(&self) -> &UpstreamId;
 
     /// Current availability status of this upstream.
     fn availability(&self) -> UpstreamAvailability;

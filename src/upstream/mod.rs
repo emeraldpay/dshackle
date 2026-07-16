@@ -26,6 +26,7 @@ pub mod fees;
 pub mod fork;
 pub mod head;
 pub mod http_error;
+pub mod id;
 mod identified;
 mod logged;
 pub mod merged_head;
@@ -43,6 +44,7 @@ pub mod traits;
 pub mod tx_status;
 pub mod validation;
 
+pub use id::UpstreamId;
 pub use identified::IdentifiedUpstream;
 pub use multistream::Multistream;
 
@@ -189,6 +191,7 @@ impl UpstreamManager {
         // instead of blocking startup one-by-one.
         let mut pending_dshackle: Vec<(
             &crate::config::upstreams::Upstream,
+            UpstreamId,
             String,
             Option<crate::tls::ClientTlsSetup>,
             Duration,
@@ -199,6 +202,9 @@ impl UpstreamManager {
                 tracing::debug!("Upstream {} is disabled, skipping", upstream.id);
                 continue;
             }
+            // The config carries the id as written; only an upstream that is
+            // actually wired must have a valid one.
+            let id = upstream.upstream_id()?;
 
             match &upstream.connection {
                 UpstreamConnection::Ethereum(eth) => {
@@ -218,12 +224,12 @@ impl UpstreamManager {
                     let ws_upstream: Option<Arc<EthereumWsUpstream>> = eth.ws.as_ref().map(|ws| {
                         tracing::info!(
                             "Using Ethereum WS upstream '{}' at {} for {}",
-                            upstream.id,
+                            id,
                             ws.url,
                             blockchain_name,
                         );
                         Arc::new(EthereumWsUpstream::new(
-                            upstream.id.clone(),
+                            id.clone(),
                             ethereum::WsTarget {
                                 url: ws.url.clone(),
                                 origin: ws.origin.clone(),
@@ -237,16 +243,16 @@ impl UpstreamManager {
                     let http_upstream: Option<Arc<EthereumHttpUpstream>> = match &eth.rpc {
                         Some(rpc) => {
                             let tls =
-                                crate::tls::client_tls(&upstream.id, rpc.tls.as_ref(), config_dir)?;
+                                crate::tls::client_tls(id.as_str(), rpc.tls.as_ref(), config_dir)?;
                             let client = crate::tls::reqwest_client(tls.as_ref(), options.timeout)?;
                             tracing::info!(
                                 "Using Ethereum HTTP upstream '{}' at {} for {}",
-                                upstream.id,
+                                id,
                                 rpc.url,
                                 blockchain_name,
                             );
                             Some(Arc::new(EthereumHttpUpstream::new(
-                                upstream.id.clone(),
+                                id.clone(),
                                 rpc.url.clone(),
                                 rpc.basic_auth.clone(),
                                 client,
@@ -278,15 +284,14 @@ impl UpstreamManager {
                             let metered = MeteredUpstream::new(
                                 Arc::clone(http_up) as Arc<dyn RpcUpstream>,
                                 crate::metrics::UpstreamProtocol::Rpc,
-                                upstream.id.clone(),
+                                id.clone(),
                                 chain,
                             );
                             start_head_poller(
-                                upstream.id.clone(),
                                 Arc::new(LoggedUpstream::new(
                                     Arc::new(metered),
                                     crate::logs::Channel::JsonRpc,
-                                    upstream.id.clone(),
+                                    id.clone(),
                                     chain,
                                 )),
                                 head,
@@ -312,13 +317,13 @@ impl UpstreamManager {
                         let metered = MeteredUpstream::new(
                             u,
                             crate::metrics::UpstreamProtocol::Ws,
-                            upstream.id.clone(),
+                            id.clone(),
                             chain,
                         );
                         Arc::new(LoggedUpstream::new(
                             Arc::new(metered),
                             crate::logs::Channel::WsJsonRpc,
-                            upstream.id.clone(),
+                            id.clone(),
                             chain,
                         )) as Arc<dyn RpcUpstream>
                     });
@@ -326,13 +331,13 @@ impl UpstreamManager {
                         let metered = MeteredUpstream::new(
                             u,
                             crate::metrics::UpstreamProtocol::Rpc,
-                            upstream.id.clone(),
+                            id.clone(),
                             chain,
                         );
                         Arc::new(LoggedUpstream::new(
                             Arc::new(metered),
                             crate::logs::Channel::JsonRpc,
-                            upstream.id.clone(),
+                            id.clone(),
                             chain,
                         )) as Arc<dyn RpcUpstream>
                     });
@@ -342,7 +347,7 @@ impl UpstreamManager {
                             // WS primary, HTTP fallback
                             tracing::info!(
                                 "Upstream '{}': using WS with HTTP fallback for {}",
-                                upstream.id,
+                                id,
                                 blockchain_name,
                             );
                             Arc::new(SwitchClient::new(ws, http))
@@ -350,10 +355,7 @@ impl UpstreamManager {
                         (Some(ws), None) => ws,
                         (None, Some(http)) => http,
                         (None, None) => {
-                            tracing::warn!(
-                                "Upstream {} has no RPC or WS configured, skipping",
-                                upstream.id
-                            );
+                            tracing::warn!("Upstream {} has no RPC or WS configured, skipping", id);
                             continue;
                         }
                     };
@@ -363,7 +365,7 @@ impl UpstreamManager {
                     // added later: a user's method allow-list must not fail
                     // the probes, and a cached answer must not pass them.
                     if options.disable_validation {
-                        tracing::warn!("Disable validation for upstream {}", upstream.id);
+                        tracing::warn!("Disable validation for upstream {}", id);
                         reader.state().set_always_valid();
                     } else {
                         validation::start_validation(
@@ -412,7 +414,7 @@ impl UpstreamManager {
                             .or_default()
                             .push(Arc::clone(&head));
                         per_chain_fork.entry(chain).or_default().push(ForkMember {
-                            id: upstream.id.clone(),
+                            id: id.clone(),
                             priority: options.priority,
                             head,
                             state: Arc::clone(reader.state()),
@@ -445,26 +447,23 @@ impl UpstreamManager {
                     let rpc = match &btc.rpc {
                         Some(rpc) => rpc,
                         None => {
-                            tracing::warn!(
-                                "Upstream {} has no RPC configured, skipping",
-                                upstream.id
-                            );
+                            tracing::warn!("Upstream {} has no RPC configured, skipping", id);
                             continue;
                         }
                     };
 
-                    let tls = crate::tls::client_tls(&upstream.id, rpc.tls.as_ref(), config_dir)?;
+                    let tls = crate::tls::client_tls(id.as_str(), rpc.tls.as_ref(), config_dir)?;
                     let client = crate::tls::reqwest_client(tls.as_ref(), options.timeout)?;
 
                     tracing::info!(
                         "Using Bitcoin HTTP upstream '{}' at {} for {}",
-                        upstream.id,
+                        id,
                         rpc.url,
                         blockchain_name,
                     );
 
                     let http_up = BitcoinHttpUpstream::new(
-                        upstream.id.clone(),
+                        id.clone(),
                         rpc.url.clone(),
                         rpc.basic_auth.clone(),
                         client,
@@ -480,22 +479,22 @@ impl UpstreamManager {
                     let metered = MeteredUpstream::new(
                         Arc::new(http_up),
                         crate::metrics::UpstreamProtocol::Rpc,
-                        upstream.id.clone(),
+                        id.clone(),
                         chain,
                     );
                     let reader: Arc<dyn RpcUpstream> = Arc::new(LoggedUpstream::new(
                         Arc::new(metered),
                         crate::logs::Channel::JsonRpc,
-                        upstream.id.clone(),
+                        id.clone(),
                         chain,
                     ));
                     let fork_head = Arc::clone(&head);
-                    start_btc_head_poller(upstream.id.clone(), Arc::clone(&reader), head);
+                    start_btc_head_poller(Arc::clone(&reader), head);
 
                     // See the Ethereum branch for why validation targets the
                     // bare transport.
                     if options.disable_validation {
-                        tracing::warn!("Disable validation for upstream {}", upstream.id);
+                        tracing::warn!("Disable validation for upstream {}", id);
                         reader.state().set_always_valid();
                     } else {
                         validation::start_validation(
@@ -530,7 +529,7 @@ impl UpstreamManager {
                         .or_default()
                         .push(Arc::clone(&fork_head));
                     per_chain_fork.entry(chain).or_default().push(ForkMember {
-                        id: upstream.id.clone(),
+                        id: id.clone(),
                         priority: options.priority,
                         head: fork_head,
                         state: Arc::clone(reader.state()),
@@ -554,13 +553,13 @@ impl UpstreamManager {
                         None => {
                             tracing::warn!(
                                 "Upstream {}: no URL or host configured for Dshackle connection, skipping",
-                                upstream.id
+                                id
                             );
                             continue;
                         }
                     };
 
-                    let tls = crate::tls::client_tls(&upstream.id, ds.tls.as_ref(), config_dir)?;
+                    let tls = crate::tls::client_tls(id.as_str(), ds.tls.as_ref(), config_dir)?;
 
                     // Only `timeout` applies to a dshackle connection; the
                     // validation family is meaningless here and gets a warning.
@@ -569,7 +568,7 @@ impl UpstreamManager {
 
                     // Defer the actual connect: it is done concurrently after the
                     // loop so a slow remote can't stall the rest of startup.
-                    pending_dshackle.push((upstream, url, tls, options.timeout));
+                    pending_dshackle.push((upstream, id, url, tls, options.timeout));
                 }
             }
         }
@@ -579,25 +578,26 @@ impl UpstreamManager {
         // runs sequentially because it mutates the shared per-chain maps; the
         // slow part (connect + `Describe` over the network) already happened in
         // parallel, so a single unreachable remote no longer blocks startup.
-        for (upstream, url, _, _) in &pending_dshackle {
-            tracing::info!("Connecting to remote Dshackle '{}' at {}", upstream.id, url);
+        for (_, id, url, _, _) in &pending_dshackle {
+            tracing::info!("Connecting to remote Dshackle '{}' at {}", id, url);
         }
         let discoveries = futures::future::join_all(pending_dshackle.iter().map(
-            |(upstream, url, tls, call_timeout)| async move {
+            |(upstream, id, url, tls, call_timeout)| async move {
                 let outcome = tokio::time::timeout(
                     DSHACKLE_CONNECT_TIMEOUT,
                     connect_and_describe(url, tls.as_ref()),
                 )
                 .await;
-                (*upstream, url.clone(), *call_timeout, outcome)
+                (*upstream, id, url.clone(), *call_timeout, outcome)
             },
         ))
         .await;
 
-        for (upstream, url, call_timeout, outcome) in discoveries {
+        for (upstream, id, url, call_timeout, outcome) in discoveries {
             match outcome {
                 Ok(Ok((client, chains))) => wire_remote_dshackle(
                     upstream,
+                    id,
                     client,
                     chains,
                     call_timeout,
@@ -612,7 +612,7 @@ impl UpstreamManager {
                 Ok(Err(e)) => {
                     tracing::warn!(
                         "Upstream {}: failed to connect to Dshackle at {}: {}",
-                        upstream.id,
+                        id,
                         url,
                         e
                     );
@@ -620,7 +620,7 @@ impl UpstreamManager {
                 Err(_elapsed) => {
                     tracing::warn!(
                         "Upstream {}: timed out after {:?} connecting to Dshackle at {}, starting without it",
-                        upstream.id,
+                        id,
                         DSHACKLE_CONNECT_TIMEOUT,
                         url
                     );
@@ -1278,6 +1278,7 @@ fn warn_inapplicable_dshackle_options(upstream: &crate::config::upstreams::Upstr
 #[allow(clippy::too_many_arguments)]
 fn wire_remote_dshackle(
     upstream: &crate::config::upstreams::Upstream,
+    upstream_id: &UpstreamId,
     client: BlockchainClient<Channel>,
     chains: Vec<DescribeChain>,
     call_timeout: Duration,
@@ -1289,8 +1290,6 @@ fn wire_remote_dshackle(
     allowance_clients: &mut HashMap<TargetBlockchain, BlockchainClient<Channel>>,
     balance_clients: &mut HashMap<TargetBlockchain, BlockchainClient<Channel>>,
 ) {
-    let upstream_id = &upstream.id;
-
     if chains.is_empty() {
         tracing::warn!(
             "Dshackle '{}': remote reported no available chains",
@@ -1314,7 +1313,18 @@ fn wire_remote_dshackle(
         };
 
         let chain = TargetBlockchain::from(chain_ref);
-        let chain_id = format!("{}/{}", upstream_id, chain);
+        // One upstream per discovered chain, named like the legacy
+        // `GrpcUpstreams`: `<id>_<chain code>`.
+        let chain_id: UpstreamId =
+            match format!("{}_{}", upstream_id, chain.code().to_lowercase()).parse() {
+                Ok(id) => id,
+                Err(e) => {
+                    // Only possible if a future chain code stops fitting the
+                    // id pattern; losing one discovered chain beats panicking.
+                    tracing::warn!("Dshackle '{upstream_id}': skipping chain {chain}: {e}");
+                    continue;
+                }
+            };
         let syncing_lag = syncing_lag_for(chain_ref);
 
         tracing::info!(

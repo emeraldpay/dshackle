@@ -41,6 +41,7 @@ use crate::cache::Caches;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use std::sync::Arc;
@@ -99,7 +100,7 @@ impl RpcUpstream for NormalizingUpstream {
         };
 
         tracing::trace!(
-            upstream = self.inner.id(),
+            upstream = %self.inner.id(),
             original = %request.method,
             normalized = %normalized.method,
             "request normalized"
@@ -116,7 +117,7 @@ impl RpcUpstream for NormalizingUpstream {
         }
     }
 
-    fn id(&self) -> &str {
+    fn id(&self) -> &UpstreamId {
         self.inner.id()
     }
 
@@ -203,8 +204,8 @@ mod tests {
             let raw = r#"{"jsonrpc":"2.0","id":1,"result":{"number":"0x64","from":"number"}}"#;
             Ok(serde_json::from_str(raw).unwrap())
         }
-        fn id(&self) -> &str {
-            "stub"
+        fn id(&self) -> &UpstreamId {
+            crate::upstream::id::stub_id()
         }
         fn availability(&self) -> UpstreamAvailability {
             UpstreamAvailability::Ok

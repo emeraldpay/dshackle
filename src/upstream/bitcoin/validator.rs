@@ -65,6 +65,7 @@ mod tests {
     use crate::config::upstreams::PartialOptions;
     use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
     use crate::upstream::head::{Head, NoHead};
+    use crate::upstream::id::UpstreamId;
     use crate::upstream::state::UpstreamState;
     use crate::upstream::traits::UpstreamError;
     use std::sync::Arc;
@@ -86,8 +87,8 @@ mod tests {
                 None => Err(UpstreamError::Transport("refused".into())),
             }
         }
-        fn id(&self) -> &str {
-            "stub"
+        fn id(&self) -> &UpstreamId {
+            crate::upstream::id::stub_id()
         }
         fn availability(&self) -> UpstreamAvailability {
             UpstreamAvailability::Ok

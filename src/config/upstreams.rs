@@ -18,17 +18,12 @@
 use crate::blockchain::TargetBlockchain;
 use crate::config::bytes::deserialize_opt_bytes;
 use crate::config::tls::{BasicAuth, ClientTlsAuth};
-use regex::Regex;
+use crate::upstream::id::{InvalidUpstreamId, UpstreamId};
+use anyhow::{Context, Result, bail};
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::sync::LazyLock;
 use std::time::Duration;
 use tracing::warn;
-
-/// Upstream ID validation: must start with a letter, contain letters/digits/hyphens/underscores,
-/// and end with a letter or digit. Minimum 3 characters.
-static UPSTREAM_ID_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^[a-zA-Z][a-zA-Z0-9_-]+[a-zA-Z0-9]$").unwrap());
 
 // ─── Upstream Options ────────────────────────────────────────────────────────
 
@@ -337,6 +332,9 @@ pub struct RawUpstream {
 /// Processed upstream with resolved connection and options.
 #[derive(Debug, Clone)]
 pub struct Upstream {
+    /// The id as written in the config. Kept raw here so a disabled entry may
+    /// carry anything; [`upstream_id`](Self::upstream_id) builds the validated
+    /// form when the upstream is actually used.
     pub id: String,
     pub blockchain: Option<String>,
     pub enabled: bool,
@@ -345,6 +343,15 @@ pub struct Upstream {
     pub methods: Option<MethodsConfig>,
     pub connection: UpstreamConnection,
     pub options: PartialOptions,
+}
+
+impl Upstream {
+    /// The validated id of this upstream. Called at wiring time, where a
+    /// malformed id is a startup error — but only for upstreams that are
+    /// actually wired, so a disabled entry never fails on its id.
+    pub fn upstream_id(&self) -> Result<UpstreamId, InvalidUpstreamId> {
+        self.id.parse()
+    }
 }
 
 // ─── Upstreams config (cluster section) ──────────────────────────────────────
@@ -421,22 +428,22 @@ fn chain_name_matches(a: &str, b: &str) -> bool {
 
 // ─── Processing ──────────────────────────────────────────────────────────────
 
-fn is_valid_upstream_id(id: &str) -> bool {
-    id.len() >= 3 && UPSTREAM_ID_RE.is_match(id)
-}
-
 /// Converts a raw upstream entry into a processed Upstream.
-/// Returns `None` if the upstream has no valid connection or invalid ID.
-pub fn process_raw_upstream(raw: RawUpstream) -> Option<Upstream> {
-    let id = match &raw.id {
-        Some(id) if is_valid_upstream_id(id) => id.clone(),
-        Some(id) => {
-            warn!("Invalid upstream id: {id}");
-            return None;
-        }
+///
+/// The id is kept as the raw string; it is validated at wiring time (see
+/// [`Upstream::upstream_id`]), so only upstreams that actually run can fail
+/// on it. A missing id on an enabled upstream is still a hard error — the
+/// entry can't even be referred to — while a disabled entry without an id is
+/// just skipped. An upstream without a usable connection is skipped
+/// (`Ok(None)`) with a warning, matching legacy.
+pub fn process_raw_upstream(raw: RawUpstream) -> Result<Option<Upstream>> {
+    let enabled = raw.enabled.unwrap_or(true);
+    let id = match raw.id {
+        Some(id) => id,
+        None if enabled => bail!("upstream is missing an id"),
         None => {
-            warn!("Upstream is missing an id");
-            return None;
+            warn!("Disabled upstream without an id, skipping");
+            return Ok(None);
         }
     };
 
@@ -450,12 +457,12 @@ pub fn process_raw_upstream(raw: RawUpstream) -> Option<Upstream> {
                 UpstreamConnection::Dshackle(ds)
             } else {
                 warn!("Upstream {id} has no recognized connection type");
-                return None;
+                return Ok(None);
             }
         }
         None => {
             warn!("Upstream {id} has no connection configured");
-            return None;
+            return Ok(None);
         }
     };
 
@@ -487,31 +494,35 @@ pub fn process_raw_upstream(raw: RawUpstream) -> Option<Upstream> {
         None => direct_options,
     };
 
-    Some(Upstream {
+    Ok(Some(Upstream {
         id,
         blockchain: raw.blockchain,
-        enabled: raw.enabled.unwrap_or(true),
+        enabled,
         role,
         labels: raw.labels,
         methods: raw.methods,
         connection,
         options,
-    })
+    }))
 }
 
-impl From<RawUpstreamsConfig> for UpstreamsConfig {
-    fn from(raw: RawUpstreamsConfig) -> Self {
+impl TryFrom<RawUpstreamsConfig> for UpstreamsConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(raw: RawUpstreamsConfig) -> Result<Self> {
         let defaults = raw.defaults.unwrap_or_default();
         let upstreams = raw
             .upstreams
             .unwrap_or_default()
             .into_iter()
-            .filter_map(process_raw_upstream)
-            .collect();
-        UpstreamsConfig {
+            .map(process_raw_upstream)
+            .filter_map(Result::transpose)
+            .collect::<Result<Vec<Upstream>>>()
+            .context("processing upstreams")?;
+        Ok(UpstreamsConfig {
             defaults,
             upstreams,
-        }
+        })
     }
 }
 
@@ -576,7 +587,7 @@ mod tests {
 
     fn upstream_for(blockchain: &str, options: PartialOptions) -> Upstream {
         Upstream {
-            id: "test-up".to_string(),
+            id: "test-up".parse().unwrap(),
             blockchain: Some(blockchain.to_string()),
             enabled: true,
             role: UpstreamRole::Primary,
@@ -646,33 +657,77 @@ mod tests {
 
     // ── ID validation ────────────────────────────────────────────────────
 
-    #[test]
-    fn accepts_valid_ids() {
-        assert!(is_valid_upstream_id("test"));
-        assert!(is_valid_upstream_id("local"));
-        assert!(is_valid_upstream_id("infura-eth"));
-        assert!(is_valid_upstream_id("my_upstream_1"));
-        assert!(is_valid_upstream_id("upstream-01"));
-        assert!(is_valid_upstream_id("a1b"));
+    fn raw_upstream(id: Option<&str>) -> RawUpstream {
+        RawUpstream {
+            id: id.map(str::to_string),
+            blockchain: Some("ethereum".to_string()),
+            enabled: None,
+            role: None,
+            labels: HashMap::new(),
+            methods: None,
+            connection: Some(RawConnection {
+                ethereum: Some(EthereumConnection {
+                    rpc: None,
+                    ws: None,
+                }),
+                bitcoin: None,
+                dshackle: None,
+            }),
+            disable_validation: None,
+            validate_syncing: None,
+            validate_peers: None,
+            min_peers: None,
+            validation_interval: None,
+            timeout: None,
+            priority: None,
+            balance: None,
+            options: None,
+        }
     }
 
     #[test]
-    fn rejects_invalid_ids() {
-        // too short
-        assert!(!is_valid_upstream_id("ab"));
-        assert!(!is_valid_upstream_id("a"));
-        assert!(!is_valid_upstream_id(""));
-        // starts with non-letter
-        assert!(!is_valid_upstream_id("1test"));
-        assert!(!is_valid_upstream_id("-test"));
-        // ends with invalid char
-        assert!(!is_valid_upstream_id("test-"));
-        assert!(!is_valid_upstream_id("test_"));
-        // contains slash
-        assert!(!is_valid_upstream_id("test/test"));
-        // contains special chars
-        assert!(!is_valid_upstream_id("test.test"));
-        assert!(!is_valid_upstream_id("test@test"));
+    fn invalid_id_fails_when_the_upstream_is_used() {
+        // Parsing keeps the raw id; it is the wiring-time `upstream_id()`
+        // that rejects it.
+        for bad in ["bad/id", "ab"] {
+            let upstream = process_raw_upstream(raw_upstream(Some(bad)))
+                .unwrap()
+                .unwrap();
+            assert!(upstream.upstream_id().is_err(), "{bad} must be rejected");
+        }
+    }
+
+    #[test]
+    fn missing_id_is_an_error() {
+        assert!(process_raw_upstream(raw_upstream(None)).is_err());
+    }
+
+    #[test]
+    fn can_load_disabled_upstream_with_invalid_id() {
+        // A disabled placeholder entry must not fail the startup on its id.
+        let mut without_id = raw_upstream(None);
+        without_id.enabled = Some(false);
+        assert!(process_raw_upstream(without_id).unwrap().is_none());
+
+        let mut bad_id = raw_upstream(Some("bad/id"));
+        bad_id.enabled = Some(false);
+        let upstream = process_raw_upstream(bad_id).unwrap().unwrap();
+        assert!(!upstream.enabled);
+    }
+
+    #[test]
+    fn valid_id_is_accepted() {
+        let upstream = process_raw_upstream(raw_upstream(Some("infura-eth")))
+            .unwrap()
+            .unwrap();
+        assert_eq!(upstream.upstream_id().unwrap(), "infura-eth");
+    }
+
+    #[test]
+    fn upstream_without_connection_is_skipped_not_fatal() {
+        let mut raw = raw_upstream(Some("no-conn"));
+        raw.connection = None;
+        assert!(process_raw_upstream(raw).unwrap().is_none());
     }
 
     // ── PartialOptions merge ─────────────────────────────────────────────

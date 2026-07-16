@@ -243,13 +243,14 @@ mod tests {
     use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
     use crate::upstream::Multistream;
     use crate::upstream::head::{Head, NoHead};
+    use crate::upstream::id::UpstreamId;
     use crate::upstream::quorum::{AlwaysQuorum, CallQuorum, QuorumFactory};
     use crate::upstream::state::UpstreamState;
     use crate::upstream::traits::{RpcUpstream, UpstreamError};
     use std::collections::HashMap;
 
     struct StubUpstream {
-        id: &'static str,
+        id: UpstreamId,
         availability: UpstreamAvailability,
         lag: Option<u64>,
         state: Arc<UpstreamState>,
@@ -257,12 +258,12 @@ mod tests {
 
     impl StubUpstream {
         fn new(
-            id: &'static str,
+            id: &str,
             availability: UpstreamAvailability,
             lag: Option<u64>,
         ) -> Arc<dyn RpcUpstream> {
             Arc::new(Self {
-                id,
+                id: id.parse().unwrap(),
                 availability,
                 lag,
                 state: Arc::new(UpstreamState::new()),
@@ -275,8 +276,8 @@ mod tests {
         async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             Err(UpstreamError::Transport("stub".into()))
         }
-        fn id(&self) -> &str {
-            self.id
+        fn id(&self) -> &UpstreamId {
+            &self.id
         }
         fn availability(&self) -> UpstreamAvailability {
             self.availability
@@ -346,8 +347,8 @@ mod tests {
         let manager = manager(vec![(
             "ethereum",
             vec![
-                StubUpstream::new("a", UpstreamAvailability::Ok, Some(0)),
-                StubUpstream::new("b", UpstreamAvailability::Syncing, Some(100)),
+                StubUpstream::new("up-a", UpstreamAvailability::Ok, Some(0)),
+                StubUpstream::new("up-b", UpstreamAvailability::Syncing, Some(100)),
             ],
         )]);
         let health = basic_health(&checks(vec![("ethereum", 2)]), &manager);

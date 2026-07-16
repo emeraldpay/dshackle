@@ -21,6 +21,7 @@
 //! upstream produces a real answer.
 
 use crate::jsonrpc::JsonRpcResponse;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::quorum::{CallQuorum, QuorumOutcome, is_connection_unavailable};
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 
@@ -28,8 +29,8 @@ use crate::upstream::traits::{RpcUpstream, UpstreamError};
 /// connection errors are deferred until no upstream succeeds.
 #[derive(Default)]
 pub struct AlwaysQuorum {
-    result: Option<(JsonRpcResponse, String)>,
-    resolved_source: Option<String>,
+    result: Option<(JsonRpcResponse, UpstreamId)>,
+    resolved_source: Option<UpstreamId>,
     error: Option<UpstreamError>,
     /// Connection errors are only surfaced after all upstreams have been
     /// exhausted, so a single flaky node doesn't fail an otherwise routable
@@ -48,7 +49,7 @@ impl CallQuorum for AlwaysQuorum {
 
     fn record_response(&mut self, response: JsonRpcResponse, upstream: &dyn RpcUpstream) {
         if self.result.is_none() {
-            self.result = Some((response, upstream.id().to_string()));
+            self.result = Some((response, upstream.id().clone()));
         }
     }
 
@@ -88,8 +89,8 @@ impl CallQuorum for AlwaysQuorum {
         QuorumOutcome::Empty
     }
 
-    fn resolved_by(&self) -> Option<&str> {
-        self.resolved_source.as_deref()
+    fn resolved_by(&self) -> Option<&UpstreamId> {
+        self.resolved_source.as_ref()
     }
 }
 
@@ -112,8 +113,8 @@ mod tests {
         async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             unimplemented!()
         }
-        fn id(&self) -> &str {
-            "stub"
+        fn id(&self) -> &UpstreamId {
+            crate::upstream::id::stub_id()
         }
         fn availability(&self) -> UpstreamAvailability {
             UpstreamAvailability::Ok

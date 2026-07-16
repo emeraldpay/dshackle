@@ -42,23 +42,20 @@ const POLL_INTERVAL: Duration = Duration::from_secs(10);
 /// Spawns a background task that polls `eth_getBlockByNumber("latest", false)`
 /// on the given upstream and updates the shared head tracker with full block
 /// data.
-pub fn start_head_poller(
-    upstream_id: String,
-    upstream: Arc<dyn RpcUpstream>,
-    head: Arc<CurrentHead>,
-) {
+pub fn start_head_poller(upstream: Arc<dyn RpcUpstream>, head: Arc<CurrentHead>) {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(POLL_INTERVAL);
         loop {
             interval.tick().await;
-            poll_latest_block(&upstream_id, upstream.as_ref(), &head).await;
+            poll_latest_block(upstream.as_ref(), &head).await;
         }
     });
 }
 
 /// Fetches the latest block (with tx hashes, not full tx bodies) and pushes
 /// it through the head tracker.
-async fn poll_latest_block(upstream_id: &str, upstream: &dyn RpcUpstream, head: &CurrentHead) {
+async fn poll_latest_block(upstream: &dyn RpcUpstream, head: &CurrentHead) {
+    let upstream_id = upstream.id();
     let request = JsonRpcRequest::new(
         0,
         "eth_getBlockByNumber".into(),
@@ -70,7 +67,7 @@ async fn poll_latest_block(upstream_id: &str, upstream: &dyn RpcUpstream, head: 
                 match parse_eth_block(raw.get()) {
                     Some(block) => {
                         tracing::trace!(
-                            upstream = upstream_id,
+                            upstream = %upstream_id,
                             height = block.height,
                             hash = %block.hash,
                             "head updated"
@@ -81,14 +78,14 @@ async fn poll_latest_block(upstream_id: &str, upstream: &dyn RpcUpstream, head: 
                         // Fallback: try to extract at least the height
                         if let Some(h) = extract_block_number(raw.get()) {
                             tracing::debug!(
-                                upstream = upstream_id,
+                                upstream = %upstream_id,
                                 height = h,
                                 "partial head update (block parse failed)"
                             );
                             head.update(h);
                         } else {
                             tracing::warn!(
-                                upstream = upstream_id,
+                                upstream = %upstream_id,
                                 "failed to parse eth_getBlockByNumber response"
                             );
                         }
@@ -97,7 +94,7 @@ async fn poll_latest_block(upstream_id: &str, upstream: &dyn RpcUpstream, head: 
             }
         }
         Err(e) => {
-            tracing::debug!(upstream = upstream_id, error = %e, "eth_getBlockByNumber poll failed");
+            tracing::debug!(upstream = %upstream_id, error = %e, "eth_getBlockByNumber poll failed");
         }
     }
 }
@@ -110,13 +107,13 @@ async fn poll_latest_block(upstream_id: &str, upstream: &dyn RpcUpstream, head: 
 /// then processes subscription notifications until the channel closes
 /// (indicating a disconnect), at which point it retries.
 pub fn start_ws_head(upstream: Arc<EthereumWsUpstream>) {
-    let upstream_id = upstream.id().to_string();
+    let upstream_id = upstream.id().clone();
     let head = upstream.head_height();
 
     tokio::spawn(async move {
         loop {
             // Fetch the full latest block immediately so we don't wait for the next one
-            poll_latest_block(&upstream_id, upstream.as_ref(), &head).await;
+            poll_latest_block(upstream.as_ref(), &head).await;
 
             match upstream.subscribe("newHeads").await {
                 Ok(mut rx) => {

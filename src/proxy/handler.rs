@@ -301,6 +301,7 @@ mod tests {
     use crate::jsonrpc::JsonRpcResponse;
     use crate::upstream::availability::UpstreamAvailability;
     use crate::upstream::head::{Head, NoHead};
+    use crate::upstream::id::UpstreamId;
     use crate::upstream::quorum::{AlwaysQuorum, CallQuorum, QuorumFactory};
     use crate::upstream::state::UpstreamState;
     use crate::upstream::traits::{RpcUpstream, UpstreamError};
@@ -327,8 +328,8 @@ mod tests {
             let raw = format!(r#"{{"jsonrpc":"2.0","id":1,"result":{}}}"#, self.result);
             Ok(serde_json::from_str(&raw).unwrap())
         }
-        fn id(&self) -> &str {
-            "stub"
+        fn id(&self) -> &UpstreamId {
+            crate::upstream::id::stub_id()
         }
         fn availability(&self) -> UpstreamAvailability {
             UpstreamAvailability::Ok
@@ -441,8 +442,10 @@ mod tests {
                 )
                 .unwrap())
             }
-            fn id(&self) -> &str {
-                "err"
+            fn id(&self) -> &UpstreamId {
+                static ID: std::sync::LazyLock<UpstreamId> =
+                    std::sync::LazyLock::new(|| "err".parse().unwrap());
+                &ID
             }
             fn availability(&self) -> UpstreamAvailability {
                 UpstreamAvailability::Ok

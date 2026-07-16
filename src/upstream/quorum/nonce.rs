@@ -22,6 +22,7 @@
 
 use crate::jsonrpc::JsonRpcResponse;
 use crate::upstream::ethereum::parse_hex_quantity;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::quorum::{CallQuorum, QuorumOutcome};
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 
@@ -33,8 +34,8 @@ pub struct NonceQuorum {
     received: usize,
     errors: usize,
     /// Best response seen so far, kept verbatim to forward to the client.
-    best_response: Option<(JsonRpcResponse, String)>,
-    resolved_source: Option<String>,
+    best_response: Option<(JsonRpcResponse, UpstreamId)>,
+    resolved_source: Option<UpstreamId>,
     /// Numeric value of `best_response` for comparisons.
     best_value: u64,
     last_error: Option<UpstreamError>,
@@ -77,12 +78,12 @@ impl CallQuorum for NonceQuorum {
         match value {
             Some(v) if v >= self.best_value || self.best_response.is_none() => {
                 self.best_value = v;
-                self.best_response = Some((response, upstream.id().to_string()));
+                self.best_response = Some((response, upstream.id().clone()));
             }
             _ => {
                 // Keep whatever we have; if nothing yet, store as a fallback.
                 if self.best_response.is_none() {
-                    self.best_response = Some((response, upstream.id().to_string()));
+                    self.best_response = Some((response, upstream.id().clone()));
                 }
             }
         }
@@ -112,8 +113,8 @@ impl CallQuorum for NonceQuorum {
         QuorumOutcome::Empty
     }
 
-    fn resolved_by(&self) -> Option<&str> {
-        self.resolved_source.as_deref()
+    fn resolved_by(&self) -> Option<&UpstreamId> {
+        self.resolved_source.as_ref()
     }
 }
 
@@ -136,8 +137,8 @@ mod tests {
         async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             unimplemented!()
         }
-        fn id(&self) -> &str {
-            "stub"
+        fn id(&self) -> &UpstreamId {
+            crate::upstream::id::stub_id()
         }
         fn availability(&self) -> UpstreamAvailability {
             UpstreamAvailability::Ok

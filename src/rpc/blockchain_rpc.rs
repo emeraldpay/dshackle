@@ -928,6 +928,7 @@ mod tests {
     use crate::upstream::Multistream;
     use crate::upstream::availability::UpstreamAvailability;
     use crate::upstream::head::{Head, NoHead};
+    use crate::upstream::id::UpstreamId;
     use crate::upstream::quorum::{AlwaysQuorum, CallQuorum, QuorumFactory};
     use crate::upstream::state::UpstreamState;
     use crate::upstream::traits::{RpcUpstream, UpstreamError};
@@ -972,8 +973,10 @@ mod tests {
             self.active.fetch_sub(1, Ordering::SeqCst);
             Ok(serde_json::from_str(r#"{"jsonrpc":"2.0","id":1,"result":"0x1"}"#).unwrap())
         }
-        fn id(&self) -> &str {
-            "probe"
+        fn id(&self) -> &UpstreamId {
+            static ID: std::sync::LazyLock<UpstreamId> =
+                std::sync::LazyLock::new(|| "probe".parse().unwrap());
+            &ID
         }
         fn availability(&self) -> UpstreamAvailability {
             UpstreamAvailability::Ok
@@ -1004,8 +1007,10 @@ mod tests {
         async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             Err(UpstreamError::Transport("meta".into()))
         }
-        fn id(&self) -> &str {
-            "meta"
+        fn id(&self) -> &UpstreamId {
+            static ID: std::sync::LazyLock<UpstreamId> =
+                std::sync::LazyLock::new(|| "meta".parse().unwrap());
+            &ID
         }
         fn availability(&self) -> UpstreamAvailability {
             UpstreamAvailability::Ok

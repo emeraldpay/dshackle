@@ -21,6 +21,7 @@
 //! whichever response is most useful to the client.
 
 use crate::jsonrpc::JsonRpcResponse;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::quorum::{CallQuorum, QuorumOutcome};
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 
@@ -32,12 +33,12 @@ pub struct BroadcastQuorum {
     target_calls: usize,
     calls: usize,
     /// First successful txid response, kept verbatim to forward to the client.
-    txid_response: Option<(JsonRpcResponse, String)>,
-    resolved_source: Option<String>,
+    txid_response: Option<(JsonRpcResponse, UpstreamId)>,
+    resolved_source: Option<UpstreamId>,
     /// First non-success response (e.g. "transaction already known"). Used as
     /// a fallback when no upstream accepted the broadcast — the client is
     /// better served by the upstream's error message than by a generic one.
-    fallback_response: Option<(JsonRpcResponse, String)>,
+    fallback_response: Option<(JsonRpcResponse, UpstreamId)>,
     /// Last transport-level error, used only when nothing else is available.
     last_transport_error: Option<UpstreamError>,
 }
@@ -79,9 +80,9 @@ impl CallQuorum for BroadcastQuorum {
         // A successful broadcast returns the txid as a JSON string; anything
         // else (error response, non-string result) is a fallback.
         if self.txid_response.is_none() && response.result_as_string().is_some() {
-            self.txid_response = Some((response, upstream.id().to_string()));
+            self.txid_response = Some((response, upstream.id().clone()));
         } else if self.fallback_response.is_none() {
-            self.fallback_response = Some((response, upstream.id().to_string()));
+            self.fallback_response = Some((response, upstream.id().clone()));
         }
     }
 
@@ -117,8 +118,8 @@ impl CallQuorum for BroadcastQuorum {
         QuorumOutcome::Empty
     }
 
-    fn resolved_by(&self) -> Option<&str> {
-        self.resolved_source.as_deref()
+    fn resolved_by(&self) -> Option<&UpstreamId> {
+        self.resolved_source.as_ref()
     }
 }
 
@@ -141,8 +142,8 @@ mod tests {
         async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             unimplemented!()
         }
-        fn id(&self) -> &str {
-            "stub"
+        fn id(&self) -> &UpstreamId {
+            crate::upstream::id::stub_id()
         }
         fn availability(&self) -> UpstreamAvailability {
             UpstreamAvailability::Ok

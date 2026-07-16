@@ -126,21 +126,23 @@ fn parse_main_config(yaml: &str, config_dir: &Path) -> Result<MainConfig> {
     // Process upstreams (cluster section) with file includes
     let upstreams = match raw.cluster {
         Some(raw_cluster) => {
-            let mut config = UpstreamsConfig::from(raw_cluster.clone());
+            let mut config = UpstreamsConfig::try_from(raw_cluster.clone())?;
 
             // Handle file includes
             if let Some(include) = raw_cluster.include {
                 let paths: Vec<String> = include.into();
                 for include_path in paths {
                     let resolved = crate::config::resolve_file(config_dir, &include_path);
-                    match read_included_upstreams(&resolved) {
-                        Ok(included) => {
-                            config.upstreams.extend(included.upstreams);
-                        }
-                        Err(e) => {
-                            warn!("Failed to read included config {}: {e}", resolved.display());
-                        }
+                    // A missing include file is tolerated (legacy parity for
+                    // optional includes); one that exists but can't be read
+                    // or parsed is a hard error — silently dropping its
+                    // upstreams would be worse.
+                    if !resolved.exists() || !resolved.is_file() {
+                        warn!("Included config not accessible: {}", resolved.display());
+                        continue;
                     }
+                    let included = read_included_upstreams(&resolved)?;
+                    config.upstreams.extend(included.upstreams);
                 }
             }
 
@@ -169,9 +171,6 @@ fn parse_main_config(yaml: &str, config_dir: &Path) -> Result<MainConfig> {
 
 /// Reads an included upstream config file.
 fn read_included_upstreams(path: &Path) -> Result<UpstreamsConfig> {
-    if !path.exists() || !path.is_file() {
-        anyhow::bail!("included config file not accessible: {}", path.display());
-    }
     info!("Including upstream config: {}", path.display());
     let content = std::fs::read_to_string(path)
         .with_context(|| format!("reading included config: {}", path.display()))?;
@@ -189,7 +188,7 @@ impl std::str::FromStr for UpstreamsConfig {
         let raw: RawUpstreamsConfig =
             serde_yaml::from_value(value).context("deserializing upstreams config")?;
 
-        Ok(raw.into())
+        raw.try_into()
     }
 }
 
@@ -624,14 +623,13 @@ mod tests {
     }
 
     #[test]
-    fn parse_upstreams_no_id_filters_invalid() {
+    fn parse_upstreams_missing_id_fails() {
+        // The file carries an enabled upstream without an id — a config error
+        // that must stop the startup, not be silently skipped (which is what
+        // legacy did). Malformed ids (the file also has "test/test") are
+        // caught later, at wiring, so disabled entries never fail on them.
         let yaml = std::fs::read_to_string(testdata("upstreams-no-id.yaml")).unwrap();
-        let cfg = yaml.parse::<UpstreamsConfig>().unwrap();
-
-        // Only "test" has a valid id (>=3 chars, matches [a-zA-Z][a-zA-Z0-9_-]+[a-zA-Z0-9])
-        // Others: no id, "test/test" (has /) are invalid
-        assert_eq!(cfg.upstreams.len(), 1);
-        assert_eq!(cfg.upstreams[0].id, "test");
+        assert!(yaml.parse::<UpstreamsConfig>().is_err());
     }
 
     // ── Tokens ───────────────────────────────────────────────────────────

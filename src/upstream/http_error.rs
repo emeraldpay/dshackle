@@ -22,6 +22,7 @@
 //!   unavailable (429/401/502–504), so routing stops selecting it.
 
 use crate::jsonrpc::JsonRpcResponse;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::quorum::is_unavailable_status;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{UpstreamError, sanitize_error_body};
@@ -35,18 +36,23 @@ const RATE_LIMIT_COOLDOWN: Duration = Duration::from_secs(60);
 /// Map a non-200 response into an [`UpstreamError`], parking the upstream when
 /// the status marks it temporarily unavailable and forwarding the provider's own
 /// error message when the body is a JSON-RPC error.
-pub fn classify_non_200(id: &str, state: &UpstreamState, status: u16, body: &str) -> UpstreamError {
+pub fn classify_non_200(
+    id: &UpstreamId,
+    state: &UpstreamState,
+    status: u16,
+    body: &str,
+) -> UpstreamError {
     if is_unavailable_status(status) {
         state.set_rate_limited(RATE_LIMIT_COOLDOWN);
     }
     match rpc_error_message(body) {
         Some(message) => {
-            tracing::debug!(upstream = id, status, %message, "upstream returned a JSON-RPC error with non-200 status");
+            tracing::debug!(upstream = %id, status, %message, "upstream returned a JSON-RPC error with non-200 status");
             UpstreamError::Rejected { status, message }
         }
         None => {
             let sanitized = sanitize_error_body(body);
-            tracing::debug!(upstream = id, status, body = %sanitized, "HTTP non-200 response");
+            tracing::debug!(upstream = %id, status, body = %sanitized, "HTTP non-200 response");
             UpstreamError::HttpStatus(status)
         }
     }
@@ -72,7 +78,7 @@ mod tests {
     #[test]
     fn forwards_body_message_and_parks_on_429() {
         let state = UpstreamState::new();
-        let err = classify_non_200("u", &state, 429, ERROR_BODY);
+        let err = classify_non_200(&"up-u".parse().unwrap(), &state, 429, ERROR_BODY);
         assert!(
             matches!(&err, UpstreamError::Rejected { status: 429, message } if message == "too many request")
         );
@@ -86,7 +92,7 @@ mod tests {
         // not a reason to park the upstream.
         let state = UpstreamState::new();
         let body = r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32600,"message":"Already Spent"}}"#;
-        let err = classify_non_200("u", &state, 500, body);
+        let err = classify_non_200(&"up-u".parse().unwrap(), &state, 500, body);
         assert!(
             matches!(&err, UpstreamError::Rejected { status: 500, message } if message == "Already Spent")
         );
@@ -96,7 +102,12 @@ mod tests {
     #[test]
     fn falls_back_to_status_without_json_body() {
         let state = UpstreamState::new();
-        let err = classify_non_200("u", &state, 502, "<html>Bad Gateway</html>");
+        let err = classify_non_200(
+            &"up-u".parse().unwrap(),
+            &state,
+            502,
+            "<html>Bad Gateway</html>",
+        );
         assert!(matches!(err, UpstreamError::HttpStatus(502)));
         // 502 still parks the upstream even without a parseable body.
         assert_eq!(state.availability(), UpstreamAvailability::Unavailable);
