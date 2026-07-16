@@ -26,6 +26,8 @@ pub const CODE_INVALID_JSON: i64 = -32700;
 pub const CODE_INVALID_REQUEST: i64 = -32600;
 /// The call did not complete (routing / quorum failure).
 pub const CODE_CALL_FAILURE: i64 = -32003;
+/// The method is not served by any upstream (legacy `CODE_METHOD_NOT_EXIST`).
+pub const CODE_METHOD_NOT_EXIST: i64 = -32601;
 
 /// Whether the request body is a single object or a batch array.
 #[derive(Debug)]

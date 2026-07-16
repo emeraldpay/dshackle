@@ -27,6 +27,7 @@ use crate::metrics;
 use crate::rpc::native_call::execute_call;
 use crate::upstream::Multistream;
 use crate::upstream::selector::LabelSelector;
+use crate::upstream::traits::UpstreamError;
 use futures::future::join_all;
 use futures::stream::{FuturesUnordered, StreamExt};
 use serde_json::value::RawValue;
@@ -282,13 +283,19 @@ async fn execute(
         }
         Err(e) => {
             metrics::jsonrpc_fail(chain, &req.method);
+            // An unsupported method keeps its distinct legacy code; every
+            // other failure is a generic routing/quorum error.
+            let code = match &e {
+                UpstreamError::MethodNotAllowed(_) => protocol::CODE_METHOD_NOT_EXIST,
+                _ => CODE_CALL_FAILURE,
+            };
             let outcome = CallOutcome {
                 succeed: false,
                 response: None,
                 error: include.then(|| e.to_string()),
             };
             (
-                protocol::build_error(&req.id, CODE_CALL_FAILURE, e.to_string(), None),
+                protocol::build_error(&req.id, code, e.to_string(), None),
                 outcome,
             )
         }

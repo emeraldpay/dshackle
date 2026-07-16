@@ -153,7 +153,9 @@ impl std::fmt::Display for UpstreamError {
             // forwarded to the caller as the upstream's own error (issue #251).
             UpstreamError::Rejected { message, .. } => write!(f, "{message}"),
             UpstreamError::InvalidResponse(msg) => write!(f, "invalid response: {msg}"),
-            UpstreamError::MethodNotAllowed(method) => write!(f, "method not allowed: {method}"),
+            // The exact legacy `VerifyingReader` message — it reaches clients
+            // through the gRPC `error_message` and the proxy error body.
+            UpstreamError::MethodNotAllowed(method) => write!(f, "Unsupported method: {method}"),
         }
     }
 }

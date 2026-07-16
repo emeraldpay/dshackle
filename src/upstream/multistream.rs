@@ -116,6 +116,14 @@ impl Multistream {
         self.quorum_factory.supported_methods()
     }
 
+    /// Whether any upstream of this chain can answer the method — callable or
+    /// hardcoded. The gate the legacy `VerifyingReader` applied before
+    /// routing, distinguishing "unsupported method" from "no upstream
+    /// available right now".
+    pub fn method_available(&self, method: &RpcMethod) -> bool {
+        self.quorum_factory.is_callable(method) || self.quorum_factory.is_hardcoded(method)
+    }
+
     /// Pick candidate upstreams matching the given selector hint, filtered to
     /// those that accept `method`. Upstreams that reject the method up front
     /// are skipped so the router doesn't waste a round-trip just to learn

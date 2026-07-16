@@ -44,6 +44,12 @@ pub async fn execute_call(
     request: &JsonRpcRequest,
     labels: &LabelSelector,
 ) -> Result<Routed, UpstreamError> {
+    // The legacy `VerifyingReader` gate: a method no upstream serves is
+    // rejected as unsupported, before it can be mistaken for "no upstream
+    // available" by the empty-candidates path below.
+    if !multistream.method_available(&request.method) {
+        return Err(UpstreamError::MethodNotAllowed(request.method.to_string()));
+    }
     let quorum = multistream.quorum_for(&request.method);
     let mut candidates = multistream.select_for(quorum.selector(), &request.method);
     if *labels != LabelSelector::Any {

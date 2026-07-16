@@ -563,12 +563,20 @@ impl UpstreamManager {
                     // Only `timeout` applies to a dshackle connection; the
                     // validation family is meaningless here and gets a warning.
                     warn_inapplicable_dshackle_options(upstream);
-                    // A relay serves whatever chains and labels its remote
-                    // advertises, so locally configured labels have nothing to
-                    // attach to (legacy warns and ignores them the same way).
+                    // A relay serves whatever chains, labels, and methods its
+                    // remote advertises, so locally configured ones have
+                    // nothing to attach to (legacy warns about labels and
+                    // silently ignores methods; ignoring config silently is
+                    // worse than a warning).
                     if !upstream.labels.is_empty() {
                         tracing::warn!(
                             "Upstream {}: labels should be not applied to gRPC upstream",
+                            id
+                        );
+                    }
+                    if upstream.methods.is_some() {
+                        tracing::warn!(
+                            "Upstream {}: a methods config is not applied to a gRPC upstream and is ignored (the remote defines its own methods)",
                             id
                         );
                     }
