@@ -233,6 +233,28 @@ mod tests {
     }
 
     #[test]
+    fn enabling_a_default_method_resets_its_quorum_to_always() {
+        // Mirrors legacy `ManagedCallMethodsSpec."Use quorum from delegate if
+        // it supports the method"`: a method both served by the default and
+        // re-enabled by the user stops using the default's quorum.
+        let default = default_with(&["head_call"], &[]);
+        let configured = cfg(
+            vec![MethodConfig {
+                name: "head_call".into(),
+                quorum: None,
+                static_value: None,
+            }],
+            vec![],
+        );
+        let layered = LayeredMethods::new(default, configured);
+
+        match layered.quorum_for(&"head_call".into()).selector() {
+            SelectorHint::Available => {}
+            other => panic!("expected the Always default, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn user_static_response_wins_over_default() {
         let default = default_with(&[], &[("net_version", "\"1\"")]);
         let configured = cfg(

@@ -104,6 +104,13 @@ impl ConfiguredMethods {
             let method = RpcMethod::from(m.name.as_str());
             out.enabled.insert(method.clone());
 
+            // Enabling a method resets its quorum to `Always` even when the
+            // chain default already serves it with another strategy — legacy
+            // `ManagedCallMethods` seeds every enabled method that way, and
+            // operators use it to opt a method out of e.g. lag filtering. An
+            // unknown quorum id keeps this default (legacy warns the same).
+            out.quorum_overrides
+                .insert(method.clone(), QuorumKind::Always);
             if let Some(q) = m.quorum.as_deref() {
                 match QuorumKind::from_str(q) {
                     Ok(kind) => {
@@ -302,7 +309,7 @@ mod tests {
     }
 
     #[test]
-    fn unknown_quorum_is_dropped_not_fatal() {
+    fn unknown_quorum_keeps_the_always_default() {
         let cfg = MethodsConfig {
             enabled: vec![MethodConfig {
                 name: "debug_x".into(),
@@ -313,7 +320,30 @@ mod tests {
         };
         let c = ConfiguredMethods::from_config(Some(&cfg));
         assert!(c.is_callable(&"debug_x".into()));
-        assert!(c.quorum_override(&"debug_x".into()).is_none());
+        assert_eq!(
+            c.quorum_override(&"debug_x".into()),
+            Some(QuorumKind::Always)
+        );
+    }
+
+    #[test]
+    fn enabling_a_method_defaults_its_quorum_to_always() {
+        // Even without an explicit `quorum`, an enabled method carries an
+        // `Always` override — legacy resets the strategy of re-enabled
+        // methods the same way.
+        let cfg = MethodsConfig {
+            enabled: vec![MethodConfig {
+                name: "eth_getBalance".into(),
+                quorum: None,
+                static_value: None,
+            }],
+            disabled: vec![],
+        };
+        let c = ConfiguredMethods::from_config(Some(&cfg));
+        assert_eq!(
+            c.quorum_override(&"eth_getBalance".into()),
+            Some(QuorumKind::Always)
+        );
     }
 
     #[test]
@@ -349,5 +379,40 @@ mod tests {
                 .map(|r| r.get()),
             Some("\"Geth/v1.2.3\""),
         );
+    }
+
+    #[test]
+    fn static_value_json_shapes_forwarded_raw() {
+        // Any valid JSON goes through unchanged, whatever its type — the
+        // legacy `executeHardcoded` semantic (validated with Jackson there).
+        for (given, expect) in [
+            ("123", "123"),
+            ("true", "true"),
+            ("null", "null"),
+            (r#"{"chainId":"0x1"}"#, r#"{"chainId":"0x1"}"#),
+            (r#"["a","b"]"#, r#"["a","b"]"#),
+            // Surrounding whitespace is allowed around a JSON document and
+            // gets normalized away.
+            (" 123 ", "123"),
+        ] {
+            assert_eq!(parse_static_response(given).get(), expect, "for {given}");
+        }
+    }
+
+    #[test]
+    fn static_value_almost_json_is_encoded_as_string() {
+        // Not-quite-JSON (hex tokens, trailing garbage, empty) becomes a JSON
+        // string, so the reply always carries a valid `result`. Legacy string-
+        // encodes the same inputs except trailing garbage, which Jackson
+        // tolerated and legacy forwarded as broken JSON — encoding is the
+        // safer behavior.
+        for (given, expect) in [
+            ("0x1", "\"0x1\""),
+            ("", "\"\""),
+            ("123 junk", "\"123 junk\""),
+            ("{broken", "\"{broken\""),
+        ] {
+            assert_eq!(parse_static_response(given).get(), expect, "for {given}");
+        }
     }
 }
