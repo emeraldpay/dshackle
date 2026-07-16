@@ -63,10 +63,8 @@ impl ForkChoice for DifficultyForkChoice {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::upstream::id::test_id;
 
-    fn uid(s: &str) -> UpstreamId {
-        s.parse().unwrap()
-    }
     use crate::data::{BlockContainer, BlockId};
 
     fn block(difficulty: u64) -> BlockContainer {
@@ -85,34 +83,37 @@ mod tests {
     #[test]
     fn first_block_is_new() {
         let fc = DifficultyForkChoice::new();
-        assert_eq!(fc.submit(&block(100), &uid("up-a")), ForkStatus::New);
+        assert_eq!(fc.submit(&block(100), &test_id("up-a")), ForkStatus::New);
     }
 
     #[test]
     fn higher_difficulty_is_new() {
         let fc = DifficultyForkChoice::new();
-        fc.submit(&block(100), &uid("up-a"));
-        assert_eq!(fc.submit(&block(200), &uid("up-b")), ForkStatus::New);
+        fc.submit(&block(100), &test_id("up-a"));
+        assert_eq!(fc.submit(&block(200), &test_id("up-b")), ForkStatus::New);
     }
 
     #[test]
     fn same_difficulty_is_equal() {
         let fc = DifficultyForkChoice::new();
-        fc.submit(&block(100), &uid("up-a"));
-        assert_eq!(fc.submit(&block(100), &uid("up-b")), ForkStatus::Equal);
+        fc.submit(&block(100), &test_id("up-a"));
+        assert_eq!(fc.submit(&block(100), &test_id("up-b")), ForkStatus::Equal);
     }
 
     #[test]
     fn lower_difficulty_is_fallbehind() {
         let fc = DifficultyForkChoice::new();
-        fc.submit(&block(200), &uid("up-a"));
-        assert_eq!(fc.submit(&block(100), &uid("up-b")), ForkStatus::Fallbehind);
+        fc.submit(&block(200), &test_id("up-a"));
+        assert_eq!(
+            fc.submit(&block(100), &test_id("up-b")),
+            ForkStatus::Fallbehind
+        );
     }
 
     #[test]
     fn never_rejects() {
         let fc = DifficultyForkChoice::new();
-        fc.submit(&block(200), &uid("up-a"));
-        assert!(fc.submit(&block(1), &uid("up-b")).is_ok());
+        fc.submit(&block(200), &test_id("up-a"));
+        assert!(fc.submit(&block(1), &test_id("up-b")).is_ok());
     }
 }

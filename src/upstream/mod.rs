@@ -28,6 +28,7 @@ pub mod head;
 pub mod http_error;
 pub mod id;
 mod identified;
+pub mod label;
 mod logged;
 pub mod merged_head;
 mod metered;
@@ -46,6 +47,7 @@ pub mod validation;
 
 pub use id::UpstreamId;
 pub use identified::IdentifiedUpstream;
+pub use label::{UpstreamLabel, UpstreamLabels};
 pub use multistream::Multistream;
 
 use crate::blockchain::{BlockchainType, TargetBlockchain};
@@ -57,6 +59,7 @@ use crate::config::cache::CacheConfig;
 use crate::config::tokens::{TokenConfig, TokenType};
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
 use allowance::{AllowanceError, AllowanceStream};
+use anyhow::Context as _;
 use balance::{BalanceError, BalanceStream, BitcoinBalance, EthereumBalance};
 use bitcoin::head::start_head_poller as start_btc_head_poller;
 use bitcoin::http::BitcoinHttpUpstream;
@@ -189,25 +192,20 @@ impl UpstreamManager {
         // and methods are only known from the remote's `Describe`, so they are
         // discovered concurrently (each bounded by `DSHACKLE_CONNECT_TIMEOUT`)
         // instead of blocking startup one-by-one.
-        let mut pending_dshackle: Vec<(
-            &crate::config::upstreams::Upstream,
-            UpstreamId,
-            String,
-            Option<crate::tls::ClientTlsSetup>,
-            Duration,
-        )> = Vec::new();
+        let mut pending_dshackle: Vec<PendingDshackle> = Vec::new();
 
         for upstream in &config.upstreams {
             if !upstream.enabled {
                 tracing::debug!("Upstream {} is disabled, skipping", upstream.id);
                 continue;
             }
-            // The config carries the id as written; only an upstream that is
-            // actually wired must have a valid one.
+            // The config carries the id and labels as written; only an
+            // upstream that is actually wired must have valid ones.
             let id = upstream.upstream_id()?;
 
             match &upstream.connection {
                 UpstreamConnection::Ethereum(eth) => {
+                    let labels = local_labels(upstream)?;
                     let chain = match parse_required_chain(upstream) {
                         Some(c) => c,
                         None => continue,
@@ -426,7 +424,7 @@ impl UpstreamManager {
                     // read them.
                     let reader: Arc<dyn RpcUpstream> = Arc::new(IdentifiedUpstream::new(
                         reader,
-                        vec![upstream.labels.clone()],
+                        vec![labels.clone()],
                         local_capabilities(options.balance),
                         upstream.role,
                     ));
@@ -435,6 +433,7 @@ impl UpstreamManager {
                     per_chain_methods.entry(chain).or_default().push(methods);
                 }
                 UpstreamConnection::Bitcoin(btc) => {
+                    let labels = local_labels(upstream)?;
                     let chain = match parse_required_chain(upstream) {
                         Some(c) => c,
                         None => continue,
@@ -539,7 +538,7 @@ impl UpstreamManager {
                     // `Describe`, plus the routing role.
                     let reader: Arc<dyn RpcUpstream> = Arc::new(IdentifiedUpstream::new(
                         reader,
-                        vec![upstream.labels.clone()],
+                        vec![labels.clone()],
                         local_capabilities(options.balance),
                         upstream.role,
                     ));
@@ -564,11 +563,26 @@ impl UpstreamManager {
                     // Only `timeout` applies to a dshackle connection; the
                     // validation family is meaningless here and gets a warning.
                     warn_inapplicable_dshackle_options(upstream);
+                    // A relay serves whatever chains and labels its remote
+                    // advertises, so locally configured labels have nothing to
+                    // attach to (legacy warns and ignores them the same way).
+                    if !upstream.labels.is_empty() {
+                        tracing::warn!(
+                            "Upstream {}: labels should be not applied to gRPC upstream",
+                            id
+                        );
+                    }
                     let options = config.options_for(upstream);
 
                     // Defer the actual connect: it is done concurrently after the
                     // loop so a slow remote can't stall the rest of startup.
-                    pending_dshackle.push((upstream, id, url, tls, options.timeout));
+                    pending_dshackle.push(PendingDshackle {
+                        id,
+                        role: upstream.role,
+                        url,
+                        tls,
+                        call_timeout: options.timeout,
+                    });
                 }
             }
         }
@@ -578,29 +592,30 @@ impl UpstreamManager {
         // runs sequentially because it mutates the shared per-chain maps; the
         // slow part (connect + `Describe` over the network) already happened in
         // parallel, so a single unreachable remote no longer blocks startup.
-        for (_, id, url, _, _) in &pending_dshackle {
-            tracing::info!("Connecting to remote Dshackle '{}' at {}", id, url);
+        for pending in &pending_dshackle {
+            tracing::info!(
+                "Connecting to remote Dshackle '{}' at {}",
+                pending.id,
+                pending.url
+            );
         }
-        let discoveries = futures::future::join_all(pending_dshackle.iter().map(
-            |(upstream, id, url, tls, call_timeout)| async move {
+        let discoveries =
+            futures::future::join_all(pending_dshackle.iter().map(|pending| async move {
                 let outcome = tokio::time::timeout(
                     DSHACKLE_CONNECT_TIMEOUT,
-                    connect_and_describe(url, tls.as_ref()),
+                    connect_and_describe(&pending.url, pending.tls.as_ref()),
                 )
                 .await;
-                (*upstream, id, url.clone(), *call_timeout, outcome)
-            },
-        ))
-        .await;
+                (pending, outcome)
+            }))
+            .await;
 
-        for (upstream, id, url, call_timeout, outcome) in discoveries {
+        for (pending, outcome) in discoveries {
             match outcome {
                 Ok(Ok((client, chains))) => wire_remote_dshackle(
-                    upstream,
-                    id,
+                    pending,
                     client,
                     chains,
-                    call_timeout,
                     redis.as_ref(),
                     &mut per_chain_caches,
                     &mut per_chain_caching_heads,
@@ -612,17 +627,17 @@ impl UpstreamManager {
                 Ok(Err(e)) => {
                     tracing::warn!(
                         "Upstream {}: failed to connect to Dshackle at {}: {}",
-                        id,
-                        url,
+                        pending.id,
+                        pending.url,
                         e
                     );
                 }
                 Err(_elapsed) => {
                     tracing::warn!(
                         "Upstream {}: timed out after {:?} connecting to Dshackle at {}, starting without it",
-                        id,
+                        pending.id,
                         DSHACKLE_CONNECT_TIMEOUT,
-                        url
+                        pending.url
                     );
                 }
             }
@@ -1275,13 +1290,30 @@ fn warn_inapplicable_dshackle_options(upstream: &crate::config::upstreams::Upstr
     }
 }
 
+/// A configured remote Dshackle upstream (already validated at wiring) waiting
+/// for its concurrent connect + `Describe` before the per-chain upstreams can
+/// be built.
+struct PendingDshackle {
+    id: UpstreamId,
+    role: crate::config::upstreams::UpstreamRole,
+    url: String,
+    tls: Option<crate::tls::ClientTlsSetup>,
+    call_timeout: Duration,
+}
+
+/// The validated labels of a local upstream, with the failure attributed to
+/// the upstream — unlike the id, the label error can't name its owner itself.
+fn local_labels(upstream: &crate::config::upstreams::Upstream) -> anyhow::Result<UpstreamLabels> {
+    upstream
+        .upstream_labels()
+        .with_context(|| format!("upstream {}", upstream.id))
+}
+
 #[allow(clippy::too_many_arguments)]
 fn wire_remote_dshackle(
-    upstream: &crate::config::upstreams::Upstream,
-    upstream_id: &UpstreamId,
+    pending: &PendingDshackle,
     client: BlockchainClient<Channel>,
     chains: Vec<DescribeChain>,
-    call_timeout: Duration,
     redis_conn: Option<&redis::aio::ConnectionManager>,
     caches_map: &mut HashMap<TargetBlockchain, Arc<Caches>>,
     caching_heads: &mut HashMap<TargetBlockchain, CachingHead>,
@@ -1290,6 +1322,7 @@ fn wire_remote_dshackle(
     allowance_clients: &mut HashMap<TargetBlockchain, BlockchainClient<Channel>>,
     balance_clients: &mut HashMap<TargetBlockchain, BlockchainClient<Channel>>,
 ) {
+    let upstream_id = &pending.id;
     if chains.is_empty() {
         tracing::warn!(
             "Dshackle '{}': remote reported no available chains",
@@ -1339,7 +1372,7 @@ fn wire_remote_dshackle(
             desc_chain.chain,
             client.clone(),
             syncing_lag,
-            call_timeout,
+            pending.call_timeout,
         );
 
         // Subscribe caching head before starting the poller so no blocks are missed
@@ -1416,26 +1449,31 @@ fn wire_remote_dshackle(
         // Outermost layer: the capabilities the remote reported, plus one label
         // set per node the remote advertises (legacy `GrpcUpstreamStatus`) so
         // label selectors route through the relay without duplicating the
-        // remote's labels in the local config. Locally configured labels on
-        // the relay entry are kept as an extra set.
-        let mut label_sets: Vec<HashMap<String, String>> = desc_chain
+        // remote's labels in the local config.
+        let label_sets: Vec<UpstreamLabels> = desc_chain
             .nodes
             .iter()
             .map(|node| {
                 node.labels
                     .iter()
-                    .map(|l| (l.name.clone(), l.value.clone()))
+                    .filter_map(|l| match UpstreamLabel::new(&l.name, &l.value) {
+                        Ok(label) => Some(label),
+                        Err(e) => {
+                            // A remote's labels are its own config's business,
+                            // but an empty one can't be matched meaningfully —
+                            // drop it rather than advertise it further.
+                            tracing::warn!("Dshackle '{upstream_id}': dropping label: {e}");
+                            None
+                        }
+                    })
                     .collect()
             })
             .collect();
-        if !upstream.labels.is_empty() {
-            label_sets.push(upstream.labels.clone());
-        }
         let reader: Arc<dyn RpcUpstream> = Arc::new(IdentifiedUpstream::new(
             reader,
             label_sets,
             caps,
-            upstream.role,
+            pending.role,
         ));
         per_chain.entry(chain).or_default().push(reader);
         // Remote Dshackles handle their own quorum internally, so this factory

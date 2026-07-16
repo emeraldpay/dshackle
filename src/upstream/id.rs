@@ -82,6 +82,12 @@ pub(crate) fn stub_id() -> &'static UpstreamId {
     &ID
 }
 
+/// Builds an id from a literal, panicking on an invalid one.
+#[cfg(test)]
+pub(crate) fn test_id(id: &str) -> UpstreamId {
+    id.parse().unwrap()
+}
+
 /// A would-be upstream id that does not satisfy the id pattern.
 #[derive(Debug, Clone)]
 pub struct InvalidUpstreamId(String);

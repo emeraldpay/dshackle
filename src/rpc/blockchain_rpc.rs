@@ -709,9 +709,9 @@ impl Blockchain for BlockchainRpcService {
                     quorum: 1,
                     labels: set
                         .iter()
-                        .map(|(name, value)| Label {
-                            name: name.clone(),
-                            value: value.clone(),
+                        .map(|label| Label {
+                            name: label.name().to_string(),
+                            value: label.value().to_string(),
                         })
                         .collect(),
                 })
@@ -929,6 +929,7 @@ mod tests {
     use crate::upstream::availability::UpstreamAvailability;
     use crate::upstream::head::{Head, NoHead};
     use crate::upstream::id::UpstreamId;
+    use crate::upstream::label::UpstreamLabels;
     use crate::upstream::quorum::{AlwaysQuorum, CallQuorum, QuorumFactory};
     use crate::upstream::state::UpstreamState;
     use crate::upstream::traits::{RpcUpstream, UpstreamError};
@@ -997,7 +998,7 @@ mod tests {
     /// `IdentifiedUpstream` wrapper that carries this in production is
     /// unit-tested separately).
     struct MetaUpstream {
-        label_sets: Vec<HashMap<String, String>>,
+        label_sets: Vec<UpstreamLabels>,
         capabilities: Vec<crate::upstream::traits::Capability>,
         state: Arc<UpstreamState>,
     }
@@ -1024,7 +1025,7 @@ mod tests {
         fn state(&self) -> &Arc<UpstreamState> {
             &self.state
         }
-        fn label_sets(&self) -> &[HashMap<String, String>] {
+        fn label_sets(&self) -> &[UpstreamLabels] {
             &self.label_sets
         }
         fn capabilities(&self) -> Vec<crate::upstream::traits::Capability> {
@@ -1269,7 +1270,7 @@ mod tests {
         let service =
             service_with_default_methods(Arc::new(crate::upstream::IdentifiedUpstream::new(
                 ConcurrencyProbeUpstream::new(Duration::ZERO),
-                vec![HashMap::new()],
+                vec![crate::upstream::UpstreamLabels::default()],
                 vec![crate::upstream::traits::Capability::Rpc],
                 crate::config::upstreams::UpstreamRole::Primary,
             )));
@@ -1312,12 +1313,10 @@ mod tests {
     async fn describe_reports_labels_and_capabilities() {
         use crate::upstream::traits::Capability;
         let upstream = Arc::new(MetaUpstream {
-            label_sets: vec![
-                [("provider", "infura"), ("region", "eu")]
-                    .iter()
-                    .map(|(k, v)| (k.to_string(), v.to_string()))
-                    .collect(),
-            ],
+            label_sets: vec![crate::upstream::label::test_labels(&[
+                ("provider", "infura"),
+                ("region", "eu"),
+            ])],
             capabilities: vec![Capability::Rpc, Capability::Balance],
             state: Arc::new(UpstreamState::new()),
         });

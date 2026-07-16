@@ -53,10 +53,8 @@ impl ForkChoice for NeverForkChoice {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::upstream::id::test_id;
 
-    fn uid(s: &str) -> UpstreamId {
-        s.parse().unwrap()
-    }
     use crate::data::BlockId;
 
     fn block(height: u64) -> BlockContainer {
@@ -75,9 +73,12 @@ mod tests {
     #[test]
     fn tracks_height_and_never_rejects() {
         let fc = NeverForkChoice::new();
-        assert_eq!(fc.submit(&block(10), &uid("up-a")), ForkStatus::New);
-        assert_eq!(fc.submit(&block(10), &uid("up-b")), ForkStatus::Equal);
-        assert_eq!(fc.submit(&block(5), &uid("up-c")), ForkStatus::Fallbehind);
-        assert!(fc.submit(&block(1), &uid("up-d")).is_ok());
+        assert_eq!(fc.submit(&block(10), &test_id("up-a")), ForkStatus::New);
+        assert_eq!(fc.submit(&block(10), &test_id("up-b")), ForkStatus::Equal);
+        assert_eq!(
+            fc.submit(&block(5), &test_id("up-c")),
+            ForkStatus::Fallbehind
+        );
+        assert!(fc.submit(&block(1), &test_id("up-d")).is_ok());
     }
 }

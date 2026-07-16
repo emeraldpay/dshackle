@@ -28,9 +28,9 @@ use crate::metrics::{self, UpstreamProtocol};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
 use crate::upstream::id::UpstreamId;
+use crate::upstream::label::UpstreamLabels;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{Capability, RpcUpstream, UpstreamError};
-use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Decorates an upstream transport with call metrics, delegating all request
@@ -120,7 +120,7 @@ impl RpcUpstream for MeteredUpstream {
         self.inner.allows_method(method)
     }
 
-    fn label_sets(&self) -> &[HashMap<String, String>] {
+    fn label_sets(&self) -> &[UpstreamLabels] {
         self.inner.label_sets()
     }
 

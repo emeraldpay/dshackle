@@ -27,16 +27,16 @@ use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
 use crate::upstream::id::UpstreamId;
+use crate::upstream::label::UpstreamLabels;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{Capability, RpcUpstream, UpstreamError};
-use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Decorates an upstream with its label sets, `capabilities`, and routing
 /// `role`, delegating all request handling to the inner upstream unchanged.
 pub struct IdentifiedUpstream {
     inner: Arc<dyn RpcUpstream>,
-    label_sets: Vec<HashMap<String, String>>,
+    label_sets: Vec<UpstreamLabels>,
     capabilities: Vec<Capability>,
     role: UpstreamRole,
 }
@@ -58,7 +58,7 @@ impl IdentifiedUpstream {
     /// would wrongly be picked for call routing (legacy `RemoteCapabilities`).
     pub fn new(
         inner: Arc<dyn RpcUpstream>,
-        label_sets: Vec<HashMap<String, String>>,
+        label_sets: Vec<UpstreamLabels>,
         capabilities: Vec<Capability>,
         role: UpstreamRole,
     ) -> Self {
@@ -107,7 +107,7 @@ impl RpcUpstream for IdentifiedUpstream {
         self.inner.allows_method(method)
     }
 
-    fn label_sets(&self) -> &[HashMap<String, String>] {
+    fn label_sets(&self) -> &[UpstreamLabels] {
         &self.label_sets
     }
 
@@ -152,12 +152,7 @@ mod tests {
         }
     }
 
-    fn labels(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-        pairs
-            .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect()
-    }
+    use crate::upstream::label::test_labels as labels;
 
     #[test]
     fn exposes_labels_and_capabilities() {
@@ -167,10 +162,7 @@ mod tests {
             vec![Capability::Rpc, Capability::Balance],
             UpstreamRole::Primary,
         );
-        assert_eq!(
-            up.label_sets()[0].get("provider").map(String::as_str),
-            Some("infura")
-        );
+        assert_eq!(up.label_sets()[0].get("provider"), Some("infura"));
         assert!(up.capabilities().contains(&Capability::Rpc));
         assert!(up.capabilities().contains(&Capability::Balance));
     }

@@ -197,6 +197,7 @@ fn parse_payload(payload: &[u8]) -> Result<serde_json::Value, String> {
 mod tests {
     use super::*;
     use crate::config::signature::{SignatureAlgorithm, SignatureConfig};
+    use crate::upstream::label::UpstreamLabels;
 
     /// Local edge signer loaded from the shared signer testdata (key_id
     /// 0xd25f1ff2c1a57235), used to prove a remote signature outranks it.
@@ -401,13 +402,12 @@ mod tests {
     // ── Label- and height-constrained routing ─────────────────────────────
 
     use crate::upstream::head::CurrentHead;
-    use std::collections::HashMap;
 
     /// Upstream with fixed labels, head height, and availability, answering
     /// every call with its own id — so tests can see who served the request.
     struct LabeledUpstream {
         label: UpstreamId,
-        label_sets: Vec<HashMap<String, String>>,
+        label_sets: Vec<UpstreamLabels>,
         head: CurrentHead,
         availability: UpstreamAvailability,
         state: Arc<UpstreamState>,
@@ -430,12 +430,7 @@ mod tests {
             }
             Arc::new(Self {
                 label: id.parse().unwrap(),
-                label_sets: vec![
-                    labels
-                        .iter()
-                        .map(|(k, v)| (k.to_string(), v.to_string()))
-                        .collect(),
-                ],
+                label_sets: vec![crate::upstream::label::test_labels(labels)],
                 head,
                 availability,
                 state: Arc::new(UpstreamState::new()),
@@ -464,7 +459,7 @@ mod tests {
         fn state(&self) -> &Arc<UpstreamState> {
             &self.state
         }
-        fn label_sets(&self) -> &[HashMap<String, String>] {
+        fn label_sets(&self) -> &[UpstreamLabels] {
             &self.label_sets
         }
     }

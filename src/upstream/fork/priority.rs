@@ -227,10 +227,7 @@ impl ForkChoice for PriorityForkChoice {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn uid(s: &str) -> UpstreamId {
-        s.parse().unwrap()
-    }
+    use crate::upstream::id::test_id;
 
     fn id(n: u8) -> BlockId {
         BlockId::from_bytes([n; 32])
@@ -263,7 +260,7 @@ mod tests {
         let fc = PriorityForkChoice::new();
         register(&fc, "top", 100);
         // No higher-priority upstream exists, so it's trusted.
-        assert_eq!(fc.submit(&block(2, 1, 1), &uid("top")), ForkStatus::New);
+        assert_eq!(fc.submit(&block(2, 1, 1), &test_id("top")), ForkStatus::New);
     }
 
     #[test]
@@ -271,8 +268,11 @@ mod tests {
         let fc = PriorityForkChoice::new();
         register(&fc, "top", 100);
         register(&fc, "low", 50);
-        fc.submit(&block(2, 1, 1), &uid("top"));
-        assert_eq!(fc.submit(&block(2, 1, 1), &uid("low")), ForkStatus::Equal);
+        fc.submit(&block(2, 1, 1), &test_id("top"));
+        assert_eq!(
+            fc.submit(&block(2, 1, 1), &test_id("low")),
+            ForkStatus::Equal
+        );
     }
 
     #[test]
@@ -281,10 +281,10 @@ mod tests {
         register(&fc, "top", 100);
         register(&fc, "low", 50);
         // top advances 1 -> 2 -> 3, low is still at 2
-        fc.submit(&block(2, 1, 1), &uid("top"));
-        fc.submit(&block(3, 2, 2), &uid("top"));
+        fc.submit(&block(2, 1, 1), &test_id("top"));
+        fc.submit(&block(3, 2, 2), &test_id("top"));
         assert_eq!(
-            fc.submit(&block(2, 1, 1), &uid("low")),
+            fc.submit(&block(2, 1, 1), &test_id("low")),
             ForkStatus::Fallbehind
         );
     }
@@ -294,9 +294,12 @@ mod tests {
         let fc = PriorityForkChoice::new();
         register(&fc, "top", 100);
         register(&fc, "low", 50);
-        fc.submit(&block(2, 1, 1), &uid("top"));
+        fc.submit(&block(2, 1, 1), &test_id("top"));
         // low builds on top's head (2 -> 3) before top sees block 3
-        assert_eq!(fc.submit(&block(3, 2, 2), &uid("low")), ForkStatus::Outrun);
+        assert_eq!(
+            fc.submit(&block(3, 2, 2), &test_id("low")),
+            ForkStatus::Outrun
+        );
     }
 
     #[test]
@@ -305,12 +308,12 @@ mod tests {
         register(&fc, "top", 100);
         register(&fc, "low", 50);
         // top: 1 -> 2 -> 3
-        fc.submit(&block(2, 1, 1), &uid("top"));
-        fc.submit(&block(3, 2, 2), &uid("top"));
+        fc.submit(&block(2, 1, 1), &test_id("top"));
+        fc.submit(&block(3, 2, 2), &test_id("top"));
         // low forks off a different parent: 10 -> 11, unrelated to top's chain
-        fc.submit(&block(10, 9, 1), &uid("low"));
+        fc.submit(&block(10, 9, 1), &test_id("low"));
         assert_eq!(
-            fc.submit(&block(11, 10, 2), &uid("low")),
+            fc.submit(&block(11, 10, 2), &test_id("low")),
             ForkStatus::Rejected
         );
     }
@@ -321,7 +324,7 @@ mod tests {
         register(&fc, "top", 100);
         let mut b = block(2, 1, 1);
         b.parent_hash = None;
-        assert_eq!(fc.submit(&b, &uid("top")), ForkStatus::Rejected);
+        assert_eq!(fc.submit(&b, &test_id("top")), ForkStatus::Rejected);
     }
 
     #[test]
@@ -332,7 +335,10 @@ mod tests {
         // top is forked/immature, so it must not be used as the reference;
         // low then has no healthy upstream above it and is trusted as New.
         top.set_fork(true);
-        fc.submit(&block(2, 1, 1), &uid("top"));
-        assert_eq!(fc.submit(&block(10, 9, 1), &uid("low")), ForkStatus::New);
+        fc.submit(&block(2, 1, 1), &test_id("top"));
+        assert_eq!(
+            fc.submit(&block(10, 9, 1), &test_id("low")),
+            ForkStatus::New
+        );
     }
 }

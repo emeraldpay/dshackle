@@ -19,6 +19,7 @@ use crate::blockchain::TargetBlockchain;
 use crate::config::bytes::deserialize_opt_bytes;
 use crate::config::tls::{BasicAuth, ClientTlsAuth};
 use crate::upstream::id::{InvalidUpstreamId, UpstreamId};
+use crate::upstream::label::{InvalidUpstreamLabel, UpstreamLabel, UpstreamLabels};
 use anyhow::{Context, Result, bail};
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -352,6 +353,16 @@ impl Upstream {
     pub fn upstream_id(&self) -> Result<UpstreamId, InvalidUpstreamId> {
         self.id.parse()
     }
+
+    /// The validated labels of this upstream, on the same terms as
+    /// [`upstream_id`](Self::upstream_id): checked at wiring time, so a
+    /// disabled entry may carry anything.
+    pub fn upstream_labels(&self) -> Result<UpstreamLabels, InvalidUpstreamLabel> {
+        self.labels
+            .iter()
+            .map(|(name, value)| UpstreamLabel::new(name, value))
+            .collect()
+    }
 }
 
 // ─── Upstreams config (cluster section) ──────────────────────────────────────
@@ -529,23 +540,32 @@ impl TryFrom<RawUpstreamsConfig> for UpstreamsConfig {
 // ─── Label deserialization ───────────────────────────────────────────────────
 
 /// Custom deserializer for labels: YAML values can be strings or booleans.
+///
+/// Goes through an order-preserving [`serde_yaml::Mapping`] and trims the
+/// names before inserting, so two keys that trim to the same name collapse
+/// deterministically — the later one in the document wins, as in legacy —
+/// instead of by random `HashMap` iteration.
 fn deserialize_labels<'de, D>(deserializer: D) -> Result<HashMap<String, String>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let map: HashMap<String, serde_yaml::Value> = HashMap::deserialize(deserializer)?;
+    let map: serde_yaml::Mapping = serde_yaml::Mapping::deserialize(deserializer)?;
     Ok(map
         .into_iter()
-        .map(|(k, v)| {
-            let s = match &v {
-                serde_yaml::Value::String(s) => s.clone(),
-                serde_yaml::Value::Bool(b) => b.to_string(),
-                serde_yaml::Value::Number(n) => n.to_string(),
-                _ => format!("{v:?}"),
-            };
-            (k, s)
-        })
+        .map(|(k, v)| (label_part_to_string(&k), label_part_to_string(&v)))
         .collect())
+}
+
+/// A label name or value as YAML wrote it: strings stay as-is, scalars like
+/// `true` or `10` read as their text form. Trimmed, since that is how both
+/// legacy and [`UpstreamLabel`] treat label parts.
+fn label_part_to_string(value: &serde_yaml::Value) -> String {
+    match value {
+        serde_yaml::Value::String(s) => s.trim().to_string(),
+        serde_yaml::Value::Bool(b) => b.to_string(),
+        serde_yaml::Value::Number(n) => n.to_string(),
+        _ => format!("{value:?}"),
+    }
 }
 
 #[cfg(test)]
@@ -728,6 +748,25 @@ mod tests {
         let mut raw = raw_upstream(Some("no-conn"));
         raw.connection = None;
         assert!(process_raw_upstream(raw).unwrap().is_none());
+    }
+
+    #[test]
+    fn empty_label_fails_when_the_upstream_is_used() {
+        // Same terms as the id: parsing keeps the raw labels, the wiring-time
+        // `upstream_labels()` rejects the empty ones.
+        let mut raw = raw_upstream(Some("labeled"));
+        raw.labels = HashMap::from([("archive".to_string(), "  ".to_string())]);
+        let upstream = process_raw_upstream(raw).unwrap().unwrap();
+        assert!(upstream.upstream_labels().is_err());
+    }
+
+    #[test]
+    fn labels_are_trimmed_when_built() {
+        let mut raw = raw_upstream(Some("labeled"));
+        raw.labels = HashMap::from([(" archive ".to_string(), " true ".to_string())]);
+        let upstream = process_raw_upstream(raw).unwrap().unwrap();
+        let labels = upstream.upstream_labels().unwrap();
+        assert_eq!(labels.get("archive"), Some("true"));
     }
 
     // ── PartialOptions merge ─────────────────────────────────────────────

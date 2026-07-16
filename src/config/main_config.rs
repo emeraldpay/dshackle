@@ -175,7 +175,9 @@ fn read_included_upstreams(path: &Path) -> Result<UpstreamsConfig> {
     let content = std::fs::read_to_string(path)
         .with_context(|| format!("reading included config: {}", path.display()))?;
 
-    content.parse().context("parsing included upstreams config")
+    content
+        .parse()
+        .with_context(|| format!("parsing included config {}", path.display()))
 }
 
 impl std::str::FromStr for UpstreamsConfig {
@@ -630,6 +632,29 @@ mod tests {
         // caught later, at wiring, so disabled entries never fail on them.
         let yaml = std::fs::read_to_string(testdata("upstreams-no-id.yaml")).unwrap();
         assert!(yaml.parse::<UpstreamsConfig>().is_err());
+    }
+
+    #[test]
+    fn duplicate_label_names_collapse_deterministically() {
+        // Two YAML keys trimming to the same name must resolve by document
+        // order (the later wins, as legacy's map insert did) — not by random
+        // `HashMap` iteration.
+        let yaml = r#"
+upstreams:
+  - id: labeled
+    blockchain: ethereum
+    labels:
+      archive: "false"
+      " archive ": "true"
+    connection:
+      ethereum:
+        rpc:
+          url: "http://localhost:8545"
+"#;
+        let cfg = yaml.parse::<UpstreamsConfig>().unwrap();
+        let labels = cfg.upstreams[0].upstream_labels().unwrap();
+        assert_eq!(labels.get("archive"), Some("true"));
+        assert_eq!(labels.iter().count(), 1);
     }
 
     // ── Tokens ───────────────────────────────────────────────────────────

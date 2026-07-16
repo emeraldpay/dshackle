@@ -21,9 +21,9 @@ use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
 use crate::upstream::id::UpstreamId;
+use crate::upstream::label::UpstreamLabels;
 use crate::upstream::state::UpstreamState;
 use emerald_api::proto::blockchain::Capabilities;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 /// What an upstream can serve, advertised through `Describe` and (eventually)
@@ -113,7 +113,7 @@ pub trait RpcUpstream: Send + Sync {
     /// installed during wiring overrides it. Inner transports and wrappers
     /// keep the default — only the outermost layer the `Multistream` holds is
     /// queried.
-    fn label_sets(&self) -> &[HashMap<String, String>] {
+    fn label_sets(&self) -> &[UpstreamLabels] {
         &[]
     }
 

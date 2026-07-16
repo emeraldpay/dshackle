@@ -20,8 +20,8 @@
 //! whether an upstream's configured labels satisfy the client's selector
 //! expression.
 
+use crate::upstream::label::UpstreamLabels;
 use emerald_api::proto::blockchain::{Selector, selector::SelectorType};
-use std::collections::HashMap;
 
 /// A predicate over an upstream's label map, built from the gRPC `Selector`
 /// message. `Any` (the default) matches every upstream, so requests without a
@@ -49,18 +49,18 @@ impl LabelSelector {
     /// The whole expression — negations included — is evaluated against one
     /// set at a time (legacy `LabelSelectorMatcher.matches(up)`): an upstream
     /// with no label sets at all matches nothing, not even a `Not`.
-    pub fn matches_any_set(&self, sets: &[HashMap<String, String>]) -> bool {
+    pub fn matches_any_set(&self, sets: &[UpstreamLabels]) -> bool {
         sets.iter().any(|set| self.matches(set))
     }
 
-    /// Whether the given label map satisfies this selector.
-    pub fn matches(&self, labels: &HashMap<String, String>) -> bool {
+    /// Whether the given label set satisfies this selector.
+    pub fn matches(&self, labels: &UpstreamLabels) -> bool {
         match self {
             LabelSelector::Any => true,
             LabelSelector::Label { name, values } => labels
                 .get(name)
                 .is_some_and(|actual| values.iter().any(|v| v == actual)),
-            LabelSelector::Exists(name) => labels.contains_key(name),
+            LabelSelector::Exists(name) => labels.contains(name),
             LabelSelector::And(children) => children.iter().all(|c| c.matches(labels)),
             LabelSelector::Or(children) => children.iter().any(|c| c.matches(labels)),
             LabelSelector::Not(child) => !child.matches(labels),
@@ -121,12 +121,7 @@ mod tests {
         AndSelector, ExistsSelector, LabelSelector as ProtoLabelSelector, NotSelector, OrSelector,
     };
 
-    fn labels(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-        pairs
-            .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect()
-    }
+    use crate::upstream::label::test_labels as labels;
 
     fn label_proto(name: &str, values: &[&str]) -> Selector {
         Selector {
