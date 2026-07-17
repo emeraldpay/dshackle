@@ -20,6 +20,7 @@ pub mod availability;
 pub mod balance;
 pub(crate) mod bitcoin;
 pub mod block_updates;
+mod disabled_methods;
 mod dshackle;
 pub mod egress;
 pub mod ethereum;
@@ -334,12 +335,26 @@ impl UpstreamManager {
                             id.clone(),
                             chain,
                         );
-                        Arc::new(LoggedUpstream::new(
+                        let logged: Arc<dyn RpcUpstream> = Arc::new(LoggedUpstream::new(
                             Arc::new(metered),
                             crate::logs::Channel::WsJsonRpc,
                             id.clone(),
                             chain,
-                        )) as Arc<dyn RpcUpstream>
+                        ));
+                        // The routing preference sits above the metering and
+                        // logging stack, so a diverted call is neither counted
+                        // nor logged as a WS request — it never was one
+                        // (legacy short-circuits inside the connection, before
+                        // its metrics, for the same reason).
+                        match &eth.ws {
+                            Some(ws) if !ws.disabled_methods.is_empty() => {
+                                Arc::new(disabled_methods::DisabledMethods::new(
+                                    logged,
+                                    ws.disabled_methods.iter().map(|m| m.as_str().into()),
+                                )) as Arc<dyn RpcUpstream>
+                            }
+                            _ => logged,
+                        }
                     });
                     let http_rpc: Option<Arc<dyn RpcUpstream>> = http_upstream.map(|u| {
                         let metered = MeteredUpstream::new(
