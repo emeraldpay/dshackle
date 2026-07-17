@@ -243,6 +243,8 @@ impl UpstreamManager {
                                 origin: ws.origin.clone(),
                                 basic_auth: ws.basic_auth.clone(),
                                 call_timeout: options.timeout,
+                                frame_size: ws.frame_size,
+                                msg_size: ws.msg_size,
                             },
                             ws.connections.unwrap_or(1),
                         ))

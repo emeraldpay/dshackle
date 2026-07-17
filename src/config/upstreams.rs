@@ -270,6 +270,23 @@ impl Default for WsEndpoint {
     }
 }
 
+impl WsEndpoint {
+    /// Rejects size limits below the legacy floor at parse time. A limit
+    /// smaller than a single max-size handshake/response frame would make
+    /// the connection unusable, so legacy refuses to start — with the exact
+    /// same messages (including its "64Kb" for the 65,535-byte floor).
+    pub fn validate(&self) -> Result<()> {
+        const SIZE_FLOOR: usize = 65_535;
+        if self.frame_size.is_some_and(|v| v < SIZE_FLOOR) {
+            bail!("frameSize cannot be less than 64Kb");
+        }
+        if self.msg_size.is_some_and(|v| v < SIZE_FLOOR) {
+            bail!("msgSize cannot be less than 64Kb");
+        }
+        Ok(())
+    }
+}
+
 /// ZeroMQ endpoint for Bitcoin block notifications.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ZeromqEndpoint {
@@ -461,6 +478,9 @@ pub fn process_raw_upstream(raw: RawUpstream) -> Result<Option<Upstream>> {
     let connection = match raw.connection {
         Some(conn) => {
             if let Some(eth) = conn.ethereum {
+                if let Some(ws) = &eth.ws {
+                    ws.validate()?;
+                }
                 UpstreamConnection::Ethereum(eth)
             } else if let Some(btc) = conn.bitcoin {
                 UpstreamConnection::Bitcoin(btc)
@@ -702,6 +722,38 @@ mod tests {
             priority: None,
             balance: None,
             options: None,
+        }
+    }
+
+    /// The floor is 65,535 bytes exactly (legacy calls it "64Kb"): the last
+    /// accepted value and the first rejected one sit on that boundary.
+    #[test]
+    fn ws_size_limits_below_floor_rejected_at_parse() {
+        for (frame_size, msg_size, error) in [
+            (Some(65_534), None, Some("frameSize cannot be less than 64Kb")),
+            (None, Some(65_534), Some("msgSize cannot be less than 64Kb")),
+            (Some(65_535), Some(65_535), None),
+            (None, None, None),
+        ] {
+            let mut raw = raw_upstream(Some("infura-eth"));
+            raw.connection = Some(RawConnection {
+                ethereum: Some(EthereumConnection {
+                    rpc: None,
+                    ws: Some(WsEndpoint {
+                        url: "ws://localhost:8546".to_string(),
+                        frame_size,
+                        msg_size,
+                        ..WsEndpoint::default()
+                    }),
+                }),
+                bitcoin: None,
+                dshackle: None,
+            });
+            let result = process_raw_upstream(raw);
+            match error {
+                Some(msg) => assert_eq!(result.unwrap_err().to_string(), msg),
+                None => assert!(result.unwrap().is_some()),
+            }
         }
     }
 

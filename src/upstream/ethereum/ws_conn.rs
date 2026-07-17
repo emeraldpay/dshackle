@@ -41,6 +41,13 @@ pub struct WsTarget {
     /// How long to wait for a call's response frame (the upstream's
     /// `options.timeout`).
     pub call_timeout: std::time::Duration,
+    /// Incoming frame payload cap; `None` keeps the tungstenite default
+    /// (16 MiB) — deliberately roomier than legacy's 5 MiB.
+    pub frame_size: Option<usize>,
+    /// Incoming message cap after frame aggregation; `None` keeps the
+    /// tungstenite default (64 MiB) — deliberately roomier than legacy's
+    /// 15 MiB.
+    pub msg_size: Option<usize>,
 }
 
 impl WsTarget {
@@ -289,9 +296,22 @@ async fn connect_and_run(
     state: &Arc<WsConnectionInner>,
     outgoing_rx: &mut mpsc::Receiver<String>,
 ) -> Result<(), String> {
-    let (ws_stream, _) = tokio_tungstenite::connect_async(target.client_request()?)
-        .await
-        .map_err(|e| format!("connect failed: {e}"))?;
+    // Configured limits only; unset ones keep the tungstenite defaults
+    // (16 MiB frame / 64 MiB message).
+    let mut ws_config = tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default();
+    if let Some(frame_size) = target.frame_size {
+        ws_config = ws_config.max_frame_size(Some(frame_size));
+    }
+    if let Some(msg_size) = target.msg_size {
+        ws_config = ws_config.max_message_size(Some(msg_size));
+    }
+    let (ws_stream, _) = tokio_tungstenite::connect_async_with_config(
+        target.client_request()?,
+        Some(ws_config),
+        false,
+    )
+    .await
+    .map_err(|e| format!("connect failed: {e}"))?;
 
     state.connected.store(true, Ordering::Relaxed);
     tracing::info!("{label}: WebSocket connected");
@@ -456,6 +476,8 @@ mod tests {
             origin: None,
             basic_auth: None,
             call_timeout: std::time::Duration::from_millis(200),
+            frame_size: None,
+            msg_size: None,
         };
         let conn = WsConnection::new("test".to_string(), target);
 
@@ -474,6 +496,8 @@ mod tests {
             origin: None,
             basic_auth: None,
             call_timeout: std::time::Duration::from_secs(60),
+            frame_size: None,
+            msg_size: None,
         };
         let request = target.client_request().unwrap();
         assert_eq!(request.headers().get("Origin").unwrap(), "http://localhost");
@@ -486,6 +510,8 @@ mod tests {
             url: "ws://localhost:8546".to_string(),
             origin: Some("https://myapp.example.com".to_string()),
             call_timeout: std::time::Duration::from_secs(60),
+            frame_size: None,
+            msg_size: None,
             basic_auth: Some(BasicAuth {
                 username: "user".to_string(),
                 password: "pass".to_string(),
@@ -501,5 +527,54 @@ mod tests {
             request.headers().get("Authorization").unwrap(),
             "Basic dXNlcjpwYXNz"
         );
+    }
+
+    /// A WS server that answers the first JSON-RPC request with a response
+    /// padded to roughly 200 KB, so tests can steer it across a size limit.
+    async fn serve_one_oversized_response() -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("ws://{}/", listener.local_addr().unwrap());
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut ws = tokio_tungstenite::accept_async(stream).await.unwrap();
+            while let Some(Ok(msg)) = ws.next().await {
+                if let tungstenite::Message::Text(text) = msg {
+                    let req: serde_json::Value = serde_json::from_str(&text).unwrap();
+                    let response = serde_json::json!({
+                        "jsonrpc": "2.0",
+                        "id": req["id"],
+                        "result": "0x".repeat(100_000),
+                    });
+                    ws.send(tungstenite::Message::Text(response.to_string().into()))
+                        .await
+                        .unwrap();
+                }
+            }
+        });
+        url
+    }
+
+    /// The size limits were once parsed but silently ignored: prove they reach
+    /// the transport by steering the same oversized response across them. With
+    /// the default cap (tungstenite's 64 MiB) it goes through; capped at the
+    /// 64 KiB floor tungstenite must reject it, dropping the connection before
+    /// a response can arrive, so the call fails instead.
+    #[tokio::test]
+    async fn msg_size_limit_decides_oversized_response_fate() {
+        for (msg_size, expect_ok) in [(None, true), (Some(65_535), false)] {
+            let url = serve_one_oversized_response().await;
+            let target = WsTarget {
+                url,
+                origin: None,
+                basic_auth: None,
+                call_timeout: std::time::Duration::from_millis(500),
+                frame_size: None,
+                msg_size,
+            };
+            let conn = WsConnection::new("test".to_string(), target);
+            let request = JsonRpcRequest::new(1, "eth_getBlockByNumber".into(), serde_json::json!([]));
+            let result = conn.call(&request).await;
+            assert_eq!(result.is_ok(), expect_ok, "msg_size={msg_size:?}: {result:?}");
+        }
     }
 }
