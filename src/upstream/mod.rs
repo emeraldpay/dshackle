@@ -19,6 +19,7 @@ pub mod allowance;
 pub mod availability;
 pub mod balance;
 pub(crate) mod bitcoin;
+pub mod block_updates;
 mod dshackle;
 pub mod egress;
 pub mod ethereum;
@@ -85,7 +86,7 @@ use fork::{
 };
 use head::CurrentHead;
 use logged::LoggedUpstream;
-use merged_head::MergedHead;
+use merged_head::{MergeOrder, MergedHead};
 use metered::MeteredUpstream;
 use methods::AggregatedMethods;
 use methods::ConfiguredMethods;
@@ -169,11 +170,9 @@ impl UpstreamManager {
         let mut per_chain_methods: HashMap<TargetBlockchain, Vec<Arc<dyn QuorumFactory>>> =
             HashMap::new();
         // Per-upstream fork-watch members, collected so the per-chain fork
-        // choice can be built once all upstreams of a chain are known.
+        // choice — which also drives the chain's merged head — can be built
+        // once all upstreams of a chain are known.
         let mut per_chain_fork: HashMap<TargetBlockchain, Vec<ForkMember>> = HashMap::new();
-        // Per-upstream head trackers, collected so a per-chain merged head can
-        // be built once all upstreams of a chain are known.
-        let mut per_chain_heads: HashMap<TargetBlockchain, Vec<Arc<CurrentHead>>> = HashMap::new();
         // Per-chain caches and caching heads. Created lazily on first upstream
         // for each chain. The CachingHead subscribes to each upstream's block
         // stream and deduplicates before writing to the cache — one update per
@@ -407,10 +406,6 @@ impl UpstreamManager {
                         Arc::new(HardcodedMethods::new(reader, Arc::clone(&methods)));
 
                     if let Some(head) = fork_head {
-                        per_chain_heads
-                            .entry(chain)
-                            .or_default()
-                            .push(Arc::clone(&head));
                         per_chain_fork.entry(chain).or_default().push(ForkMember {
                             id: id.clone(),
                             priority: options.priority,
@@ -523,10 +518,6 @@ impl UpstreamManager {
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(HardcodedMethods::new(reader, Arc::clone(&methods)));
 
-                    per_chain_heads
-                        .entry(chain)
-                        .or_default()
-                        .push(Arc::clone(&fork_head));
                     per_chain_fork.entry(chain).or_default().push(ForkMember {
                         id: id.clone(),
                         priority: options.priority,
@@ -655,6 +646,12 @@ impl UpstreamManager {
         // everything else falls back to cumulative-difficulty ordering. The
         // fork choice is shared across the chain's upstreams so it sees them
         // all; each upstream then gets its own watcher.
+        //
+        // The chain's merged head follows every upstream independently of the
+        // fork verdicts (same as the legacy `MergedPow/PosHead`): conflicts are
+        // resolved inside the merge, and any upstream can advance the head, so
+        // one stalled upstream can never stall the chain.
+        let mut heads: HashMap<TargetBlockchain, Arc<MergedHead>> = HashMap::new();
         for (chain, members) in per_chain_fork {
             let TargetBlockchain::Standard(chain_ref) = chain;
             let fork_choice: Arc<dyn ForkChoice> = if is_pos(chain_ref) {
@@ -670,7 +667,14 @@ impl UpstreamManager {
             } else {
                 Arc::new(DifficultyForkChoice::new())
             };
+            let order = if is_pos(chain_ref) {
+                MergeOrder::Priority
+            } else {
+                MergeOrder::Difficulty
+            };
+            let merged = Arc::new(MergedHead::new(order));
             for member in members {
+                merged.follow(member.priority, Arc::clone(&member.head));
                 start_fork_watch(
                     member.id,
                     chain,
@@ -679,6 +683,7 @@ impl UpstreamManager {
                     Arc::clone(&fork_choice),
                 );
             }
+            heads.insert(chain, merged);
         }
 
         let mut upstreams: HashMap<TargetBlockchain, Arc<Multistream>> = HashMap::new();
@@ -706,13 +711,6 @@ impl UpstreamManager {
         if upstreams.is_empty() {
             tracing::warn!("No usable upstreams were configured");
         }
-
-        // Merge each chain's upstream heads into a single best-head stream for
-        // `SubscribeHead` (remote Dshackle heads are folded in with section 4).
-        let heads = per_chain_heads
-            .into_iter()
-            .map(|(chain, chain_heads)| (chain, MergedHead::new(chain_heads)))
-            .collect();
 
         status::start_status_reporter(chain_statuses);
 

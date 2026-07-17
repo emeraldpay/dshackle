@@ -19,9 +19,9 @@
 //! broadcasts full [`BlockContainer`] data to downstream consumers like
 //! [`CachingHead`](crate::cache::CachingHead).
 
-use crate::data::BlockContainer;
-use std::sync::Arc;
+use crate::data::{BlockContainer, BlockId};
 use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast;
 
 /// Sentinel value indicating "no height known yet" (stored in the atomic).
@@ -56,6 +56,7 @@ impl Head for NoHead {
 /// per-chain aggregation happens in [`CachingHead`](crate::cache::CachingHead).
 pub struct CurrentHead {
     height: AtomicI64,
+    last_hash: Mutex<Option<BlockId>>,
     block_sender: broadcast::Sender<Arc<BlockContainer>>,
 }
 
@@ -64,15 +65,28 @@ impl CurrentHead {
         let (tx, _) = broadcast::channel(BLOCK_CHANNEL_CAPACITY);
         Self {
             height: AtomicI64::new(NO_HEIGHT),
+            last_hash: Mutex::new(None),
             block_sender: tx,
         }
     }
 
     /// Update with a full block. Advances the tracked height and broadcasts
     /// the block to all subscribers.
+    ///
+    /// A repeat of the current block is not re-broadcast (the legacy heads'
+    /// `distinctUntilChanged`): an HTTP head poller reports the same block on
+    /// every cycle, and re-announcing it downstream would make two disagreeing
+    /// upstreams flip the merged head back and forth on every poll.
     pub fn update_with_block(&self, block: BlockContainer) {
         self.height
             .fetch_max(block.height as i64, Ordering::Relaxed);
+        {
+            let mut last = self.last_hash.lock().expect("head hash lock poisoned");
+            if *last == Some(block.hash) {
+                return;
+            }
+            *last = Some(block.hash);
+        }
         // Ignore send errors — just means no active subscribers yet
         let _ = self.block_sender.send(Arc::new(block));
     }
@@ -158,6 +172,22 @@ mod tests {
 
         let block = rx.recv().await.unwrap();
         assert_eq!(block.height, 10);
+    }
+
+    #[tokio::test]
+    async fn repeated_block_is_broadcast_once() {
+        // An HTTP poller reports the same head on every cycle; only the first
+        // report may reach subscribers.
+        let h = CurrentHead::new();
+        let mut rx = h.subscribe_blocks();
+
+        h.update_with_block(make_block(10));
+        h.update_with_block(make_block(10));
+        h.update_with_block(make_block(11));
+
+        assert_eq!(rx.recv().await.unwrap().height, 10);
+        assert_eq!(rx.recv().await.unwrap().height, 11);
+        assert!(rx.try_recv().is_err());
     }
 
     #[tokio::test]

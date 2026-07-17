@@ -35,6 +35,8 @@ use super::{AddressReader, BalanceStream, native_balance, parse_hex_u256};
 use crate::data::{BlockContainer, BlockId};
 use crate::jsonrpc::JsonRpcRequest;
 use crate::upstream::egress::ChainAccess;
+#[cfg(test)]
+use crate::upstream::merged_head::MergeOrder;
 use crate::upstream::merged_head::MergedHead;
 use alloy::primitives::{Address, B256, U256};
 use alloy::sol;
@@ -570,12 +572,11 @@ mod tests {
     #[tokio::test]
     async fn native_subscribe_emits_initial_then_update_on_head() {
         use crate::data::BlockContainer;
-        use crate::upstream::head::CurrentHead;
 
         let chain = FakeChain::new(&[("0xabc", "0x10")]); // 16
-        let current = Arc::new(CurrentHead::new());
-        let head = MergedHead::new(vec![Arc::clone(&current)]);
-        let tracker = EthereumBalance::native(chain.clone(), Some(head), ether_asset());
+        let head = Arc::new(MergedHead::new(MergeOrder::Priority));
+        let tracker =
+            EthereumBalance::native(chain.clone(), Some(Arc::clone(&head)), ether_asset());
 
         let mut stream = tracker.subscribe(vec!["0xabc".into()]);
         let first = stream.next().await.unwrap().unwrap();
@@ -586,16 +587,19 @@ mod tests {
             .lock()
             .unwrap()
             .insert("0xabc".into(), "0x20".into()); // 32
-        current.update_with_block(BlockContainer {
-            hash: crate::data::BlockId::from_bytes([1u8; 32]),
-            height: 1,
-            parent_hash: None,
-            total_difficulty: U256::ZERO,
-            timestamp: jiff::Timestamp::UNIX_EPOCH,
-            transaction_hashes: vec![],
-            json: None,
-            header_json: None,
-        });
+        head.feed(
+            0,
+            Arc::new(BlockContainer {
+                hash: crate::data::BlockId::from_bytes([1u8; 32]),
+                height: 1,
+                parent_hash: None,
+                total_difficulty: U256::ZERO,
+                timestamp: jiff::Timestamp::UNIX_EPOCH,
+                transaction_hashes: vec![],
+                json: None,
+                header_json: None,
+            }),
+        );
 
         let second = stream.next().await.unwrap().unwrap();
         assert_eq!(second.balance, "32");
@@ -795,28 +799,29 @@ mod tests {
         })
     }
 
-    fn push_head(current: &crate::upstream::head::CurrentHead, block: [u8; 32], height: u64) {
-        current.update_with_block(BlockContainer {
-            hash: BlockId::from_bytes(block),
-            height,
-            parent_hash: None,
-            total_difficulty: U256::ZERO,
-            timestamp: jiff::Timestamp::UNIX_EPOCH,
-            transaction_hashes: vec![],
-            json: None,
-            header_json: None,
-        });
+    fn push_head(head: &MergedHead, block: [u8; 32], height: u64) {
+        head.feed(
+            0,
+            Arc::new(BlockContainer {
+                hash: BlockId::from_bytes(block),
+                height,
+                parent_hash: None,
+                total_difficulty: U256::ZERO,
+                timestamp: jiff::Timestamp::UNIX_EPOCH,
+                transaction_hashes: vec![],
+                json: None,
+                header_json: None,
+            }),
+        );
     }
 
     #[tokio::test]
     async fn erc20_subscribe_skips_quiet_blocks_and_reads_on_transfer() {
-        use crate::upstream::head::CurrentHead;
         let chain = LogChain::new(&abi_uint(100));
-        let current = Arc::new(CurrentHead::new());
-        let head = MergedHead::new(vec![Arc::clone(&current)]);
+        let head = Arc::new(MergedHead::new(MergeOrder::Priority));
         let tracker = EthereumBalance::erc20_contract(
             chain.clone(),
-            Some(head),
+            Some(Arc::clone(&head)),
             ChainRef::ChainEthereum as i32,
             CONTRACT.to_string(),
         );
@@ -829,10 +834,10 @@ mod tests {
         // The balance moves, but the next block carries no Transfer for OWNER, so
         // it must NOT read — the whole point of the fix.
         chain.set_balance(&abi_uint(200));
-        push_head(&current, [1u8; 32], 1);
+        push_head(&head, [1u8; 32], 1);
         // A later block transfers the token TO OWNER: now a re-read is due.
         chain.set_logs([2u8; 32], vec![transfer_log(OTHER, OWNER)]);
-        push_head(&current, [2u8; 32], 2);
+        push_head(&head, [2u8; 32], 2);
 
         let second = stream.next().await.unwrap().unwrap();
         assert_eq!(second.balance, "200");
@@ -845,13 +850,11 @@ mod tests {
 
     #[tokio::test]
     async fn erc20_subscribe_matches_owner_as_sender() {
-        use crate::upstream::head::CurrentHead;
         let chain = LogChain::new(&abi_uint(100));
-        let current = Arc::new(CurrentHead::new());
-        let head = MergedHead::new(vec![Arc::clone(&current)]);
+        let head = Arc::new(MergedHead::new(MergeOrder::Priority));
         let tracker = EthereumBalance::erc20_contract(
             chain.clone(),
-            Some(head),
+            Some(Arc::clone(&head)),
             ChainRef::ChainEthereum as i32,
             CONTRACT.to_string(),
         );
@@ -862,20 +865,18 @@ mod tests {
         // OWNER is the `from` of the Transfer (topic1).
         chain.set_balance(&abi_uint(40));
         chain.set_logs([1u8; 32], vec![transfer_log(OWNER, OTHER)]);
-        push_head(&current, [1u8; 32], 1);
+        push_head(&head, [1u8; 32], 1);
 
         assert_eq!(stream.next().await.unwrap().unwrap().balance, "40");
     }
 
     #[tokio::test]
     async fn erc20_subscribe_suppresses_unchanged_balance() {
-        use crate::upstream::head::CurrentHead;
         let chain = LogChain::new(&abi_uint(100));
-        let current = Arc::new(CurrentHead::new());
-        let head = MergedHead::new(vec![Arc::clone(&current)]);
+        let head = Arc::new(MergedHead::new(MergeOrder::Priority));
         let tracker = EthereumBalance::erc20_contract(
             chain.clone(),
-            Some(head),
+            Some(Arc::clone(&head)),
             ChainRef::ChainEthereum as i32,
             CONTRACT.to_string(),
         );
@@ -888,9 +889,9 @@ mod tests {
         // suppressed), the second changes (300, emitted).
         chain.set_balances(&[abi_uint(100), abi_uint(300)]);
         chain.set_logs([1u8; 32], vec![transfer_log(OTHER, OWNER)]);
-        push_head(&current, [1u8; 32], 1);
+        push_head(&head, [1u8; 32], 1);
         chain.set_logs([2u8; 32], vec![transfer_log(OTHER, OWNER)]);
-        push_head(&current, [2u8; 32], 2);
+        push_head(&head, [2u8; 32], 2);
 
         assert_eq!(stream.next().await.unwrap().unwrap().balance, "300");
         assert_eq!(
@@ -903,14 +904,12 @@ mod tests {
     #[tokio::test]
     async fn erc20_subscribe_reads_when_logs_unavailable() {
         // If the logs can't be read, fall back to reading rather than going stale.
-        use crate::upstream::head::CurrentHead;
         let chain = LogChain::new(&abi_uint(100));
         *chain.fail_logs.lock().unwrap() = true;
-        let current = Arc::new(CurrentHead::new());
-        let head = MergedHead::new(vec![Arc::clone(&current)]);
+        let head = Arc::new(MergedHead::new(MergeOrder::Priority));
         let tracker = EthereumBalance::erc20_contract(
             chain.clone(),
-            Some(head),
+            Some(Arc::clone(&head)),
             ChainRef::ChainEthereum as i32,
             CONTRACT.to_string(),
         );
@@ -919,7 +918,7 @@ mod tests {
         assert_eq!(stream.next().await.unwrap().unwrap().balance, "100");
 
         chain.set_balance(&abi_uint(250));
-        push_head(&current, [1u8; 32], 1);
+        push_head(&head, [1u8; 32], 1);
         assert_eq!(stream.next().await.unwrap().unwrap().balance, "250");
     }
 }

@@ -19,6 +19,7 @@ use crate::data::BlockContainer;
 use crate::upstream::id::UpstreamId;
 use alloy::primitives::U256;
 use std::cmp::Ordering;
+use std::collections::HashSet;
 use std::sync::Mutex;
 
 /// Picks the heaviest chain by cumulative difficulty. It only tracks the best
@@ -27,28 +28,56 @@ use std::sync::Mutex;
 /// the legacy `DifficultyForkChoice`.
 ///
 /// The decision is made purely on difficulty order, without checking the actual
-/// block graph, exactly as the legacy implementation did.
+/// block graph, exactly as the legacy implementation did. A block that carries
+/// no difficulty (some sources omit `totalDifficulty`) is a config smell on a
+/// PoW chain — reported as an error once per upstream — and difficulty order is
+/// only meaningful when both sides carry it, so any zero on either side falls
+/// back to height order. Comparing a real difficulty against a missing one
+/// would let a single stale-but-weighted block outrank every current
+/// weightless tip and freeze the status here.
 pub struct DifficultyForkChoice {
-    best: Mutex<U256>,
+    state: Mutex<State>,
+}
+
+#[derive(Default)]
+struct State {
+    best_difficulty: U256,
+    best_height: u64,
+    /// Upstreams already reported for missing difficulty, to log once instead
+    /// of every block.
+    reported_zero: HashSet<UpstreamId>,
 }
 
 impl DifficultyForkChoice {
     pub fn new() -> Self {
         Self {
-            best: Mutex::new(U256::ZERO),
+            state: Mutex::new(State::default()),
         }
     }
 }
 
 impl ForkChoice for DifficultyForkChoice {
-    fn submit(&self, block: &BlockContainer, _upstream_id: &UpstreamId) -> ForkStatus {
+    fn submit(&self, block: &BlockContainer, upstream_id: &UpstreamId) -> ForkStatus {
         let difficulty = block.total_difficulty;
-        let mut best = self.best.lock().unwrap();
-        let previous = *best;
-        if previous < difficulty {
-            *best = difficulty;
+        let mut state = self.state.lock().unwrap();
+        if difficulty == U256::ZERO && state.reported_zero.insert(upstream_id.clone()) {
+            tracing::error!(
+                upstream = %upstream_id,
+                "Block reports no total difficulty on a PoW chain; the node \
+                 may have pruned it or the source omits it — falling back to \
+                 height ordering"
+            );
         }
-        match previous.cmp(&difficulty) {
+        let order = if state.best_difficulty != U256::ZERO && difficulty != U256::ZERO {
+            state.best_difficulty.cmp(&difficulty)
+        } else {
+            state.best_height.cmp(&block.height)
+        };
+        if order == Ordering::Less {
+            state.best_difficulty = difficulty;
+            state.best_height = block.height;
+        }
+        match order {
             Ordering::Greater => ForkStatus::Fallbehind,
             Ordering::Less => ForkStatus::New,
             Ordering::Equal => ForkStatus::Equal,
@@ -68,9 +97,13 @@ mod tests {
     use crate::data::{BlockContainer, BlockId};
 
     fn block(difficulty: u64) -> BlockContainer {
+        block_at(difficulty, 1)
+    }
+
+    fn block_at(difficulty: u64, height: u64) -> BlockContainer {
         BlockContainer {
             hash: BlockId::from_bytes([0u8; 32]),
-            height: 1,
+            height,
             parent_hash: None,
             total_difficulty: U256::from(difficulty),
             timestamp: jiff::Timestamp::UNIX_EPOCH,
@@ -115,5 +148,46 @@ mod tests {
         let fc = DifficultyForkChoice::new();
         fc.submit(&block(200), &test_id("up-a"));
         assert!(fc.submit(&block(1), &test_id("up-b")).is_ok());
+    }
+
+    #[test]
+    fn zero_difficulty_falls_back_to_height_order() {
+        // Sources that omit totalDifficulty parse as zero; the chain's head
+        // must still advance, so height decides.
+        let fc = DifficultyForkChoice::new();
+        assert_eq!(
+            fc.submit(&block_at(0, 100), &test_id("up-a")),
+            ForkStatus::New
+        );
+        assert_eq!(
+            fc.submit(&block_at(0, 101), &test_id("up-a")),
+            ForkStatus::New
+        );
+        assert_eq!(
+            fc.submit(&block_at(0, 101), &test_id("up-b")),
+            ForkStatus::Equal
+        );
+        assert_eq!(
+            fc.submit(&block_at(0, 99), &test_id("up-b")),
+            ForkStatus::Fallbehind
+        );
+    }
+
+    #[test]
+    fn stale_weighted_block_cannot_freeze_a_weightless_chain() {
+        // The live upstreams omit totalDifficulty (height fallback active); a
+        // lagging upstream reports a weighted but old block. Difficulty must
+        // not be compared against "unknown", or that one stale block would
+        // outrank every current tip from then on.
+        let fc = DifficultyForkChoice::new();
+        fc.submit(&block_at(0, 1000), &test_id("up-a"));
+        assert_eq!(
+            fc.submit(&block_at(500, 500), &test_id("up-b")),
+            ForkStatus::Fallbehind
+        );
+        assert_eq!(
+            fc.submit(&block_at(0, 1001), &test_id("up-a")),
+            ForkStatus::New
+        );
     }
 }

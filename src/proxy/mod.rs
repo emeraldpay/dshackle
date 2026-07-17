@@ -553,16 +553,18 @@ mod tests {
 
     /// A route whose chain has a working `newHeads` egress, plus the head to
     /// feed blocks into it.
-    fn state_with_egress() -> (Arc<ProxyState>, Arc<crate::upstream::head::CurrentHead>) {
+    fn state_with_egress() -> (
+        Arc<ProxyState>,
+        Arc<crate::upstream::merged_head::MergedHead>,
+    ) {
         use crate::upstream::egress::{ChainAccess, EthereumEgress};
-        use crate::upstream::head::CurrentHead;
-        use crate::upstream::merged_head::MergedHead;
+        use crate::upstream::merged_head::{MergeOrder, MergedHead};
 
         let multistream = stub_multistream();
-        let head = Arc::new(CurrentHead::new());
-        let merged = MergedHead::new(vec![Arc::clone(&head)]);
+        let head = Arc::new(MergedHead::new(MergeOrder::Priority));
         let access: Arc<dyn ChainAccess> = multistream.clone();
-        let egress: Arc<dyn EgressSubscription> = Arc::new(EthereumEgress::new(merged, access));
+        let egress: Arc<dyn EgressSubscription> =
+            Arc::new(EthereumEgress::new(Arc::clone(&head), access));
 
         let mut routes = HashMap::new();
         routes.insert(
@@ -624,7 +626,7 @@ mod tests {
             .to_string();
 
         // A new head is pushed as an eth_subscription envelope.
-        head.update_with_block(head_block(0x42));
+        head.feed(0, Arc::new(head_block(0x42)));
         let event: serde_json::Value =
             serde_json::from_str(client.recv().await.unwrap().to_str().unwrap()).unwrap();
         assert_eq!(event["method"], "eth_subscription");

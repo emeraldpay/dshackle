@@ -26,6 +26,8 @@ pub mod bitcoin;
 pub mod ethereum;
 
 use crate::data::BlockContainer;
+#[cfg(test)]
+use crate::upstream::merged_head::MergeOrder;
 use crate::upstream::merged_head::MergedHead;
 use emerald_api::proto::blockchain::TxStatus;
 use emerald_api::proto::common::BlockInfo;
@@ -297,7 +299,6 @@ fn ttl_deadline(start: Instant, last: Option<&TxState>, ttl: &Ttl) -> Option<Ins
 mod tests {
     use super::*;
     use crate::data::{BlockContainer, BlockId};
-    use crate::upstream::head::CurrentHead;
     use std::collections::VecDeque;
     use std::sync::Mutex;
     use tokio_stream::StreamExt;
@@ -398,9 +399,8 @@ mod tests {
     #[tokio::test]
     async fn emits_initial_then_completes_at_limit() {
         let reader = ScriptReader::new(vec![mined(1), mined(2)]);
-        let current = Arc::new(CurrentHead::new());
-        let head = MergedHead::new(vec![Arc::clone(&current)]);
-        let mut stream = subscribe(Some(head), reader, 2, no_ttl());
+        let head = Arc::new(MergedHead::new(MergeOrder::Priority));
+        let mut stream = subscribe(Some(Arc::clone(&head)), reader, 2, no_ttl());
 
         // Initial state.
         let first = stream.next().await.unwrap().unwrap();
@@ -408,7 +408,7 @@ mod tests {
         assert!(first.mined);
 
         // A new head triggers a re-read returning the limit; emitted, then done.
-        current.update_with_block(block(10));
+        head.feed(0, Arc::new(block(10)));
         let second = stream.next().await.unwrap().unwrap();
         assert_eq!(second.confirmations, 2);
         assert!(stream.next().await.is_none());

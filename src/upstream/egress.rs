@@ -21,11 +21,14 @@
 
 use crate::data::{BlockContainer, BlockId};
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
+use crate::upstream::block_updates::{BlockUpdate, WINDOW_LIMIT};
+#[cfg(test)]
+use crate::upstream::merged_head::MergeOrder;
 use crate::upstream::merged_head::MergedHead;
 use crate::upstream::status_signal::StatusChanges;
 use crate::upstream::traits::UpstreamError;
 use serde_json::json;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::broadcast;
@@ -313,29 +316,79 @@ impl LogsFilter {
     }
 }
 
-/// Stream of `logs` messages: for each new head, fetch the block's matching
-/// logs via `eth_getLogs` (scoped by `blockHash`) and emit each one.
+/// Per-subscription cache of the logs emitted for recent blocks, kept so a
+/// reorg can replay them flagged `removed` — an orphaned block's receipts are
+/// no longer served by the node, so refetching is not an option (same reason
+/// the legacy `ProduceLogs` kept its cache). Sized to the reorg-detection
+/// window: a drop can only ever arrive for a block still inside it.
+struct RecentBlockLogs {
+    by_block: HashMap<BlockId, Vec<serde_json::Value>>,
+    order: VecDeque<BlockId>,
+}
+
+impl RecentBlockLogs {
+    fn new() -> Self {
+        Self {
+            by_block: HashMap::new(),
+            order: VecDeque::new(),
+        }
+    }
+
+    fn remember(&mut self, block: BlockId, logs: Vec<serde_json::Value>) {
+        if logs.is_empty() {
+            return;
+        }
+        if self.by_block.insert(block, logs).is_none() {
+            self.order.push_back(block);
+        }
+        if self.order.len() > WINDOW_LIMIT
+            && let Some(evicted) = self.order.pop_front()
+        {
+            self.by_block.remove(&evicted);
+        }
+    }
+
+    /// The cached logs of a dropped block. Empty when the block had no
+    /// matching logs or the subscription started after the block was announced
+    /// — nothing was emitted, so there is nothing to retract.
+    fn take(&mut self, block: &BlockId) -> Vec<serde_json::Value> {
+        match self.by_block.remove(block) {
+            Some(logs) => {
+                self.order.retain(|b| b != block);
+                logs
+            }
+            None => Vec::new(),
+        }
+    }
+}
+
+/// Stream of `logs` messages: for each new canonical block, fetch the block's
+/// matching logs via `eth_getLogs` (scoped by `blockHash`) and emit each one;
+/// when a reorg drops a block, replay its cached logs with `removed: true`
+/// before the replacement block's logs (drops arrive first on the updates
+/// channel). Ports the legacy `ConnectLogs`/`ProduceLogs` behavior.
 ///
 /// Unlike the legacy proxy this delegates filtering to the node and reads whole
-/// blocks at once instead of per-transaction receipts. Reorg `removed: true`
-/// re-emission is not done yet — the merged head only advances forward and
-/// reports no drops, so there is no signal to act on (tracked in the roadmap).
+/// blocks at once instead of per-transaction receipts, so the replay cache
+/// holds the post-filter logs of this subscription.
 fn logs_stream(
     head: Arc<MergedHead>,
     access: Arc<dyn ChainAccess>,
     filter: LogsFilter,
 ) -> SubscriptionStream {
     struct State {
-        rx: broadcast::Receiver<Arc<BlockContainer>>,
+        rx: broadcast::Receiver<BlockUpdate>,
         access: Arc<dyn ChainAccess>,
         filter: LogsFilter,
+        recent: RecentBlockLogs,
         pending: VecDeque<Vec<u8>>,
     }
 
     let state = State {
-        rx: head.subscribe(),
+        rx: head.subscribe_updates(),
         access,
         filter,
+        recent: RecentBlockLogs::new(),
         pending: VecDeque::new(),
     };
 
@@ -345,9 +398,22 @@ fn logs_stream(
                 return Some((msg, state));
             }
             match state.rx.recv().await {
-                Ok(block) => {
+                Ok(BlockUpdate::New(block)) => {
                     let logs = fetch_block_logs(&*state.access, &block.hash, &state.filter).await;
-                    state.pending.extend(logs);
+                    state.pending.extend(
+                        logs.iter()
+                            .filter_map(|log| log_message(log.clone(), false)),
+                    );
+                    state.recent.remember(block.hash, logs);
+                }
+                Ok(BlockUpdate::Drop(block)) => {
+                    state.pending.extend(
+                        state
+                            .recent
+                            .take(&block.hash)
+                            .into_iter()
+                            .filter_map(|log| log_message(log, true)),
+                    );
                 }
                 // Skip the gap marker when a slow subscriber falls behind.
                 Err(RecvError::Lagged(_)) => continue,
@@ -358,14 +424,14 @@ fn logs_stream(
     Box::pin(stream)
 }
 
-/// Fetch the logs of one block matching the filter and render each as a
-/// subscription message. A failed call or non-array result yields no logs for
-/// that block rather than tearing down the subscription.
+/// Fetch the logs of one block matching the filter, as raw log objects. A
+/// failed call or non-array result yields no logs for that block rather than
+/// tearing down the subscription.
 async fn fetch_block_logs(
     access: &dyn ChainAccess,
     block_hash: &BlockId,
     filter: &LogsFilter,
-) -> Vec<Vec<u8>> {
+) -> Vec<serde_json::Value> {
     let request = JsonRpcRequest::new(
         0,
         RpcMethod::from("eth_getLogs"),
@@ -381,20 +447,21 @@ async fn fetch_block_logs(
     let Some(result) = response.result else {
         return Vec::new();
     };
-    let logs: Vec<serde_json::Value> = match serde_json::from_str(result.get()) {
-        Ok(logs) => logs,
-        Err(_) => return Vec::new(),
-    };
-    logs.into_iter().filter_map(log_message).collect()
+    serde_json::from_str(result.get()).unwrap_or_default()
 }
 
-/// Render one `eth_getLogs` result entry as a `logs` subscription message,
-/// ensuring the `removed` flag is present (false for a canonical block).
-fn log_message(mut log: serde_json::Value) -> Option<Vec<u8>> {
+/// Render one log as a `logs` subscription message. For a canonical block the
+/// `removed` flag is only filled in when the node omitted it; for a dropped
+/// block it is forced to `true` no matter what was originally announced.
+fn log_message(mut log: serde_json::Value, removed: bool) -> Option<Vec<u8>> {
     if let serde_json::Value::Object(ref mut fields) = log {
-        fields
-            .entry("removed")
-            .or_insert(serde_json::Value::Bool(false));
+        if removed {
+            fields.insert("removed".into(), serde_json::Value::Bool(true));
+        } else {
+            fields
+                .entry("removed")
+                .or_insert(serde_json::Value::Bool(false));
+        }
     }
     serde_json::to_vec(&log).ok()
 }
@@ -402,7 +469,6 @@ fn log_message(mut log: serde_json::Value) -> Option<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::upstream::head::CurrentHead;
     use crate::upstream::status_signal::StatusSignal;
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -416,8 +482,12 @@ mod tests {
     }"#;
 
     fn block_with_header(height: u64, header: Option<&str>) -> BlockContainer {
+        block_at(height, height as u8, header)
+    }
+
+    fn block_at(height: u64, hash_byte: u8, header: Option<&str>) -> BlockContainer {
         let mut hash = [0u8; 32];
-        hash[0] = height as u8;
+        hash[0] = hash_byte;
         BlockContainer {
             hash: BlockId::from_bytes(hash),
             height,
@@ -431,13 +501,14 @@ mod tests {
     }
 
     /// Stub chain access: a settable syncing flag (changes wake the status
-    /// signal, like a real upstream), a canned `eth_getLogs` result, and an
-    /// optional `eth_getBlockByHash` result, capturing the params of the last
-    /// call.
+    /// signal, like a real upstream), a canned `eth_getLogs` result (global or
+    /// per block hash), and an optional `eth_getBlockByHash` result, capturing
+    /// the params of the last call.
     struct StubAccess {
         syncing: AtomicBool,
         signal: StatusSignal,
         logs: Vec<serde_json::Value>,
+        logs_by_block: Mutex<HashMap<String, Vec<serde_json::Value>>>,
         block_by_hash: Option<serde_json::Value>,
         last_params: Mutex<Option<serde_json::Value>>,
     }
@@ -448,6 +519,7 @@ mod tests {
                 syncing: AtomicBool::new(syncing),
                 signal: StatusSignal::new(),
                 logs,
+                logs_by_block: Mutex::new(HashMap::new()),
                 block_by_hash: None,
                 last_params: Mutex::new(None),
             })
@@ -457,6 +529,7 @@ mod tests {
                 syncing: AtomicBool::new(syncing),
                 signal: StatusSignal::new(),
                 logs: vec![],
+                logs_by_block: Mutex::new(HashMap::new()),
                 block_by_hash: Some(block_by_hash),
                 last_params: Mutex::new(None),
             })
@@ -464,6 +537,9 @@ mod tests {
         fn set(&self, syncing: bool) {
             self.syncing.store(syncing, Ordering::Relaxed);
             self.signal.notify();
+        }
+        fn set_logs_for(&self, block_hash: String, logs: Vec<serde_json::Value>) {
+            self.logs_by_block.lock().unwrap().insert(block_hash, logs);
         }
         fn last_params(&self) -> Option<serde_json::Value> {
             self.last_params.lock().unwrap().clone()
@@ -485,7 +561,11 @@ mod tests {
                     .clone()
                     .unwrap_or(serde_json::Value::Null)
             } else {
-                serde_json::Value::Array(self.logs.clone())
+                let by_block = self.logs_by_block.lock().unwrap();
+                let per_block = request.params[0]["blockHash"]
+                    .as_str()
+                    .and_then(|hash| by_block.get(hash).cloned());
+                serde_json::Value::Array(per_block.unwrap_or_else(|| self.logs.clone()))
             };
             let body = format!(
                 r#"{{"jsonrpc":"2.0","id":1,"result":{}}}"#,
@@ -544,12 +624,11 @@ mod tests {
 
     #[tokio::test]
     async fn new_heads_streams_head_messages() {
-        let head = Arc::new(CurrentHead::new());
-        let merged = MergedHead::new(vec![Arc::clone(&head)]);
-        let egress = egress(merged, StubAccess::new(false, vec![]));
+        let merged = Arc::new(MergedHead::new(MergeOrder::Priority));
+        let egress = egress(Arc::clone(&merged), StubAccess::new(false, vec![]));
 
         let mut stream = egress.subscribe(METHOD_NEW_HEADS, None).unwrap();
-        head.update_with_block(block_with_header(0x20, Some(HEADER_JSON)));
+        merged.feed(0, Arc::new(block_with_header(0x20, Some(HEADER_JSON))));
 
         let msg = stream.next().await.unwrap();
         let value: serde_json::Value = serde_json::from_slice(&msg).unwrap();
@@ -561,14 +640,16 @@ mod tests {
     async fn new_heads_fetches_header_for_headerless_remote_dshackle_head() {
         // A head from a remote Dshackle's `ChainHead` carries no header; the
         // egress fetches the full block by hash to recover the header fields.
-        let head = Arc::new(CurrentHead::new());
-        let merged = MergedHead::new(vec![Arc::clone(&head)]);
+        let merged = Arc::new(MergedHead::new(MergeOrder::Priority));
         let block_by_hash: serde_json::Value = serde_json::from_str(HEADER_JSON).unwrap();
         let access = StubAccess::with_block(false, block_by_hash);
-        let egress = egress(merged, Arc::clone(&access) as Arc<dyn ChainAccess>);
+        let egress = egress(
+            Arc::clone(&merged),
+            Arc::clone(&access) as Arc<dyn ChainAccess>,
+        );
 
         let mut stream = egress.subscribe(METHOD_NEW_HEADS, None).unwrap();
-        head.update_with_block(block_with_header(0x20, None));
+        merged.feed(0, Arc::new(block_with_header(0x20, None)));
 
         let msg = stream.next().await.unwrap();
         let value: serde_json::Value = serde_json::from_slice(&msg).unwrap();
@@ -585,8 +666,11 @@ mod tests {
     #[tokio::test]
     async fn syncing_emits_initial_then_on_change() {
         let access = StubAccess::new(false, vec![]);
-        let merged = MergedHead::new(vec![]);
-        let egress = egress(merged, Arc::clone(&access) as Arc<dyn ChainAccess>);
+        let merged = Arc::new(MergedHead::new(MergeOrder::Priority));
+        let egress = egress(
+            Arc::clone(&merged),
+            Arc::clone(&access) as Arc<dyn ChainAccess>,
+        );
 
         let mut stream = egress.subscribe(METHOD_SYNCING, None).unwrap();
 
@@ -608,8 +692,11 @@ mod tests {
         // A subscriber already awaiting (nothing has changed) is woken by the
         // status signal from another task — the event-driven path, not a poll.
         let access = StubAccess::new(false, vec![]);
-        let merged = MergedHead::new(vec![]);
-        let egress = egress(merged, Arc::clone(&access) as Arc<dyn ChainAccess>);
+        let merged = Arc::new(MergedHead::new(MergeOrder::Priority));
+        let egress = egress(
+            Arc::clone(&merged),
+            Arc::clone(&access) as Arc<dyn ChainAccess>,
+        );
         let mut stream = egress.subscribe(METHOD_SYNCING, None).unwrap();
 
         // Drain the initial `false`, leaving the stream parked on the signal.
@@ -633,8 +720,7 @@ mod tests {
 
     #[tokio::test]
     async fn logs_stream_emits_block_logs_and_passes_filter() {
-        let head = Arc::new(CurrentHead::new());
-        let merged = MergedHead::new(vec![Arc::clone(&head)]);
+        let merged = Arc::new(MergedHead::new(MergeOrder::Priority));
         let canned = vec![json!({
             "address": "0xabc",
             "topics": ["0x1"],
@@ -642,7 +728,10 @@ mod tests {
             "logIndex": "0x0"
         })];
         let access = StubAccess::new(false, canned);
-        let egress = egress(merged, Arc::clone(&access) as Arc<dyn ChainAccess>);
+        let egress = egress(
+            Arc::clone(&merged),
+            Arc::clone(&access) as Arc<dyn ChainAccess>,
+        );
 
         let mut stream = egress
             .subscribe(
@@ -650,7 +739,7 @@ mod tests {
                 Some(json!({"address": "0xabc", "topics": ["0x1"]})),
             )
             .unwrap();
-        head.update_with_block(block_with_header(0x10, None));
+        merged.feed(0, Arc::new(block_with_header(0x10, None)));
 
         let msg = stream.next().await.unwrap();
         let value: serde_json::Value = serde_json::from_slice(&msg).unwrap();
@@ -668,13 +757,15 @@ mod tests {
 
     #[tokio::test]
     async fn logs_without_filter_query_only_scopes_by_block() {
-        let head = Arc::new(CurrentHead::new());
-        let merged = MergedHead::new(vec![Arc::clone(&head)]);
+        let merged = Arc::new(MergedHead::new(MergeOrder::Priority));
         let access = StubAccess::new(false, vec![json!({"address": "0x1"})]);
-        let egress = egress(merged, Arc::clone(&access) as Arc<dyn ChainAccess>);
+        let egress = egress(
+            Arc::clone(&merged),
+            Arc::clone(&access) as Arc<dyn ChainAccess>,
+        );
 
         let mut stream = egress.subscribe(METHOD_LOGS, None).unwrap();
-        head.update_with_block(block_with_header(0x10, None));
+        merged.feed(0, Arc::new(block_with_header(0x10, None)));
         let _ = stream.next().await.unwrap();
 
         let filter = access.last_params().unwrap()[0].clone();
@@ -684,9 +775,79 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn logs_reorg_replays_dropped_logs_as_removed() {
+        let merged = Arc::new(MergedHead::new(MergeOrder::Priority));
+        let access = StubAccess::new(false, vec![]);
+
+        let original = block_at(0x10, 1, None);
+        let replacement = block_at(0x10, 2, None);
+        access.set_logs_for(
+            original.hash.to_hex_prefixed(),
+            vec![json!({"address": "0xaaa", "logIndex": "0x0"})],
+        );
+        access.set_logs_for(
+            replacement.hash.to_hex_prefixed(),
+            vec![json!({"address": "0xbbb", "logIndex": "0x0"})],
+        );
+
+        let egress = egress(
+            Arc::clone(&merged),
+            Arc::clone(&access) as Arc<dyn ChainAccess>,
+        );
+        let mut stream = egress.subscribe(METHOD_LOGS, None).unwrap();
+
+        merged.feed(0, Arc::new(original));
+        let first: serde_json::Value =
+            serde_json::from_slice(&stream.next().await.unwrap()).unwrap();
+        assert_eq!(first["address"], "0xaaa");
+        assert_eq!(first["removed"], false);
+
+        // The reorg retracts the original block's logs before announcing the
+        // replacement's.
+        merged.feed(0, Arc::new(replacement));
+        let dropped: serde_json::Value =
+            serde_json::from_slice(&stream.next().await.unwrap()).unwrap();
+        assert_eq!(dropped["address"], "0xaaa");
+        assert_eq!(dropped["removed"], true);
+
+        let added: serde_json::Value =
+            serde_json::from_slice(&stream.next().await.unwrap()).unwrap();
+        assert_eq!(added["address"], "0xbbb");
+        assert_eq!(added["removed"], false);
+    }
+
+    #[tokio::test]
+    async fn logs_reorg_without_cached_logs_emits_only_replacement() {
+        let merged = Arc::new(MergedHead::new(MergeOrder::Priority));
+        let access = StubAccess::new(false, vec![]);
+
+        // The original block has no matching logs, so its drop has nothing to
+        // retract and the stream goes straight to the replacement's logs.
+        let original = block_at(0x10, 1, None);
+        let replacement = block_at(0x10, 2, None);
+        access.set_logs_for(
+            replacement.hash.to_hex_prefixed(),
+            vec![json!({"address": "0xbbb", "logIndex": "0x0"})],
+        );
+
+        let egress = egress(
+            Arc::clone(&merged),
+            Arc::clone(&access) as Arc<dyn ChainAccess>,
+        );
+        let mut stream = egress.subscribe(METHOD_LOGS, None).unwrap();
+
+        merged.feed(0, Arc::new(original));
+        merged.feed(0, Arc::new(replacement));
+
+        let msg: serde_json::Value = serde_json::from_slice(&stream.next().await.unwrap()).unwrap();
+        assert_eq!(msg["address"], "0xbbb");
+        assert_eq!(msg["removed"], false);
+    }
+
+    #[tokio::test]
     async fn unsupported_method_errors() {
-        let merged = MergedHead::new(vec![]);
-        let egress = egress(merged, StubAccess::new(false, vec![]));
+        let merged = Arc::new(MergedHead::new(MergeOrder::Priority));
+        let egress = egress(Arc::clone(&merged), StubAccess::new(false, vec![]));
         let err = egress
             .subscribe("newPendingTransactions", None)
             .err()
