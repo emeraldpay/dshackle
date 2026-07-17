@@ -229,11 +229,18 @@ pub fn client_tls(
 /// `timeout` bounds every request end-to-end (the upstream's `options.timeout`):
 /// without it a connected-but-silent upstream would hold a routed request
 /// open forever, and the router could never fall through to the next candidate.
+///
+/// `compress` advertises `Accept-Encoding: gzip` and transparently
+/// decompresses responses. Off by default in the upstream config because some
+/// nodes send corrupted responses when compression is on (legacy
+/// `JsonRpcHttpClient` learned this the hard way); pass it explicitly so the
+/// reqwest `gzip` feature's implicit default can't decide it.
 pub fn reqwest_client(
     tls: Option<&ClientTlsSetup>,
     timeout: std::time::Duration,
+    compress: bool,
 ) -> Result<reqwest::Client> {
-    let mut builder = reqwest::Client::builder().timeout(timeout);
+    let mut builder = reqwest::Client::builder().timeout(timeout).gzip(compress);
     if let Some(setup) = tls {
         if let Some(ca) = &setup.ca {
             builder = builder.tls_built_in_root_certs(false).add_root_certificate(
@@ -464,11 +471,45 @@ mod tests {
             key: Some("127.0.0.1.p8.key".to_string()),
         };
         let setup = client_tls("test", Some(&config), &base).unwrap().unwrap();
-        reqwest_client(Some(&setup), std::time::Duration::from_secs(60)).unwrap();
+        reqwest_client(Some(&setup), std::time::Duration::from_secs(60), false).unwrap();
     }
 
     #[test]
     fn reqwest_client_without_tls() {
-        reqwest_client(None, std::time::Duration::from_secs(60)).unwrap();
+        reqwest_client(None, std::time::Duration::from_secs(60), false).unwrap();
+    }
+
+    /// Serves one plain-HTTP request and returns its raw request head, so a
+    /// test can assert on the headers a client actually sent.
+    fn capture_one_request(listener: std::net::TcpListener) -> std::thread::JoinHandle<String> {
+        use std::io::{Read, Write};
+        std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut buf = [0u8; 4096];
+            let n = stream.read(&mut buf).unwrap();
+            stream
+                .write_all(b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\n\r\n{}")
+                .unwrap();
+            String::from_utf8_lossy(&buf[..n]).to_string()
+        })
+    }
+
+    // The `compress` flag exists because it was once parsed but silently
+    // ignored: assert it changes what actually goes on the wire.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn reqwest_client_compression_on_the_wire() {
+        for compress in [true, false] {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let url = format!("http://{}/", listener.local_addr().unwrap());
+            let head = capture_one_request(listener);
+
+            let client =
+                reqwest_client(None, std::time::Duration::from_secs(5), compress).unwrap();
+            client.get(&url).send().await.unwrap();
+
+            let head = head.join().unwrap().to_lowercase();
+            let advertises_gzip = head.contains("accept-encoding") && head.contains("gzip");
+            assert_eq!(advertises_gzip, compress, "compress={compress}: {head}");
+        }
     }
 }

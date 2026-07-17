@@ -197,7 +197,10 @@ async fn main() {
         }
     };
 
-    if let Err(e) = server::start_grpc_server(&config.host, config.port, grpc_tls, service).await {
+    if let Err(e) =
+        server::start_grpc_server(&config.host, config.port, grpc_tls, config.compress, service)
+            .await
+    {
         tracing::error!("gRPC server failed: {e:#}");
         std::process::exit(1);
     }

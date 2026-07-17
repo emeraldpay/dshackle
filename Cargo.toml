@@ -36,7 +36,7 @@ anyhow = { version = "1.0", features = ["backtrace"] }
 bytes = "1.11"
 itertools = "0.14"
 prometheus = "0.14"
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 tokio-tungstenite = { version = "0.29", features = ["rustls-tls-native-roots"] }
 url = "2"

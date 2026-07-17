@@ -219,6 +219,17 @@ impl UpstreamManager {
                     // gives near-instant updates, while HTTP polls every 10s.
                     // The other transport is used for RPC calls only.
                     let ws_upstream: Option<Arc<EthereumWsUpstream>> = eth.ws.as_ref().map(|ws| {
+                        // The WS stack (tungstenite) implements no
+                        // permessage-deflate, and advertising the extension
+                        // without implementing it would corrupt the framing —
+                        // so the option gets a loud warning instead of a
+                        // silent ignore.
+                        if ws.compress == Some(true) {
+                            tracing::warn!(
+                                "Upstream {}: WS compression is not supported and the 'compress' option is ignored",
+                                id
+                            );
+                        }
                         tracing::info!(
                             "Using Ethereum WS upstream '{}' at {} for {}",
                             id,
@@ -241,7 +252,11 @@ impl UpstreamManager {
                         Some(rpc) => {
                             let tls =
                                 crate::tls::client_tls(id.as_str(), rpc.tls.as_ref(), config_dir)?;
-                            let client = crate::tls::reqwest_client(tls.as_ref(), options.timeout)?;
+                            let client = crate::tls::reqwest_client(
+                                tls.as_ref(),
+                                options.timeout,
+                                rpc.compress.unwrap_or(false),
+                            )?;
                             tracing::info!(
                                 "Using Ethereum HTTP upstream '{}' at {} for {}",
                                 id,
@@ -447,7 +462,11 @@ impl UpstreamManager {
                     };
 
                     let tls = crate::tls::client_tls(id.as_str(), rpc.tls.as_ref(), config_dir)?;
-                    let client = crate::tls::reqwest_client(tls.as_ref(), options.timeout)?;
+                    let client = crate::tls::reqwest_client(
+                        tls.as_ref(),
+                        options.timeout,
+                        rpc.compress.unwrap_or(false),
+                    )?;
 
                     tracing::info!(
                         "Using Bitcoin HTTP upstream '{}' at {} for {}",
@@ -581,6 +600,10 @@ impl UpstreamManager {
                         url,
                         tls,
                         call_timeout: options.timeout,
+                        // Unlike HTTP/WS upstreams this defaults to on, as in
+                        // legacy: gRPC negotiates the encoding per call, so a
+                        // remote without gzip support is not harmed.
+                        compress: ds.compress.unwrap_or(true),
                     });
                 }
             }
@@ -602,7 +625,7 @@ impl UpstreamManager {
             futures::future::join_all(pending_dshackle.iter().map(|pending| async move {
                 let outcome = tokio::time::timeout(
                     DSHACKLE_CONNECT_TIMEOUT,
-                    connect_and_describe(&pending.url, pending.tls.as_ref()),
+                    connect_and_describe(&pending.url, pending.tls.as_ref(), pending.compress),
                 )
                 .await;
                 (pending, outcome)
@@ -1232,6 +1255,7 @@ fn quorum_factory_for(chain: TargetBlockchain) -> Arc<dyn QuorumFactory> {
 async fn connect_and_describe(
     url: &str,
     tls: Option<&crate::tls::ClientTlsSetup>,
+    compress: bool,
 ) -> anyhow::Result<(BlockchainClient<Channel>, Vec<DescribeChain>)> {
     let mut endpoint = tonic::transport::Endpoint::from_shared(url.to_string())?;
     if let Some(setup) = tls {
@@ -1251,6 +1275,14 @@ async fn connect_and_describe(
     }
     let channel = endpoint.connect().await?;
     let mut client = BlockchainClient::new(channel);
+    if compress {
+        // Accept-only, like legacy: its channel registries let the client
+        // advertise and decode gzip, but requests were never compressed
+        // (that needed a per-call compressor legacy didn't set). Request
+        // compression is also not negotiated in gRPC — a remote without gzip
+        // would reject such calls outright, so don't send compressed.
+        client = client.accept_compressed(tonic::codec::CompressionEncoding::Gzip);
+    }
 
     let describe_resp = client.describe(DescribeRequest {}).await?;
     Ok((client, describe_resp.into_inner().chains))
@@ -1305,6 +1337,7 @@ struct PendingDshackle {
     url: String,
     tls: Option<crate::tls::ClientTlsSetup>,
     call_timeout: Duration,
+    compress: bool,
 }
 
 /// The validated labels of a local upstream, with the failure attributed to

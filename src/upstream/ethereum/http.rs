@@ -143,7 +143,7 @@ mod tests {
         });
 
         let client =
-            crate::tls::reqwest_client(None, std::time::Duration::from_millis(300)).unwrap();
+            crate::tls::reqwest_client(None, std::time::Duration::from_millis(300), false).unwrap();
         let upstream = EthereumHttpUpstream::new(
             "silent".parse().unwrap(),
             format!("http://{addr}/"),

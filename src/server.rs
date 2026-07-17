@@ -18,6 +18,7 @@ use crate::rpc::blockchain_rpc::BlockchainRpcService;
 use crate::tls::{ClientAuth, ServerTlsSetup};
 use emerald_api::proto::blockchain::blockchain_server::BlockchainServer;
 use std::net::SocketAddr;
+use tonic::codec::CompressionEncoding;
 use tonic::transport::server::ServerTlsConfig;
 use tonic::transport::{Certificate, Identity};
 
@@ -40,10 +41,16 @@ impl From<ServerTlsSetup> for ServerTlsConfig {
 ///
 /// With a TLS setup the server accepts only TLS connections; without one it
 /// serves plaintext.
+///
+/// With `compress` the server accepts gzip-encoded requests and gzips
+/// responses to clients that advertise support. Legacy registers both the
+/// compressor and decompressor registries, so it goes both directions here
+/// too; gRPC negotiation keeps it compatible with clients that don't compress.
 pub async fn start_grpc_server(
     host: &str,
     port: u16,
     tls: Option<ServerTlsSetup>,
+    compress: bool,
     service: BlockchainRpcService,
 ) -> anyhow::Result<()> {
     let addr: SocketAddr = format!("{host}:{port}").parse()?;
@@ -53,12 +60,16 @@ pub async fn start_grpc_server(
         builder = builder.tls_config(tls.into())?;
     }
 
+    let mut service = BlockchainServer::new(service);
+    if compress {
+        service = service
+            .accept_compressed(CompressionEncoding::Gzip)
+            .send_compressed(CompressionEncoding::Gzip);
+    }
+
     tracing::info!("gRPC server listening on {}", addr);
 
-    builder
-        .add_service(BlockchainServer::new(service))
-        .serve(addr)
-        .await?;
+    builder.add_service(service).serve(addr).await?;
 
     Ok(())
 }
