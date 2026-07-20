@@ -39,6 +39,7 @@ prometheus = "0.14"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 tokio-tungstenite = { version = "0.29", features = ["rustls-tls-native-roots"] }
+zeromq = { version = "0.4", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
 url = "2"
 warp = { version = "0.4", features = ["server", "websocket"] }
 hyper = "1"
@@ -58,6 +59,7 @@ prost-build = "0.14"
 shadow-rs = "1.1"
 
 [dev-dependencies]
+tokio = { version = "1.50", features = ["test-util"] }
 testcontainers = "0.27"
 tempfile = "3.19"
 rand = "0.10"

@@ -67,6 +67,7 @@ use bitcoin::head::start_head_poller as start_btc_head_poller;
 use bitcoin::http::BitcoinHttpUpstream;
 use bitcoin::reader::BitcoinReader;
 use bitcoin::validator::BitcoinValidator;
+use bitcoin::zmq::start_zmq_head;
 use dshackle::DshackleUpstream;
 use dshackle::head::start_head_subscriber;
 use dshackle::status::start_status_subscriber;
@@ -519,7 +520,21 @@ impl UpstreamManager {
                         chain,
                     ));
                     let fork_head = Arc::clone(&head);
-                    start_btc_head_poller(Arc::clone(&reader), head);
+                    start_btc_head_poller(Arc::clone(&reader), Arc::clone(&head));
+
+                    // ZMQ push notifications complement the poller; both feed
+                    // the same head, which dedups the overlap by block hash.
+                    if let Some(zeromq) = &btc.zeromq {
+                        let (host, port) = zeromq.host_port()?;
+                        if !zeromq.topics.is_empty() {
+                            tracing::warn!(
+                                "Upstream {}: ZeroMQ subscription topics are not supported yet \
+                                 and will be ignored (only block notifications are used)",
+                                id
+                            );
+                        }
+                        start_zmq_head(host, port, Arc::clone(&reader), head);
+                    }
 
                     // See the Ethereum branch for why validation targets the
                     // bare transport.

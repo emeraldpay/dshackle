@@ -292,6 +292,46 @@ impl WsEndpoint {
 pub struct ZeromqEndpoint {
     #[serde(alias = "address")]
     pub url: String,
+    /// ZMQ topics to expose as ingress subscriptions (legacy `zeromq.topics`).
+    #[serde(default)]
+    pub topics: Vec<String>,
+}
+
+impl ZeromqEndpoint {
+    /// The host and port to connect to. Accepts the same address forms as the
+    /// legacy config reader: `tcp://host:port`, `host:port`, and a bare port
+    /// number (localhost implied).
+    pub fn host_port(&self) -> Result<(String, u16)> {
+        let address = self.url.trim();
+        let parsed = if address.contains("://") {
+            // URI forms go through a real URL parser: legacy used java.net.URI
+            // here, which accepted IPv6 brackets and trailing paths that a
+            // colon split would mangle.
+            url::Url::parse(address).ok().and_then(|u| {
+                let port = u.port()?;
+                let host = match u.host()? {
+                    url::Host::Domain(d) => d.to_string(),
+                    url::Host::Ipv4(ip) => ip.to_string(),
+                    // Keep the brackets: the host is pasted back into a
+                    // `tcp://host:port` endpoint, where a bare IPv6 address
+                    // would be ambiguous with the port separator.
+                    url::Host::Ipv6(ip) => format!("[{ip}]"),
+                };
+                Some((host, port))
+            })
+        } else {
+            match address.split_once(':') {
+                Some((host, port)) if !host.is_empty() => {
+                    port.parse::<u16>().ok().map(|p| (host.to_string(), p))
+                }
+                Some(_) => None,
+                None => address.parse().ok().map(|p| ("127.0.0.1".to_string(), p)),
+            }
+        };
+        parsed.ok_or_else(|| {
+            anyhow::anyhow!("Invalid config for ZeroMQ: {address}. Expected to be in format HOST:PORT")
+        })
+    }
 }
 
 // ─── Raw connection wrapper (determines upstream type) ───────────────────────
@@ -956,5 +996,46 @@ mod tests {
             Some(UpstreamRole::Fallback)
         );
         assert_eq!(UpstreamRole::from_str_lenient("unknown"), None);
+    }
+
+    fn zeromq(url: &str) -> ZeromqEndpoint {
+        ZeromqEndpoint {
+            url: url.to_string(),
+            topics: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn zeromq_host_port_forms() {
+        assert_eq!(
+            zeromq("tcp://192.168.1.5:1234").host_port().unwrap(),
+            ("192.168.1.5".to_string(), 1234)
+        );
+        assert_eq!(
+            zeromq("localhost:1234").host_port().unwrap(),
+            ("localhost".to_string(), 1234)
+        );
+        // A bare port assumes a localhost connection, as legacy did.
+        assert_eq!(
+            zeromq("1234").host_port().unwrap(),
+            ("127.0.0.1".to_string(), 1234)
+        );
+        // Forms legacy's java.net.URI accepted: IPv6 brackets, trailing path.
+        assert_eq!(
+            zeromq("tcp://[::1]:28332").host_port().unwrap(),
+            ("[::1]".to_string(), 28332)
+        );
+        assert_eq!(
+            zeromq("tcp://node.local:28332/").host_port().unwrap(),
+            ("node.local".to_string(), 28332)
+        );
+    }
+
+    #[test]
+    fn zeromq_host_port_invalid() {
+        for url in ["", "localhost", ":1234", "host:notaport", "tcp://host:"] {
+            let err = zeromq(url).host_port().unwrap_err().to_string();
+            assert!(err.contains("Invalid config for ZeroMQ"), "url: {url}");
+        }
     }
 }

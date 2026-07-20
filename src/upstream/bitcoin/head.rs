@@ -26,6 +26,7 @@
 use crate::data::{BlockContainer, BlockId, TxId};
 use crate::jsonrpc::JsonRpcRequest;
 use crate::upstream::head::CurrentHead;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::traits::RpcUpstream;
 use alloy::primitives::U256;
 use std::sync::Arc;
@@ -96,37 +97,46 @@ async fn poll_best_block(
     match upstream.call(&block_request).await {
         Ok(resp) => {
             if let Some(raw) = &resp.result {
-                match parse_btc_block(raw.get()) {
-                    Some(block) => {
-                        tracing::trace!(
-                            upstream = %upstream_id,
-                            height = block.height,
-                            hash = %block.hash,
-                            "head updated"
-                        );
-                        head.update_with_block(block);
-                    }
-                    None => {
-                        // Fallback: try to extract at least the height
-                        if let Some(h) = extract_block_height(raw.get()) {
-                            tracing::debug!(
-                                upstream = %upstream_id,
-                                height = h,
-                                "partial head update (block parse failed)"
-                            );
-                            head.update(h);
-                        } else {
-                            tracing::warn!(
-                                upstream = %upstream_id,
-                                "failed to parse getblock response"
-                            );
-                        }
-                    }
-                }
+                apply_block_response(upstream_id, head, raw.get());
             }
         }
         Err(e) => {
             tracing::debug!(upstream = %upstream_id, error = %e, "getblock call failed");
+        }
+    }
+}
+
+/// Feed a `getblock` response into the head: the full block when it parses,
+/// falling back to a height-only update when it doesn't.
+///
+/// Both the 15-second poller and the ZMQ listener resolve block hashes through
+/// this, so the two head sources cannot drift in how they treat the same
+/// response.
+pub(crate) fn apply_block_response(upstream_id: &UpstreamId, head: &CurrentHead, raw_json: &str) {
+    match parse_btc_block(raw_json) {
+        Some(block) => {
+            tracing::trace!(
+                upstream = %upstream_id,
+                height = block.height,
+                hash = %block.hash,
+                "head updated"
+            );
+            head.update_with_block(block);
+        }
+        None => {
+            if let Some(h) = extract_block_height(raw_json) {
+                tracing::debug!(
+                    upstream = %upstream_id,
+                    height = h,
+                    "partial head update (block parse failed)"
+                );
+                head.update(h);
+            } else {
+                tracing::warn!(
+                    upstream = %upstream_id,
+                    "failed to parse getblock response"
+                );
+            }
         }
     }
 }

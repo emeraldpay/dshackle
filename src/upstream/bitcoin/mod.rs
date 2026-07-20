@@ -18,6 +18,7 @@ pub mod head;
 pub mod http;
 pub mod reader;
 pub mod validator;
+pub mod zmq;
 
 /// Satoshis per Bitcoin (`COIN`).
 const SATOSHIS_PER_BTC: f64 = 100_000_000.0;
