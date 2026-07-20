@@ -66,6 +66,7 @@ use balance::{BalanceError, BalanceStream, BitcoinBalance, EthereumBalance};
 use bitcoin::head::start_head_poller as start_btc_head_poller;
 use bitcoin::http::BitcoinHttpUpstream;
 use bitcoin::reader::BitcoinReader;
+use bitcoin::subscribe::{BitcoinEgress, BitcoinZmqTopic, ZmqTopicStream};
 use bitcoin::validator::BitcoinValidator;
 use bitcoin::zmq::start_zmq_head;
 use dshackle::DshackleUpstream;
@@ -134,6 +135,9 @@ pub struct UpstreamManager {
     /// than computed from local UTXO RPC (legacy `CurrentUnspentReader` →
     /// `RemoteUnspentReader`).
     balance_clients: HashMap<TargetBlockchain, BlockchainClient<Channel>>,
+    /// Per-chain ZMQ topic streams of the Bitcoin upstreams, backing the
+    /// Bitcoin egress subscriptions.
+    zmq_topics: HashMap<TargetBlockchain, Vec<Arc<ZmqTopicStream>>>,
 }
 
 /// How long to wait for a remote Dshackle upstream's connect + `Describe`
@@ -181,6 +185,10 @@ impl UpstreamManager {
         // chain regardless of how many upstreams report the same block.
         let mut per_chain_caches: HashMap<TargetBlockchain, Arc<Caches>> = HashMap::new();
         let mut per_chain_caching_heads: HashMap<TargetBlockchain, CachingHead> = HashMap::new();
+        // Per-chain ZMQ topic streams of the Bitcoin upstreams, feeding the
+        // chain's egress subscriptions (`NativeSubscribe`).
+        let mut per_chain_zmq_topics: HashMap<TargetBlockchain, Vec<Arc<ZmqTopicStream>>> =
+            HashMap::new();
         // First allowance-capable remote Dshackle client per chain (legacy picks
         // one upstream matching the ALLOWANCE capability).
         let mut allowance_clients: HashMap<TargetBlockchain, BlockchainClient<Channel>> =
@@ -526,14 +534,29 @@ impl UpstreamManager {
                     // the same head, which dedups the overlap by block hash.
                     if let Some(zeromq) = &btc.zeromq {
                         let (host, port) = zeromq.host_port()?;
-                        if !zeromq.topics.is_empty() {
-                            tracing::warn!(
-                                "Upstream {}: ZeroMQ subscription topics are not supported yet \
-                                 and will be ignored (only block notifications are used)",
-                                id
-                            );
+                        start_zmq_head(host.clone(), port, Arc::clone(&reader), head);
+                        // Configured topics become egress subscriptions. A
+                        // repeated topic gets one stream, not two — legacy
+                        // collapsed repeats into an EnumMap, and a second
+                        // stream would double every delivered notification.
+                        let mut topics: Vec<BitcoinZmqTopic> = Vec::new();
+                        for topic_id in &zeromq.topics {
+                            match BitcoinZmqTopic::find_by_id(topic_id) {
+                                Some(topic) if topics.contains(&topic) => {}
+                                Some(topic) => {
+                                    topics.push(topic);
+                                    per_chain_zmq_topics.entry(chain).or_default().push(
+                                        Arc::new(ZmqTopicStream::new(
+                                            &host,
+                                            port,
+                                            topic,
+                                            id.clone(),
+                                        )),
+                                    );
+                                }
+                                None => tracing::error!("ZeroMQ topic is unknown: {}", topic_id),
+                            }
                         }
-                        start_zmq_head(host, port, Arc::clone(&reader), head);
                     }
 
                     // See the Ethereum branch for why validation targets the
@@ -776,6 +799,7 @@ impl UpstreamManager {
             tokens: build_token_registry(tokens),
             allowance_clients,
             balance_clients,
+            zmq_topics: per_chain_zmq_topics,
         })
     }
 
@@ -793,6 +817,7 @@ impl UpstreamManager {
             tokens: HashMap::new(),
             allowance_clients: HashMap::new(),
             balance_clients: HashMap::new(),
+            zmq_topics: HashMap::new(),
         }
     }
 
@@ -814,18 +839,24 @@ impl UpstreamManager {
         self.heads.get(chain)
     }
 
-    /// Build the `eth_subscribe` egress for a chain, or `None` when the chain
-    /// can't serve server-pushed subscriptions: it tracks no head yet, or it
-    /// isn't an Ethereum-family chain. Bitcoin egress isn't ported, so Bitcoin
-    /// chains reject `eth_subscribe` rather than emitting Ethereum-shaped
-    /// notifications built from Bitcoin blocks.
+    /// Build the server-pushed-subscription egress for a chain, or `None` when
+    /// the chain can't serve subscriptions. Ethereum-family chains serve the
+    /// `eth_subscribe` topics; Bitcoin chains serve the ZMQ topics their
+    /// upstreams were configured with (`zeromq.topics`), and get `None` when
+    /// there are none.
     pub fn egress(&self, chain: &TargetBlockchain) -> Option<Arc<dyn EgressSubscription>> {
-        if chain.blockchain_type() != BlockchainType::Ethereum {
-            return None;
+        match chain.blockchain_type() {
+            BlockchainType::Ethereum => {
+                let head = self.head(chain)?;
+                let access: Arc<dyn ChainAccess> = self.get(chain)?.clone();
+                Some(Arc::new(EthereumEgress::new(Arc::clone(head), access)))
+            }
+            BlockchainType::Bitcoin => {
+                let sources = self.zmq_topics.get(chain)?;
+                Some(Arc::new(BitcoinEgress::new(sources.clone())))
+            }
+            BlockchainType::Unknown => None,
         }
-        let head = self.head(chain)?;
-        let access: Arc<dyn ChainAccess> = self.get(chain)?.clone();
-        Some(Arc::new(EthereumEgress::new(Arc::clone(head), access)))
     }
 
     /// Build the fee estimator for a chain, or `None` when fee estimation isn't

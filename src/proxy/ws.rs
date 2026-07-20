@@ -264,7 +264,8 @@ fn subscribe_params(params: &serde_json::Value) -> Option<(String, Option<serde_
 }
 
 /// Wrap a subscription event in the `eth_subscription` envelope. Returns `None`
-/// if the event isn't valid JSON (it always is, coming from the egress).
+/// if the event isn't valid JSON (it always is, coming from the Ethereum
+/// egress — the only kind a proxy route carries).
 fn subscription_message(sub_id: &str, event: &[u8]) -> Option<String> {
     let result: serde_json::Value = serde_json::from_slice(event).ok()?;
     let envelope = serde_json::json!({
@@ -273,4 +274,27 @@ fn subscription_message(sub_id: &str, event: &[u8]) -> Option<String> {
         "params": { "subscription": sub_id, "result": result },
     });
     serde_json::to_string(&envelope).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn result_of(msg: &str) -> serde_json::Value {
+        let value: serde_json::Value = serde_json::from_str(msg).unwrap();
+        assert_eq!(value["method"], "eth_subscription");
+        assert_eq!(value["params"]["subscription"], "0xa1");
+        value["params"]["result"].clone()
+    }
+
+    #[test]
+    fn subscription_message_passes_json_through() {
+        let msg = subscription_message("0xa1", br#"{"number":"0x10"}"#).unwrap();
+        assert_eq!(result_of(&msg), serde_json::json!({"number": "0x10"}));
+    }
+
+    #[test]
+    fn subscription_message_drops_non_json_events() {
+        assert_eq!(subscription_message("0xa1", &[0x00, 0xFF, 0x10]), None);
+    }
 }

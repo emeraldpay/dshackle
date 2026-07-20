@@ -24,7 +24,7 @@ mod protocol;
 mod serve;
 mod ws;
 
-use crate::blockchain::TargetBlockchain;
+use crate::blockchain::{BlockchainType, TargetBlockchain};
 use crate::config::proxy::ProxyConfig;
 use crate::logs;
 use crate::tls::ServerTlsSetup;
@@ -212,12 +212,20 @@ fn resolve_routes(
         match upstreams.get(&chain) {
             Some(multistream) => {
                 tracing::info!("Proxy route '/{}' -> {}", route.id, chain);
+                // eth_subscribe is an Ethereum protocol feature: Bitcoin ZMQ
+                // topics are served over gRPC NativeSubscribe only, so a
+                // Bitcoin route gets no egress and rejects subscribe requests
+                // (legacy leaked them through the WS proxy unintentionally).
+                let egress = match chain.blockchain_type() {
+                    BlockchainType::Ethereum => upstreams.egress(&chain),
+                    _ => None,
+                };
                 routes.insert(
                     route.id.clone(),
                     Arc::new(ProxyRoute {
                         chain,
                         multistream: Arc::clone(multistream),
-                        egress: upstreams.egress(&chain),
+                        egress,
                     }),
                 );
             }

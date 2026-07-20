@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Bitcoin head updates pushed over ZeroMQ.
+//! ZeroMQ subscription transport for bitcoind notifications, plus the
+//! `hashblock` head listener built on it.
 //!
-//! A bitcoind started with `-zmqpubhashblock` announces every connected block
-//! on the `hashblock` topic, letting a new block reach the head in
-//! milliseconds instead of waiting out the 15-second poll cycle. The RPC
-//! poller stays running as the safety net: ZMQ only announces *new* blocks, so
-//! the poller provides the initial head and covers any gap in the ZMQ
-//! delivery. Both sources feed the same [`CurrentHead`], which dedups repeats
-//! by hash — the same merge the legacy `MergedPowHead` performed over its
-//! `BitcoinRpcHead` + `BitcoinZMQHead` pair.
+//! A bitcoind started with `-zmqpub<topic>` publishes node events as
+//! `[topic, payload, uint32 LE sequence]` triples. [`run_subscription`] owns
+//! one SUB connection to such an endpoint and hands the payload of every
+//! exact-topic message to its handler; [`start_zmq_head`] uses it to resolve
+//! `hashblock` announcements into head updates, and the egress topic streams
+//! (see [`subscribe`](crate::upstream::bitcoin::subscribe)) re-broadcast other
+//! topics to gRPC subscribers.
 //!
 //! # Liveness
 //!
@@ -34,11 +34,17 @@
 //! [`CONNECT_TIMEOUT`] purely so an unreachable endpoint gets logged. A
 //! rebuild costs one TCP handshake and the subscription carries no state, so
 //! the only downside is a milliseconds-wide window where a notification can be
-//! missed — which the RPC poller covers anyway.
+//! missed — for the head, the RPC poller covers it anyway.
+//!
+//! The head listener merges with the RPC poller by feeding the same
+//! [`CurrentHead`], which dedups repeats by hash — the same merge the legacy
+//! `MergedPowHead` performed over its `BitcoinRpcHead` + `BitcoinZMQHead`
+//! pair.
 
 use crate::jsonrpc::JsonRpcRequest;
 use crate::upstream::bitcoin::head::apply_block_response;
 use crate::upstream::head::CurrentHead;
+use crate::upstream::id::UpstreamId;
 use crate::upstream::traits::RpcUpstream;
 use std::sync::Arc;
 use std::time::Duration;
@@ -67,6 +73,147 @@ const RECONNECT_DELAY: Duration = Duration::from_secs(1);
 const FETCH_RETRIES: u32 = 5;
 const FETCH_INITIAL_BACKOFF: Duration = Duration::from_millis(100);
 
+/// What [`run_subscription`] delivers to its handler.
+pub(crate) enum ZmqEvent {
+    /// The payload frame of a message on the subscribed topic.
+    Payload(bytes::Bytes),
+    /// A quiet checkpoint: nothing arrived for [`IDLE_TIMEOUT`], or a
+    /// reconnect attempt is about to be scheduled. Lets a handler with no
+    /// remaining consumers shut the loop down instead of holding (or forever
+    /// retrying) the connection.
+    Idle,
+}
+
+/// Handler's verdict after each event.
+#[derive(PartialEq, Eq)]
+pub(crate) enum ZmqFlow {
+    Continue,
+    /// Ends the subscription loop entirely (the task finishes).
+    Stop,
+}
+
+/// Runs one ZMQ SUB subscription until the handler asks to stop: connects to
+/// `endpoint`, subscribes to `topic`, and feeds every exact-topic payload (and
+/// idle ticks) to `handler`, reconnecting/rebuilding as described in the
+/// module docs.
+pub(crate) async fn run_subscription(
+    endpoint: String,
+    topic: String,
+    upstream: UpstreamId,
+    mut handler: impl FnMut(ZmqEvent) -> ZmqFlow,
+) {
+    // The endpoint being down is a routine state (for the head, the poller
+    // fully covers it), so it is announced once at warn and the once-a-second
+    // retries stay at debug until the connection recovers.
+    let mut reported_down = false;
+    loop {
+        let mut socket = zeromq::SubSocket::new();
+        match tokio::time::timeout(CONNECT_TIMEOUT, subscribe(&mut socket, &endpoint, &topic))
+            .await
+        {
+            Ok(Ok(())) => {
+                if reported_down {
+                    reported_down = false;
+                    tracing::info!(upstream = %upstream, topic = %topic, "ZMQ connection to {} established", endpoint);
+                }
+                match listen(&mut socket, &topic, &upstream, &mut handler).await {
+                    ListenEnd::Stop => return,
+                    // A healthy idle rebuild reconnects immediately: any delay
+                    // here widens the window in which a notification is
+                    // published to nobody, and topic subscribers have no
+                    // poller to cover the loss.
+                    ListenEnd::Rebuild => continue,
+                    ListenEnd::Failed => {}
+                }
+            }
+            Ok(Err(e)) => {
+                if !reported_down {
+                    reported_down = true;
+                    tracing::warn!(upstream = %upstream, topic = %topic, error = %e, "Failed to connect to ZMQ at {}", endpoint);
+                } else {
+                    tracing::debug!(upstream = %upstream, topic = %topic, error = %e, "ZMQ still failing to connect");
+                }
+            }
+            Err(_) => {
+                if !reported_down {
+                    reported_down = true;
+                    tracing::warn!(upstream = %upstream, topic = %topic, "ZMQ at {} is not reachable", endpoint);
+                } else {
+                    tracing::debug!(upstream = %upstream, topic = %topic, "ZMQ still not reachable");
+                }
+            }
+        }
+        // The failure paths never see a Payload/Idle event, so without this
+        // checkpoint a deserted topic stream would retry an unreachable
+        // endpoint forever.
+        if handler(ZmqEvent::Idle) == ZmqFlow::Stop {
+            return;
+        }
+        tokio::time::sleep(RECONNECT_DELAY).await;
+    }
+}
+
+/// How one connected [`listen`] session ended.
+enum ListenEnd {
+    /// The handler asked to stop the whole subscription.
+    Stop,
+    /// Idle rebuild: the connection was healthy, reconnect without delay.
+    Rebuild,
+    /// The socket errored; reconnect after the usual delay.
+    Failed,
+}
+
+async fn subscribe(
+    socket: &mut zeromq::SubSocket,
+    endpoint: &str,
+    topic: &str,
+) -> zeromq::ZmqResult<()> {
+    socket.connect(endpoint).await?;
+    socket.subscribe(topic).await
+}
+
+/// Receives notifications until the subscription goes quiet for
+/// [`IDLE_TIMEOUT`] (or errors), or until the handler decides to stop.
+async fn listen(
+    socket: &mut zeromq::SubSocket,
+    topic: &str,
+    upstream: &UpstreamId,
+    handler: &mut impl FnMut(ZmqEvent) -> ZmqFlow,
+) -> ListenEnd {
+    loop {
+        match tokio::time::timeout(IDLE_TIMEOUT, socket.recv()).await {
+            Ok(Ok(msg)) => {
+                if let Some(payload) = payload_of(&msg, topic)
+                    && handler(ZmqEvent::Payload(payload)) == ZmqFlow::Stop
+                {
+                    return ListenEnd::Stop;
+                }
+            }
+            Ok(Err(e)) => {
+                tracing::debug!(upstream = %upstream, topic = %topic, error = %e, "ZMQ receive failed, reconnecting");
+                return ListenEnd::Failed;
+            }
+            Err(_) => {
+                tracing::debug!(upstream = %upstream, topic = %topic, "no ZMQ traffic, rebuilding the subscription");
+                return match handler(ZmqEvent::Idle) {
+                    ZmqFlow::Stop => ListenEnd::Stop,
+                    ZmqFlow::Continue => ListenEnd::Rebuild,
+                };
+            }
+        }
+    }
+}
+
+/// The payload frame, if the message is a well-formed notification on exactly
+/// `topic` — a `[topic, payload, uint32 sequence]` triple. ZMQ subscriptions
+/// match by prefix, so the topic frame is compared exactly.
+fn payload_of(msg: &zeromq::ZmqMessage, topic: &str) -> Option<bytes::Bytes> {
+    if msg.get(0)?.as_ref() != topic.as_bytes() {
+        return None;
+    }
+    msg.get(1).cloned()
+}
+
 /// Spawns a background task that subscribes to `hashblock` notifications at
 /// `host:port`, resolves each announced hash to a full block through the
 /// upstream's RPC, and pushes it into the shared head tracker.
@@ -78,110 +225,30 @@ pub fn start_zmq_head(
 ) {
     tokio::spawn(async move {
         let endpoint = format!("tcp://{host}:{port}");
-        tracing::info!(upstream = %upstream.id(), "Connecting to ZMQ at {}:{}", host, port);
-        // The endpoint being down is a routine state the poller fully covers,
-        // so it is announced once at warn and the once-a-second retries stay
-        // at debug until the connection recovers.
-        let mut reported_down = false;
-        loop {
-            let mut socket = zeromq::SubSocket::new();
-            match tokio::time::timeout(CONNECT_TIMEOUT, subscribe(&mut socket, &endpoint)).await {
-                Ok(Ok(())) => {
-                    if reported_down {
-                        reported_down = false;
-                        tracing::info!(
-                            upstream = %upstream.id(),
-                            "ZMQ connection to {}:{} established",
-                            host,
-                            port
-                        );
-                    }
-                    listen(&mut socket, &upstream, &head).await;
-                }
-                Ok(Err(e)) => {
-                    if !reported_down {
-                        reported_down = true;
-                        tracing::warn!(
-                            upstream = %upstream.id(),
-                            error = %e,
-                            "Failed to connect to ZMQ at {}:{}",
-                            host,
-                            port
-                        );
-                    } else {
-                        tracing::debug!(upstream = %upstream.id(), error = %e, "ZMQ still failing to connect");
-                    }
-                }
-                Err(_) => {
-                    if !reported_down {
-                        reported_down = true;
-                        tracing::warn!(
-                            upstream = %upstream.id(),
-                            "ZMQ at {}:{} is not reachable",
-                            host,
-                            port
-                        );
-                    } else {
-                        tracing::debug!(upstream = %upstream.id(), "ZMQ still not reachable");
-                    }
-                }
+        let id = upstream.id().clone();
+        tracing::info!(upstream = %id, "Connecting to ZMQ at {}:{}", host, port);
+        let fetcher = Arc::clone(&upstream);
+        run_subscription(endpoint, HASHBLOCK_TOPIC.to_string(), id, move |event| {
+            if let ZmqEvent::Payload(payload) = event
+                && let Some(hash) = hashblock_hash(&payload)
+            {
+                // Resolved concurrently: a hash the node can't serve yet must
+                // not hold up the next notification behind its retry schedule
+                // (legacy fetched with `flatMap`, also concurrently).
+                tokio::spawn(fetch_block(Arc::clone(&fetcher), Arc::clone(&head), hash));
             }
-            tokio::time::sleep(RECONNECT_DELAY).await;
-        }
+            ZmqFlow::Continue
+        })
+        .await;
     });
 }
 
-async fn subscribe(socket: &mut zeromq::SubSocket, endpoint: &str) -> zeromq::ZmqResult<()> {
-    socket.connect(endpoint).await?;
-    socket.subscribe(HASHBLOCK_TOPIC).await
-}
-
-/// Receives notifications until the subscription goes quiet for
-/// [`IDLE_TIMEOUT`] (or errors); the caller then rebuilds it.
-async fn listen(
-    socket: &mut zeromq::SubSocket,
-    upstream: &Arc<dyn RpcUpstream>,
-    head: &Arc<CurrentHead>,
-) {
-    loop {
-        match tokio::time::timeout(IDLE_TIMEOUT, socket.recv()).await {
-            Ok(Ok(msg)) => {
-                if let Some(hash) = hashblock_hash(&msg) {
-                    // Resolved concurrently: a hash the node can't serve yet
-                    // must not hold up the next notification behind its retry
-                    // schedule (legacy fetched with `flatMap`, also
-                    // concurrently).
-                    tokio::spawn(fetch_block(Arc::clone(upstream), Arc::clone(head), hash));
-                }
-            }
-            Ok(Err(e)) => {
-                tracing::debug!(upstream = %upstream.id(), error = %e, "ZMQ receive failed, reconnecting");
-                return;
-            }
-            Err(_) => {
-                tracing::debug!(upstream = %upstream.id(), "no ZMQ traffic, rebuilding the subscription");
-                return;
-            }
-        }
-    }
-}
-
-/// The announced block hash, if the message is a well-formed `hashblock`
-/// notification — a `[topic, 32-byte hash, uint32 sequence]` triple.
-///
-/// bitcoind reverses its internal byte order before publishing, so the payload
-/// hex-encodes directly into the display-order string `getblock` expects.
-fn hashblock_hash(msg: &zeromq::ZmqMessage) -> Option<String> {
-    let topic = msg.get(0)?;
-    // ZMQ subscriptions match by prefix; accept only the exact topic.
-    if topic.as_ref() != HASHBLOCK_TOPIC.as_bytes() {
-        return None;
-    }
-    let payload = msg.get(1)?;
-    if payload.len() != 32 {
-        return None;
-    }
-    Some(hex::encode(payload))
+/// The `getblock`-ready hash string from a `hashblock` payload, or `None` for
+/// a malformed frame. bitcoind reverses its internal byte order before
+/// publishing, so the 32-byte payload hex-encodes directly into the
+/// display-order string `getblock` expects.
+fn hashblock_hash(payload: &bytes::Bytes) -> Option<String> {
+    (payload.len() == 32).then(|| hex::encode(payload))
 }
 
 /// Resolves an announced hash to the full block and feeds the head.
@@ -282,7 +349,7 @@ mod tests {
         }
     }
 
-    fn hashblock_message(topic: &str, payload: Vec<u8>) -> ZmqMessage {
+    fn triple(topic: &str, payload: Vec<u8>) -> ZmqMessage {
         ZmqMessage::try_from(vec![
             Bytes::from(topic.as_bytes().to_vec()),
             Bytes::from(payload),
@@ -292,26 +359,32 @@ mod tests {
     }
 
     #[test]
-    fn extracts_hash_from_notification() {
-        let msg = hashblock_message("hashblock", vec![0xAB; 32]);
-        assert_eq!(hashblock_hash(&msg), Some("ab".repeat(32)));
+    fn extracts_payload_of_exact_topic() {
+        let msg = triple("hashblock", vec![0xAB; 32]);
+        assert_eq!(
+            payload_of(&msg, "hashblock"),
+            Some(Bytes::from(vec![0xAB; 32]))
+        );
     }
 
     #[test]
-    fn rejects_other_topics_and_malformed_payload() {
-        assert_eq!(
-            hashblock_hash(&hashblock_message("hashtx", vec![0xAB; 32])),
-            None
-        );
+    fn rejects_other_topics() {
+        assert_eq!(payload_of(&triple("hashtx", vec![0xAB; 32]), "hashblock"), None);
         // Prefix-matching a longer topic must not pass the exact check.
         assert_eq!(
-            hashblock_hash(&hashblock_message("hashblocks", vec![0xAB; 32])),
+            payload_of(&triple("hashblocks", vec![0xAB; 32]), "hashblock"),
             None
         );
+    }
+
+    #[test]
+    fn rejects_malformed_hashblock_payload() {
         assert_eq!(
-            hashblock_hash(&hashblock_message("hashblock", vec![0xAB; 16])),
-            None
+            hashblock_hash(&Bytes::from(vec![0xAB; 32])),
+            Some("ab".repeat(32))
         );
+        assert_eq!(hashblock_hash(&Bytes::from(vec![0xAB; 16])), None);
+        assert_eq!(hashblock_hash(&Bytes::from(vec![0xAB; 33])), None);
     }
 
     #[tokio::test(start_paused = true)]
@@ -368,7 +441,7 @@ mod tests {
         // The subscription handshake isn't observable from the publisher, so
         // keep announcing until the block makes it through.
         let hash = hex::decode(BLOCK_HASH).unwrap();
-        let msg = hashblock_message(HASHBLOCK_TOPIC, hash);
+        let msg = triple(HASHBLOCK_TOPIC, hash);
         let received = tokio::time::timeout(Duration::from_secs(10), async {
             loop {
                 let _ = publisher.send(msg.clone()).await;

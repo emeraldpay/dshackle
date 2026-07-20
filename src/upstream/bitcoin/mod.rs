@@ -17,6 +17,7 @@
 pub mod head;
 pub mod http;
 pub mod reader;
+pub mod subscribe;
 pub mod validator;
 pub mod zmq;
 

@@ -15,7 +15,8 @@
 //! Implementation of the `Blockchain` gRPC service from the emerald-api.
 //!
 //! Implemented so far: `native_call`, `subscribe_head`, and `native_subscribe`
-//! (newHeads). The remaining methods return `UNIMPLEMENTED`.
+//! (Ethereum `eth_subscribe` topics; Bitcoin ZMQ topics). The remaining
+//! methods return `UNIMPLEMENTED`.
 
 use crate::blockchain::TargetBlockchain;
 use crate::data::BlockContainer;
@@ -642,9 +643,10 @@ impl Blockchain for BlockchainRpcService {
         metrics::grpc_request(GrpcRequestType::NativeSubscribe, Some(&chain));
         let params = parse_subscribe_params(&req.payload)?;
 
-        // No egress means the chain can't serve subscriptions: it tracks no
-        // head yet, or it isn't an Ethereum-family chain (Bitcoin egress isn't
-        // ported).
+        // No egress means the chain can't serve subscriptions: an Ethereum
+        // chain that tracks no head yet, or a Bitcoin chain with no
+        // `zeromq.topics` configured. Topics advertised by a remote Dshackle
+        // upstream are not relayed yet (legacy did), for any chain.
         let egress = self.upstreams.egress(&chain).ok_or_else(|| {
             tonic::Status::unavailable(format!("BLOCKCHAIN UNAVAILABLE: {chain}"))
         })?;
@@ -666,8 +668,18 @@ impl Blockchain for BlockchainRpcService {
                                         method: topic.clone(),
                                         payload_size_bytes: payload.len() as u64,
                                     },
+                                    // Bitcoin ZMQ topics push raw binary
+                                    // (rawblock is a whole serialized block);
+                                    // dumping that lossily would bloat the log
+                                    // with megabytes of replacement characters,
+                                    // so only text payloads are recorded.
                                     response_body: logs::include_messages()
-                                        .then(|| String::from_utf8_lossy(&payload).into_owned()),
+                                        .then(|| {
+                                            std::str::from_utf8(&payload)
+                                                .ok()
+                                                .map(str::to_owned)
+                                        })
+                                        .flatten(),
                                 },
                             )),
                         ));
