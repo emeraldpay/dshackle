@@ -209,6 +209,16 @@ pub trait ChainAccess: Send + Sync {
     fn status_changes(&self) -> StatusChanges {
         StatusChanges::never()
     }
+
+    /// Whether any upstream of the chain can serve `method` at all. The
+    /// `logs` topic depends on `eth_getLogs` being callable: advertising it
+    /// on a chain that structurally rejects the method would accept
+    /// subscriptions that can only starve ([`logs_stream`] absorbs the
+    /// per-block failures by design). Defaults to `true` for accessors
+    /// without method routing.
+    fn serves_method(&self, _method: &RpcMethod) -> bool {
+        true
+    }
 }
 
 /// Ethereum egress: `newHeads` and `logs` from the chain's merged head and
@@ -221,6 +231,15 @@ pub struct EthereumEgress {
 impl EthereumEgress {
     pub fn new(head: Arc<MergedHead>, access: Arc<dyn ChainAccess>) -> Self {
         Self { head, access }
+    }
+
+    /// `newHeads` and `syncing` need only the head and status this egress
+    /// already holds, but `logs` is a promise to call `eth_getLogs` per
+    /// block — kept out of the advertised topics when the chain can't make
+    /// that call, so a subscriber gets a clean rejection (and a relayed
+    /// `logs` isn't shadowed) instead of an eternally silent stream.
+    fn serves_logs(&self) -> bool {
+        self.access.serves_method(&RpcMethod::from("eth_getLogs"))
     }
 }
 
@@ -247,7 +266,7 @@ impl EgressSubscription for EthereumEgress {
                 Ok(Box::pin(stream))
             }
             METHOD_SYNCING => Ok(syncing_stream(Arc::clone(&self.access))),
-            METHOD_LOGS => Ok(logs_stream(
+            METHOD_LOGS if self.serves_logs() => Ok(logs_stream(
                 Arc::clone(&self.head),
                 Arc::clone(&self.access),
                 LogsFilter::from_params(params),
@@ -257,11 +276,11 @@ impl EgressSubscription for EthereumEgress {
     }
 
     fn available_topics(&self) -> Vec<String> {
-        vec![
-            METHOD_NEW_HEADS.to_string(),
-            METHOD_SYNCING.to_string(),
-            METHOD_LOGS.to_string(),
-        ]
+        let mut topics = vec![METHOD_NEW_HEADS.to_string(), METHOD_SYNCING.to_string()];
+        if self.serves_logs() {
+            topics.push(METHOD_LOGS.to_string());
+        }
+        topics
     }
 }
 
@@ -598,6 +617,9 @@ mod tests {
         logs_by_block: Mutex<HashMap<String, Vec<serde_json::Value>>>,
         block_by_hash: Option<serde_json::Value>,
         last_params: Mutex<Option<serde_json::Value>>,
+        /// Whether the chain can route `eth_getLogs` (the `serves_method`
+        /// answer for it).
+        logs_callable: bool,
     }
 
     impl StubAccess {
@@ -609,6 +631,18 @@ mod tests {
                 logs_by_block: Mutex::new(HashMap::new()),
                 block_by_hash: None,
                 last_params: Mutex::new(None),
+                logs_callable: true,
+            })
+        }
+        fn without_get_logs() -> Arc<Self> {
+            Arc::new(Self {
+                syncing: AtomicBool::new(false),
+                signal: StatusSignal::new(),
+                logs: vec![],
+                logs_by_block: Mutex::new(HashMap::new()),
+                block_by_hash: None,
+                last_params: Mutex::new(None),
+                logs_callable: false,
             })
         }
         fn with_block(syncing: bool, block_by_hash: serde_json::Value) -> Arc<Self> {
@@ -619,6 +653,7 @@ mod tests {
                 logs_by_block: Mutex::new(HashMap::new()),
                 block_by_hash: Some(block_by_hash),
                 last_params: Mutex::new(None),
+                logs_callable: true,
             })
         }
         fn set(&self, syncing: bool) {
@@ -640,6 +675,9 @@ mod tests {
         }
         fn status_changes(&self) -> StatusChanges {
             self.signal.subscribe()
+        }
+        fn serves_method(&self, method: &RpcMethod) -> bool {
+            self.logs_callable || method.as_ref() != "eth_getLogs"
         }
         async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
             *self.last_params.lock().unwrap() = Some(request.params.clone());
@@ -1061,6 +1099,29 @@ mod tests {
         );
         let mut stream = subset.subscribe("hashtx", None).unwrap();
         assert_eq!(stream.next().await.unwrap(), b"a".to_vec());
+    }
+
+    #[tokio::test]
+    async fn logs_hidden_when_get_logs_is_not_callable() {
+        // A chain that structurally rejects `eth_getLogs` must not promise
+        // the `logs` topic: better a clean rejection (and an unshadowed
+        // relay) than a subscription that silently never emits.
+        let merged = Arc::new(MergedHead::new(MergeOrder::Priority));
+        let egress = egress(
+            Arc::clone(&merged),
+            StubAccess::without_get_logs() as Arc<dyn ChainAccess>,
+        );
+
+        assert_eq!(
+            egress.available_topics(),
+            vec![METHOD_NEW_HEADS.to_string(), METHOD_SYNCING.to_string()]
+        );
+        assert!(matches!(
+            egress.subscribe(METHOD_LOGS, None),
+            Err(EgressError::UnsupportedMethod(m)) if m == METHOD_LOGS
+        ));
+        // The head-derived topics are unaffected.
+        assert!(egress.subscribe(METHOD_NEW_HEADS, None).is_ok());
     }
 
     #[tokio::test]

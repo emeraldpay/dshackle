@@ -668,6 +668,7 @@ impl UpstreamManager {
                         url,
                         tls,
                         call_timeout: options.timeout,
+                        priority: options.priority,
                         // Unlike HTTP/WS upstreams this defaults to on, as in
                         // legacy: gRPC negotiates the encoding per call, so a
                         // remote without gzip support is not harmed.
@@ -714,6 +715,7 @@ impl UpstreamManager {
                     &mut allowance_clients,
                     &mut balance_clients,
                     &mut dshackle_relays,
+                    &mut per_chain_fork,
                 ),
                 Ok(Err(e)) => {
                     tracing::warn!(
@@ -863,11 +865,14 @@ impl UpstreamManager {
     /// is relayed (legacy `*DshackleIngressSubscription`).
     pub fn egress(&self, chain: &TargetBlockchain) -> Option<Arc<dyn EgressSubscription>> {
         let mut sources: Vec<Arc<dyn EgressSubscription>> = Vec::new();
+        let mut local_topics: Vec<String> = Vec::new();
         match chain.blockchain_type() {
             BlockchainType::Ethereum => {
                 if let (Some(head), Some(multistream)) = (self.head(chain), self.get(chain)) {
                     let access: Arc<dyn ChainAccess> = multistream.clone();
-                    sources.push(Arc::new(EthereumEgress::new(Arc::clone(head), access)));
+                    let local = Arc::new(EthereumEgress::new(Arc::clone(head), access));
+                    local_topics = local.available_topics();
+                    sources.push(local);
                 }
             }
             BlockchainType::Bitcoin => {
@@ -877,18 +882,6 @@ impl UpstreamManager {
             }
             BlockchainType::Unknown => {}
         }
-
-        // An Ethereum topic the local egress serves is cut from the relays: it
-        // is derived from the chain head the remote itself feeds (over
-        // `SubscribeHead`), so relaying it too would deliver every message
-        // twice. Bitcoin topics stay: there the local and remote streams come
-        // from different nodes, and merging them is the point (legacy merged
-        // all upstreams' streams of a topic the same way).
-        let local_topics: Vec<String> = sources
-            .first()
-            .filter(|_| chain.blockchain_type() == BlockchainType::Ethereum)
-            .map(|local| local.available_topics())
-            .unwrap_or_default();
         for relay in self.dshackle_relays.get(chain).into_iter().flatten() {
             let added: Vec<String> = relay
                 .available_topics()
@@ -1444,6 +1437,8 @@ struct PendingDshackle {
     url: String,
     tls: Option<crate::tls::ClientTlsSetup>,
     call_timeout: Duration,
+    /// Merge priority of the discovered chains' heads, as for local upstreams.
+    priority: i32,
     compress: bool,
 }
 
@@ -1468,6 +1463,7 @@ fn wire_remote_dshackle(
     allowance_clients: &mut HashMap<TargetBlockchain, BlockchainClient<Channel>>,
     balance_clients: &mut HashMap<TargetBlockchain, BlockchainClient<Channel>>,
     dshackle_relays: &mut HashMap<TargetBlockchain, Vec<Arc<DshackleEgress>>>,
+    per_chain_fork: &mut HashMap<TargetBlockchain, Vec<ForkMember>>,
 ) {
     let upstream_id = &pending.id;
     if chains.is_empty() {
@@ -1514,25 +1510,36 @@ fn wire_remote_dshackle(
             desc_chain.supported_methods.len(),
         );
 
-        let ds_upstream = DshackleUpstream::new(
+        let ds_upstream = Arc::new(DshackleUpstream::new(
             chain_id.clone(),
             desc_chain.chain,
             client.clone(),
             syncing_lag,
             pending.call_timeout,
-        );
+        ));
 
         // Subscribe caching head before starting the poller so no blocks are missed
         let head = ds_upstream.head_height();
         let caching_head = get_or_create_caching_head(chain, redis_conn, caches_map, caching_heads);
         caching_head.follow(&head);
 
+        // The remote's head joins the chain's fork members like any local
+        // upstream's, so the chain gets a `MergedHead` even when every
+        // upstream is a remote Dshackle: that serves the local
+        // `SubscribeHead`, and the head-derived egress topics are produced
+        // once from the merge instead of relayed per remote.
+        per_chain_fork.entry(chain).or_default().push(ForkMember {
+            id: chain_id.clone(),
+            priority: pending.priority,
+            head,
+            state: ds_upstream.state_handle(),
+        });
+
         // Start head tracking via SubscribeHead
         start_head_subscriber(
             chain_id.clone(),
             desc_chain.chain,
-            ds_upstream.grpc_client(),
-            head,
+            Arc::clone(&ds_upstream),
         );
 
         // Track the remote's own reported availability via SubscribeStatus.
@@ -1544,7 +1551,7 @@ fn wire_remote_dshackle(
         );
 
         let metered = MeteredUpstream::new(
-            Arc::new(ds_upstream),
+            ds_upstream,
             crate::metrics::UpstreamProtocol::Grpc,
             upstream_id.clone(),
             chain,
@@ -1588,6 +1595,7 @@ fn wire_remote_dshackle(
                     desc_chain.chain,
                     client.clone(),
                     desc_chain.supported_subscriptions.clone(),
+                    pending.call_timeout,
                 )));
         }
 
@@ -1681,9 +1689,57 @@ mod tests {
                 chain.id(),
                 dead_client(),
                 topics.iter().map(|t| t.to_string()).collect(),
+                Duration::from_secs(1),
             ),
         ));
         manager
+    }
+
+    #[tokio::test]
+    async fn wire_remote_dshackle_registers_fork_members() {
+        let pending = PendingDshackle {
+            id: "remote".parse().unwrap(),
+            role: crate::config::upstreams::UpstreamRole::Primary,
+            url: "http://127.0.0.1:1".into(),
+            tls: None,
+            call_timeout: Duration::from_secs(1),
+            priority: 42,
+            compress: false,
+        };
+        let mut caches_map = HashMap::new();
+        let mut caching_heads = HashMap::new();
+        let mut per_chain = HashMap::new();
+        let mut per_chain_methods = HashMap::new();
+        let mut allowance_clients = HashMap::new();
+        let mut balance_clients = HashMap::new();
+        let mut dshackle_relays = HashMap::new();
+        let mut per_chain_fork = HashMap::new();
+
+        wire_remote_dshackle(
+            &pending,
+            dead_client(),
+            vec![DescribeChain {
+                chain: 100,
+                ..Default::default()
+            }],
+            None,
+            &mut caches_map,
+            &mut caching_heads,
+            &mut per_chain,
+            &mut per_chain_methods,
+            &mut allowance_clients,
+            &mut balance_clients,
+            &mut dshackle_relays,
+            &mut per_chain_fork,
+        );
+
+        // The discovered chain's head joined the fork members, so the chain
+        // will get a MergedHead even with no local upstream.
+        let chain: TargetBlockchain = "ethereum".parse().unwrap();
+        let members = per_chain_fork.get(&chain).expect("fork member registered");
+        assert_eq!(members.len(), 1);
+        assert_eq!(members[0].id.as_str(), "remote_eth");
+        assert_eq!(members[0].priority, 42);
     }
 
     #[tokio::test]
@@ -1736,6 +1792,69 @@ mod tests {
                 "newPendingTransactions".to_string(),
             ]
         );
+    }
+
+    /// An Ethereum chain whose only upstream is a remote Dshackle that does
+    /// NOT expose `eth_getLogs` (its Describe method list gates local calls).
+    fn chain_without_get_logs(manager: &mut UpstreamManager, chain: TargetBlockchain) {
+        let inner: Arc<dyn RpcUpstream> = Arc::new(DshackleUpstream::new(
+            "remote_eth".parse().unwrap(),
+            chain.id(),
+            dead_client(),
+            6,
+            Duration::from_secs(1),
+        ));
+        let callable: HashSet<crate::jsonrpc::RpcMethod> =
+            ["eth_blockNumber"].iter().filter_map(|m| m.parse().ok()).collect();
+        let upstream: Arc<dyn RpcUpstream> = Arc::new(MethodFilter::new(
+            inner,
+            Arc::new(ConfiguredMethods::allowed_only(callable)),
+        ));
+        manager.upstreams.insert(
+            chain,
+            Arc::new(Multistream::new(
+                chain,
+                vec![upstream],
+                quorum_factory_for(chain),
+            )),
+        );
+        manager
+            .heads
+            .insert(chain, Arc::new(MergedHead::new(MergeOrder::Priority)));
+    }
+
+    #[tokio::test]
+    async fn egress_hides_logs_when_get_logs_is_not_callable() {
+        let chain: TargetBlockchain = "ethereum".parse().unwrap();
+        let mut manager = UpstreamManager::from_parts(HashMap::new(), HashMap::new());
+        chain_without_get_logs(&mut manager, chain);
+
+        let egress = manager.egress(&chain).expect("local egress");
+        assert_eq!(
+            egress.available_topics(),
+            vec!["newHeads".to_string(), "syncing".to_string()]
+        );
+    }
+
+    #[tokio::test]
+    async fn egress_relays_logs_when_local_get_logs_is_not_callable() {
+        // The local egress doesn't claim `logs` here (see the test above), so
+        // the cut leaves the relay's `logs` in place and subscribers reach
+        // the remote's working stream instead of a silent local one.
+        let chain: TargetBlockchain = "ethereum".parse().unwrap();
+        let mut manager = manager_with_relay(chain, &["logs"]);
+        chain_without_get_logs(&mut manager, chain);
+
+        let egress = manager.egress(&chain).expect("local + relay egress");
+        assert_eq!(
+            egress.available_topics(),
+            vec![
+                "newHeads".to_string(),
+                "syncing".to_string(),
+                "logs".to_string(),
+            ]
+        );
+        assert!(egress.subscribe("logs", None).is_ok());
     }
 
     #[tokio::test]

@@ -286,6 +286,13 @@ impl ChainAccess for Multistream {
             .max()
     }
 
+    fn serves_method(&self, method: &RpcMethod) -> bool {
+        // Structural, not availability-based: the question is whether the
+        // method can ever be routed here, the same gate `select_available`
+        // applies per call.
+        self.upstreams.iter().any(|u| u.allows_method(method))
+    }
+
     async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
         // The same routing core as `native_call::execute_call`, inlined to keep
         // the upstream layer from depending on the rpc layer.

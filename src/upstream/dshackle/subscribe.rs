@@ -51,6 +51,9 @@ pub struct DshackleEgress {
     chain_ref: i32,
     client: BlockchainClient<Channel>,
     topics: Vec<String>,
+    /// Bound on one remote `native_subscribe` connect (the upstream's
+    /// `options.timeout`, as for `NativeCall`).
+    connect_timeout: Duration,
     /// One relay per param-less topic, so all its local subscribers share a
     /// single remote stream. Subscriptions with params don't share — the
     /// params make the remote stream subscriber-specific.
@@ -65,43 +68,48 @@ impl DshackleEgress {
         chain_ref: i32,
         client: BlockchainClient<Channel>,
         topics: Vec<String>,
+        connect_timeout: Duration,
     ) -> Self {
         Self {
             upstream,
             chain_ref,
             client,
             topics,
+            connect_timeout,
             shared: Mutex::new(HashMap::new()),
         }
     }
 
+    fn new_relay(&self, method: &str, payload: Vec<u8>) -> Arc<TopicRelay> {
+        Arc::new(TopicRelay::new(
+            self.upstream.clone(),
+            NativeSubscribeRequest {
+                chain: self.chain_ref,
+                method: method.to_string(),
+                payload,
+            },
+            self.client.clone(),
+            self.connect_timeout,
+        ))
+    }
+
     fn relay_for(&self, method: &str, params: Option<serde_json::Value>) -> Arc<TopicRelay> {
-        let payload = match &params {
+        match params {
             // The payload carries the subscription params as JSON — the same
             // format the serving side parses them from.
-            Some(value) => serde_json::to_vec(value).expect("JSON value always serializes"),
-            None => Vec::new(),
-        };
-        let request = NativeSubscribeRequest {
-            chain: self.chain_ref,
-            method: method.to_string(),
-            payload,
-        };
-        if params.is_some() {
-            return Arc::new(TopicRelay::new(
-                self.upstream.clone(),
-                request,
-                self.client.clone(),
-            ));
+            Some(value) => self.new_relay(
+                method,
+                serde_json::to_vec(&value).expect("JSON value always serializes"),
+            ),
+            None => {
+                let mut shared = self.shared.lock().expect("dshackle egress lock poisoned");
+                Arc::clone(
+                    shared
+                        .entry(method.to_string())
+                        .or_insert_with(|| self.new_relay(method, Vec::new())),
+                )
+            }
         }
-        let mut shared = self.shared.lock().expect("dshackle egress lock poisoned");
-        Arc::clone(shared.entry(method.to_string()).or_insert_with(|| {
-            Arc::new(TopicRelay::new(
-                self.upstream.clone(),
-                request,
-                self.client.clone(),
-            ))
-        }))
     }
 }
 
@@ -136,6 +144,7 @@ struct TopicRelay {
     upstream: UpstreamId,
     request: NativeSubscribeRequest,
     client: BlockchainClient<Channel>,
+    connect_timeout: Duration,
     fanout: SharedFanout<Vec<u8>>,
 }
 
@@ -144,11 +153,13 @@ impl TopicRelay {
         upstream: UpstreamId,
         request: NativeSubscribeRequest,
         client: BlockchainClient<Channel>,
+        connect_timeout: Duration,
     ) -> Self {
         Self {
             upstream,
             request,
             client,
+            connect_timeout,
             fanout: SharedFanout::new(),
         }
     }
@@ -165,8 +176,23 @@ impl TopicRelay {
         let mut delay = INITIAL_RETRY_DELAY;
         loop {
             let mut client = self.client.clone();
-            match client.native_subscribe(self.request.clone()).await {
-                Ok(response) => {
+            // The connect is bounded and races subscriber departure like
+            // every other await here: a blackholed remote must not hang the
+            // relay silently, and a deserted relay must not keep connecting.
+            let connect = tokio::select! {
+                connect = tokio::time::timeout(
+                    self.connect_timeout,
+                    client.native_subscribe(self.request.clone()),
+                ) => connect,
+                _ = tx.closed() => {
+                    if self.finished(&tx) {
+                        return;
+                    }
+                    continue;
+                }
+            };
+            match connect {
+                Ok(Ok(response)) => {
                     let mut stream = response.into_inner();
                     loop {
                         let message = tokio::select! {
@@ -213,12 +239,20 @@ impl TopicRelay {
                         }
                     }
                 }
-                Err(e) => {
+                Ok(Err(e)) => {
                     tracing::warn!(
                         upstream = %self.upstream,
                         topic = %self.request.method,
                         error = %e,
                         "native_subscribe failed, retrying"
+                    );
+                }
+                Err(_elapsed) => {
+                    tracing::warn!(
+                        upstream = %self.upstream,
+                        topic = %self.request.method,
+                        timeout = ?self.connect_timeout,
+                        "native_subscribe timed out, retrying"
                     );
                 }
             }
@@ -401,6 +435,7 @@ mod tests {
             1,
             client,
             topics.iter().map(|t| t.to_string()).collect(),
+            Duration::from_secs(5),
         )
     }
 

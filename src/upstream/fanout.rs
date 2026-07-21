@@ -40,6 +40,7 @@ pub struct SharedFanout<T> {
 }
 
 impl<T: Clone> SharedFanout<T> {
+    /// An idle fan-out: no channel exists until the first subscriber attaches.
     pub fn new() -> Self {
         Self {
             sender: Mutex::new(None),
@@ -77,7 +78,7 @@ impl<T: Clone> SharedFanout<T> {
     /// Whether a producer currently runs — the slot holds a live channel. It
     /// stays `true` between the last subscriber leaving and the producer
     /// noticing via [`finish_if_deserted`](Self::finish_if_deserted).
-    pub fn is_live(&self) -> bool {
+    pub(crate) fn is_live(&self) -> bool {
         self.sender
             .lock()
             .expect("fanout lock poisoned")
@@ -85,7 +86,7 @@ impl<T: Clone> SharedFanout<T> {
     }
 
     /// Number of currently attached subscribers.
-    pub fn subscribers(&self) -> usize {
+    pub(crate) fn subscribers(&self) -> usize {
         self.sender
             .lock()
             .expect("fanout lock poisoned")
