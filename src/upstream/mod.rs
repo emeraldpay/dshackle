@@ -23,6 +23,7 @@ pub mod block_updates;
 mod disabled_methods;
 mod dshackle;
 pub mod egress;
+pub mod fanout;
 pub mod ethereum;
 pub mod fees;
 pub mod fork;
@@ -72,7 +73,8 @@ use bitcoin::zmq::start_zmq_head;
 use dshackle::DshackleUpstream;
 use dshackle::head::start_head_subscriber;
 use dshackle::status::start_status_subscriber;
-use egress::{ChainAccess, EgressSubscription, EthereumEgress};
+use dshackle::subscribe::DshackleEgress;
+use egress::{ChainAccess, EgressSubscription, EthereumEgress, MergedEgress, TopicSubset};
 use emerald_api::proto::blockchain::AddressAllowanceRequest;
 use emerald_api::proto::blockchain::BalanceRequest;
 use emerald_api::proto::blockchain::TxStatusRequest;
@@ -138,6 +140,13 @@ pub struct UpstreamManager {
     /// Per-chain ZMQ topic streams of the Bitcoin upstreams, backing the
     /// Bitcoin egress subscriptions.
     zmq_topics: HashMap<TargetBlockchain, Vec<Arc<ZmqTopicStream>>>,
+    /// Per-chain `NativeSubscribe` relays of remote Dshackle upstreams,
+    /// carrying the topics each remote advertised over `Describe` (legacy
+    /// `EthereumDshackleIngressSubscription` /
+    /// `BitcoinDshackleIngressSubscription`). Held here — not rebuilt per
+    /// `egress()` call — so all subscribers keep sharing one remote stream
+    /// per topic.
+    dshackle_relays: HashMap<TargetBlockchain, Vec<Arc<DshackleEgress>>>,
 }
 
 /// How long to wait for a remote Dshackle upstream's connect + `Describe`
@@ -196,6 +205,10 @@ impl UpstreamManager {
         // First BALANCE-capable remote Dshackle client per chain, used to forward
         // Bitcoin balance requests.
         let mut balance_clients: HashMap<TargetBlockchain, BlockchainClient<Channel>> =
+            HashMap::new();
+        // Per-chain subscription relays of the remote Dshackle upstreams,
+        // feeding the chain's egress alongside the locally-served topics.
+        let mut dshackle_relays: HashMap<TargetBlockchain, Vec<Arc<DshackleEgress>>> =
             HashMap::new();
         // Remote Dshackle upstreams to connect after the main loop. Their chains
         // and methods are only known from the remote's `Describe`, so they are
@@ -700,6 +713,7 @@ impl UpstreamManager {
                     &mut per_chain_methods,
                     &mut allowance_clients,
                     &mut balance_clients,
+                    &mut dshackle_relays,
                 ),
                 Ok(Err(e)) => {
                     tracing::warn!(
@@ -800,6 +814,7 @@ impl UpstreamManager {
             allowance_clients,
             balance_clients,
             zmq_topics: per_chain_zmq_topics,
+            dshackle_relays,
         })
     }
 
@@ -818,6 +833,7 @@ impl UpstreamManager {
             allowance_clients: HashMap::new(),
             balance_clients: HashMap::new(),
             zmq_topics: HashMap::new(),
+            dshackle_relays: HashMap::new(),
         }
     }
 
@@ -842,21 +858,49 @@ impl UpstreamManager {
     /// Build the server-pushed-subscription egress for a chain, or `None` when
     /// the chain can't serve subscriptions. Ethereum-family chains serve the
     /// `eth_subscribe` topics; Bitcoin chains serve the ZMQ topics their
-    /// upstreams were configured with (`zeromq.topics`), and get `None` when
-    /// there are none.
+    /// upstreams were configured with (`zeromq.topics`). On top of the local
+    /// topics, whatever a remote Dshackle upstream advertised over `Describe`
+    /// is relayed (legacy `*DshackleIngressSubscription`).
     pub fn egress(&self, chain: &TargetBlockchain) -> Option<Arc<dyn EgressSubscription>> {
+        let mut sources: Vec<Arc<dyn EgressSubscription>> = Vec::new();
         match chain.blockchain_type() {
             BlockchainType::Ethereum => {
-                let head = self.head(chain)?;
-                let access: Arc<dyn ChainAccess> = self.get(chain)?.clone();
-                Some(Arc::new(EthereumEgress::new(Arc::clone(head), access)))
+                if let (Some(head), Some(multistream)) = (self.head(chain), self.get(chain)) {
+                    let access: Arc<dyn ChainAccess> = multistream.clone();
+                    sources.push(Arc::new(EthereumEgress::new(Arc::clone(head), access)));
+                }
             }
             BlockchainType::Bitcoin => {
-                let sources = self.zmq_topics.get(chain)?;
-                Some(Arc::new(BitcoinEgress::new(sources.clone())))
+                if let Some(zmq) = self.zmq_topics.get(chain) {
+                    sources.push(Arc::new(BitcoinEgress::new(zmq.clone())));
+                }
             }
-            BlockchainType::Unknown => None,
+            BlockchainType::Unknown => {}
         }
+
+        // An Ethereum topic the local egress serves is cut from the relays: it
+        // is derived from the chain head the remote itself feeds (over
+        // `SubscribeHead`), so relaying it too would deliver every message
+        // twice. Bitcoin topics stay: there the local and remote streams come
+        // from different nodes, and merging them is the point (legacy merged
+        // all upstreams' streams of a topic the same way).
+        let local_topics: Vec<String> = sources
+            .first()
+            .filter(|_| chain.blockchain_type() == BlockchainType::Ethereum)
+            .map(|local| local.available_topics())
+            .unwrap_or_default();
+        for relay in self.dshackle_relays.get(chain).into_iter().flatten() {
+            let added: Vec<String> = relay
+                .available_topics()
+                .into_iter()
+                .filter(|topic| !local_topics.contains(topic))
+                .collect();
+            if added.is_empty() {
+                continue;
+            }
+            sources.push(Arc::new(TopicSubset::new(Arc::clone(relay) as _, added)));
+        }
+        MergedEgress::combined(sources)
     }
 
     /// Build the fee estimator for a chain, or `None` when fee estimation isn't
@@ -1423,6 +1467,7 @@ fn wire_remote_dshackle(
     per_chain_methods: &mut HashMap<TargetBlockchain, Vec<Arc<dyn QuorumFactory>>>,
     allowance_clients: &mut HashMap<TargetBlockchain, BlockchainClient<Channel>>,
     balance_clients: &mut HashMap<TargetBlockchain, BlockchainClient<Channel>>,
+    dshackle_relays: &mut HashMap<TargetBlockchain, Vec<Arc<DshackleEgress>>>,
 ) {
     let upstream_id = &pending.id;
     if chains.is_empty() {
@@ -1531,6 +1576,21 @@ fn wire_remote_dshackle(
                 .or_insert_with(|| client.clone());
         }
 
+        // Topics the remote advertises become a `NativeSubscribe` relay, so
+        // local clients can subscribe to them too and the chain's own
+        // `Describe` re-advertises them (legacy `*DshackleIngressSubscription`).
+        if !desc_chain.supported_subscriptions.is_empty() {
+            dshackle_relays
+                .entry(chain)
+                .or_default()
+                .push(Arc::new(DshackleEgress::new(
+                    chain_id.clone(),
+                    desc_chain.chain,
+                    client.clone(),
+                    desc_chain.supported_subscriptions.clone(),
+                )));
+        }
+
         // Use the supported methods from Describe as the allowed set.
         // The remote Dshackle already handles hardcoded responses, so we
         // only need a MethodFilter — no HardcodedMethods wrapper.
@@ -1601,6 +1661,99 @@ fn wire_remote_dshackle(
 mod tests {
     use super::*;
     use crate::config::upstreams::PartialOptions;
+    use merged_head::MergeOrder;
+
+    /// A client to nowhere — enough to build a relay whose topics are
+    /// inspected without any remote call.
+    fn dead_client() -> BlockchainClient<Channel> {
+        BlockchainClient::new(
+            tonic::transport::Endpoint::from_shared("http://127.0.0.1:1")
+                .unwrap()
+                .connect_lazy(),
+        )
+    }
+
+    fn manager_with_relay(chain: TargetBlockchain, topics: &[&str]) -> UpstreamManager {
+        let mut manager = UpstreamManager::from_parts(HashMap::new(), HashMap::new());
+        manager.dshackle_relays.entry(chain).or_default().push(Arc::new(
+            DshackleEgress::new(
+                "remote".parse().unwrap(),
+                chain.id(),
+                dead_client(),
+                topics.iter().map(|t| t.to_string()).collect(),
+            ),
+        ));
+        manager
+    }
+
+    #[tokio::test]
+    async fn egress_serves_remote_topics_without_local_sources() {
+        // A Bitcoin chain with no local `zeromq.topics` still gets an egress
+        // when a remote Dshackle advertises topics to relay.
+        let chain: TargetBlockchain = "bitcoin".parse().unwrap();
+        let manager = manager_with_relay(chain, &["hashtx", "hashblock"]);
+
+        let egress = manager.egress(&chain).expect("relay-only egress");
+        assert_eq!(
+            egress.available_topics(),
+            vec!["hashtx".to_string(), "hashblock".to_string()]
+        );
+    }
+
+    #[tokio::test]
+    async fn egress_cuts_locally_served_ethereum_topics_from_the_relay() {
+        let chain: TargetBlockchain = "ethereum".parse().unwrap();
+        let mut manager = manager_with_relay(chain, &["newHeads", "newPendingTransactions"]);
+        let upstream: Arc<dyn RpcUpstream> = Arc::new(DshackleUpstream::new(
+            "remote_eth".parse().unwrap(),
+            chain.id(),
+            dead_client(),
+            6,
+            Duration::from_secs(1),
+        ));
+        manager.upstreams.insert(
+            chain,
+            Arc::new(Multistream::new(
+                chain,
+                vec![upstream],
+                quorum_factory_for(chain),
+            )),
+        );
+        manager
+            .heads
+            .insert(chain, Arc::new(MergedHead::new(MergeOrder::Priority)));
+
+        // The local topics come first; of the remote's list only
+        // `newPendingTransactions` is added — its `newHeads` is derived from
+        // the same head the local egress serves, so it is not relayed.
+        let egress = manager.egress(&chain).expect("local + relay egress");
+        assert_eq!(
+            egress.available_topics(),
+            vec![
+                "newHeads".to_string(),
+                "syncing".to_string(),
+                "logs".to_string(),
+                "newPendingTransactions".to_string(),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn egress_relays_ethereum_topics_when_nothing_is_served_locally() {
+        // Without a tracked head there is no local egress, so everything the
+        // remote advertises is relayed, head-derived topics included.
+        let chain: TargetBlockchain = "ethereum".parse().unwrap();
+        let manager = manager_with_relay(chain, &["newHeads", "newPendingTransactions"]);
+
+        let egress = manager.egress(&chain).expect("relay-only egress");
+        assert_eq!(
+            egress.available_topics(),
+            vec![
+                "newHeads".to_string(),
+                "newPendingTransactions".to_string()
+            ]
+        );
+    }
 
     #[test]
     fn dshackle_options_all_applicable_by_default() {

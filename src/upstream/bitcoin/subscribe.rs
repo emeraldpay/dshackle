@@ -31,17 +31,13 @@
 
 use crate::upstream::bitcoin::zmq::{ZmqEvent, ZmqFlow, run_subscription};
 use crate::upstream::egress::{EgressError, EgressSubscription, SubscriptionStream};
+use crate::upstream::fanout::SharedFanout;
 use crate::upstream::id::UpstreamId;
 use bytes::Bytes;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tokio::sync::broadcast;
 use tokio_stream::StreamExt;
 use tokio_stream::wrappers::BroadcastStream;
-
-/// How many notifications a subscriber may fall behind before it starts losing
-/// them. Delivery is best-effort, like the legacy `directBestEffort` sink: a
-/// slow consumer skips ahead rather than back-pressuring the node connection.
-const TOPIC_CHANNEL_CAPACITY: usize = 256;
 
 /// The ZMQ notification topics bitcoind can publish, as configurable under
 /// `zeromq.topics`. Ports the legacy `BitcoinZmqTopic`.
@@ -85,9 +81,7 @@ pub struct ZmqTopicStream {
     endpoint: String,
     topic: BitcoinZmqTopic,
     upstream: UpstreamId,
-    /// The live connection's broadcast side, present only while the
-    /// connection task runs.
-    sender: Mutex<Option<broadcast::Sender<Bytes>>>,
+    fanout: SharedFanout<Bytes>,
 }
 
 impl ZmqTopicStream {
@@ -96,7 +90,7 @@ impl ZmqTopicStream {
             endpoint: format!("tcp://{host}:{port}"),
             topic,
             upstream,
-            sender: Mutex::new(None),
+            fanout: SharedFanout::new(),
         }
     }
 
@@ -107,44 +101,29 @@ impl ZmqTopicStream {
     /// Attach to the shared connection, starting it if this is the first
     /// subscriber.
     pub fn subscribe(self: &Arc<Self>) -> broadcast::Receiver<Bytes> {
-        let mut sender = self.sender.lock().expect("zmq topic lock poisoned");
-        if let Some(tx) = sender.as_ref() {
-            return tx.subscribe();
-        }
-        let (tx, rx) = broadcast::channel(TOPIC_CHANNEL_CAPACITY);
-        *sender = Some(tx.clone());
-
-        let this = Arc::clone(self);
-        tokio::spawn(run_subscription(
-            self.endpoint.clone(),
-            self.topic.id().to_string(),
-            self.upstream.clone(),
-            move |event| {
-                let deserted = match event {
-                    ZmqEvent::Payload(payload) => tx.send(payload).is_err(),
-                    ZmqEvent::Idle => tx.receiver_count() == 0,
-                };
-                if !deserted {
-                    return ZmqFlow::Continue;
-                }
-                // Last subscriber is gone — shut the connection down. Checked
-                // again under the lock: a new subscriber may have attached to
-                // this very sender in the meantime, and stopping then would
-                // hand it a stream that is dead on arrival.
-                let mut sender = this.sender.lock().expect("zmq topic lock poisoned");
-                if tx.receiver_count() > 0 {
-                    return ZmqFlow::Continue;
-                }
-                *sender = None;
-                tracing::debug!(
-                    upstream = %this.upstream,
-                    topic = %this.topic.id(),
-                    "no subscribers left, closing the ZMQ topic connection"
-                );
-                ZmqFlow::Stop
-            },
-        ));
-        rx
+        self.fanout.subscribe(|tx| {
+            let this = Arc::clone(self);
+            tokio::spawn(run_subscription(
+                self.endpoint.clone(),
+                self.topic.id().to_string(),
+                self.upstream.clone(),
+                move |event| {
+                    let deserted = match event {
+                        ZmqEvent::Payload(payload) => tx.send(payload).is_err(),
+                        ZmqEvent::Idle => tx.receiver_count() == 0,
+                    };
+                    if !deserted || !this.fanout.finish_if_deserted(&tx) {
+                        return ZmqFlow::Continue;
+                    }
+                    tracing::debug!(
+                        upstream = %this.upstream,
+                        topic = %this.topic.id(),
+                        "no subscribers left, closing the ZMQ topic connection"
+                    );
+                    ZmqFlow::Stop
+                },
+            ));
+        })
     }
 }
 
@@ -301,10 +280,7 @@ mod tests {
         let first = source.subscribe();
         let second = source.subscribe();
         // Both subscribers share the one connection started by the first.
-        assert_eq!(
-            source.sender.lock().unwrap().as_ref().unwrap().receiver_count(),
-            2
-        );
+        assert_eq!(source.fanout.subscribers(), 2);
 
         drop(first);
         drop(second);
@@ -312,6 +288,6 @@ mod tests {
         // latest — so no immediate assertion on shutdown here; a new
         // subscriber must still get a working stream immediately.
         let _third = source.subscribe();
-        assert!(source.sender.lock().unwrap().is_some());
+        assert!(source.fanout.is_live());
     }
 }

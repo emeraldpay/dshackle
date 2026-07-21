@@ -644,9 +644,9 @@ impl Blockchain for BlockchainRpcService {
         let params = parse_subscribe_params(&req.payload)?;
 
         // No egress means the chain can't serve subscriptions: an Ethereum
-        // chain that tracks no head yet, or a Bitcoin chain with no
-        // `zeromq.topics` configured. Topics advertised by a remote Dshackle
-        // upstream are not relayed yet (legacy did), for any chain.
+        // chain that tracks no head yet, or a Bitcoin chain with neither
+        // `zeromq.topics` configured nor a remote Dshackle upstream
+        // advertising topics to relay.
         let egress = self.upstreams.egress(&chain).ok_or_else(|| {
             tonic::Status::unavailable(format!("BLOCKCHAIN UNAVAILABLE: {chain}"))
         })?;

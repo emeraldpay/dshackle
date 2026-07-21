@@ -22,6 +22,7 @@
 
 pub mod head;
 pub mod status;
+pub mod subscribe;
 pub mod upstream;
 
 pub use upstream::DshackleUpstream;

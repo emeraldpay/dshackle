@@ -27,6 +27,7 @@ use crate::upstream::merged_head::MergeOrder;
 use crate::upstream::merged_head::MergedHead;
 use crate::upstream::status_signal::StatusChanges;
 use crate::upstream::traits::UpstreamError;
+use itertools::Itertools;
 use serde_json::json;
 use std::collections::{HashMap, VecDeque};
 use std::pin::Pin;
@@ -78,6 +79,92 @@ pub trait EgressSubscription: Send + Sync {
     /// Topics this egress can serve, for `Describe`'s `supportedSubscriptions`
     /// (legacy `EgressSubscription.getAvailableTopics`).
     fn available_topics(&self) -> Vec<String>;
+}
+
+/// The egress sources of one chain folded into a single egress — the local
+/// egress plus any remote Dshackle relays. A topic carried by several sources
+/// merges their streams into one, as the legacy chain egress merged every
+/// upstream's stream of a topic.
+pub struct MergedEgress {
+    sources: Vec<Arc<dyn EgressSubscription>>,
+}
+
+impl MergedEgress {
+    /// Collapse a chain's egress sources into one: `None` when there are
+    /// none, the sole source unchanged, or a merging wrapper.
+    pub fn combined(
+        sources: Vec<Arc<dyn EgressSubscription>>,
+    ) -> Option<Arc<dyn EgressSubscription>> {
+        match sources.len() {
+            0 => None,
+            1 => sources.into_iter().next(),
+            _ => Some(Arc::new(MergedEgress { sources })),
+        }
+    }
+}
+
+impl EgressSubscription for MergedEgress {
+    fn subscribe(
+        &self,
+        method: &str,
+        params: Option<serde_json::Value>,
+    ) -> Result<SubscriptionStream, EgressError> {
+        let mut streams = Vec::new();
+        for source in &self.sources {
+            if let Ok(stream) = source.subscribe(method, params.clone()) {
+                streams.push(stream);
+            }
+        }
+        match streams.len() {
+            0 => Err(EgressError::UnsupportedMethod(method.to_string())),
+            1 => Ok(streams.remove(0)),
+            _ => Ok(Box::pin(futures::stream::select_all(streams))),
+        }
+    }
+
+    fn available_topics(&self) -> Vec<String> {
+        self.sources
+            .iter()
+            .flat_map(|source| source.available_topics())
+            .unique()
+            .collect()
+    }
+}
+
+/// A view of an egress restricted to a subset of its topics.
+///
+/// Cuts from a remote Dshackle relay the Ethereum topics the local egress
+/// already serves: those are derived from the chain head the remote itself
+/// feeds (over `SubscribeHead`), so relaying them as well would deliver every
+/// message twice.
+pub struct TopicSubset {
+    inner: Arc<dyn EgressSubscription>,
+    topics: Vec<String>,
+}
+
+impl TopicSubset {
+    /// `topics` is the visible subset: a topic outside it is rejected even
+    /// when `inner` could serve it.
+    pub fn new(inner: Arc<dyn EgressSubscription>, topics: Vec<String>) -> Self {
+        Self { inner, topics }
+    }
+}
+
+impl EgressSubscription for TopicSubset {
+    fn subscribe(
+        &self,
+        method: &str,
+        params: Option<serde_json::Value>,
+    ) -> Result<SubscriptionStream, EgressError> {
+        if !self.topics.iter().any(|t| t == method) {
+            return Err(EgressError::UnsupportedMethod(method.to_string()));
+        }
+        self.inner.subscribe(method, params)
+    }
+
+    fn available_topics(&self) -> Vec<String> {
+        self.topics.clone()
+    }
 }
 
 /// What the egress needs from a chain's upstreams: the aggregate syncing state
@@ -842,6 +929,138 @@ mod tests {
         let msg: serde_json::Value = serde_json::from_slice(&stream.next().await.unwrap()).unwrap();
         assert_eq!(msg["address"], "0xbbb");
         assert_eq!(msg["removed"], false);
+    }
+
+    /// An egress serving one topic with one fixed message, for combinator
+    /// tests.
+    struct FixedEgress {
+        topic: &'static str,
+        message: &'static str,
+    }
+
+    impl EgressSubscription for FixedEgress {
+        fn subscribe(
+            &self,
+            method: &str,
+            _params: Option<serde_json::Value>,
+        ) -> Result<SubscriptionStream, EgressError> {
+            if method != self.topic {
+                return Err(EgressError::UnsupportedMethod(method.to_string()));
+            }
+            let message = self.message.as_bytes().to_vec();
+            Ok(Box::pin(futures::stream::once(async move { message })))
+        }
+
+        fn available_topics(&self) -> Vec<String> {
+            vec![self.topic.to_string()]
+        }
+    }
+
+    #[test]
+    fn merged_egress_collapses_none_and_single() {
+        assert!(MergedEgress::combined(vec![]).is_none());
+
+        let single = MergedEgress::combined(vec![Arc::new(FixedEgress {
+            topic: "hashtx",
+            message: "a",
+        })])
+        .unwrap();
+        assert_eq!(single.available_topics(), vec!["hashtx".to_string()]);
+    }
+
+    #[test]
+    fn merged_egress_unions_topics_without_duplicates() {
+        let merged = MergedEgress::combined(vec![
+            Arc::new(FixedEgress {
+                topic: "hashtx",
+                message: "a",
+            }),
+            Arc::new(FixedEgress {
+                topic: "hashtx",
+                message: "b",
+            }),
+            Arc::new(FixedEgress {
+                topic: "rawtx",
+                message: "c",
+            }),
+        ])
+        .unwrap();
+        assert_eq!(
+            merged.available_topics(),
+            vec!["hashtx".to_string(), "rawtx".to_string()]
+        );
+    }
+
+    #[tokio::test]
+    async fn merged_egress_merges_streams_of_a_shared_topic() {
+        let merged = MergedEgress::combined(vec![
+            Arc::new(FixedEgress {
+                topic: "hashtx",
+                message: "a",
+            }),
+            Arc::new(FixedEgress {
+                topic: "hashtx",
+                message: "b",
+            }),
+        ])
+        .unwrap();
+
+        let mut stream = merged.subscribe("hashtx", None).unwrap();
+        let mut received = Vec::new();
+        while let Some(msg) = stream.next().await {
+            received.push(String::from_utf8(msg).unwrap());
+        }
+        received.sort();
+        assert_eq!(received, vec!["a".to_string(), "b".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn merged_egress_serves_a_topic_of_one_source() {
+        let merged = MergedEgress::combined(vec![
+            Arc::new(FixedEgress {
+                topic: "hashtx",
+                message: "a",
+            }),
+            Arc::new(FixedEgress {
+                topic: "rawtx",
+                message: "c",
+            }),
+        ])
+        .unwrap();
+
+        let mut stream = merged.subscribe("rawtx", None).unwrap();
+        assert_eq!(stream.next().await.unwrap(), b"c".to_vec());
+
+        assert!(matches!(
+            merged.subscribe("nonsense", None),
+            Err(EgressError::UnsupportedMethod(m)) if m == "nonsense"
+        ));
+    }
+
+    #[tokio::test]
+    async fn topic_subset_masks_the_hidden_topics() {
+        let subset = TopicSubset::new(
+            Arc::new(FixedEgress {
+                topic: "hashtx",
+                message: "a",
+            }),
+            vec![],
+        );
+        assert!(subset.available_topics().is_empty());
+        assert!(matches!(
+            subset.subscribe("hashtx", None),
+            Err(EgressError::UnsupportedMethod(m)) if m == "hashtx"
+        ));
+
+        let subset = TopicSubset::new(
+            Arc::new(FixedEgress {
+                topic: "hashtx",
+                message: "a",
+            }),
+            vec!["hashtx".to_string()],
+        );
+        let mut stream = subset.subscribe("hashtx", None).unwrap();
+        assert_eq!(stream.next().await.unwrap(), b"a".to_vec());
     }
 
     #[tokio::test]
