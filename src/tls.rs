@@ -503,8 +503,7 @@ mod tests {
             let url = format!("http://{}/", listener.local_addr().unwrap());
             let head = capture_one_request(listener);
 
-            let client =
-                reqwest_client(None, std::time::Duration::from_secs(5), compress).unwrap();
+            let client = reqwest_client(None, std::time::Duration::from_secs(5), compress).unwrap();
             client.get(&url).send().await.unwrap();
 
             let head = head.join().unwrap().to_lowercase();

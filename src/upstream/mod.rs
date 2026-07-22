@@ -23,8 +23,8 @@ pub mod block_updates;
 mod disabled_methods;
 mod dshackle;
 pub mod egress;
-pub mod fanout;
 pub mod ethereum;
+pub mod fanout;
 pub mod fees;
 pub mod fork;
 pub mod head;
@@ -558,14 +558,15 @@ impl UpstreamManager {
                                 Some(topic) if topics.contains(&topic) => {}
                                 Some(topic) => {
                                     topics.push(topic);
-                                    per_chain_zmq_topics.entry(chain).or_default().push(
-                                        Arc::new(ZmqTopicStream::new(
+                                    per_chain_zmq_topics
+                                        .entry(chain)
+                                        .or_default()
+                                        .push(Arc::new(ZmqTopicStream::new(
                                             &host,
                                             port,
                                             topic,
                                             id.clone(),
-                                        )),
-                                    );
+                                        )));
                                 }
                                 None => tracing::error!("ZeroMQ topic is unknown: {}", topic_id),
                             }
@@ -1205,17 +1206,17 @@ const BITCOIN_FEE_HEIGHT_LIMIT: u32 = 6;
 
 /// Index the configured ERC-20 tokens by `(chain, lowercased name)` →
 /// lowercased contract address, so a `GetBalance` request can name a token by
-/// its code. Tokens on an unrecognized blockchain are skipped. Legacy
-/// `TrackERC20Address.init`.
+/// its code. Legacy `TrackERC20Address.init`.
 fn build_token_registry(tokens: &[TokenConfig]) -> HashMap<(TargetBlockchain, String), String> {
     let mut registry = HashMap::new();
     for token in tokens {
-        let TokenType::Erc20 = token.token_type;
-        if let Ok(chain) = token.blockchain.parse::<TargetBlockchain>() {
-            registry.insert(
-                (chain, token.name.to_lowercase()),
-                token.address.to_lowercase(),
-            );
+        match token.token_type {
+            TokenType::Erc20 => {
+                registry.insert(
+                    (token.blockchain, token.name.to_lowercase()),
+                    token.address.to_lowercase(),
+                );
+            }
         }
     }
     registry
@@ -1536,11 +1537,7 @@ fn wire_remote_dshackle(
         });
 
         // Start head tracking via SubscribeHead
-        start_head_subscriber(
-            chain_id.clone(),
-            desc_chain.chain,
-            Arc::clone(&ds_upstream),
-        );
+        start_head_subscriber(chain_id.clone(), desc_chain.chain, Arc::clone(&ds_upstream));
 
         // Track the remote's own reported availability via SubscribeStatus.
         start_status_subscriber(
@@ -1683,15 +1680,17 @@ mod tests {
 
     fn manager_with_relay(chain: TargetBlockchain, topics: &[&str]) -> UpstreamManager {
         let mut manager = UpstreamManager::from_parts(HashMap::new(), HashMap::new());
-        manager.dshackle_relays.entry(chain).or_default().push(Arc::new(
-            DshackleEgress::new(
+        manager
+            .dshackle_relays
+            .entry(chain)
+            .or_default()
+            .push(Arc::new(DshackleEgress::new(
                 "remote".parse().unwrap(),
                 chain.id(),
                 dead_client(),
                 topics.iter().map(|t| t.to_string()).collect(),
                 Duration::from_secs(1),
-            ),
-        ));
+            )));
         manager
     }
 
@@ -1804,8 +1803,10 @@ mod tests {
             6,
             Duration::from_secs(1),
         ));
-        let callable: HashSet<crate::jsonrpc::RpcMethod> =
-            ["eth_blockNumber"].iter().filter_map(|m| m.parse().ok()).collect();
+        let callable: HashSet<crate::jsonrpc::RpcMethod> = ["eth_blockNumber"]
+            .iter()
+            .filter_map(|m| m.parse().ok())
+            .collect();
         let upstream: Arc<dyn RpcUpstream> = Arc::new(MethodFilter::new(
             inner,
             Arc::new(ConfiguredMethods::allowed_only(callable)),
@@ -1867,10 +1868,7 @@ mod tests {
         let egress = manager.egress(&chain).expect("relay-only egress");
         assert_eq!(
             egress.available_topics(),
-            vec![
-                "newHeads".to_string(),
-                "newPendingTransactions".to_string()
-            ]
+            vec!["newHeads".to_string(), "newPendingTransactions".to_string()]
         );
     }
 

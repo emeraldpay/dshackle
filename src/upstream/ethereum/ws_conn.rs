@@ -572,9 +572,14 @@ mod tests {
                 msg_size,
             };
             let conn = WsConnection::new("test".to_string(), target);
-            let request = JsonRpcRequest::new(1, "eth_getBlockByNumber".into(), serde_json::json!([]));
+            let request =
+                JsonRpcRequest::new(1, "eth_getBlockByNumber".into(), serde_json::json!([]));
             let result = conn.call(&request).await;
-            assert_eq!(result.is_ok(), expect_ok, "msg_size={msg_size:?}: {result:?}");
+            assert_eq!(
+                result.is_ok(),
+                expect_ok,
+                "msg_size={msg_size:?}: {result:?}"
+            );
         }
     }
 }

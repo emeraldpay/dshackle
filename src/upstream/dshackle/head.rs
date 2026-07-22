@@ -39,7 +39,11 @@ const RETRY_DELAY: Duration = Duration::from_secs(5);
 /// Dshackle and updates the upstream's shared head tracker with block data.
 ///
 /// Re-subscribes automatically when the stream closes or encounters an error.
-pub fn start_head_subscriber(upstream_id: UpstreamId, chain_ref: i32, upstream: Arc<DshackleUpstream>) {
+pub fn start_head_subscriber(
+    upstream_id: UpstreamId,
+    chain_ref: i32,
+    upstream: Arc<DshackleUpstream>,
+) {
     let blockchain_type = TargetBlockchain::try_from(chain_ref)
         .map(|chain| chain.blockchain_type())
         .unwrap_or(BlockchainType::Unknown);

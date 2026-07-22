@@ -675,9 +675,7 @@ impl Blockchain for BlockchainRpcService {
                                     // so only text payloads are recorded.
                                     response_body: logs::include_messages()
                                         .then(|| {
-                                            std::str::from_utf8(&payload)
-                                                .ok()
-                                                .map(str::to_owned)
+                                            std::str::from_utf8(&payload).ok().map(str::to_owned)
                                         })
                                         .flatten(),
                                 },

@@ -108,8 +108,7 @@ pub(crate) async fn run_subscription(
     let mut reported_down = false;
     loop {
         let mut socket = zeromq::SubSocket::new();
-        match tokio::time::timeout(CONNECT_TIMEOUT, subscribe(&mut socket, &endpoint, &topic))
-            .await
+        match tokio::time::timeout(CONNECT_TIMEOUT, subscribe(&mut socket, &endpoint, &topic)).await
         {
             Ok(Ok(())) => {
                 if reported_down {
@@ -369,7 +368,10 @@ mod tests {
 
     #[test]
     fn rejects_other_topics() {
-        assert_eq!(payload_of(&triple("hashtx", vec![0xAB; 32]), "hashblock"), None);
+        assert_eq!(
+            payload_of(&triple("hashtx", vec![0xAB; 32]), "hashblock"),
+            None
+        );
         // Prefix-matching a longer topic must not pass the exact check.
         assert_eq!(
             payload_of(&triple("hashblocks", vec![0xAB; 32]), "hashblock"),

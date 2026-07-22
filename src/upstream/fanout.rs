@@ -79,10 +79,7 @@ impl<T: Clone> SharedFanout<T> {
     /// stays `true` between the last subscriber leaving and the producer
     /// noticing via [`finish_if_deserted`](Self::finish_if_deserted).
     pub(crate) fn is_live(&self) -> bool {
-        self.sender
-            .lock()
-            .expect("fanout lock poisoned")
-            .is_some()
+        self.sender.lock().expect("fanout lock poisoned").is_some()
     }
 
     /// Number of currently attached subscribers.
