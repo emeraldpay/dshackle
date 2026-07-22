@@ -329,7 +329,9 @@ impl ZeromqEndpoint {
             }
         };
         parsed.ok_or_else(|| {
-            anyhow::anyhow!("Invalid config for ZeroMQ: {address}. Expected to be in format HOST:PORT")
+            anyhow::anyhow!(
+                "Invalid config for ZeroMQ: {address}. Expected to be in format HOST:PORT"
+            )
         })
     }
 }
@@ -770,7 +772,11 @@ mod tests {
     #[test]
     fn ws_size_limits_below_floor_rejected_at_parse() {
         for (frame_size, msg_size, error) in [
-            (Some(65_534), None, Some("frameSize cannot be less than 64Kb")),
+            (
+                Some(65_534),
+                None,
+                Some("frameSize cannot be less than 64Kb"),
+            ),
             (None, Some(65_534), Some("msgSize cannot be less than 64Kb")),
             (Some(65_535), Some(65_535), None),
             (None, None, None),

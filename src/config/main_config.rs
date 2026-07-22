@@ -22,7 +22,7 @@ use crate::config::monitoring::MonitoringConfig;
 use crate::config::proxy::ProxyConfig;
 use crate::config::signature::SignatureConfig;
 use crate::config::tls::ServerTlsConfig;
-use crate::config::tokens::TokenConfig;
+use crate::config::tokens::{self, RawTokenConfig, TokenConfig};
 use crate::config::upstreams::{RawUpstreamsConfig, UpstreamsConfig};
 use anyhow::{Context, Result};
 use serde::Deserialize;
@@ -65,7 +65,7 @@ struct RawMainConfig {
     tls: Option<ServerTlsConfig>,
     cache: Option<CacheConfig>,
     proxy: Option<ProxyConfig>,
-    tokens: Option<Vec<TokenConfig>>,
+    tokens: Option<Vec<RawTokenConfig>>,
     #[serde(default)]
     monitoring: MonitoringConfig,
     #[serde(
@@ -159,7 +159,7 @@ fn parse_main_config(yaml: &str, config_dir: &Path) -> Result<MainConfig> {
         cache: raw.cache,
         proxy: raw.proxy,
         upstreams,
-        tokens: raw.tokens.unwrap_or_default(),
+        tokens: tokens::validate_tokens(raw.tokens.unwrap_or_default()),
         monitoring: raw.monitoring,
         access_log: raw.access_log,
         request_log: raw.request_log,
@@ -661,7 +661,9 @@ upstreams:
 
     #[test]
     fn parse_tokens() {
+        use crate::blockchain::TargetBlockchain;
         use crate::config::tokens::TokenType;
+        use emerald_api::proto::common::ChainRef;
         let yaml = r#"
 tokens:
   - id: dai
@@ -678,8 +680,10 @@ tokens:
         let cfg = parse_main_config(yaml, Path::new(".")).unwrap();
         assert_eq!(cfg.tokens.len(), 2);
 
-        assert_eq!(cfg.tokens[0].id, "dai");
-        assert_eq!(cfg.tokens[0].blockchain, "ethereum");
+        assert_eq!(
+            cfg.tokens[0].blockchain,
+            TargetBlockchain::Standard(ChainRef::ChainEthereum)
+        );
         assert_eq!(cfg.tokens[0].name, "DAI");
         assert_eq!(cfg.tokens[0].token_type, TokenType::Erc20);
         assert_eq!(
@@ -687,7 +691,6 @@ tokens:
             "0x6B175474E89094C44Da98b954EedeAC495271d0F"
         );
 
-        assert_eq!(cfg.tokens[1].id, "tether");
         assert_eq!(cfg.tokens[1].name, "Tether");
         assert_eq!(cfg.tokens[1].token_type, TokenType::Erc20);
         assert_eq!(
