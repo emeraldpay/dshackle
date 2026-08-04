@@ -525,6 +525,13 @@ pub fn process_raw_upstream(raw: RawUpstream) -> Result<Option<Upstream>> {
                 }
                 UpstreamConnection::Ethereum(eth)
             } else if let Some(btc) = conn.bitcoin {
+                // Esplora is not ported (xpub balance runs on `listunspent`
+                // instead); a config that asks for it must fail startup rather
+                // than run with the expected data source silently missing.
+                // Disabled entries are left alone — they never run.
+                if enabled && btc.esplora.is_some() {
+                    bail!("Upstream {id} configures an esplora connection, which is not supported");
+                }
                 UpstreamConnection::Bitcoin(btc)
             } else if let Some(ds) = conn.dshackle {
                 UpstreamConnection::Dshackle(ds)
@@ -839,6 +846,38 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(upstream.upstream_id().unwrap(), "infura-eth");
+    }
+
+    #[test]
+    fn esplora_connection_is_rejected() {
+        let esplora = || {
+            Some(RawConnection {
+                ethereum: None,
+                bitcoin: Some(BitcoinConnection {
+                    rpc: None,
+                    esplora: Some(HttpEndpoint {
+                        url: "http://localhost:3001".to_string(),
+                        basic_auth: None,
+                        tls: None,
+                        compress: None,
+                    }),
+                    zeromq: None,
+                }),
+                dshackle: None,
+            })
+        };
+        let mut raw = raw_upstream(Some("bitcoin-esplora"));
+        raw.connection = esplora();
+        assert_eq!(
+            process_raw_upstream(raw).unwrap_err().to_string(),
+            "Upstream bitcoin-esplora configures an esplora connection, which is not supported"
+        );
+
+        // A disabled entry never runs, so it must not fail the startup.
+        let mut disabled = raw_upstream(Some("bitcoin-esplora"));
+        disabled.connection = esplora();
+        disabled.enabled = Some(false);
+        assert!(process_raw_upstream(disabled).unwrap().is_some());
     }
 
     #[test]

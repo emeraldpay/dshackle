@@ -19,6 +19,7 @@ pub mod http;
 pub mod reader;
 pub mod subscribe;
 pub mod validator;
+pub mod xpub;
 pub mod zmq;
 
 /// Satoshis per Bitcoin (`COIN`).

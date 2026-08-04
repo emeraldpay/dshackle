@@ -26,6 +26,7 @@
 
 pub mod bitcoin;
 pub mod ethereum;
+pub mod xpub_scan;
 
 pub use bitcoin::BitcoinBalance;
 pub use ethereum::EthereumBalance;
@@ -36,7 +37,7 @@ use crate::upstream::merged_head::MergedHead;
 use alloy::primitives::U256;
 use emerald_api::proto::blockchain::{AddressBalance, BalanceRequest, address_balance};
 use emerald_api::proto::common::any_address::AddrType;
-use emerald_api::proto::common::{AnyAddress, Asset, SingleAddress};
+use emerald_api::proto::common::{AnyAddress, Asset, SingleAddress, XpubAddress};
 use futures::future::BoxFuture;
 use futures::stream::{self, StreamExt};
 use std::pin::Pin;
@@ -59,6 +60,9 @@ pub enum BalanceError {
     NoAddress,
     /// An address failed validation (bad format or wrong network).
     InvalidAddress(String),
+    /// A request parameter is outside its acceptable range (e.g. an xpub scan
+    /// window or gap limit) — rejected before any upstream is contacted.
+    InvalidRequest(String),
     /// No upstream is configured for the requested chain.
     Unavailable(i32),
     /// No tracker supports this chain + asset combination yet.
@@ -79,6 +83,7 @@ impl BalanceError {
             BalanceError::InvalidAddress(address) => {
                 tonic::Status::invalid_argument(format!("invalid address: {address}"))
             }
+            BalanceError::InvalidRequest(message) => tonic::Status::invalid_argument(message),
             BalanceError::Unavailable(chain) => {
                 tonic::Status::unavailable(format!("BLOCKCHAIN UNAVAILABLE: {chain}"))
             }
@@ -107,20 +112,29 @@ pub fn request_chain(request: &BalanceRequest) -> Result<TargetBlockchain, Balan
     TargetBlockchain::try_from(chain_id).map_err(|_| BalanceError::Unavailable(chain_id))
 }
 
-/// Resolve an [`AnyAddress`] into the explicit address list to query, or `None`
-/// for an xpub (which each asset tracker handles its own way — Bitcoin derives
-/// it, others treat it as no match). Addresses are returned in request order;
-/// any chain-specific ordering (Bitcoin sorts) is applied by the caller.
-pub fn resolve_addresses(
-    address: &Option<AnyAddress>,
-) -> Result<Option<Vec<String>>, BalanceError> {
+/// A request's address resolved into what a tracker can act on: the explicit
+/// list to query, or the xpub request whose addresses the caller must derive
+/// (Bitcoin scans it, other assets treat it as no match).
+#[derive(Debug, PartialEq)]
+pub enum ResolvedAddresses {
+    /// Explicit addresses, in request order; any chain-specific ordering
+    /// (Bitcoin sorts) is applied by the caller.
+    List(Vec<String>),
+    /// An xpub whose concrete addresses are up to the caller to derive.
+    Xpub(XpubAddress),
+}
+
+/// Resolve an [`AnyAddress`] into a [`ResolvedAddresses`].
+pub fn resolve_addresses(address: &Option<AnyAddress>) -> Result<ResolvedAddresses, BalanceError> {
     let any = address.as_ref().ok_or(BalanceError::NoAddress)?;
     match any.addr_type.as_ref() {
-        Some(AddrType::AddressSingle(single)) => Ok(Some(vec![single.address.clone()])),
-        Some(AddrType::AddressMulti(multi)) => Ok(Some(
+        Some(AddrType::AddressSingle(single)) => {
+            Ok(ResolvedAddresses::List(vec![single.address.clone()]))
+        }
+        Some(AddrType::AddressMulti(multi)) => Ok(ResolvedAddresses::List(
             multi.addresses.iter().map(|a| a.address.clone()).collect(),
         )),
-        Some(AddrType::AddressXpub(_)) => Ok(None),
+        Some(AddrType::AddressXpub(xpub)) => Ok(ResolvedAddresses::Xpub(xpub.clone())),
         _ => Err(BalanceError::NoAddress),
     }
 }
@@ -146,6 +160,13 @@ pub fn parse_eth_addresses(addresses: Vec<String>) -> Result<Vec<String>, Balanc
 /// Ethereum asset).
 pub fn empty_stream() -> BalanceStream {
     Box::pin(stream::empty())
+}
+
+/// A stream that fails immediately — for an upstream error hit before the
+/// stream exists (e.g. during an xpub scan), surfaced the same way per-address
+/// read errors are: through the stream.
+pub fn error_stream(status: tonic::Status) -> BalanceStream {
+    Box::pin(stream::once(async move { Err(status) }))
 }
 
 /// Build an `AddressBalance` for a native asset (the request's `asset` echoed
@@ -345,7 +366,7 @@ mod tests {
         let addr = single("0xABC");
         assert_eq!(
             resolve_addresses(&Some(addr)).unwrap(),
-            Some(vec!["0xABC".to_string()])
+            ResolvedAddresses::List(vec!["0xABC".to_string()])
         );
     }
 
@@ -366,21 +387,25 @@ mod tests {
         };
         assert_eq!(
             resolve_addresses(&Some(addr)).unwrap(),
-            Some(vec!["0xccc".to_string(), "0xaaa".to_string()])
+            ResolvedAddresses::List(vec!["0xccc".to_string(), "0xaaa".to_string()])
         );
     }
 
     #[test]
-    fn xpub_resolves_to_none() {
-        let addr = AnyAddress {
-            addr_type: Some(AddrType::AddressXpub(XpubAddress {
-                xpub: "xpub...".into(),
-                start: 0,
-                limit: 10,
-                unused_limit: 20,
-            })),
+    fn xpub_resolves_to_the_xpub_request() {
+        let xpub = XpubAddress {
+            xpub: "xpub...".into(),
+            start: 0,
+            limit: 10,
+            unused_limit: 20,
         };
-        assert_eq!(resolve_addresses(&Some(addr)).unwrap(), None);
+        let addr = AnyAddress {
+            addr_type: Some(AddrType::AddressXpub(xpub.clone())),
+        };
+        assert_eq!(
+            resolve_addresses(&Some(addr)).unwrap(),
+            ResolvedAddresses::Xpub(xpub)
+        );
     }
 
     #[test]

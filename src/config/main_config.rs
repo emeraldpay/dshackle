@@ -411,26 +411,23 @@ mod tests {
         let cfg = yaml.parse::<UpstreamsConfig>().unwrap();
 
         assert_eq!(cfg.upstreams.len(), 1);
-        assert!(matches!(
-            cfg.upstreams[0].connection,
-            UpstreamConnection::Bitcoin(_)
-        ));
+        // The upstream-level `balance: true` shorthand must land in options.
+        assert_eq!(cfg.upstreams[0].options.balance, Some(true));
+        if let UpstreamConnection::Bitcoin(btc) = &cfg.upstreams[0].connection {
+            assert_eq!(btc.rpc.as_ref().unwrap().url, "http://localhost:8545");
+        } else {
+            panic!("Expected Bitcoin connection");
+        }
     }
 
     #[test]
     fn parse_upstreams_bitcoin_esplora() {
+        // Esplora is not supported: the legacy config still parses, but an
+        // enabled upstream asking for it must fail instead of silently running
+        // without the data source it expects.
         let yaml = std::fs::read_to_string(testdata("upstreams-bitcoin-esplora.yaml")).unwrap();
-        let cfg = yaml.parse::<UpstreamsConfig>().unwrap();
-
-        assert_eq!(cfg.upstreams[0].options.balance, Some(true));
-        if let UpstreamConnection::Bitcoin(btc) = &cfg.upstreams[0].connection {
-            assert!(btc.rpc.is_some());
-            assert_eq!(btc.rpc.as_ref().unwrap().url, "http://localhost:8545");
-            assert!(btc.esplora.is_some());
-            assert_eq!(btc.esplora.as_ref().unwrap().url, "http://localhost:3001");
-        } else {
-            panic!("Expected Bitcoin connection");
-        }
+        let err = yaml.parse::<UpstreamsConfig>().unwrap_err();
+        assert!(err.root_cause().to_string().contains("esplora"), "{err:#}");
     }
 
     #[test]

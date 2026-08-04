@@ -16,13 +16,15 @@
 //! `RpcUnspentReader` path: an address's balance is the sum of its unspent
 //! outputs, read via `listunspent`.
 //!
-//! Only the `listunspent` RPC source is implemented. The legacy reader prefers
-//! an Esplora indexer (and can delegate to a remote Dshackle that advertises
-//! `BALANCE`); neither is ported yet, so balances resolve only for addresses the
-//! node itself tracks (wallet/watch-only or an address-indexed node). xpub
-//! address derivation is likewise deferred — callers get those addresses
-//! rejected by `resolve_single_addresses`.
+//! Only the `listunspent` RPC source is implemented (the legacy Esplora reader
+//! is not ported), so balances resolve only for addresses the node itself
+//! tracks (wallet/watch-only or an address-indexed node) — which is why the
+//! whole path is gated on the operator's explicit `balance: true`. Requests to
+//! a remote Dshackle advertising `BALANCE` are forwarded before reaching here.
+//! Xpub requests run the windowed scan in [`super::xpub_scan`] on top of the
+//! same `listunspent` reads.
 
+use super::xpub_scan::FundedAddress;
 use super::{AddressReader, BalanceError, BalanceStream};
 use crate::blockchain::TargetBlockchain;
 use crate::jsonrpc::JsonRpcRequest;
@@ -33,6 +35,7 @@ use bitcoin::address::NetworkUnchecked;
 use bitcoin::{Address, Network};
 use emerald_api::proto::blockchain::{AddressBalance, Utxo, address_balance};
 use emerald_api::proto::common::{Asset, ChainRef, SingleAddress};
+use futures::stream;
 use serde_json::{Value, json};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -58,7 +61,7 @@ pub fn validate_addresses(
 
 /// The Bitcoin network a chain runs on. Only the mainnet chain maps to
 /// `Bitcoin`; the rest are Bitcoin testnets.
-fn network_for(chain: TargetBlockchain) -> Network {
+pub(super) fn network_for(chain: TargetBlockchain) -> Network {
     match chain {
         TargetBlockchain::Standard(ChainRef::ChainBitcoin) => Network::Bitcoin,
         _ => Network::Testnet,
@@ -66,10 +69,12 @@ fn network_for(chain: TargetBlockchain) -> Network {
 }
 
 /// One unspent output backing part of an address's balance.
-struct Unspent {
-    tx_id: String,
-    index: u64,
-    value: u64,
+#[derive(Debug)]
+pub(super) struct Unspent {
+    pub(super) address: String,
+    pub(super) tx_id: String,
+    pub(super) index: u64,
+    pub(super) value: u64,
 }
 
 /// Native Bitcoin balance tracker for one chain.
@@ -107,6 +112,30 @@ impl BitcoinBalance {
         super::subscribe(self.head.clone(), addresses, self.reader())
     }
 
+    /// Balances of the funded addresses an xpub scan found, built straight
+    /// from the scan's outputs — the scan already read them, so no second
+    /// `listunspent` round. Backs `GetBalance` for xpub addresses.
+    pub fn get_balance_scanned(&self, found: Vec<FundedAddress>) -> BalanceStream {
+        let chain = self.chain;
+        let include_utxo = self.include_utxo;
+        let balances: Vec<_> = found
+            .into_iter()
+            .map(|f| Ok(build_balance(chain, f.address, include_utxo, &f.unspent)))
+            .collect();
+        Box::pin(stream::iter(balances))
+    }
+
+    /// Watch the funded set an xpub scan found: current values first, then
+    /// updates on new heads. The set is fixed at scan time — an address funded
+    /// only later is not picked up, same as the legacy active-set subscribe.
+    /// The scan's own outputs are deliberately discarded and re-read per
+    /// address: reads recur only once per ~10-minute block, which is cheaper
+    /// than holding scan data for the subscription's lifetime.
+    /// Backs `SubscribeBalance` for xpub addresses.
+    pub fn subscribe_scanned(&self, found: Vec<FundedAddress>) -> BalanceStream {
+        self.subscribe(found.into_iter().map(|f| f.address).collect())
+    }
+
     fn reader(&self) -> AddressReader {
         let access = Arc::clone(&self.access);
         let chain = self.chain;
@@ -114,22 +143,30 @@ impl BitcoinBalance {
         Arc::new(move |address| {
             let access = Arc::clone(&access);
             Box::pin(async move {
-                let unspent = read_unspent(access.as_ref(), &address).await?;
+                let unspent = read_unspent(access.as_ref(), std::slice::from_ref(&address)).await?;
                 Ok(build_balance(chain, address, include_utxo, &unspent))
             })
         })
     }
 }
 
-/// Read an address's unspent outputs via `listunspent(1, 9999999, [address])`.
-/// A failed call, an upstream error, or a missing result fails the read (legacy
-/// `RpcUnspentReader` errors with `DataUnavailable`); an empty list is a valid
-/// zero balance. Mirrors the legacy `RpcUnspentReader`.
-async fn read_unspent(
+/// Read unspent outputs for a set of addresses via one
+/// `listunspent(1, 9999999, [addresses])` call. A failed call, an upstream
+/// error, or a missing result fails the read (legacy `RpcUnspentReader` errors
+/// with `DataUnavailable`); an empty list is a valid zero balance. Mirrors the
+/// legacy `RpcUnspentReader`, batched — the node filters against the whole
+/// address set in a single wallet scan, so one call for N addresses costs the
+/// same as one call for one.
+pub(super) async fn read_unspent(
     access: &dyn ChainAccess,
-    address: &str,
+    addresses: &[String],
 ) -> Result<Vec<Unspent>, tonic::Status> {
-    let request = JsonRpcRequest::new(0, "listunspent".into(), json!([1, 9_999_999, [address]]));
+    // An empty address array means "no filter" to Bitcoin Core, i.e. a dump of
+    // the wallet's entire UTXO set — never what a caller with no addresses wants.
+    if addresses.is_empty() {
+        return Ok(Vec::new());
+    }
+    let request = JsonRpcRequest::new(0, "listunspent".into(), json!([1, 9_999_999, addresses]));
     let response = access
         .call(&request)
         .await
@@ -145,26 +182,29 @@ async fn read_unspent(
         .ok_or_else(|| tonic::Status::unavailable("empty listunspent response"))?;
     let items = serde_json::from_str::<Vec<Value>>(result.get())
         .map_err(|e| tonic::Status::internal(format!("invalid listunspent result: {e}")))?;
+    let requested: std::collections::HashSet<&str> = addresses.iter().map(String::as_str).collect();
     Ok(items
         .iter()
-        .filter(|u| u.get("address").and_then(Value::as_str) == Some(address))
         .filter_map(unspent)
+        .filter(|u| requested.contains(u.address.as_str()))
         .collect())
 }
 
 /// Parse one `listunspent` entry, dropping any with missing/invalid fields.
 fn unspent(item: &Value) -> Option<Unspent> {
     Some(Unspent {
+        address: item.get("address")?.as_str()?.to_string(),
         tx_id: item.get("txid")?.as_str()?.to_string(),
         index: item.get("vout")?.as_u64()?,
         value: btc_to_satoshis(item.get("amount")?)?,
     })
 }
 
-/// Sum the unspent outputs into an `AddressBalance`. The asset code is the
-/// legacy constant `BTC` regardless of the request's `bitcoin`/`btc`/`satoshi`
-/// spelling, and UTXOs are attached only when requested.
-fn build_balance(
+/// Sum the unspent outputs (all belonging to `address`) into an
+/// `AddressBalance`. The asset code is the legacy constant `BTC` regardless of
+/// the request's `bitcoin`/`btc`/`satoshi` spelling, and UTXOs are attached
+/// only when requested.
+pub(super) fn build_balance(
     chain: i32,
     address: String,
     include_utxo: bool,

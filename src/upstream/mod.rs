@@ -954,9 +954,9 @@ impl UpstreamManager {
         let chain_id = chain.id();
         let eth = chain.blockchain_type() == BlockchainType::Ethereum;
         let btc = chain.blockchain_type() == BlockchainType::Bitcoin;
-        // `None` means an xpub address: Bitcoin would derive it (deferred here),
-        // every other asset treats it as no match — legacy returns an empty,
-        // successful stream rather than an error.
+        // An xpub resolution is scanned by the Bitcoin arm below; every other
+        // asset treats it as no match — legacy returns an empty, successful
+        // stream rather than an error.
         let resolved = balance::resolve_addresses(&request.address)?;
 
         // `subscribe` vs one-shot over the chosen tracker (trackers share the
@@ -964,7 +964,7 @@ impl UpstreamManager {
         let stream = match request.balance_type.as_ref() {
             // Native Ether.
             Some(BalanceType::Asset(asset)) if eth && asset.code.eq_ignore_ascii_case("ether") => {
-                let Some(addresses) = resolved else {
+                let balance::ResolvedAddresses::List(addresses) = resolved else {
                     return Ok(balance::empty_stream());
                 };
                 let addresses = balance::parse_eth_addresses(addresses)?;
@@ -985,7 +985,7 @@ impl UpstreamManager {
                 let contract = self
                     .token_contract(&chain, &asset.code)
                     .ok_or(BalanceError::Unsupported)?;
-                let Some(addresses) = resolved else {
+                let balance::ResolvedAddresses::List(addresses) = resolved else {
                     return Ok(balance::empty_stream());
                 };
                 let addresses = balance::parse_eth_addresses(addresses)?;
@@ -1007,7 +1007,7 @@ impl UpstreamManager {
                 if !balance::is_valid_eth_address(&erc20.contract_address) {
                     return Err(BalanceError::Unsupported);
                 }
-                let Some(addresses) = resolved else {
+                let balance::ResolvedAddresses::List(addresses) = resolved else {
                     return Ok(balance::empty_stream());
                 };
                 let addresses = balance::parse_eth_addresses(addresses)?;
@@ -1036,9 +1036,25 @@ impl UpstreamManager {
                 if !self.chain_provides_balance(&chain) {
                     return Err(BalanceError::Unsupported);
                 }
-                // xpub derivation is deferred; only single/multi addresses.
-                let Some(mut addresses) = resolved else {
-                    return Err(BalanceError::Unsupported);
+                let mut addresses = match resolved {
+                    balance::ResolvedAddresses::List(addresses) => addresses,
+                    // An xpub address: derive and scan for funded addresses
+                    // (funded-only entries — see `balance::xpub_scan`), then
+                    // answer from the scan or watch the found set.
+                    balance::ResolvedAddresses::Xpub(xpub) => {
+                        let scan_request = balance::xpub_scan::ScanRequest::parse(&xpub, chain)?;
+                        let found =
+                            match balance::xpub_scan::scan(access.as_ref(), &scan_request).await {
+                                Ok(found) => found,
+                                Err(status) => return Ok(balance::error_stream(status)),
+                            };
+                        let t = BitcoinBalance::new(access, head, chain_id, request.include_utxo);
+                        return Ok(if subscribe {
+                            t.subscribe_scanned(found)
+                        } else {
+                            t.get_balance_scanned(found)
+                        });
+                    }
                 };
                 addresses.sort(); // legacy sorts multi addresses for Bitcoin
                 let addresses = balance::bitcoin::validate_addresses(addresses, chain)?;
