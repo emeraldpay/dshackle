@@ -719,8 +719,11 @@ impl UpstreamManager {
                     &mut per_chain_fork,
                 ),
                 Ok(Err(e)) => {
+                    // `{:#}` so the whole chain shows: a bare tonic
+                    // `transport::Error` renders as just "transport error",
+                    // and the reason is only in its source.
                     tracing::warn!(
-                        "Upstream {}: failed to connect to Dshackle at {}: {}",
+                        "Upstream {}: failed to connect to Dshackle at {}: {:#}",
                         pending.id,
                         pending.url,
                         e
@@ -1375,13 +1378,19 @@ async fn connect_and_describe(
     compress: bool,
 ) -> anyhow::Result<(BlockchainClient<Channel>, Vec<DescribeChain>)> {
     let mut endpoint = tonic::transport::Endpoint::from_shared(url.to_string())?;
-    if let Some(setup) = tls {
-        let tls_config = match &setup.ca {
+    // An `https` URL enables TLS by itself, even with no `tls` section on the
+    // upstream: tonic refuses to connect to an https endpoint that has no TLS
+    // configured, while every other client here (reqwest, tungstenite) takes
+    // TLS from the scheme. Without this an `https` gRPC upstream would fail
+    // with nothing but "transport error".
+    let secure = tls.is_some() || endpoint.uri().scheme_str() == Some("https");
+    if secure {
+        let tls_config = match tls.and_then(|setup| setup.ca.as_ref()) {
             Some(ca) => tonic::transport::ClientTlsConfig::new()
                 .ca_certificate(tonic::transport::Certificate::from_pem(ca)),
             None => tonic::transport::ClientTlsConfig::new().with_native_roots(),
         };
-        let tls_config = match &setup.identity {
+        let tls_config = match tls.and_then(|setup| setup.identity.as_ref()) {
             Some(identity) => tls_config.identity(tonic::transport::Identity::from_pem(
                 &identity.certificate,
                 &identity.key,
@@ -1390,7 +1399,10 @@ async fn connect_and_describe(
         };
         endpoint = endpoint.tls_config(tls_config)?;
     }
-    let channel = endpoint.connect().await?;
+    let channel = endpoint
+        .connect()
+        .await
+        .with_context(|| format!("connecting to {url}"))?;
     let mut client = BlockchainClient::new(channel);
     if compress {
         // Accept-only, like legacy: its channel registries let the client
@@ -1708,6 +1720,56 @@ mod tests {
                 Duration::from_secs(1),
             )));
         manager
+    }
+
+    /// Serves one TCP connection and returns the first bytes the client sent,
+    /// which tell a TLS ClientHello (0x16) from a cleartext HTTP/2 preface.
+    fn capture_first_bytes(listener: std::net::TcpListener) -> std::thread::JoinHandle<Vec<u8>> {
+        use std::io::Read;
+        std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut buf = [0u8; 16];
+            let n = stream.read(&mut buf).unwrap_or(0);
+            buf[..n].to_vec()
+        })
+    }
+
+    /// Nothing answers the socket, so the connection never completes; the
+    /// assertion is about what the client put on the wire before giving up.
+    async fn first_bytes_sent_to(url_scheme: &str) -> Vec<u8> {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("{url_scheme}://{}", listener.local_addr().unwrap());
+        let captured = capture_first_bytes(listener);
+
+        let _ = tokio::time::timeout(
+            Duration::from_secs(5),
+            connect_and_describe(&url, None, false),
+        )
+        .await;
+
+        captured.join().unwrap()
+    }
+
+    // An `https` gRPC upstream with no `tls` section used to fail before
+    // reaching the network, with tonic's "Connecting to HTTPS without TLS
+    // enabled" buried under a bare "transport error".
+    #[tokio::test(flavor = "multi_thread")]
+    async fn https_url_negotiates_tls_without_a_tls_section() {
+        let bytes = first_bytes_sent_to("https").await;
+        assert_eq!(
+            bytes.first(),
+            Some(&0x16),
+            "expected a TLS ClientHello, got {bytes:?}"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn http_url_stays_cleartext() {
+        let bytes = first_bytes_sent_to("http").await;
+        assert!(
+            bytes.starts_with(b"PRI * HTTP/2"),
+            "expected a cleartext HTTP/2 preface, got {bytes:?}"
+        );
     }
 
     #[tokio::test]

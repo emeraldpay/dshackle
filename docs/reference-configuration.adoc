@@ -1020,9 +1020,11 @@ It's more effective, easier to secure connection, and allows to build a distribu
 | Address to connect to
 
 | `tls`
-a| TLC configuration for the connection.
+a| TLS configuration for the connection.
 It's an optional, but it's strongly recommended to use a TLS even for internal network.
 HTTP2 + gRPC is designed to be used with TLS, and some related software is unable to use it without TLS. +
+A `url` with the `https` scheme always connects over TLS, verifying the server against the system root certificates, even when this section is omitted.
+A `host` + `port` connection without this section is made in plaintext. +
 See link:08-authentication.adoc[Authentication] docs and <<tls>>.
 
 | `tls.ca`
