@@ -132,6 +132,9 @@ fn route(
                     basic_health(&checks, &upstreams)
                 };
                 let code = if health.ok { 200 } else { 503 };
+                if !health.ok {
+                    tracing::warn!("Health check failed: {}", health.details.join(", "))
+                }
                 Ok(Response::builder()
                     .status(code)
                     .body(health.details.join("\n"))
