@@ -114,6 +114,9 @@ use tx_status::bitcoin::BitcoinTxReader;
 use tx_status::ethereum::EthereumTxReader;
 use tx_status::{TxStatusError, TxStatusStream};
 
+/// `User-Agent` sent on every connection to an upstream (HTTP, WS, gRPC).
+pub(crate) const USER_AGENT: &str = concat!("EmeraldDshackle/", env!("CARGO_PKG_VERSION"));
+
 /// Holds all configured upstreams, indexed by target blockchain.
 ///
 /// Each chain entry is a [`Multistream`] aggregate — even chains with a single
@@ -1377,7 +1380,10 @@ async fn connect_and_describe(
     tls: Option<&crate::tls::ClientTlsSetup>,
     compress: bool,
 ) -> anyhow::Result<(BlockchainClient<Channel>, Vec<DescribeChain>)> {
-    let mut endpoint = tonic::transport::Endpoint::from_shared(url.to_string())?;
+    // tonic always appends its own `tonic/<ver>` token, so the remote sees
+    // `EmeraldDshackle/<ver> tonic/<ver>`.
+    let mut endpoint =
+        tonic::transport::Endpoint::from_shared(url.to_string())?.user_agent(USER_AGENT)?;
     // An `https` URL enables TLS by itself, even with no `tls` section on the
     // upstream: tonic refuses to connect to an https endpoint that has no TLS
     // configured, while every other client here (reqwest, tungstenite) takes

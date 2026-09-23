@@ -240,7 +240,10 @@ pub fn reqwest_client(
     timeout: std::time::Duration,
     compress: bool,
 ) -> Result<reqwest::Client> {
-    let mut builder = reqwest::Client::builder().timeout(timeout).gzip(compress);
+    let mut builder = reqwest::Client::builder()
+        .timeout(timeout)
+        .gzip(compress)
+        .user_agent(crate::upstream::USER_AGENT);
     if let Some(setup) = tls {
         if let Some(ca) = &setup.ca {
             builder = builder.tls_built_in_root_certs(false).add_root_certificate(
@@ -509,6 +512,7 @@ mod tests {
             let head = head.join().unwrap().to_lowercase();
             let advertises_gzip = head.contains("accept-encoding") && head.contains("gzip");
             assert_eq!(advertises_gzip, compress, "compress={compress}: {head}");
+            assert!(head.contains("user-agent: emeralddshackle/"), "{head}");
         }
     }
 }

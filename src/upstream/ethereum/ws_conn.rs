@@ -68,6 +68,10 @@ impl WsTarget {
                 .parse()
                 .map_err(|e| format!("invalid WS origin: {e}"))?,
         );
+        headers.insert(
+            tungstenite::http::header::USER_AGENT,
+            tungstenite::http::HeaderValue::from_static(crate::upstream::USER_AGENT),
+        );
         if let Some(auth) = &self.basic_auth {
             let token = base64::engine::general_purpose::STANDARD
                 .encode(format!("{}:{}", auth.username, auth.password));
@@ -502,6 +506,10 @@ mod tests {
         let request = target.client_request().unwrap();
         assert_eq!(request.headers().get("Origin").unwrap(), "http://localhost");
         assert!(request.headers().get("Authorization").is_none());
+        assert_eq!(
+            request.headers().get("User-Agent").unwrap(),
+            crate::upstream::USER_AGENT
+        );
     }
 
     #[test]
