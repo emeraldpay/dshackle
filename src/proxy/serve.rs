@@ -19,6 +19,7 @@
 //! the same pipeline `warp::serve().run()` uses internally, plus an optional
 //! rustls handshake in front.
 
+use crate::server::MAX_PENDING_ACCEPT_RESET_STREAMS;
 use crate::tls::ServerTlsSetup;
 use anyhow::{Context, Result};
 use hyper_util::rt::{TokioExecutor, TokioIo};
@@ -74,7 +75,10 @@ where
                     svc.call(req)
                 },
             );
-            let builder = auto::Builder::new(TokioExecutor::new());
+            let mut builder = auto::Builder::new(TokioExecutor::new());
+            builder
+                .http2()
+                .max_pending_accept_reset_streams(MAX_PENDING_ACCEPT_RESET_STREAMS);
             let served = match acceptor {
                 Some(acceptor) => match acceptor.accept(tcp).await {
                     Ok(tls_stream) => {

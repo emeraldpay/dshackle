@@ -22,6 +22,16 @@ use tonic::codec::CompressionEncoding;
 use tonic::transport::server::ServerTlsConfig;
 use tonic::transport::{Certificate, Identity};
 
+/// How many streams a client may reset before the server accepts them,
+/// before h2 treats it as an HTTP/2 Rapid Reset attack (CVE-2023-44487) and
+/// tears down the whole connection with GOAWAY, failing every in-flight
+/// request on it. h2's default of 20 trips on legitimate busy clients: a
+/// multiplexed connection (another Dshackle, a load balancer) that cancels
+/// requests during a brief scheduling stall easily has more than 20 queued
+/// cancellations in one read. The limit still bounds the accept queue, so the
+/// attack protection stays in place.
+pub(crate) const MAX_PENDING_ACCEPT_RESET_STREAMS: usize = 1000;
+
 impl From<ServerTlsSetup> for ServerTlsConfig {
     fn from(setup: ServerTlsSetup) -> Self {
         let tls = ServerTlsConfig::new().identity(Identity::from_pem(setup.certificate, setup.key));
@@ -55,7 +65,8 @@ pub async fn start_grpc_server(
 ) -> anyhow::Result<()> {
     let addr: SocketAddr = format!("{host}:{port}").parse()?;
 
-    let mut builder = tonic::transport::Server::builder();
+    let mut builder = tonic::transport::Server::builder()
+        .http2_max_pending_accept_reset_streams(Some(MAX_PENDING_ACCEPT_RESET_STREAMS));
     if let Some(tls) = tls {
         builder = builder.tls_config(tls.into())?;
     }
