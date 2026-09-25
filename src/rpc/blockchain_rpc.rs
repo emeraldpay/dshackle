@@ -40,6 +40,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio_stream::Stream;
 use tokio_stream::wrappers::BroadcastStream;
+use tokio_util::task::AbortOnDropHandle;
 
 /// Access-log identity of one gRPC call, from the request peer and metadata.
 fn ingress_context<T>(request: &tonic::Request<T>) -> Arc<logs::IngressContext> {
@@ -275,6 +276,13 @@ impl Blockchain for BlockchainRpcService {
 
         // Each item is dispatched independently and in parallel.
         // Replies stream out in completion order; the client correlates them via `NativeCallReplyItem.id`.
+        //
+        // The tasks abort when the reply stream is dropped, i.e. when the client
+        // cancels or times out. A detached task would keep its upstream request
+        // running for nobody, and a client that retries on timeout would then
+        // pile up duplicate work on the node (heavy traces especially) until
+        // it's overloaded. Aborting drops the upstream HTTP request, which lets
+        // the node cancel it too.
         let tasks: FuturesUnordered<_> = req
             .items
             .into_iter()
@@ -284,15 +292,18 @@ impl Blockchain for BlockchainRpcService {
                 let labels = Arc::clone(&labels);
                 // Re-establish the request context inside the spawned task, so
                 // the upstream calls are attributed in the request log.
-                tokio::spawn(logs::with_context((*ctx).clone(), async move {
-                    native_call::execute_native_call(
-                        multistream.as_ref(),
-                        &item,
-                        &labels,
-                        signer.as_deref(),
-                    )
-                    .await
-                }))
+                AbortOnDropHandle::new(tokio::spawn(logs::with_context(
+                    (*ctx).clone(),
+                    async move {
+                        native_call::execute_native_call(
+                            multistream.as_ref(),
+                            &item,
+                            &labels,
+                            signer.as_deref(),
+                        )
+                        .await
+                    },
+                )))
             })
             .collect();
 
@@ -973,6 +984,12 @@ mod tests {
         fn max_observed_parallel(&self) -> u32 {
             self.max_active.load(Ordering::SeqCst)
         }
+
+        /// Calls that started but never ran to completion — a cancelled call
+        /// stays counted here.
+        fn in_flight(&self) -> u32 {
+            self.active.load(Ordering::SeqCst)
+        }
     }
 
     #[async_trait::async_trait]
@@ -1126,6 +1143,38 @@ mod tests {
         assert!(
             observed > 1,
             "expected concurrent dispatch — max in-flight calls was {observed}"
+        );
+    }
+
+    /// A client that gives up (timeout, cancel) drops the reply stream; the
+    /// upstream call must be cancelled with it rather than run on for nobody,
+    /// or client retries pile up duplicate work on the node.
+    #[tokio::test(start_paused = true)]
+    async fn dropping_native_call_stream_cancels_upstream_call() {
+        let probe = ConcurrencyProbeUpstream::new(Duration::from_secs(10));
+        let service = eth_service_with(probe.clone() as Arc<dyn RpcUpstream>);
+
+        let req = NativeCallRequest {
+            chain: ChainRef::ChainEthereum as i32,
+            items: vec![make_item(0)],
+            ..Default::default()
+        };
+        let stream = service
+            .native_call(tonic::Request::new(req))
+            .await
+            .expect("native_call returned an error")
+            .into_inner();
+        while probe.in_flight() == 0 {
+            tokio::task::yield_now().await;
+        }
+
+        drop(stream);
+        tokio::time::sleep(Duration::from_secs(20)).await;
+
+        assert_eq!(
+            probe.in_flight(),
+            1,
+            "the upstream call should have been cancelled mid-flight, not completed"
         );
     }
 
