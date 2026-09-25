@@ -138,6 +138,11 @@ pub enum UpstreamError {
     /// status is retained so the quorum can still decide whether the call is
     /// retryable (429/401/502–504) or definitive (e.g. 500 "Already Spent").
     Rejected { status: u16, message: String },
+    /// The upstream answered with a JSON-RPC error saying it is overloaded
+    /// (e.g. Erigon's "server overloaded, retry later"). Carries the node's
+    /// own message, which is forwarded to the caller if no other upstream
+    /// answers.
+    Overloaded(String),
     /// The response body could not be parsed as valid JSON-RPC.
     InvalidResponse(String),
     /// The requested RPC method is not supported by this upstream.
@@ -151,7 +156,9 @@ impl std::fmt::Display for UpstreamError {
             UpstreamError::HttpStatus(code) => write!(f, "upstream returned HTTP {code}"),
             // Rendered verbatim, with no wrapping prefix: this message is
             // forwarded to the caller as the upstream's own error (issue #251).
-            UpstreamError::Rejected { message, .. } => write!(f, "{message}"),
+            UpstreamError::Rejected { message, .. } | UpstreamError::Overloaded(message) => {
+                write!(f, "{message}")
+            }
             UpstreamError::InvalidResponse(msg) => write!(f, "invalid response: {msg}"),
             // The exact legacy `VerifyingReader` message — it reaches clients
             // through the gRPC `error_message` and the proxy error body.

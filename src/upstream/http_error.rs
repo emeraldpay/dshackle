@@ -31,7 +31,7 @@ use std::time::Duration;
 /// How long to park an upstream after a status that marks it temporarily
 /// unavailable, giving a provider's rate-limit window time to reset before we
 /// route to it again. Matches the legacy `DefaultUpstream` one-minute pause.
-const RATE_LIMIT_COOLDOWN: Duration = Duration::from_secs(60);
+pub(crate) const RATE_LIMIT_COOLDOWN: Duration = Duration::from_secs(60);
 
 /// Map a non-200 response into an [`UpstreamError`], parking the upstream when
 /// the status marks it temporarily unavailable and forwarding the provider's own

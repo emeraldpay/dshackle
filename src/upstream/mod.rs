@@ -37,6 +37,7 @@ pub mod merged_head;
 mod metered;
 mod methods;
 pub mod multistream;
+mod overload;
 pub mod quorum;
 pub mod router;
 pub mod selector;
@@ -102,6 +103,7 @@ use methods::MethodFilter;
 use methods::RemoteMethods;
 use methods::bitcoin::DefaultBitcoinMethods;
 use methods::ethereum::DefaultEthereumMethods;
+use overload::OverloadGuard;
 use quorum::QuorumFactory;
 use status::ChainStatus;
 use std::collections::{HashMap, HashSet};
@@ -413,6 +415,7 @@ impl UpstreamManager {
                             continue;
                         }
                     };
+                    let reader: Arc<dyn RpcUpstream> = Arc::new(OverloadGuard::new(reader));
 
                     // Validation probes the transport directly (`reader` at
                     // this point), below the method-filter and cache wrappers

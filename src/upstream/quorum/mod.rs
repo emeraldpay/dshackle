@@ -155,13 +155,15 @@ pub enum QuorumOutcome {
 /// 429, and 502–504 are commonly returned by overloaded or auth-rejecting
 /// proxies (e.g. Infura), and any transport-level failure (connect, timeout,
 /// DNS) qualifies. A `MethodNotAllowed` error is also treated as skippable
-/// because a peer upstream may support the method.
+/// because a peer upstream may support the method, and so is an `Overloaded`
+/// one because a peer may have capacity.
 pub fn is_connection_unavailable(err: &UpstreamError) -> bool {
     match err {
         UpstreamError::Transport(_) => true,
         UpstreamError::HttpStatus(code) => is_unavailable_status(*code),
         UpstreamError::Rejected { status, .. } => is_unavailable_status(*status),
         UpstreamError::MethodNotAllowed(_) => true,
+        UpstreamError::Overloaded(_) => true,
         UpstreamError::InvalidResponse(_) => false,
     }
 }

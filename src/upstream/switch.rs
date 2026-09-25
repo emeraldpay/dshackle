@@ -82,8 +82,12 @@ impl RpcUpstream for SwitchClient {
     }
 
     fn availability(&self) -> UpstreamAvailability {
-        // Best of the two — if primary is down, secondary might still be OK
-        std::cmp::min(self.primary.availability(), self.secondary.availability())
+        // Best of the two transports — if primary is down, secondary might still be OK.
+        let transports = std::cmp::min(self.primary.availability(), self.secondary.availability());
+        // But the upstream-level signals (validation, lag, fork, overload
+        // parking) land on this switch's own state, as it's the state every
+        // wrapper above exposes; any of them takes the whole upstream out.
+        std::cmp::max(self.state.availability(), transports)
     }
 
     fn head(&self) -> &dyn Head {
@@ -235,5 +239,19 @@ mod tests {
         assert!(matches!(err, UpstreamError::Transport(_)));
         assert_eq!(primary.call_count(), 1);
         assert_eq!(secondary.call_count(), 1);
+    }
+
+    /// Validation, lag and fork status are recorded on the switch's own state
+    /// (the one wrappers above expose); healthy transports must not mask them.
+    #[test]
+    fn upstream_level_status_overrides_healthy_transports() {
+        let client = SwitchClient::new(
+            Arc::new(SuccessUpstream::new(r#""0x1""#)),
+            Arc::new(SuccessUpstream::new(r#""0x2""#)),
+        );
+        assert_eq!(client.availability(), UpstreamAvailability::Ok);
+
+        client.state().set_validation(UpstreamAvailability::Syncing);
+        assert_eq!(client.availability(), UpstreamAvailability::Syncing);
     }
 }
