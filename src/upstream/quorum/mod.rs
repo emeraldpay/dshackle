@@ -169,7 +169,7 @@ pub fn is_connection_unavailable(err: &UpstreamError) -> bool {
 }
 
 /// Whether an HTTP status marks the upstream as temporarily unavailable — the
-/// call may be retried on another upstream, and the provider should be parked.
+/// call may be retried on another upstream, and the provider should be paused.
 ///
 /// 401 (Unauthorized), 429 (Too Many Requests), and 502–504 are commonly
 /// returned by overloaded or auth-rejecting proxies (e.g. Infura). A 500 with a

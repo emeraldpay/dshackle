@@ -138,10 +138,11 @@ pub enum UpstreamError {
     /// status is retained so the quorum can still decide whether the call is
     /// retryable (429/401/502–504) or definitive (e.g. 500 "Already Spent").
     Rejected { status: u16, message: String },
-    /// The upstream answered with a JSON-RPC error saying it is overloaded
-    /// (e.g. Erigon's "server overloaded, retry later"). Carries the node's
-    /// own message, which is forwarded to the caller if no other upstream
-    /// answers.
+    /// The upstream answered with a JSON-RPC error refusing the call for now:
+    /// the node is overloaded (Erigon's "server overloaded, retry later") or
+    /// the provider's rate limit is hit (Alchemy's code 429 over WebSocket).
+    /// Carries the upstream's own message, which is forwarded to the caller
+    /// if no other upstream answers.
     Overloaded(String),
     /// The response body could not be parsed as valid JSON-RPC.
     InvalidResponse(String),

@@ -21,19 +21,20 @@
 //! reads the combination of the two.
 
 use crate::upstream::availability::UpstreamAvailability;
+use crate::upstream::pause::PauseReason;
 use crate::upstream::status_signal::StatusSignal;
-use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU8, Ordering};
-use std::sync::{Arc, LazyLock, OnceLock};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU8, AtomicU32, Ordering};
+use std::sync::{Arc, LazyLock, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 const NO_LAG: i64 = -1;
 
-/// No rate-limit cooldown is active. A stored deadline is compared against
+/// No pause is active. A stored deadline is compared against
 /// [`monotonic_millis`], which starts at ~0 and only grows, so 0 always reads
 /// as already elapsed.
 const NO_COOLDOWN: i64 = 0;
 
-/// Process-relative monotonic clock. Lets a cooldown deadline live in a single
+/// Process-relative monotonic clock. Lets a pause deadline live in a single
 /// atomic (millis since start) instead of a lock-guarded `Instant`, so the
 /// hot-path `availability()` read stays lock-free.
 static CLOCK_BASE: LazyLock<Instant> = LazyLock::new(Instant::now);
@@ -61,9 +62,19 @@ pub struct UpstreamState {
     /// upstream always valid, so report `Ok` no matter what.
     always_valid: AtomicBool,
     /// Monotonic deadline ([`monotonic_millis`]) until which the upstream is
-    /// parked after a rate-limit (HTTP 429) response, or [`NO_COOLDOWN`] when
-    /// none is active.
-    rate_limited_until: AtomicI64,
+    /// paused after refusing a call (see [`pause`](Self::pause)), or
+    /// [`NO_COOLDOWN`] when none is active.
+    paused_until: AtomicI64,
+    /// Monotonic time the current (or last) pause started. A longer pause
+    /// requested while one runs is measured from here, so repeated refusals
+    /// of the same kind can't keep pushing the end further.
+    paused_since: AtomicI64,
+    /// Pauses in a row with no successful call in between; each one doubles
+    /// the next pause.
+    pause_strikes: AtomicU32,
+    /// Serializes the decision to start a pause, so that a burst of refusals
+    /// from calls that were already in flight counts as one strike, not many.
+    pause_lock: Mutex<()>,
     /// Lag threshold above which the upstream is considered syncing.
     /// Ethereum uses 6 (blocks come every ~12s), Bitcoin uses 2 (blocks every ~10min).
     syncing_lag: u64,
@@ -91,7 +102,10 @@ impl UpstreamState {
             fork_status: AtomicU8::new(UpstreamAvailability::Ok as u8),
             reported_status: AtomicU8::new(UpstreamAvailability::Ok as u8),
             always_valid: AtomicBool::new(false),
-            rate_limited_until: AtomicI64::new(NO_COOLDOWN),
+            paused_until: AtomicI64::new(NO_COOLDOWN),
+            paused_since: AtomicI64::new(NO_COOLDOWN),
+            pause_strikes: AtomicU32::new(0),
+            pause_lock: Mutex::new(()),
             syncing_lag,
             signal: OnceLock::new(),
         }
@@ -127,10 +141,10 @@ impl UpstreamState {
     /// deliberately stricter: each signal alone is enough to take an upstream
     /// out of rotation.
     pub fn availability(&self) -> UpstreamAvailability {
-        // Checked before `always_valid`: a provider actively refusing calls with
-        // HTTP 429 must leave rotation even when the operator disabled validation
+        // Checked before `always_valid`: an upstream actively refusing calls
+        // must leave rotation even when the operator disabled validation
         // probes — `disable-validation` silences our own checks, not the provider.
-        if self.is_rate_limited() {
+        if self.is_paused() {
             return UpstreamAvailability::Unavailable;
         }
         if self.always_valid.load(Ordering::Relaxed) {
@@ -204,21 +218,70 @@ impl UpstreamState {
         self.always_valid.store(true, Ordering::Relaxed);
     }
 
-    /// Park the upstream for `cooldown` after a rate-limit (HTTP 429) response,
-    /// reporting it as `Unavailable` until the deadline passes. Overlapping hits
-    /// extend the deadline. Deliberately independent of `disable-validation`
-    /// (see [`availability`](Self::availability)).
-    pub fn set_rate_limited(&self, cooldown: Duration) {
-        let until = monotonic_millis().saturating_add(cooldown.as_millis() as i64);
-        // Keep the furthest deadline so a later, shorter cooldown can't cut a
-        // longer one short.
-        self.rate_limited_until.fetch_max(until, Ordering::Relaxed);
+    /// Take the upstream out of rotation after it refused a call, for a time
+    /// that grows with each pause in a row (see [`PauseReason::cooldown`]).
+    /// Deliberately independent of `disable-validation` (see
+    /// [`availability`](Self::availability)).
+    ///
+    /// Returns the pause length when a pause starts or gets longer. While one
+    /// is already running, a refusal only counts when its reason calls for a
+    /// longer pause (e.g. a rate limit during a short overload pause); it
+    /// then extends the current pause without adding a strike. Other
+    /// refusals come from calls sent before the pause, and say nothing about
+    /// whether the upstream is still down after it.
+    pub fn pause(&self, reason: PauseReason) -> Option<Duration> {
+        let _guard = self.pause_lock.lock().unwrap_or_else(|e| e.into_inner());
+        let now = monotonic_millis();
+        let (since, strikes) = if now < self.paused_until.load(Ordering::Relaxed) {
+            (
+                self.paused_since.load(Ordering::Relaxed),
+                self.pause_strikes.load(Ordering::Relaxed).saturating_sub(1),
+            )
+        } else {
+            self.paused_since.store(now, Ordering::Relaxed);
+            (now, self.pause_strikes.fetch_add(1, Ordering::Relaxed))
+        };
+        let cooldown = reason.cooldown(strikes);
+        let until = since.saturating_add(cooldown.as_millis() as i64);
+        if until <= self.paused_until.load(Ordering::Relaxed) {
+            return None;
+        }
+        self.paused_until.store(until, Ordering::Relaxed);
         self.notify_change();
+        self.notify_change_after(Duration::from_millis((until - now) as u64));
+        Some(cooldown)
     }
 
-    /// Whether a rate-limit cooldown is currently in effect.
-    fn is_rate_limited(&self) -> bool {
-        monotonic_millis() < self.rate_limited_until.load(Ordering::Relaxed)
+    /// Wake the chain's status consumers once `delay` passes. A pause ends by
+    /// time alone, with no write to report it, so without this they'd keep
+    /// showing the upstream unavailable until some unrelated change.
+    fn notify_change_after(&self, delay: Duration) {
+        let Some(signal) = self.signal.get().cloned() else {
+            return;
+        };
+        let Ok(runtime) = tokio::runtime::Handle::try_current() else {
+            return;
+        };
+        // A pause extended later leaves this timer firing early; that's a
+        // harmless extra wake-up, as consumers suppress unchanged statuses.
+        runtime.spawn(async move {
+            tokio::time::sleep(delay).await;
+            signal.notify();
+        });
+    }
+
+    /// Record that the upstream answered a call, so the next pause starts
+    /// from the shortest one again. Answers arriving during a pause are
+    /// ignored for the same reason as in [`pause`](Self::pause).
+    pub fn record_answer(&self) {
+        // Checked first to keep the hot path free of writes.
+        if self.pause_strikes.load(Ordering::Relaxed) != 0 && !self.is_paused() {
+            self.pause_strikes.store(0, Ordering::Relaxed);
+        }
+    }
+
+    fn is_paused(&self) -> bool {
+        monotonic_millis() < self.paused_until.load(Ordering::Relaxed)
     }
 }
 
@@ -374,41 +437,116 @@ mod tests {
         assert_eq!(s.availability(), UpstreamAvailability::Ok);
     }
 
-    // ── Rate-limit cooldown (HTTP 429) ─────────────────────────────────
+    // ── Pause after a refused call ─────────────────────────────────────
 
     #[test]
-    fn rate_limited_reports_unavailable() {
+    fn paused_reports_unavailable() {
         let s = UpstreamState::new();
-        s.set_rate_limited(Duration::from_secs(60));
+        assert_eq!(
+            s.pause(PauseReason::RateLimited),
+            Some(Duration::from_secs(10))
+        );
         assert_eq!(s.availability(), UpstreamAvailability::Unavailable);
     }
 
     #[test]
-    fn rate_limit_overrides_always_valid() {
+    fn pause_overrides_always_valid() {
         // `disable-validation` must not shield an upstream a provider is actively
         // rejecting with 429.
         let s = UpstreamState::new();
         s.set_always_valid();
-        s.set_rate_limited(Duration::from_secs(60));
+        s.pause(PauseReason::RateLimited);
         assert_eq!(s.availability(), UpstreamAvailability::Unavailable);
     }
 
     #[test]
-    fn expired_cooldown_restores_availability() {
+    fn refusals_during_a_pause_do_not_extend_it() {
         let s = UpstreamState::new();
-        s.update(0, Some(100));
-        // A zero cooldown is already in the past on the monotonic clock.
-        s.set_rate_limited(Duration::from_millis(0));
+        s.pause(PauseReason::RateLimited);
+        let until = s.paused_until.load(Ordering::Relaxed);
+
+        assert_eq!(s.pause(PauseReason::RateLimited), None);
+        assert_eq!(s.pause(PauseReason::Overloaded), None);
+
+        assert_eq!(s.paused_until.load(Ordering::Relaxed), until);
+        assert_eq!(s.pause_strikes.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn longer_reason_during_a_pause_extends_it() {
+        let s = UpstreamState::new();
+        s.pause(PauseReason::Overloaded);
+        let since = s.paused_since.load(Ordering::Relaxed);
+
+        assert_eq!(
+            s.pause(PauseReason::RateLimited),
+            Some(Duration::from_secs(10))
+        );
+
+        assert_eq!(s.paused_until.load(Ordering::Relaxed), since + 10_000);
+        // Still one pause, so the next one grows by one step only.
+        assert_eq!(s.pause_strikes.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn end_of_pause_wakes_status_consumers() {
+        let s = UpstreamState::new();
+        let signal = Arc::new(StatusSignal::new());
+        s.attach_status_signal(Arc::clone(&signal));
+        let mut changes = signal.subscribe();
+
+        s.pause(PauseReason::Overloaded);
+        assert!(changes.changed().await, "start of the pause");
+        assert_eq!(s.availability(), UpstreamAvailability::Unavailable);
+
+        tokio::time::timeout(Duration::from_secs(5), changes.changed())
+            .await
+            .expect("no wake-up at the end of the pause");
         assert_eq!(s.availability(), UpstreamAvailability::Ok);
     }
 
     #[test]
-    fn overlapping_cooldown_keeps_furthest_deadline() {
+    fn pause_expires() {
         let s = UpstreamState::new();
-        s.set_rate_limited(Duration::from_secs(60));
-        // A shorter, already-expired hit must not cut the live cooldown short.
-        s.set_rate_limited(Duration::from_millis(0));
-        assert_eq!(s.availability(), UpstreamAvailability::Unavailable);
+        s.update(0, Some(100));
+        s.paused_until
+            .store(monotonic_millis() - 1, Ordering::Relaxed);
+        assert_eq!(s.availability(), UpstreamAvailability::Ok);
+    }
+
+    #[test]
+    fn consecutive_pauses_grow() {
+        let s = UpstreamState::new();
+        assert_eq!(
+            s.pause(PauseReason::Overloaded),
+            Some(Duration::from_millis(500))
+        );
+        s.paused_until.store(NO_COOLDOWN, Ordering::Relaxed);
+        assert_eq!(
+            s.pause(PauseReason::Overloaded),
+            Some(Duration::from_secs(1))
+        );
+    }
+
+    #[test]
+    fn answer_after_pause_resets_growth() {
+        let s = UpstreamState::new();
+        s.pause(PauseReason::Overloaded);
+        s.paused_until.store(NO_COOLDOWN, Ordering::Relaxed);
+        s.record_answer();
+        assert_eq!(
+            s.pause(PauseReason::Overloaded),
+            Some(Duration::from_millis(500))
+        );
+    }
+
+    #[test]
+    fn answer_during_pause_keeps_growth() {
+        // A straggler dispatched before the pause says nothing about recovery.
+        let s = UpstreamState::new();
+        s.pause(PauseReason::Overloaded);
+        s.record_answer();
+        assert_eq!(s.pause_strikes.load(Ordering::Relaxed), 1);
     }
 
     // ── Bitcoin threshold of 2 ─────────────────────────────────────────

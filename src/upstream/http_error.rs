@@ -18,33 +18,20 @@
 //!
 //! - Forward the provider's own JSON-RPC error message when the body carries one
 //!   (issue #251; Bitcoin nodes answer 500 with a real "Already Spent" error).
-//! - Park the upstream for a cooldown when the status marks it temporarily
-//!   unavailable (429/401/502–504), so routing stops selecting it.
+//! - Keep the status, so the quorum can tell a retryable refusal (429/401/502–504)
+//!   from a definitive answer.
+//!
+//! Pausing the upstream on such a status is not done here but by the
+//! [`OverloadGuard`](super::overload::OverloadGuard) above both transports:
+//! the provider refuses the whole upstream, not only its HTTP endpoint.
 
 use crate::jsonrpc::JsonRpcResponse;
 use crate::upstream::id::UpstreamId;
-use crate::upstream::quorum::is_unavailable_status;
-use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{UpstreamError, sanitize_error_body};
-use std::time::Duration;
 
-/// How long to park an upstream after a status that marks it temporarily
-/// unavailable, giving a provider's rate-limit window time to reset before we
-/// route to it again. Matches the legacy `DefaultUpstream` one-minute pause.
-pub(crate) const RATE_LIMIT_COOLDOWN: Duration = Duration::from_secs(60);
-
-/// Map a non-200 response into an [`UpstreamError`], parking the upstream when
-/// the status marks it temporarily unavailable and forwarding the provider's own
-/// error message when the body is a JSON-RPC error.
-pub fn classify_non_200(
-    id: &UpstreamId,
-    state: &UpstreamState,
-    status: u16,
-    body: &str,
-) -> UpstreamError {
-    if is_unavailable_status(status) {
-        state.set_rate_limited(RATE_LIMIT_COOLDOWN);
-    }
+/// Map a non-200 response into an [`UpstreamError`], forwarding the provider's
+/// own error message when the body is a JSON-RPC error.
+pub fn classify_non_200(id: &UpstreamId, status: u16, body: &str) -> UpstreamError {
     match rpc_error_message(body) {
         Some(message) => {
             tracing::debug!(upstream = %id, status, %message, "upstream returned a JSON-RPC error with non-200 status");
@@ -70,46 +57,31 @@ fn rpc_error_message(body: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::upstream::availability::UpstreamAvailability;
 
     const ERROR_BODY: &str =
         r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32005,"message":"too many request"}}"#;
 
     #[test]
-    fn forwards_body_message_and_parks_on_429() {
-        let state = UpstreamState::new();
-        let err = classify_non_200(&"up-u".parse().unwrap(), &state, 429, ERROR_BODY);
+    fn forwards_body_message_on_429() {
+        let err = classify_non_200(&"up-u".parse().unwrap(), 429, ERROR_BODY);
         assert!(
             matches!(&err, UpstreamError::Rejected { status: 429, message } if message == "too many request")
         );
-        // A 429 takes the upstream out of rotation.
-        assert_eq!(state.availability(), UpstreamAvailability::Unavailable);
     }
 
     #[test]
-    fn forwards_body_message_without_parking_on_500() {
-        // A Bitcoin node answering 500 with a real error is a definitive answer,
-        // not a reason to park the upstream.
-        let state = UpstreamState::new();
+    fn forwards_body_message_on_500() {
+        // A Bitcoin node answering 500 with a real error is a definitive answer.
         let body = r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32600,"message":"Already Spent"}}"#;
-        let err = classify_non_200(&"up-u".parse().unwrap(), &state, 500, body);
+        let err = classify_non_200(&"up-u".parse().unwrap(), 500, body);
         assert!(
             matches!(&err, UpstreamError::Rejected { status: 500, message } if message == "Already Spent")
         );
-        assert_eq!(state.availability(), UpstreamAvailability::Ok);
     }
 
     #[test]
     fn falls_back_to_status_without_json_body() {
-        let state = UpstreamState::new();
-        let err = classify_non_200(
-            &"up-u".parse().unwrap(),
-            &state,
-            502,
-            "<html>Bad Gateway</html>",
-        );
+        let err = classify_non_200(&"up-u".parse().unwrap(), 502, "<html>Bad Gateway</html>");
         assert!(matches!(err, UpstreamError::HttpStatus(502)));
-        // 502 still parks the upstream even without a parseable body.
-        assert_eq!(state.availability(), UpstreamAvailability::Unavailable);
     }
 }

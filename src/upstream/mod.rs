@@ -38,6 +38,7 @@ mod metered;
 mod methods;
 pub mod multistream;
 mod overload;
+mod pause;
 pub mod quorum;
 pub mod router;
 pub mod selector;
@@ -546,6 +547,7 @@ impl UpstreamManager {
                         id.clone(),
                         chain,
                     ));
+                    let reader: Arc<dyn RpcUpstream> = Arc::new(OverloadGuard::new(reader));
                     let fork_head = Arc::clone(&head);
                     start_btc_head_poller(Arc::clone(&reader), Arc::clone(&head));
 

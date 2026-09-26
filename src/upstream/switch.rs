@@ -84,8 +84,8 @@ impl RpcUpstream for SwitchClient {
     fn availability(&self) -> UpstreamAvailability {
         // Best of the two transports — if primary is down, secondary might still be OK.
         let transports = std::cmp::min(self.primary.availability(), self.secondary.availability());
-        // But the upstream-level signals (validation, lag, fork, overload
-        // parking) land on this switch's own state, as it's the state every
+        // But the upstream-level signals (validation, lag, fork, refusal
+        // pauses) land on this switch's own state, as it's the state every
         // wrapper above exposes; any of them takes the whole upstream out.
         std::cmp::max(self.state.availability(), transports)
     }

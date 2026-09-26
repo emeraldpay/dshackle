@@ -85,7 +85,7 @@ impl RpcUpstream for EthereumHttpUpstream {
         let status = resp.status().as_u16();
         if status != 200 {
             let body = resp.text().await.unwrap_or_default();
-            return Err(classify_non_200(&self.id, &self.state, status, &body));
+            return Err(classify_non_200(&self.id, status, &body));
         }
 
         let body = resp
