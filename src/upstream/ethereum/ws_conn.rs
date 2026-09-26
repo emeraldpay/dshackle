@@ -21,6 +21,8 @@
 
 use crate::config::tls::BasicAuth;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
+use crate::upstream::pause::{PauseHandle, PauseReason};
+use crate::upstream::quorum::is_unavailable_status;
 use crate::upstream::traits::UpstreamError;
 use base64::Engine as _;
 use futures_util::{SinkExt, StreamExt};
@@ -123,7 +125,9 @@ struct WsConnectionInner {
 
 impl WsConnection {
     /// Create a new WS connection and start its background reconnection loop.
-    pub(super) fn new(label: String, target: WsTarget) -> Self {
+    /// `pause` takes the whole upstream out of rotation when the endpoint
+    /// refuses the connection itself (e.g. a provider's 429 on the handshake).
+    pub(super) fn new(label: String, target: WsTarget, pause: PauseHandle) -> Self {
         let (outgoing_tx, outgoing_rx) = mpsc::channel::<String>(256);
 
         let inner = Arc::new(WsConnectionInner {
@@ -138,7 +142,7 @@ impl WsConnection {
         let bg_inner = Arc::clone(&inner);
         let bg_label = label.clone();
         tokio::spawn(async move {
-            connection_loop(bg_label, target, bg_inner, outgoing_rx).await;
+            connection_loop(bg_label, target, bg_inner, outgoing_rx, pause).await;
         });
 
         Self {
@@ -260,6 +264,7 @@ async fn connection_loop(
     target: WsTarget,
     state: Arc<WsConnectionInner>,
     mut outgoing_rx: mpsc::Receiver<String>,
+    pause: PauseHandle,
 ) {
     let mut backoff = BACKOFF_INITIAL;
 
@@ -272,6 +277,11 @@ async fn connection_loop(
             }
             Err(e) => {
                 tracing::warn!("{label}: WebSocket error: {e}");
+                if let ConnectionError::Refused(status) = e
+                    && is_unavailable_status(status)
+                {
+                    pause.pause(PauseReason::RateLimited, &e.to_string());
+                }
             }
         }
 
@@ -293,13 +303,38 @@ async fn connection_loop(
     }
 }
 
+/// Why a WS connection ended with an error.
+enum ConnectionError {
+    /// The endpoint answered the handshake with an HTTP error status instead
+    /// of upgrading the connection.
+    Refused(u16),
+    Failed(String),
+}
+
+impl std::fmt::Display for ConnectionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConnectionError::Refused(status) => {
+                write!(f, "connect failed: HTTP {status} on WebSocket handshake")
+            }
+            ConnectionError::Failed(message) => write!(f, "{message}"),
+        }
+    }
+}
+
+impl From<String> for ConnectionError {
+    fn from(message: String) -> Self {
+        ConnectionError::Failed(message)
+    }
+}
+
 /// Connect to the WS endpoint and run the read/write loops until disconnection.
 async fn connect_and_run(
     label: &str,
     target: &WsTarget,
     state: &Arc<WsConnectionInner>,
     outgoing_rx: &mut mpsc::Receiver<String>,
-) -> Result<(), String> {
+) -> Result<(), ConnectionError> {
     // Configured limits only; unset ones keep the tungstenite defaults
     // (16 MiB frame / 64 MiB message).
     let mut ws_config = tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default();
@@ -315,7 +350,10 @@ async fn connect_and_run(
         false,
     )
     .await
-    .map_err(|e| format!("connect failed: {e}"))?;
+    .map_err(|e| match &e {
+        tungstenite::Error::Http(response) => ConnectionError::Refused(response.status().as_u16()),
+        _ => ConnectionError::Failed(format!("connect failed: {e}")),
+    })?;
 
     state.connected.store(true, Ordering::Relaxed);
     tracing::info!("{label}: WebSocket connected");
@@ -345,7 +383,7 @@ async fn connect_and_run(
                         // Ping/Pong frames handled automatically by tungstenite
                     }
                     Some(Err(e)) => {
-                        return Err(format!("read error: {e}"));
+                        return Err(ConnectionError::Failed(format!("read error: {e}")));
                     }
                     None => {
                         // Stream ended
@@ -359,7 +397,7 @@ async fn connect_and_run(
                 match outgoing {
                     Some(json) => {
                         if let Err(e) = ws_write.send(tungstenite::Message::Text(json.into())).await {
-                            return Err(format!("write error: {e}"));
+                            return Err(ConnectionError::Failed(format!("write error: {e}")));
                         }
                     }
                     None => {
@@ -467,6 +505,15 @@ struct SubscriptionParams {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::upstream::availability::UpstreamAvailability;
+    use crate::upstream::state::UpstreamState;
+
+    fn test_pause() -> PauseHandle {
+        PauseHandle::new(
+            crate::upstream::id::stub_id().clone(),
+            Arc::new(UpstreamState::new()),
+        )
+    }
 
     /// With the connection never established the response can't arrive, so the
     /// call must fail at the configured `call_timeout` (`options.timeout`)
@@ -483,7 +530,7 @@ mod tests {
             frame_size: None,
             msg_size: None,
         };
-        let conn = WsConnection::new("test".to_string(), target);
+        let conn = WsConnection::new("test".to_string(), target, test_pause());
 
         let request = JsonRpcRequest::new(1, "eth_blockNumber".into(), serde_json::json!([]));
         let started = std::time::Instant::now();
@@ -539,6 +586,70 @@ mod tests {
 
     /// A WS server that answers the first JSON-RPC request with a response
     /// padded to roughly 200 KB, so tests can steer it across a size limit.
+    /// A WS endpoint that refuses every handshake with the given HTTP status.
+    async fn serve_refusing_handshake(status_line: &'static str) -> String {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("ws://{}/", listener.local_addr().unwrap());
+        tokio::spawn(async move {
+            while let Ok((mut stream, _)) = listener.accept().await {
+                let mut request = [0u8; 4096];
+                let _ = stream.read(&mut request).await;
+                let response = format!(
+                    "HTTP/1.1 {status_line}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                );
+                let _ = stream.write_all(response.as_bytes()).await;
+            }
+        });
+        url
+    }
+
+    fn target_at(url: String) -> WsTarget {
+        WsTarget {
+            url,
+            origin: None,
+            basic_auth: None,
+            call_timeout: std::time::Duration::from_millis(200),
+            frame_size: None,
+            msg_size: None,
+        }
+    }
+
+    /// A provider's 429 on the handshake refuses the whole upstream (its HTTP
+    /// endpoint shares the key), so it must pause the upstream, not only make
+    /// this connection retry.
+    #[tokio::test]
+    async fn handshake_refused_with_429_pauses_upstream() {
+        let url = serve_refusing_handshake("429 Too Many Requests").await;
+        let state = Arc::new(UpstreamState::new());
+        let pause = PauseHandle::new(crate::upstream::id::stub_id().clone(), Arc::clone(&state));
+
+        let _conn = WsConnection::new("test".to_string(), target_at(url), pause);
+
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while state.availability() != UpstreamAvailability::Unavailable {
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("the upstream should have been paused");
+    }
+
+    /// A handshake refused for a reason that says nothing about capacity
+    /// (here 404, a wrong path) is left to the reconnect loop and validation.
+    #[tokio::test]
+    async fn handshake_refused_with_404_does_not_pause() {
+        let url = serve_refusing_handshake("404 Not Found").await;
+        let state = Arc::new(UpstreamState::new());
+        let pause = PauseHandle::new(crate::upstream::id::stub_id().clone(), Arc::clone(&state));
+
+        let _conn = WsConnection::new("test".to_string(), target_at(url), pause);
+        // Covers the first attempt and the first reconnect (100ms backoff).
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+
+        assert_eq!(state.availability(), UpstreamAvailability::Ok);
+    }
+
     async fn serve_one_oversized_response() -> String {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let url = format!("ws://{}/", listener.local_addr().unwrap());
@@ -579,7 +690,7 @@ mod tests {
                 frame_size: None,
                 msg_size,
             };
-            let conn = WsConnection::new("test".to_string(), target);
+            let conn = WsConnection::new("test".to_string(), target, test_pause());
             let request =
                 JsonRpcRequest::new(1, "eth_getBlockByNumber".into(), serde_json::json!([]));
             let result = conn.call(&request).await;

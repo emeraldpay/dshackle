@@ -38,7 +38,7 @@ use crate::jsonrpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
 use crate::upstream::id::UpstreamId;
-use crate::upstream::pause::PauseReason;
+use crate::upstream::pause::{PauseHandle, PauseReason};
 use crate::upstream::quorum::is_unavailable_status;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
@@ -69,22 +69,13 @@ const RATE_LIMIT_CODE: i64 = 429;
 /// routing reads, while each transport only has its own.
 pub struct OverloadGuard {
     inner: Arc<dyn RpcUpstream>,
+    pause: PauseHandle,
 }
 
 impl OverloadGuard {
     pub fn new(inner: Arc<dyn RpcUpstream>) -> Self {
-        Self { inner }
-    }
-
-    fn pause(&self, reason: PauseReason, message: &str) {
-        if let Some(cooldown) = self.inner.state().pause(reason) {
-            tracing::warn!(
-                upstream = %self.inner.id(),
-                %message,
-                "upstream refuses calls ({reason:?}), pausing it for {}ms",
-                cooldown.as_millis()
-            );
-        }
+        let pause = PauseHandle::new(inner.id().clone(), Arc::clone(inner.state()));
+        Self { inner, pause }
     }
 }
 
@@ -139,7 +130,7 @@ impl RpcUpstream for OverloadGuard {
                 if let Some(error) = &response.error
                     && let Some(reason) = error.pause_reason()
                 {
-                    self.pause(reason, &error.message);
+                    self.pause.pause(reason, &error.message);
                     return Err(UpstreamError::Overloaded(error.message.clone()));
                 }
                 self.inner.state().record_answer();
@@ -149,7 +140,7 @@ impl RpcUpstream for OverloadGuard {
                 let Some(reason) = err.pause_reason() else {
                     return Err(err);
                 };
-                self.pause(reason, &err.to_string());
+                self.pause.pause(reason, &err.to_string());
                 match err {
                     // The status of an overload reply depends on what's in
                     // front of the node (e.g. a proxy answering 500), and one

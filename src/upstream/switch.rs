@@ -33,7 +33,14 @@ pub struct SwitchClient {
 }
 
 impl SwitchClient {
-    pub fn new(primary: Arc<dyn RpcUpstream>, secondary: Arc<dyn RpcUpstream>) -> Self {
+    /// `state` is the state of the upstream as a whole. It's passed in rather
+    /// than owned because a transport may need to report on the whole
+    /// upstream too (a WebSocket handshake refused with 429).
+    pub fn new(
+        primary: Arc<dyn RpcUpstream>,
+        secondary: Arc<dyn RpcUpstream>,
+        state: Arc<UpstreamState>,
+    ) -> Self {
         let head = BestHead {
             primary: Arc::clone(&primary),
             secondary: Arc::clone(&secondary),
@@ -42,7 +49,7 @@ impl SwitchClient {
             primary,
             secondary,
             head,
-            state: Arc::new(UpstreamState::new()),
+            state,
         }
     }
 }
@@ -209,7 +216,11 @@ mod tests {
     async fn uses_primary_when_it_succeeds() {
         let primary = Arc::new(SuccessUpstream::new(r#""0x1""#));
         let secondary = Arc::new(SuccessUpstream::new(r#""0x2""#));
-        let client = SwitchClient::new(primary.clone(), secondary.clone());
+        let client = SwitchClient::new(
+            primary.clone(),
+            secondary.clone(),
+            Arc::new(UpstreamState::new()),
+        );
 
         let resp = client.call(&dummy_request()).await.unwrap();
         assert_eq!(resp.result.unwrap().get(), r#""0x1""#);
@@ -221,7 +232,11 @@ mod tests {
     async fn falls_back_to_secondary_on_primary_failure() {
         let primary = Arc::new(FailUpstream::new());
         let secondary = Arc::new(SuccessUpstream::new(r#""0x2""#));
-        let client = SwitchClient::new(primary.clone(), secondary.clone());
+        let client = SwitchClient::new(
+            primary.clone(),
+            secondary.clone(),
+            Arc::new(UpstreamState::new()),
+        );
 
         let resp = client.call(&dummy_request()).await.unwrap();
         assert_eq!(resp.result.unwrap().get(), r#""0x2""#);
@@ -233,7 +248,11 @@ mod tests {
     async fn returns_secondary_error_when_both_fail() {
         let primary = Arc::new(FailUpstream::new());
         let secondary = Arc::new(FailUpstream::new());
-        let client = SwitchClient::new(primary.clone(), secondary.clone());
+        let client = SwitchClient::new(
+            primary.clone(),
+            secondary.clone(),
+            Arc::new(UpstreamState::new()),
+        );
 
         let err = client.call(&dummy_request()).await.unwrap_err();
         assert!(matches!(err, UpstreamError::Transport(_)));
@@ -248,6 +267,7 @@ mod tests {
         let client = SwitchClient::new(
             Arc::new(SuccessUpstream::new(r#""0x1""#)),
             Arc::new(SuccessUpstream::new(r#""0x2""#)),
+            Arc::new(UpstreamState::new()),
         );
         assert_eq!(client.availability(), UpstreamAvailability::Ok);
 

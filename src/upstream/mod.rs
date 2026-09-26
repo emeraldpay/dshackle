@@ -106,6 +106,7 @@ use methods::bitcoin::DefaultBitcoinMethods;
 use methods::ethereum::DefaultEthereumMethods;
 use overload::OverloadGuard;
 use quorum::QuorumFactory;
+use state::UpstreamState;
 use status::ChainStatus;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -247,6 +248,10 @@ impl UpstreamManager {
                     // on only one of them — WS is preferred because newHeads
                     // gives near-instant updates, while HTTP polls every 10s.
                     // The other transport is used for RPC calls only.
+                    // Shared by the WS transport and the WS/HTTP switch, so
+                    // a WS handshake refused with 429 pauses the upstream as
+                    // a whole: HTTP on the same provider key is refused too.
+                    let upstream_state = Arc::new(UpstreamState::new());
                     let ws_upstream: Option<Arc<EthereumWsUpstream>> = eth.ws.as_ref().map(|ws| {
                         // The WS stack (tungstenite) implements no
                         // permessage-deflate, and advertising the extension
@@ -276,6 +281,7 @@ impl UpstreamManager {
                                 msg_size: ws.msg_size,
                             },
                             ws.connections.unwrap_or(1),
+                            Arc::clone(&upstream_state),
                         ))
                     });
 
@@ -407,7 +413,7 @@ impl UpstreamManager {
                                 id,
                                 blockchain_name,
                             );
-                            Arc::new(SwitchClient::new(ws, http))
+                            Arc::new(SwitchClient::new(ws, http, upstream_state))
                         }
                         (Some(ws), None) => ws,
                         (None, Some(http)) => http,

@@ -168,6 +168,7 @@ mod tests {
         let switch = crate::upstream::switch::SwitchClient::new(
             Arc::new(disabled(Arc::clone(&ws), &["debug_traceBlockByNumber"])),
             Arc::clone(&http) as Arc<dyn RpcUpstream>,
+            Arc::new(crate::upstream::state::UpstreamState::new()),
         );
 
         let resp = switch.call(&request("debug_traceBlockByNumber")).await;

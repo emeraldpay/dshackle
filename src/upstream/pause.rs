@@ -20,6 +20,9 @@
 //! probed less and less often instead of taking a share of real requests every
 //! few seconds.
 
+use crate::upstream::id::UpstreamId;
+use crate::upstream::state::UpstreamState;
+use std::sync::Arc;
 use std::time::Duration;
 
 /// Caps the growth, so a recovered upstream is picked up again within this
@@ -54,6 +57,39 @@ impl PauseReason {
         // shift from overflowing.
         let factor = 1u32 << strikes.min(16);
         self.initial().saturating_mul(factor).min(MAX_PAUSE)
+    }
+}
+
+/// Pauses one upstream as a whole, from whichever part of it saw the refusal:
+/// a routed call or a transport's own connection attempt (a provider refusing
+/// the WebSocket handshake with 429 refuses the HTTP endpoint on the same key
+/// too).
+#[derive(Clone)]
+pub struct PauseHandle {
+    id: UpstreamId,
+    state: Arc<UpstreamState>,
+}
+
+impl PauseHandle {
+    /// `state` must be the upstream-level one routing reads, not a single
+    /// transport's.
+    pub fn new(id: UpstreamId, state: Arc<UpstreamState>) -> Self {
+        Self { id, state }
+    }
+
+    /// Pause the upstream (see [`UpstreamState::pause`]); `cause` is what the
+    /// upstream said, for the log.
+    pub fn pause(&self, reason: PauseReason, cause: &str) {
+        // Logged once per pause, not per refusal: a burst of refused calls
+        // that were already in flight would otherwise flood the log.
+        if let Some(cooldown) = self.state.pause(reason) {
+            tracing::warn!(
+                upstream = %self.id,
+                %cause,
+                "upstream refuses calls ({reason:?}), pausing it for {}ms",
+                cooldown.as_millis()
+            );
+        }
     }
 }
 

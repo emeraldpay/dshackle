@@ -29,6 +29,7 @@ use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::{CurrentHead, Head};
 use crate::upstream::id::UpstreamId;
+use crate::upstream::pause::PauseHandle;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use serde_json::value::RawValue;
@@ -52,10 +53,20 @@ impl EthereumWsUpstream {
     ///
     /// Connections are established in background tasks and automatically
     /// reconnect with exponential backoff on failure.
-    pub fn new(id: UpstreamId, target: WsTarget, connections: u32) -> Self {
-        let pool = WsConnectionPool::start(id.clone(), target, connections.max(1));
+    ///
+    /// `upstream_state` is the state of the upstream as a whole, shared with
+    /// its HTTP transport's [`SwitchClient`](crate::upstream::switch::SwitchClient)
+    /// when there's one: a connection refused with 429 pauses the upstream,
+    /// not only this transport.
+    pub fn new(
+        id: UpstreamId,
+        target: WsTarget,
+        connections: u32,
+        upstream_state: Arc<UpstreamState>,
+    ) -> Self {
+        let pause = PauseHandle::new(id.clone(), Arc::clone(&upstream_state));
+        let pool = WsConnectionPool::start(id.clone(), target, connections.max(1), pause);
         let head = Arc::new(CurrentHead::new());
-        let upstream_state = Arc::new(UpstreamState::new());
         Self {
             id,
             pool,

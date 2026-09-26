@@ -22,6 +22,7 @@
 
 use super::ws_conn::{WsConnection, WsTarget};
 use crate::upstream::id::UpstreamId;
+use crate::upstream::pause::PauseHandle;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
 
@@ -44,7 +45,12 @@ pub(super) struct WsConnectionPool {
 
 impl WsConnectionPool {
     /// Create a pool and start growing connections in the background.
-    pub(super) fn start(upstream_id: UpstreamId, ws_target: WsTarget, target: u32) -> Arc<Self> {
+    pub(super) fn start(
+        upstream_id: UpstreamId,
+        ws_target: WsTarget,
+        target: u32,
+        pause: PauseHandle,
+    ) -> Arc<Self> {
         let pool = Arc::new(Self {
             connections: RwLock::new(Vec::with_capacity(target as usize)),
             next_index: AtomicUsize::new(0),
@@ -59,7 +65,7 @@ impl WsConnectionPool {
 
         let pool_clone = Arc::clone(&pool);
         tokio::spawn(async move {
-            grow_pool(pool_clone, upstream_id, ws_target, target).await;
+            grow_pool(pool_clone, upstream_id, ws_target, target, pause).await;
         });
 
         pool
@@ -102,6 +108,7 @@ async fn grow_pool(
     upstream_id: UpstreamId,
     ws_target: WsTarget,
     target: u32,
+    pause: PauseHandle,
 ) {
     for i in 0..target {
         let label = if target == 1 {
@@ -110,7 +117,7 @@ async fn grow_pool(
             format!("Upstream {upstream_id}/{}", i + 1)
         };
 
-        let conn = Arc::new(WsConnection::new(label, ws_target.clone()));
+        let conn = Arc::new(WsConnection::new(label, ws_target.clone(), pause.clone()));
         {
             let mut conns = pool.connections.write().expect("connections lock poisoned");
             conns.push(conn);
