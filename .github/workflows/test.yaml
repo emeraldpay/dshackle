@@ -12,6 +12,9 @@ on:
       - release/*
       - ci/*
 
+permissions:
+  contents: read
+
 jobs:
   unit-test:
     runs-on: ubuntu-latest

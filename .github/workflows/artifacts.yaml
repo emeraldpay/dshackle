@@ -12,6 +12,9 @@ on:
       - release/*
       - ci/*
 
+permissions:
+  contents: read
+
 jobs:
 
   publish-docker-nightly:
@@ -20,6 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
+        with:
+          # .git goes into the Docker build context, and it must not carry the GitHub token there
+          persist-credentials: false
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -36,6 +42,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
+          # the checked out dir, since a Git context (the default) comes without .git, and the build needs it for the commit hash
+          context: .
           push: true
           tags: |
             emeraldpay/dshackle:nightly
@@ -65,11 +73,13 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Auth for GCP
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_ARTIFACTS_KEY }}
 
       - name: Setup GCP
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
@@ -128,10 +138,12 @@ jobs:
           cp ${{ steps.set-target-file.outputs.buildFile }} upload/${{ steps.set-artifact-file.outputs.filename }}
 
       - name: Upload to GCP
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
           gsutil cp -n upload/* gs://artifacts.emerald.cash/builds/dshackle/${{ steps.date.outputs.time }}/${{ steps.time.outputs.time }}-${{ github.sha }}/
 
       - name: Links to published artifacts
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
           echo "Publishing artifacts to:"  >> $GITHUB_STEP_SUMMARY
           echo "  https://artifacts.emerald.cash/builds/dshackle/${{ steps.date.outputs.time }}/${{ steps.time.outputs.time }}-${{ github.sha }}/${{ steps.set-artifact-file.outputs.filename }}"  >> $GITHUB_STEP_SUMMARY

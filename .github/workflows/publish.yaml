@@ -79,6 +79,8 @@ jobs:
       - uses: actions/checkout@master
         with:
           ref: ${{ github.ref }}
+          # .git goes into the Docker build context, and it must not carry the GitHub token there
+          persist-credentials: false
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -102,6 +104,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
+          # the checked out dir, since a Git context (the default) comes without .git, and the build needs it for the commit hash
+          context: .
           push: true
           tags: |
             emeraldpay/dshackle:snapshot
