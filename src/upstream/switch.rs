@@ -70,6 +70,11 @@ impl Head for BestHead {
             (a, b) => a.or(b),
         }
     }
+
+    fn notify_growth(&self, signal: &Arc<tokio::sync::Notify>) {
+        self.primary.head().notify_growth(signal);
+        self.secondary.head().notify_growth(signal);
+    }
 }
 
 #[async_trait::async_trait]

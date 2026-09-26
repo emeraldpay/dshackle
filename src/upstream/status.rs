@@ -21,8 +21,8 @@
 //! State of ETH: height=12345678, status=[OK/2,LAGGING/1], lag=[0, 1, NA], weak=[upstream3]
 //! ```
 //!
-//! On each tick, the reporter also recalculates lag and derived availability
-//! for every upstream (see `UpstreamState::update`).
+//! It only reports: the lag it shows is kept current by
+//! [`lag`](super::lag) on every head change.
 
 use crate::blockchain::TargetBlockchain;
 use crate::upstream::availability::UpstreamAvailability;
@@ -46,33 +46,14 @@ struct UpstreamSnapshot {
     lag: Option<u64>,
 }
 
-/// Recalculate lag and availability for each upstream in the chain, then
-/// format the status line.
-fn update_and_format(entry: &ChainStatus) -> String {
-    // Snapshot heights once to avoid TOCTOU between best-height scan and
-    // per-upstream lag computation.
-    let heights: Vec<Option<u64>> = entry
+/// The status line of one chain, from the current state of its upstreams.
+fn status_line(entry: &ChainStatus) -> String {
+    let best_height: Option<u64> = entry
         .upstreams
         .iter()
-        .map(|u| u.head().current_height())
-        .collect();
+        .filter_map(|u| u.head().current_height())
+        .max();
 
-    let best_height: Option<u64> = heights.iter().copied().flatten().max();
-
-    // Update lag and derived availability on each upstream
-    for (u, &h) in entry.upstreams.iter().zip(&heights) {
-        match (best_height, h) {
-            (Some(best), Some(h)) => {
-                let lag = best.saturating_sub(h);
-                u.state().update(lag, Some(h));
-            }
-            _ => {
-                u.state().set_unknown();
-            }
-        }
-    }
-
-    // Snapshot the now-updated state for consistent formatting
     let snapshots: Vec<UpstreamSnapshot> = entry
         .upstreams
         .iter()
@@ -135,7 +116,7 @@ pub fn start_status_reporter(chains: Vec<ChainStatus>) {
         loop {
             interval.tick().await;
             for entry in &chains {
-                tracing::info!("{}", update_and_format(entry));
+                tracing::info!("{}", status_line(entry));
             }
         }
     });
@@ -193,6 +174,12 @@ mod tests {
         }
     }
 
+    /// The line as reported once lag tracking has caught up with the heads.
+    fn report(entry: &ChainStatus) -> String {
+        crate::upstream::lag::update_lags(&entry.upstreams);
+        status_line(entry)
+    }
+
     #[test]
     fn all_at_same_height_are_ok() {
         let entry = ChainStatus {
@@ -203,7 +190,7 @@ mod tests {
             ],
         };
 
-        let line = update_and_format(&entry);
+        let line = report(&entry);
         assert_eq!(
             line,
             "State of ETH: height=100, status=[OK/2], lag=[0, 0], weak=[]"
@@ -220,7 +207,7 @@ mod tests {
             ],
         };
 
-        let line = update_and_format(&entry);
+        let line = report(&entry);
         assert_eq!(
             line,
             "State of ETH: height=100, status=[OK/1,LAGGING/1], lag=[0, 2], weak=[alchemy]"
@@ -237,7 +224,7 @@ mod tests {
             ],
         };
 
-        let line = update_and_format(&entry);
+        let line = report(&entry);
         assert_eq!(
             line,
             "State of ETH: height=100, status=[OK/1,SYNCING/1], lag=[0, 7], weak=[alchemy]"
@@ -254,7 +241,7 @@ mod tests {
             ],
         };
 
-        let line = update_and_format(&entry);
+        let line = report(&entry);
         assert!(line.contains("SYNCING"));
         assert!(line.contains("weak=[alchemy]"));
     }
@@ -266,7 +253,7 @@ mod tests {
             upstreams: vec![StubUpstream::new("node", None)],
         };
 
-        let line = update_and_format(&entry);
+        let line = report(&entry);
         assert_eq!(
             line,
             "State of BTC: height=?, status=[OK/1], lag=[NA], weak=[]"
@@ -283,7 +270,7 @@ mod tests {
             ],
         };
 
-        let line = update_and_format(&entry);
+        let line = report(&entry);
         assert_eq!(
             line,
             "State of ETH: height=100, status=[OK/2], lag=[0, NA], weak=[]"

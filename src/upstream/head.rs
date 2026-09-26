@@ -21,8 +21,8 @@
 
 use crate::data::{BlockContainer, BlockId};
 use std::sync::atomic::{AtomicI64, Ordering};
-use std::sync::{Arc, Mutex};
-use tokio::sync::broadcast;
+use std::sync::{Arc, Mutex, OnceLock};
+use tokio::sync::{Notify, broadcast};
 
 /// Sentinel value indicating "no height known yet" (stored in the atomic).
 const NO_HEIGHT: i64 = -1;
@@ -36,6 +36,11 @@ const BLOCK_CHANNEL_CAPACITY: usize = 16;
 pub trait Head: Send + Sync {
     /// Returns the latest known block height, or `None` if not yet available.
     fn current_height(&self) -> Option<u64>;
+
+    /// Wake `signal` each time the height grows, so whatever depends on it
+    /// (the chain's lag tracking) reacts to the change instead of polling.
+    /// A head that never changes has nothing to report.
+    fn notify_growth(&self, _signal: &Arc<Notify>) {}
 }
 
 /// A `Head` that has no data yet — used as a placeholder until real head
@@ -58,6 +63,9 @@ pub struct CurrentHead {
     height: AtomicI64,
     last_hash: Mutex<Option<BlockId>>,
     block_sender: broadcast::Sender<Arc<BlockContainer>>,
+    /// See [`Head::notify_growth`]. Set once, when the upstream joins its
+    /// chain's lag tracking.
+    growth_signal: OnceLock<Arc<Notify>>,
 }
 
 impl CurrentHead {
@@ -67,6 +75,7 @@ impl CurrentHead {
             height: AtomicI64::new(NO_HEIGHT),
             last_hash: Mutex::new(None),
             block_sender: tx,
+            growth_signal: OnceLock::new(),
         }
     }
 
@@ -78,8 +87,7 @@ impl CurrentHead {
     /// every cycle, and re-announcing it downstream would make two disagreeing
     /// upstreams flip the merged head back and forth on every poll.
     pub fn update_with_block(&self, block: BlockContainer) {
-        self.height
-            .fetch_max(block.height as i64, Ordering::Relaxed);
+        self.advance(block.height);
         {
             let mut last = self.last_hash.lock().expect("head hash lock poisoned");
             if *last == Some(block.hash) {
@@ -97,7 +105,16 @@ impl CurrentHead {
     /// but not the full block. Only accepts forward progress — a lower height
     /// is silently ignored.
     pub fn update(&self, new_height: u64) {
-        self.height.fetch_max(new_height as i64, Ordering::Relaxed);
+        self.advance(new_height);
+    }
+
+    fn advance(&self, new_height: u64) {
+        let previous = self.height.fetch_max(new_height as i64, Ordering::Relaxed);
+        if (new_height as i64) > previous
+            && let Some(signal) = self.growth_signal.get()
+        {
+            signal.notify_one();
+        }
     }
 
     /// Subscribe to block events from this head.
@@ -110,6 +127,10 @@ impl Head for CurrentHead {
     fn current_height(&self) -> Option<u64> {
         let h = self.height.load(Ordering::Relaxed);
         if h < 0 { None } else { Some(h as u64) }
+    }
+
+    fn notify_growth(&self, signal: &Arc<Notify>) {
+        let _ = self.growth_signal.set(Arc::clone(signal));
     }
 }
 
@@ -202,5 +223,34 @@ mod tests {
         assert_eq!(rx.recv().await.unwrap().height, 1);
         assert_eq!(rx.recv().await.unwrap().height, 2);
         assert_eq!(rx.recv().await.unwrap().height, 3);
+    }
+
+    #[tokio::test]
+    async fn growth_wakes_the_signal() {
+        let h = CurrentHead::new();
+        let signal = Arc::new(Notify::new());
+        h.notify_growth(&signal);
+
+        h.update(100);
+
+        tokio::time::timeout(std::time::Duration::from_secs(1), signal.notified())
+            .await
+            .expect("no wake-up on a new height");
+    }
+
+    #[tokio::test]
+    async fn same_or_lower_height_does_not_wake() {
+        let h = CurrentHead::new();
+        h.update(100);
+        let signal = Arc::new(Notify::new());
+        h.notify_growth(&signal);
+
+        h.update(100);
+        h.update(99);
+        h.update_with_block(make_block(100));
+
+        let woken =
+            tokio::time::timeout(std::time::Duration::from_millis(50), signal.notified()).await;
+        assert!(woken.is_err());
     }
 }

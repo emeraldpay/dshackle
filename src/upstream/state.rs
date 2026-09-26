@@ -165,17 +165,23 @@ impl UpstreamState {
     /// freshly started nodes still at block 0).
     pub fn update(&self, lag: u64, height: Option<u64>) {
         self.lag.store(lag as i64, Ordering::Relaxed);
-        let avail = availability_from_lag(lag, height, self.syncing_lag);
-        self.lag_status.store(avail as u8, Ordering::Relaxed);
-        self.notify_change();
+        self.set_lag_status(availability_from_lag(lag, height, self.syncing_lag));
     }
 
     /// Mark the upstream as having unknown lag (e.g. when head height is not available).
     pub fn set_unknown(&self) {
         self.lag.store(NO_LAG, Ordering::Relaxed);
-        self.lag_status
-            .store(UpstreamAvailability::Ok as u8, Ordering::Relaxed);
-        self.notify_change();
+        self.set_lag_status(UpstreamAvailability::Ok);
+    }
+
+    /// Lag is recalculated on every head change of any upstream in the chain,
+    /// but the status it implies changes far less often; only a change of it
+    /// is worth waking the chain's status consumers for.
+    fn set_lag_status(&self, status: UpstreamAvailability) {
+        let previous = self.lag_status.swap(status as u8, Ordering::Relaxed);
+        if previous != status as u8 {
+            self.notify_change();
+        }
     }
 
     /// Record the result of a validation round.
@@ -486,6 +492,23 @@ mod tests {
         assert_eq!(s.paused_until.load(Ordering::Relaxed), since + 10_000);
         // Still one pause, so the next one grows by one step only.
         assert_eq!(s.pause_strikes.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn lag_wakes_status_consumers_only_when_its_status_changes() {
+        let s = UpstreamState::new();
+        let signal = Arc::new(StatusSignal::new());
+        s.attach_status_signal(Arc::clone(&signal));
+        s.update(0, Some(100));
+        let mut changes = signal.subscribe();
+
+        // A different lag, still Ok.
+        s.update(1, Some(100));
+        let woken = tokio::time::timeout(Duration::from_millis(50), changes.changed()).await;
+        assert!(woken.is_err(), "no status change, no wake-up");
+
+        s.update(3, Some(100));
+        assert!(changes.changed().await, "Ok → Lagging");
     }
 
     #[tokio::test]

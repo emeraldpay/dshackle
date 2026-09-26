@@ -18,27 +18,19 @@
 
 use crate::jsonrpc::JsonRpcRequest;
 use crate::signature::{ProvidedSignature, ResponseSigner};
-use crate::upstream::egress::ChainAccess;
-use crate::upstream::ethereum::call_selector;
-use crate::upstream::router::{self, Routed};
+use crate::upstream::router::Routed;
 use crate::upstream::selector::LabelSelector;
 use crate::upstream::traits::UpstreamError;
-use crate::upstream::{Multistream, UpstreamId, multistream};
+use crate::upstream::{Multistream, UpstreamId};
 use emerald_api::proto::blockchain::{
     NativeCallItem, NativeCallReplyItem, NativeCallReplySignature,
 };
 
-/// Route a single JSON-RPC request through a chain's upstreams using the
-/// method's quorum policy. The shared execution core behind both the gRPC
+/// Route a single JSON-RPC request through a chain's upstreams (see
+/// [`Multistream::execute`]). The shared execution core behind both the gRPC
 /// `NativeCall` and the JSON-RPC HTTP proxy (which always passes
 /// [`LabelSelector::Any`] — label selection is a gRPC-only feature, as in
 /// legacy).
-///
-/// Candidates must pass the client's label selector, and — for Ethereum state
-/// reads pinned to a block — must have reached that block. Both are hard
-/// filters: sending an `eth_call` for a historic block to a pruned node would
-/// return a wrong (empty) result rather than an error, so an empty candidate
-/// list must fail the request instead of falling back.
 pub async fn execute_call(
     multistream: &Multistream,
     request: &JsonRpcRequest,
@@ -50,17 +42,7 @@ pub async fn execute_call(
     if !multistream.method_available(&request.method) {
         return Err(UpstreamError::MethodNotAllowed(request.method.to_string()));
     }
-    let quorum = multistream.quorum_for(&request.method);
-    let mut candidates = multistream.select_for(quorum.selector(), &request.method);
-    if *labels != LabelSelector::Any {
-        candidates.retain(|u| labels.matches_any_set(u.label_sets()));
-    }
-    let min_height =
-        call_selector::min_height_for(request, || ChainAccess::current_height(multistream));
-    if let Some(min_height) = min_height {
-        candidates = multistream::at_height(candidates, min_height);
-    }
-    router::route(multistream.chain(), candidates, quorum, request).await
+    multistream.execute(request, labels).await
 }
 
 /// Execute a single native call item against the upstreams of a chain.
@@ -407,7 +389,18 @@ mod tests {
 
     // ── Label- and height-constrained routing ─────────────────────────────
 
+    use crate::cache::Caches;
+    use crate::upstream::ethereum::call_plan::EthereumCallPlanner;
     use crate::upstream::head::CurrentHead;
+
+    /// An Ethereum chain, which prepares calls the way the configured one does.
+    fn ethereum_chain(
+        upstreams: Vec<Arc<dyn RpcUpstream>>,
+        factory: Arc<dyn QuorumFactory>,
+    ) -> Multistream {
+        Multistream::new(test_chain(), upstreams, factory)
+            .with_planner(Arc::new(EthereumCallPlanner::new(Arc::new(Caches::new()))))
+    }
 
     /// Upstream with fixed labels, head height, and availability, answering
     /// every call with its own id — so tests can see who served the request.
@@ -483,8 +476,7 @@ mod tests {
 
     #[tokio::test]
     async fn label_selector_routes_to_matching_upstream() {
-        let ms = Multistream::new(
-            test_chain(),
+        let ms = ethereum_chain(
             vec![
                 LabeledUpstream::new("plain", &[("archive", "false")], Some(100)),
                 LabeledUpstream::new("archive", &[("archive", "true")], Some(100)),
@@ -507,8 +499,7 @@ mod tests {
 
     #[tokio::test]
     async fn label_selector_with_no_match_fails() {
-        let ms = Multistream::new(
-            test_chain(),
+        let ms = ethereum_chain(
             vec![LabeledUpstream::new(
                 "plain",
                 &[("archive", "false")],
@@ -525,8 +516,7 @@ mod tests {
 
     #[tokio::test]
     async fn historic_read_skips_upstreams_below_the_block() {
-        let ms = Multistream::new(
-            test_chain(),
+        let ms = ethereum_chain(
             vec![
                 LabeledUpstream::new("pruned", &[], Some(50)),
                 LabeledUpstream::new("full", &[], Some(200)),
@@ -560,7 +550,7 @@ mod tests {
             UpstreamAvailability::Unavailable,
         );
         let healthy = LabeledUpstream::new("healthy", &[], Some(1004));
-        let ms = Multistream::new(test_chain(), vec![sick, healthy], Arc::new(AlwaysFactory));
+        let ms = ethereum_chain(vec![sick, healthy], Arc::new(AlwaysFactory));
 
         let request = JsonRpcRequest::new(
             1,
@@ -579,7 +569,7 @@ mod tests {
         // read must route best-effort instead of deterministically failing on
         // every deploy.
         let a = LabeledUpstream::new("up-a", &[], None);
-        let ms = Multistream::new(test_chain(), vec![a], Arc::new(AlwaysFactory));
+        let ms = ethereum_chain(vec![a], Arc::new(AlwaysFactory));
 
         let request = JsonRpcRequest::new(
             1,
@@ -596,8 +586,7 @@ mod tests {
     async fn historic_read_fails_when_no_upstream_has_the_block() {
         // Routing a historic read to a node without the block would return a
         // wrong (empty) answer, so unlike other filters this must fail hard.
-        let ms = Multistream::new(
-            test_chain(),
+        let ms = ethereum_chain(
             vec![LabeledUpstream::new("pruned", &[], Some(50))],
             Arc::new(AlwaysFactory),
         );
@@ -611,6 +600,125 @@ mod tests {
             .await
             .unwrap_err();
         assert!(matches!(err, UpstreamError::Transport(_)));
+    }
+
+    // ── Lag measured against the requested block ──────────────────────────
+
+    use crate::config::upstreams::UpstreamRole;
+    use crate::upstream::quorum::NotLaggingQuorum;
+
+    /// Upstream with a head, a lag reading and a role, answering every call
+    /// with its own id.
+    struct TieredUpstream {
+        label: UpstreamId,
+        head: CurrentHead,
+        lag: u64,
+        role: UpstreamRole,
+        state: Arc<UpstreamState>,
+    }
+
+    impl TieredUpstream {
+        fn new(id: &str, height: u64, lag: u64, role: UpstreamRole) -> Arc<Self> {
+            let head = CurrentHead::new();
+            head.update(height);
+            Arc::new(Self {
+                label: id.parse().unwrap(),
+                head,
+                lag,
+                role,
+                state: Arc::new(UpstreamState::new()),
+            })
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl RpcUpstream for TieredUpstream {
+        async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
+            let body = format!(r#"{{"jsonrpc":"2.0","id":1,"result":"{}"}}"#, self.label);
+            Ok(serde_json::from_str(&body).unwrap())
+        }
+        fn id(&self) -> &UpstreamId {
+            &self.label
+        }
+        fn availability(&self) -> UpstreamAvailability {
+            UpstreamAvailability::Ok
+        }
+        fn head(&self) -> &dyn Head {
+            &self.head
+        }
+        fn lag(&self) -> Option<u64> {
+            Some(self.lag)
+        }
+        fn state(&self) -> &Arc<UpstreamState> {
+            &self.state
+        }
+        fn role(&self) -> UpstreamRole {
+            self.role
+        }
+    }
+
+    /// The quorum of head-verified reads like `eth_getBlockByNumber`.
+    struct NotLaggingFactory;
+    impl QuorumFactory for NotLaggingFactory {
+        fn quorum_for(&self, _method: &crate::jsonrpc::RpcMethod) -> Box<dyn CallQuorum> {
+            Box::new(NotLaggingQuorum::new(1))
+        }
+    }
+
+    /// A local node 3 blocks behind the head, next to a provider at the head.
+    fn local_behind_provider() -> Multistream {
+        ethereum_chain(
+            vec![
+                TieredUpstream::new("local", 1000, 3, UpstreamRole::Primary),
+                TieredUpstream::new("provider", 1003, 0, UpstreamRole::Fallback),
+            ],
+            Arc::new(NotLaggingFactory),
+        )
+    }
+
+    fn block_by_number(tag: &str) -> JsonRpcRequest {
+        JsonRpcRequest::new(
+            1,
+            "eth_getBlockByNumber".into(),
+            serde_json::json!([tag, false]),
+        )
+    }
+
+    #[tokio::test]
+    async fn historic_block_read_ignores_lag_behind_the_head() {
+        let ms = local_behind_provider();
+
+        for _ in 0..4 {
+            let routed = execute_call(&ms, &block_by_number("0x64"), &LabelSelector::Any)
+                .await
+                .unwrap();
+            assert_eq!(result_of(&routed), "local");
+        }
+    }
+
+    #[tokio::test]
+    async fn block_read_at_the_head_still_needs_an_upstream_near_it() {
+        let ms = local_behind_provider();
+
+        // 0x3eb = 1003, the head; the local node is 3 blocks short of it.
+        for tag in ["latest", "0x3eb"] {
+            let routed = execute_call(&ms, &block_by_number(tag), &LabelSelector::Any)
+                .await
+                .unwrap();
+            assert_eq!(result_of(&routed), "provider", "{tag}");
+        }
+    }
+
+    #[tokio::test]
+    async fn read_of_a_future_block_is_routed_like_one_at_the_head() {
+        // Nobody has block 0x7d0 (2000) yet; it must still reach an upstream
+        // to get its `null`, not fail for lack of candidates.
+        let ms = local_behind_provider();
+
+        let routed = execute_call(&ms, &block_by_number("0x7d0"), &LabelSelector::Any)
+            .await
+            .unwrap();
+        assert_eq!(result_of(&routed), "provider");
     }
 
     #[test]

@@ -22,9 +22,9 @@
 //! Only requests that identify data **by hash** are cacheable — a hash is
 //! immutable, so the same hash always maps to the same data. Requests by
 //! height (e.g. `eth_getBlockByNumber`) are **not** handled here because the
-//! block at a given height can change during a reorg; the
-//! [`NormalizingUpstream`](super::NormalizingUpstream) layer above resolves
-//! heights to hashes before the request reaches the cache.
+//! block at a given height can change during a reorg; the chain's
+//! [`CallPlanner`](crate::upstream::call_plan::CallPlanner) resolves heights
+//! to hashes before the request reaches the cache.
 //!
 //! Four kinds of calls are served (see [`CacheableCall`]):
 //! - **block by hash** with transaction hashes only;

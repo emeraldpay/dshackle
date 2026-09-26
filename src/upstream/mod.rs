@@ -20,6 +20,7 @@ pub mod availability;
 pub mod balance;
 pub(crate) mod bitcoin;
 pub mod block_updates;
+pub mod call_plan;
 mod disabled_methods;
 mod dshackle;
 pub mod egress;
@@ -32,6 +33,7 @@ pub mod http_error;
 pub mod id;
 mod identified;
 pub mod label;
+mod lag;
 mod logged;
 pub mod merged_head;
 mod metered;
@@ -57,8 +59,8 @@ pub use multistream::Multistream;
 
 use crate::blockchain::{BlockchainType, TargetBlockchain};
 use crate::cache::{
-    BitcoinCacheCodec, Caches, CachingHead, CachingUpstream, EthereumCacheCodec,
-    EthereumNormalizer, NormalizingUpstream, RedisCache, redis_cache,
+    BitcoinCacheCodec, Caches, CachingHead, CachingUpstream, EthereumCacheCodec, RedisCache,
+    redis_cache,
 };
 use crate::config::cache::CacheConfig;
 use crate::config::tokens::{TokenConfig, TokenType};
@@ -72,6 +74,7 @@ use bitcoin::reader::BitcoinReader;
 use bitcoin::subscribe::{BitcoinEgress, BitcoinZmqTopic, ZmqTopicStream};
 use bitcoin::validator::BitcoinValidator;
 use bitcoin::zmq::start_zmq_head;
+use call_plan::{AsIs, CallPlanner};
 use dshackle::DshackleUpstream;
 use dshackle::head::start_head_subscriber;
 use dshackle::status::start_status_subscriber;
@@ -84,6 +87,7 @@ use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
 use emerald_api::proto::blockchain::{DescribeChain, DescribeRequest};
 use emerald_api::proto::common::ChainRef;
 use ethereum::EthereumWsUpstream;
+use ethereum::call_plan::EthereumCallPlanner;
 use ethereum::head::{start_head_poller, start_ws_head};
 use ethereum::http::EthereumHttpUpstream;
 use ethereum::validator::EthereumValidator;
@@ -451,24 +455,19 @@ impl UpstreamManager {
                         Arc::new(LayeredMethods::new(default_layer, configured_layer));
 
                     // Wrapping order (outermost first):
-                    //   HardcodedMethods → NormalizingUpstream → CachingUpstream
-                    //     → MethodFilter → transport
+                    //   HardcodedMethods → CachingUpstream → MethodFilter → transport
                     // Hardcoded responses are cheapest, then cache, then network.
-                    // Normalizing sits above the cache so that a request
-                    // rewritten to block-by-hash can be served from the cache.
+                    // Requests reach it already prepared by the chain's
+                    // planner, e.g. rewritten to block-by-hash, which the
+                    // cache can answer.
                     let caches = per_chain_caches
                         .get(&chain)
                         .cloned()
                         .unwrap_or_else(|| Arc::new(Caches::new()));
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(MethodFilter::new(reader, Arc::clone(&methods)));
-                    let reader: Arc<dyn RpcUpstream> = Arc::new(CachingUpstream::new(
-                        reader,
-                        Arc::clone(&caches),
-                        EthereumCacheCodec,
-                    ));
                     let reader: Arc<dyn RpcUpstream> =
-                        Arc::new(NormalizingUpstream::new(reader, caches, EthereumNormalizer));
+                        Arc::new(CachingUpstream::new(reader, caches, EthereumCacheCodec));
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(HardcodedMethods::new(reader, Arc::clone(&methods)));
 
@@ -802,6 +801,7 @@ impl UpstreamManager {
         let mut chain_statuses: Vec<ChainStatus> = Vec::new();
 
         for (chain, readers) in per_chain {
+            lag::start_lag_tracking(readers.clone());
             let chain_status = ChainStatus {
                 chain,
                 upstreams: readers.clone(),
@@ -817,7 +817,15 @@ impl UpstreamManager {
             } else {
                 Arc::new(AggregatedMethods::new(delegates))
             };
-            upstreams.insert(chain, Arc::new(Multistream::new(chain, readers, factory)));
+            // By chain, not by upstream kind: a chain served only by remote
+            // Dshackles needs the same preparation as one with local nodes.
+            let caches = per_chain_caches
+                .get(&chain)
+                .cloned()
+                .unwrap_or_else(|| Arc::new(Caches::new()));
+            let multistream =
+                Multistream::new(chain, readers, factory).with_planner(planner_for(chain, caches));
+            upstreams.insert(chain, Arc::new(multistream));
         }
 
         if upstreams.is_empty() {
@@ -1374,6 +1382,14 @@ fn syncing_lag_for(chain_ref: ChainRef) -> u64 {
 /// collected (e.g. a chain whose only upstream is a Dshackle remote that
 /// hit a connection error). Normal flow aggregates the per-upstream factories
 /// collected by `from_config` instead.
+/// How a chain's calls are prepared for routing (see [`CallPlanner`]).
+fn planner_for(chain: TargetBlockchain, caches: Arc<Caches>) -> Arc<dyn CallPlanner> {
+    match chain.blockchain_type() {
+        BlockchainType::Ethereum => Arc::new(EthereumCallPlanner::new(caches)),
+        BlockchainType::Bitcoin | BlockchainType::Unknown => Arc::new(AsIs),
+    }
+}
+
 fn quorum_factory_for(chain: TargetBlockchain) -> Arc<dyn QuorumFactory> {
     match chain.blockchain_type() {
         BlockchainType::Bitcoin => Arc::new(DefaultBitcoinMethods::new()),
@@ -1712,6 +1728,28 @@ mod tests {
     use super::*;
     use crate::config::upstreams::PartialOptions;
     use merged_head::MergeOrder;
+
+    /// Chosen by chain, so an Ethereum chain served only by remote Dshackles
+    /// is prepared the same as one with local nodes.
+    #[test]
+    fn calls_are_planned_by_chain_type() {
+        let balance = crate::jsonrpc::JsonRpcRequest::new(
+            1,
+            "eth_getBalance".into(),
+            serde_json::json!(["0x690b2bdf41f33f9f251ae0459e5898b856ed96be", "0x64"]),
+        );
+        let plan_on = |chain: ChainRef| {
+            planner_for(chain.into(), Arc::new(Caches::new()))
+                .plan(&balance, &|| Some(1000))
+                .block
+        };
+
+        assert_eq!(
+            plan_on(ChainRef::ChainEthereum),
+            Some(call_plan::BlockRead::State(100))
+        );
+        assert_eq!(plan_on(ChainRef::ChainBitcoin), None);
+    }
 
     /// A client to nowhere — enough to build a relay whose topics are
     /// inspected without any remote call.

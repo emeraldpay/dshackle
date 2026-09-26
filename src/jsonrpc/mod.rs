@@ -111,7 +111,7 @@ impl<'de> Deserialize<'de> for RpcMethod {
 // ─── JSON-RPC request / response ──────────────────────────────────���────────
 
 /// Outgoing JSON-RPC 2.0 request sent to an upstream node.
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct JsonRpcRequest {
     pub jsonrpc: &'static str,
     pub id: u32,

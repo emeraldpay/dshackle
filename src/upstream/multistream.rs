@@ -14,9 +14,10 @@
 
 //! Per-blockchain aggregate of all configured upstreams.
 //!
-//! `Multistream` is a passive container — it does not route requests itself.
-//! Selectors return ordered candidate lists that the
-//! [`UpstreamRouter`](super::router) feeds into a `CallQuorum`.
+//! [`Multistream::execute`] is where a call is routed: it's prepared by the
+//! chain's [`CallPlanner`], the upstreams that can answer the plan are
+//! selected, and the [`UpstreamRouter`](super::router) runs them through the
+//! method's `CallQuorum`.
 //!
 //! The round-robin cursor lives here so that, across requests, different
 //! upstreams take the lead position. This spreads the default-strategy load
@@ -27,9 +28,11 @@ use crate::blockchain::TargetBlockchain;
 use crate::config::upstreams::UpstreamRole;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
+use crate::upstream::call_plan::{AsIs, BlockRead, CallPlanner};
 use crate::upstream::egress::ChainAccess;
 use crate::upstream::quorum::{CallQuorum, QuorumFactory, SelectorHint};
-use crate::upstream::router;
+use crate::upstream::router::{self, Routed};
+use crate::upstream::selector::LabelSelector;
 use crate::upstream::status_signal::{StatusChanges, StatusSignal};
 use crate::upstream::traits::{Capability, RpcUpstream, UpstreamError};
 use std::sync::Arc;
@@ -50,6 +53,8 @@ pub struct Multistream {
     cursor: AtomicUsize,
     /// Per-method quorum picker for this chain (Ethereum / Bitcoin / default).
     quorum_factory: Arc<dyn QuorumFactory>,
+    /// Prepares each call before routing (see [`call_plan`](super::call_plan)).
+    planner: Arc<dyn CallPlanner>,
     /// Wakes on every upstream status change, shared with each upstream's state.
     /// Drives the event-driven `syncing` egress and gRPC `SubscribeStatus`.
     status_signal: Arc<StatusSignal>,
@@ -89,13 +94,138 @@ impl Multistream {
             tiers,
             cursor: AtomicUsize::new(0),
             quorum_factory,
+            planner: Arc::new(AsIs),
             status_signal,
         }
     }
 
-    /// The blockchain all these upstreams serve.
-    pub fn chain(&self) -> &TargetBlockchain {
-        &self.chain
+    /// Use the chain's own rules to prepare calls (see [`CallPlanner`]);
+    /// without it they're routed as the client sent them.
+    pub fn with_planner(mut self, planner: Arc<dyn CallPlanner>) -> Self {
+        self.planner = planner;
+        self
+    }
+
+    /// Route a call: prepare it, select the upstreams that can answer it, and
+    /// run it through its method's quorum. Candidates must also pass the
+    /// client's label selector.
+    pub async fn execute(
+        &self,
+        request: &JsonRpcRequest,
+        labels: &LabelSelector,
+    ) -> Result<Routed, UpstreamError> {
+        self.execute_preferring(request, labels, None).await
+    }
+
+    /// [`execute`](Self::execute), preferring upstreams whose head has reached
+    /// `height` when there are any: an internal read of a block it knows
+    /// exists (e.g. for fee estimation) shouldn't land on a node that answers
+    /// `null` because it's still a block short.
+    ///
+    /// A rewritten request that gets no answer is retried as the client sent
+    /// it: the rewrite relied on what was known at the moment (a cached
+    /// height→hash that a reorg may have replaced), while the client's request
+    /// is the source of truth.
+    async fn execute_preferring(
+        &self,
+        request: &JsonRpcRequest,
+        labels: &LabelSelector,
+        prefer_height: Option<u64>,
+    ) -> Result<Routed, UpstreamError> {
+        // The quorum is always the client's method's, whatever the rewrite: it
+        // carries the lag tolerance the client's call needs, and candidates
+        // are those able to answer the client's call. One that can't take the
+        // rewritten method refuses it, which leads to the retry below.
+        let hint = self.quorum_for(&request.method).selector();
+        let (plan, candidates) = {
+            // Scanning every upstream for the head is only worth it for a
+            // call that names a block; computed once when it does.
+            let head = std::cell::OnceCell::new();
+            let current_head = || *head.get_or_init(|| ChainAccess::current_height(self));
+            let plan = self.planner.plan(request, &current_head);
+            let candidates = self.candidates(
+                hint,
+                &request.method,
+                plan.block,
+                &current_head,
+                labels,
+                prefer_height,
+            );
+            (plan, candidates)
+        };
+        if plan.is_rewrite() {
+            tracing::trace!(
+                original = %request.method,
+                rewritten = %plan.request.method,
+                "request rewritten for routing"
+            );
+        }
+        let routed = router::route(
+            &self.chain,
+            candidates.clone(),
+            self.quorum_for(&request.method),
+            &plan.request,
+        )
+        .await;
+        if plan.is_rewrite() && rewrite_unanswered(&routed) {
+            return router::route(
+                &self.chain,
+                candidates,
+                self.quorum_for(&request.method),
+                request,
+            )
+            .await;
+        }
+        routed
+    }
+
+    /// The upstreams that can take a call reading `block`.
+    ///
+    /// The quorum's lag tolerance is counted from the block the call reads,
+    /// not from the chain head: a node a few blocks behind the head has every
+    /// older block. Only a call at the head (or one that names no block)
+    /// needs an upstream that's caught up with it.
+    fn candidates(
+        &self,
+        hint: SelectorHint,
+        method: &RpcMethod,
+        block: Option<BlockRead>,
+        head: &dyn Fn() -> Option<u64>,
+        labels: &LabelSelector,
+        prefer_height: Option<u64>,
+    ) -> Vec<Arc<dyn RpcUpstream>> {
+        let mut candidates = match (block, hint) {
+            // Having the block is all that matters, checked below.
+            (Some(BlockRead::State(_)), _) => self.select_available(method),
+            (Some(BlockRead::Block(height)), SelectorHint::NotLagging { max_lag }) => {
+                match head() {
+                    // Capped at the head, so a block that doesn't exist yet is
+                    // routed like one at the head, and gets its `null`.
+                    Some(head) => {
+                        self.select_reached(method, height.min(head).saturating_sub(max_lag))
+                    }
+                    None => self.select_for(hint, method),
+                }
+            }
+            _ => self.select_for(hint, method),
+        };
+        if *labels != LabelSelector::Any {
+            candidates.retain(|u| labels.matches_any_set(u.label_sets()));
+        }
+        // A hard filter: a node without the block would answer a state read
+        // with wrong data, not an error, so no candidate must fail the call.
+        if let Some(BlockRead::State(height)) = block {
+            candidates = at_height(candidates, height);
+        }
+        if let Some(height) = prefer_height {
+            let reached = at_height(candidates.clone(), height);
+            // Best effort: with none there, the block may just not be
+            // available anywhere yet.
+            if !reached.is_empty() {
+                candidates = reached;
+            }
+        }
+        candidates
     }
 
     /// A subscription that wakes whenever some upstream's availability may have
@@ -168,6 +298,19 @@ impl Multistream {
             serves_rpc(u)
                 && u.availability() <= UpstreamAvailability::Immature
                 && u.allows_method(method)
+        })
+    }
+
+    /// Returns available upstreams that accept `method` and whose head has
+    /// reached `height`. Reads the heads directly, so it's as current as they
+    /// are. Upstreams that haven't reported a head yet are included, as in
+    /// [`select_not_lagging`](Self::select_not_lagging).
+    pub fn select_reached(&self, method: &RpcMethod, height: u64) -> Vec<Arc<dyn RpcUpstream>> {
+        self.select_where(|u| {
+            serves_rpc(u)
+                && u.availability() <= UpstreamAvailability::Immature
+                && u.allows_method(method)
+                && u.head().current_height().is_none_or(|h| h >= height)
         })
     }
 
@@ -294,11 +437,7 @@ impl ChainAccess for Multistream {
     }
 
     async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
-        // The same routing core as `native_call::execute_call`, inlined to keep
-        // the upstream layer from depending on the rpc layer.
-        let quorum = self.quorum_for(&request.method);
-        let candidates = self.select_for(quorum.selector(), &request.method);
-        router::route(&self.chain, candidates, quorum, request)
+        self.execute(request, &LabelSelector::Any)
             .await
             .map(|routed| routed.response)
     }
@@ -308,23 +447,21 @@ impl ChainAccess for Multistream {
         request: &JsonRpcRequest,
         min_height: u64,
     ) -> Result<JsonRpcResponse, UpstreamError> {
-        let quorum = self.quorum_for(&request.method);
-        let candidates = self.select_for(quorum.selector(), &request.method);
-        // Keep only upstreams that have actually reached the block; a plain
-        // `call` may pick one lagging within the method's tolerance, which
-        // answers the read with `null`.
-        let filtered = at_height(candidates.clone(), min_height);
-        // Fall back to the unfiltered set when no upstream reports a head at or
-        // above the block — best effort, the block may genuinely be unavailable.
-        // (Client-facing routing in `execute_call` instead fails hard here.)
-        let candidates = if filtered.is_empty() {
-            candidates
-        } else {
-            filtered
-        };
-        router::route(&self.chain, candidates, quorum, request)
+        self.execute_preferring(request, &LabelSelector::Any, Some(min_height))
             .await
             .map(|routed| routed.response)
+    }
+}
+
+/// Whether a rewritten request's outcome may be due to the rewrite itself,
+/// so the client's own request deserves a try: no data for the rewritten
+/// form (a hash a reorg replaced answers `null`), or the method it was
+/// rewritten to refused. A connection failure isn't one of those, and
+/// retrying it would only double the wait.
+fn rewrite_unanswered(routed: &Result<Routed, UpstreamError>) -> bool {
+    match routed {
+        Ok(routed) => !routed.response.is_non_empty_result(),
+        Err(err) => matches!(err, UpstreamError::MethodNotAllowed(_)),
     }
 }
 
@@ -578,6 +715,21 @@ mod tests {
     }
 
     #[test]
+    fn select_reached_ignores_lag_and_checks_the_head() {
+        let ms = ms_of(vec![
+            // A stale lag must not matter: the head decides.
+            MockUpstream::serving("behind-head", 95, serde_json::json!(null)),
+            MockUpstream::serving("at-head", 100, serde_json::json!(null)),
+            MockUpstream::serving("too-low", 50, serde_json::json!(null)),
+        ]);
+
+        assert_eq!(
+            ids(&ms.select_reached(&"any".into(), 90)),
+            vec!["behind-head", "at-head"]
+        );
+    }
+
+    #[test]
     fn fallback_selected_after_primary_regardless_of_config_order() {
         let ms = ms_of(vec![
             MockUpstream::with_role("backup", UpstreamRole::Fallback),
@@ -784,5 +936,203 @@ mod tests {
 
         let picked = ms.select_not_lagging(&"debug_traceTransaction".into(), 0);
         assert_eq!(ids(&picked), vec!["archive"]);
+    }
+
+    // ── Executing a planned call ──────────────────────────────────────
+
+    use crate::cache::{CacheTag, Caches};
+    use crate::data::{BlockContainer, BlockId};
+    use crate::upstream::ethereum::call_plan::EthereumCallPlanner;
+    use std::sync::Mutex;
+
+    /// How the upstream answers `eth_getBlockByHash`; any other call gets a
+    /// block.
+    enum ByHash {
+        Block,
+        Null,
+        Refused,
+        Down,
+    }
+
+    /// Records the methods it's called with.
+    struct RecordingUpstream {
+        head: CurrentHead,
+        state: Arc<UpstreamState>,
+        by_hash: ByHash,
+        calls: Mutex<Vec<String>>,
+    }
+
+    impl RecordingUpstream {
+        fn new(by_hash: ByHash) -> Arc<Self> {
+            let head = CurrentHead::new();
+            head.update(100);
+            Arc::new(Self {
+                head,
+                state: Arc::new(UpstreamState::new()),
+                by_hash,
+                calls: Mutex::new(Vec::new()),
+            })
+        }
+
+        fn methods_called(&self) -> Vec<String> {
+            self.calls.lock().unwrap().clone()
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl RpcUpstream for RecordingUpstream {
+        async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
+            let method = request.method.as_str();
+            self.calls.lock().unwrap().push(method.to_string());
+            let body = match (method, &self.by_hash) {
+                ("eth_getBlockByHash", ByHash::Null) => r#"{"jsonrpc":"2.0","id":1,"result":null}"#,
+                ("eth_getBlockByHash", ByHash::Refused) => {
+                    return Err(UpstreamError::MethodNotAllowed(method.to_string()));
+                }
+                ("eth_getBlockByHash", ByHash::Down) => {
+                    return Err(UpstreamError::Transport("connection refused".into()));
+                }
+                _ => r#"{"jsonrpc":"2.0","id":1,"result":{"number":"0x64"}}"#,
+            };
+            Ok(serde_json::from_str(body).unwrap())
+        }
+        fn id(&self) -> &UpstreamId {
+            crate::upstream::id::stub_id()
+        }
+        fn availability(&self) -> UpstreamAvailability {
+            UpstreamAvailability::Ok
+        }
+        fn head(&self) -> &dyn Head {
+            &self.head
+        }
+        fn lag(&self) -> Option<u64> {
+            Some(0)
+        }
+        fn state(&self) -> &Arc<UpstreamState> {
+            &self.state
+        }
+    }
+
+    /// A chain whose cache knows the hash of the block at 100, the head.
+    fn chain_with_cached_head(upstream: Arc<RecordingUpstream>) -> Multistream {
+        let caches = Caches::new();
+        caches.cache(
+            CacheTag::Latest,
+            BlockContainer {
+                hash: BlockId::from_bytes([7u8; 32]),
+                height: 100,
+                parent_hash: None,
+                total_difficulty: alloy::primitives::U256::ZERO,
+                timestamp: jiff::Timestamp::UNIX_EPOCH,
+                transaction_hashes: vec![],
+                json: None,
+                header_json: None,
+            },
+        );
+        Multistream::new(test_chain(), vec![upstream], Arc::new(DefaultMethods))
+            .with_planner(Arc::new(EthereumCallPlanner::new(Arc::new(caches))))
+    }
+
+    fn latest_block() -> JsonRpcRequest {
+        JsonRpcRequest::new(
+            1,
+            "eth_getBlockByNumber".into(),
+            serde_json::json!(["latest", false]),
+        )
+    }
+
+    #[tokio::test]
+    async fn sends_the_planned_request() {
+        let upstream = RecordingUpstream::new(ByHash::Block);
+        let ms = chain_with_cached_head(Arc::clone(&upstream));
+
+        let routed = ms
+            .execute(&latest_block(), &LabelSelector::Any)
+            .await
+            .unwrap();
+
+        assert!(routed.response.is_non_empty_result());
+        assert_eq!(upstream.methods_called(), vec!["eth_getBlockByHash"]);
+    }
+
+    #[tokio::test]
+    async fn rewrite_answered_with_null_falls_back_to_the_clients_request() {
+        // The cached hash may have been replaced by a reorg.
+        let upstream = RecordingUpstream::new(ByHash::Null);
+        let ms = chain_with_cached_head(Arc::clone(&upstream));
+
+        let routed = ms
+            .execute(&latest_block(), &LabelSelector::Any)
+            .await
+            .unwrap();
+
+        assert!(routed.response.is_non_empty_result());
+        assert_eq!(
+            upstream.methods_called(),
+            vec!["eth_getBlockByHash", "eth_getBlockByNumber"]
+        );
+    }
+
+    #[tokio::test]
+    async fn rewrite_refused_falls_back_to_the_clients_request() {
+        let upstream = RecordingUpstream::new(ByHash::Refused);
+        let ms = chain_with_cached_head(Arc::clone(&upstream));
+
+        let routed = ms
+            .execute(&latest_block(), &LabelSelector::Any)
+            .await
+            .unwrap();
+
+        assert!(routed.response.is_non_empty_result());
+        assert_eq!(
+            upstream.methods_called(),
+            vec!["eth_getBlockByHash", "eth_getBlockByNumber"]
+        );
+    }
+
+    #[tokio::test]
+    async fn rewrite_failing_on_connection_is_not_retried() {
+        // Nothing the client's own request would fix; a retry would only
+        // double the wait.
+        let upstream = RecordingUpstream::new(ByHash::Down);
+        let ms = chain_with_cached_head(Arc::clone(&upstream));
+
+        let result = ms.execute(&latest_block(), &LabelSelector::Any).await;
+
+        assert!(matches!(result, Err(UpstreamError::Transport(_))));
+        assert_eq!(upstream.methods_called(), vec!["eth_getBlockByHash"]);
+    }
+
+    #[tokio::test]
+    async fn call_at_height_is_planned_too() {
+        // Internal block reads (fee estimation) get the same rewrite to a
+        // cacheable by-hash read as client calls.
+        let upstream = RecordingUpstream::new(ByHash::Block);
+        let ms = chain_with_cached_head(Arc::clone(&upstream));
+        let request = JsonRpcRequest::new(
+            1,
+            "eth_getBlockByNumber".into(),
+            serde_json::json!(["0x64", true]),
+        );
+
+        ms.call_at_height(&request, 100).await.unwrap();
+
+        assert_eq!(upstream.methods_called(), vec!["eth_getBlockByHash"]);
+    }
+
+    #[tokio::test]
+    async fn chain_without_a_planner_sends_the_request_as_is() {
+        let upstream = RecordingUpstream::new(ByHash::Block);
+        let ms = Multistream::new(
+            test_chain(),
+            vec![Arc::clone(&upstream) as Arc<dyn RpcUpstream>],
+            Arc::new(DefaultMethods),
+        );
+
+        ms.execute(&latest_block(), &LabelSelector::Any)
+            .await
+            .unwrap();
+
+        assert_eq!(upstream.methods_called(), vec!["eth_getBlockByNumber"]);
     }
 }

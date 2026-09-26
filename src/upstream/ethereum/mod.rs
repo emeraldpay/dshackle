@@ -14,7 +14,7 @@
 
 //! Ethereum-specific upstream implementations.
 
-pub mod call_selector;
+pub mod call_plan;
 pub mod head;
 pub mod http;
 pub mod validator;
