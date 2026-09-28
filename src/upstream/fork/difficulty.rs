@@ -147,7 +147,11 @@ mod tests {
     fn never_rejects() {
         let fc = DifficultyForkChoice::new();
         fc.submit(&block(200), &test_id("up-a"));
-        assert!(fc.submit(&block(1), &test_id("up-b")).is_ok());
+        assert!(
+            !fc.submit(&block(1), &test_id("up-b"))
+                .fork_state()
+                .is_forked()
+        );
     }
 
     #[test]

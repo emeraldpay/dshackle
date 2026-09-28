@@ -75,6 +75,10 @@ impl CallQuorum for BroadcastQuorum {
         self.target_calls = self.target_calls.min(total).max(1);
     }
 
+    fn reads_chain(&self) -> bool {
+        false
+    }
+
     fn record_response(&mut self, response: JsonRpcResponse, upstream: &dyn RpcUpstream) {
         self.calls += 1;
         // A successful broadcast returns the txid as a JSON string; anything

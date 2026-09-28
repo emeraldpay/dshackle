@@ -79,6 +79,10 @@ mod tests {
             fc.submit(&block(5), &test_id("up-c")),
             ForkStatus::Fallbehind
         );
-        assert!(fc.submit(&block(1), &test_id("up-d")).is_ok());
+        assert!(
+            !fc.submit(&block(1), &test_id("up-d"))
+                .fork_state()
+                .is_forked()
+        );
     }
 }

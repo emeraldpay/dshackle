@@ -30,6 +30,7 @@ use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::call_plan::{AsIs, BlockRead, CallPlanner};
 use crate::upstream::egress::ChainAccess;
+use crate::upstream::fork::ForkState;
 use crate::upstream::quorum::{CallQuorum, QuorumFactory, SelectorHint};
 use crate::upstream::router::{self, Routed};
 use crate::upstream::selector::LabelSelector;
@@ -136,7 +137,7 @@ impl Multistream {
         // carries the lag tolerance the client's call needs, and candidates
         // are those able to answer the client's call. One that can't take the
         // rewritten method refuses it, which leads to the retry below.
-        let hint = self.quorum_for(&request.method).selector();
+        let quorum = self.quorum_for(&request.method);
         let (plan, candidates) = {
             // Scanning every upstream for the head is only worth it for a
             // call that names a block; computed once when it does.
@@ -144,7 +145,7 @@ impl Multistream {
             let current_head = || *head.get_or_init(|| ChainAccess::current_height(self));
             let plan = self.planner.plan(request, &current_head);
             let candidates = self.candidates(
-                hint,
+                quorum.as_ref(),
                 &request.method,
                 plan.block,
                 &current_head,
@@ -187,13 +188,14 @@ impl Multistream {
     /// needs an upstream that's caught up with it.
     fn candidates(
         &self,
-        hint: SelectorHint,
+        quorum: &dyn CallQuorum,
         method: &RpcMethod,
         block: Option<BlockRead>,
         head: &dyn Fn() -> Option<u64>,
         labels: &LabelSelector,
         prefer_height: Option<u64>,
     ) -> Vec<Arc<dyn RpcUpstream>> {
+        let hint = quorum.selector();
         let mut candidates = match (block, hint) {
             // Having the block is all that matters, checked below.
             (Some(BlockRead::State(_)), _) => self.select_available(method),
@@ -212,6 +214,7 @@ impl Multistream {
         if *labels != LabelSelector::Any {
             candidates.retain(|u| labels.matches_any_set(u.label_sets()));
         }
+        candidates.retain(|u| fork_allows(u.state().fork(), block, quorum));
         // A hard filter: a node without the block would answer a state read
         // with wrong data, not an error, so no candidate must fail the call.
         if let Some(BlockRead::State(height)) = block {
@@ -385,6 +388,23 @@ fn serves_rpc(u: &Arc<dyn RpcUpstream>) -> bool {
     u.capabilities().contains(&Capability::Rpc)
 }
 
+/// Whether an upstream standing at `fork` may take a call reading `block`
+/// under `quorum`. A forked upstream isn't wrong about everything, so it's
+/// kept for what its chain still answers the same as the recognized one.
+fn fork_allows(fork: ForkState, block: Option<BlockRead>, quorum: &dyn CallQuorum) -> bool {
+    if !fork.is_forked() {
+        return true;
+    }
+    match block {
+        Some(BlockRead::State(height) | BlockRead::Block(height)) => fork.agrees_at(height),
+        // It answers `null` for a block that's only on the recognized chain,
+        // which is fine as long as `null` doesn't end the call.
+        Some(BlockRead::Hash) => quorum.retries_empty(),
+        // A read naming no block is answered from its own head.
+        None => !quorum.reads_chain(),
+    }
+}
+
 /// Keep only candidates whose head has reached `min_height`, following the
 /// legacy `HeightMatcher`: an upstream that never reported a head counts as
 /// height 0.
@@ -421,10 +441,12 @@ impl ChainAccess for Multistream {
         // An unavailable or syncing upstream's height cannot be trusted — a
         // node that failed validation may report a bogus head, and using it
         // as the chain's height would filter every healthy upstream out of
-        // height-constrained routing.
+        // height-constrained routing. A forked upstream's head is on another
+        // chain, so it isn't the chain's height either.
         self.upstreams
             .iter()
             .filter(|u| u.availability() <= UpstreamAvailability::Immature)
+            .filter(|u| !u.state().fork().is_forked())
             .filter_map(|u| u.head().current_height())
             .max()
     }
@@ -472,6 +494,9 @@ mod tests {
     use crate::upstream::head::{CurrentHead, Head, NoHead};
     use crate::upstream::id::UpstreamId;
     use crate::upstream::methods::DefaultMethods;
+    use crate::upstream::quorum::{
+        AlwaysQuorum, BroadcastQuorum, NonEmptyQuorum, NotLaggingQuorum,
+    };
     use crate::upstream::state::UpstreamState;
     use crate::upstream::traits::UpstreamError;
     use std::sync::atomic::AtomicU8;
@@ -791,6 +816,142 @@ mod tests {
         assert_eq!(ChainAccess::current_height(&ms), Some(1005));
         sick.set_availability(UpstreamAvailability::Unavailable);
         assert_eq!(ChainAccess::current_height(&ms), Some(1004));
+    }
+
+    /// `on-chain` at 100 and `forked` at 102, which shares the recognized
+    /// chain up to 95.
+    fn chain_with_fork() -> Multistream {
+        let on_chain = MockUpstream::serving("on-chain", 100, serde_json::Value::Null);
+        let forked = MockUpstream::serving("forked", 102, serde_json::Value::Null);
+        forked.state.set_fork(ForkState::Forked { common: 95 });
+        ms_of(vec![on_chain, forked])
+    }
+
+    fn candidate_ids(
+        ms: &Multistream,
+        quorum: &dyn CallQuorum,
+        block: Option<BlockRead>,
+    ) -> Vec<String> {
+        let head = || ChainAccess::current_height(ms);
+        let mut picked: Vec<String> = ms
+            .candidates(
+                quorum,
+                &"any".into(),
+                block,
+                &head,
+                &LabelSelector::Any,
+                None,
+            )
+            .iter()
+            .map(|u| u.id().to_string())
+            .collect();
+        picked.sort();
+        picked
+    }
+
+    #[test]
+    fn forked_upstream_serves_reads_up_to_the_fork_point() {
+        let ms = chain_with_fork();
+        for block in [BlockRead::State(95), BlockRead::Block(95)] {
+            for quorum in [
+                &AlwaysQuorum::new() as &dyn CallQuorum,
+                &NotLaggingQuorum::new(1),
+            ] {
+                assert_eq!(
+                    candidate_ids(&ms, quorum, Some(block)),
+                    vec!["forked", "on-chain"],
+                    "{block:?} with {:?}",
+                    quorum.selector()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn forked_upstream_skips_reads_above_the_fork_point() {
+        let ms = chain_with_fork();
+        for block in [BlockRead::State(96), BlockRead::Block(100)] {
+            for quorum in [
+                &AlwaysQuorum::new() as &dyn CallQuorum,
+                &NotLaggingQuorum::new(1),
+            ] {
+                assert_eq!(
+                    candidate_ids(&ms, quorum, Some(block)),
+                    vec!["on-chain"],
+                    "{block:?} with {:?}",
+                    quorum.selector()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn forked_upstream_skips_reads_naming_no_block() {
+        // E.g. a transaction by hash: the block it's in, if any, is on the
+        // upstream's own chain.
+        let ms = chain_with_fork();
+        assert_eq!(
+            candidate_ids(&ms, &AlwaysQuorum::new(), None),
+            vec!["on-chain"]
+        );
+        assert_eq!(
+            candidate_ids(&ms, &NotLaggingQuorum::new(0), None),
+            vec!["on-chain"]
+        );
+    }
+
+    #[test]
+    fn forked_upstream_takes_calls_not_reading_the_chain() {
+        let ms = chain_with_fork();
+        assert_eq!(
+            candidate_ids(&ms, &BroadcastQuorum::new(), None),
+            vec!["forked", "on-chain"]
+        );
+    }
+
+    #[test]
+    fn forked_upstream_serves_block_hash_reads_only_when_null_is_retried() {
+        let ms = chain_with_fork();
+        assert_eq!(
+            candidate_ids(&ms, &NonEmptyQuorum::new(), Some(BlockRead::Hash)),
+            vec!["forked", "on-chain"]
+        );
+        assert_eq!(
+            candidate_ids(&ms, &AlwaysQuorum::new(), Some(BlockRead::Hash)),
+            vec!["on-chain"]
+        );
+    }
+
+    #[test]
+    fn state_read_at_latest_takes_upstreams_within_the_lag_tolerance() {
+        // An upstream a block behind answers `latest` from its own head,
+        // which `eth_call`'s quorum accepts; requiring the chain head would
+        // send every such call to whichever node saw the block first.
+        let ms = ms_of(vec![
+            MockUpstream::serving("at-head", 100, serde_json::Value::Null),
+            MockUpstream::serving("behind", 99, serde_json::Value::Null),
+        ])
+        .with_planner(Arc::new(EthereumCallPlanner::new(Arc::new(Caches::new()))));
+        let request = JsonRpcRequest::new(
+            1,
+            "eth_call".into(),
+            serde_json::json!([{"to": "0x00"}, "latest"]),
+        );
+        let block = ms
+            .planner
+            .plan(&request, &|| ChainAccess::current_height(&ms))
+            .block;
+
+        assert_eq!(
+            candidate_ids(&ms, &NotLaggingQuorum::new(4), block),
+            vec!["at-head", "behind"]
+        );
+    }
+
+    #[test]
+    fn current_height_ignores_forked_upstreams() {
+        let ms = chain_with_fork();
+        assert_eq!(ChainAccess::current_height(&ms), Some(100));
     }
 
     #[test]

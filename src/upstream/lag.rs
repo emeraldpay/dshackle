@@ -35,7 +35,14 @@ pub fn update_lags(upstreams: &[Arc<dyn RpcUpstream>]) {
         .iter()
         .map(|u| u.head().current_height())
         .collect();
-    let best_height: Option<u64> = heights.iter().copied().flatten().max();
+    // A forked upstream may be ahead on its own chain; counting it would put
+    // every upstream on the recognized chain behind.
+    let best_height: Option<u64> = upstreams
+        .iter()
+        .zip(&heights)
+        .filter(|(u, _)| !u.state().fork().is_forked())
+        .filter_map(|(_, height)| *height)
+        .max();
 
     for (u, &height) in upstreams.iter().zip(&heights) {
         match (best_height, height) {
@@ -69,6 +76,7 @@ mod tests {
     use super::*;
     use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
     use crate::upstream::availability::UpstreamAvailability;
+    use crate::upstream::fork::ForkState;
     use crate::upstream::head::{CurrentHead, Head};
     use crate::upstream::id::UpstreamId;
     use crate::upstream::state::UpstreamState;
@@ -122,6 +130,17 @@ mod tests {
         })
         .await
         .unwrap_or_else(|_| panic!("lag didn't become {lag}, it's {:?}", upstream.lag()));
+    }
+
+    #[test]
+    fn forked_upstream_ahead_does_not_set_the_best_head() {
+        let (on_chain, _) = upstream("on-chain", 100);
+        let (forked, _) = upstream("forked", 103);
+        forked.state().set_fork(ForkState::Forked { common: 98 });
+
+        update_lags(&[Arc::clone(&on_chain), Arc::clone(&forked)]);
+
+        assert_eq!(on_chain.lag(), Some(0));
     }
 
     #[test]

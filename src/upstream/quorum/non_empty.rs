@@ -68,6 +68,10 @@ impl CallQuorum for NonEmptyQuorum {
         // intentionally keeps retrying because the data may arrive shortly.
     }
 
+    fn retries_empty(&self) -> bool {
+        true
+    }
+
     fn record_response(&mut self, response: JsonRpcResponse, upstream: &dyn RpcUpstream) {
         self.tries += 1;
         if response.is_non_empty_result() {

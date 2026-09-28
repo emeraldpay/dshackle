@@ -16,7 +16,9 @@
 //!
 //! Finds the block a call reads: the block parameter of a state read
 //! (`eth_call`, `eth_getBalance`, ...) or of a block read by number
-//! (`eth_getBlockByNumber`, ...), with `latest` resolved to the chain head.
+//! (`eth_getBlockByNumber`, ...), with `latest` resolved to the chain head
+//! for the latter. A state read at `latest` names no block: the node answers
+//! it from its own head, so it's routed by the quorum's lag tolerance.
 //!
 //! And, as the legacy `NormalizingReader` did, rewrites `eth_getBlockByNumber`
 //! towards the immutable block-by-hash form:
@@ -58,9 +60,12 @@ impl EthereumCallPlanner {
     fn state_height(&self, param: &Value, head: &dyn Fn() -> Option<u64>) -> Option<u64> {
         match param {
             Value::String(tag) => match tag.as_str() {
-                "latest" => head(),
                 "earliest" => Some(0),
-                // `pending`, `safe`, `finalized`: nothing definite to check.
+                // `latest` isn't pinned: requiring the chain head would take
+                // every upstream a block behind out of rotation, while the
+                // answer from its own head is only as stale as the quorum
+                // allows anyway. `pending`, `safe`, `finalized`: nothing
+                // definite to check.
                 tag if !tag.starts_with("0x") => None,
                 hash if hash.len() == HASH_LEN => self.height_of_hash(hash, head),
                 number => parse_hex_quantity(number),
@@ -140,6 +145,13 @@ impl CallPlanner for EthereumCallPlanner {
             };
         }
 
+        if reads_block_by_hash(method) {
+            return CallPlan {
+                request: Cow::Borrowed(request),
+                block: Some(BlockRead::Hash),
+            };
+        }
+
         let Some(pos) = block_param_index(method) else {
             return CallPlan::as_is(request);
         };
@@ -163,6 +175,17 @@ fn state_param_index(method: &str) -> Option<usize> {
         "eth_getStorageAt" => Some(2),
         _ => None,
     }
+}
+
+fn reads_block_by_hash(method: &str) -> bool {
+    matches!(
+        method,
+        "eth_getBlockByHash"
+            | "eth_getBlockTransactionCountByHash"
+            | "eth_getTransactionByBlockHashAndIndex"
+            | "eth_getUncleCountByBlockHash"
+            | "eth_getUncleByBlockHashAndIndex"
+    )
 }
 
 /// Position of the block parameter in methods that read a block by number.
@@ -247,9 +270,9 @@ mod tests {
     // ── State reads ────────────────────────────────────────────────────
 
     #[test]
-    fn state_at_latest_is_the_head() {
+    fn state_at_latest_names_no_block() {
         let block = block_of("eth_getBalance", serde_json::json!([ADDRESS, "latest"]));
-        assert_eq!(block, Some(BlockRead::State(HEAD)));
+        assert_eq!(block, None);
     }
 
     #[test]
@@ -391,9 +414,20 @@ mod tests {
             block_of("eth_getTransactionReceipt", serde_json::json!([HASH_HEX])),
             None
         );
+    }
+
+    #[test]
+    fn reads_by_block_hash_are_hash() {
         assert_eq!(
             block_of("eth_getBlockByHash", serde_json::json!([HASH_HEX, false])),
-            None
+            Some(BlockRead::Hash)
+        );
+        assert_eq!(
+            block_of(
+                "eth_getTransactionByBlockHashAndIndex",
+                serde_json::json!([HASH_HEX, "0x0"])
+            ),
+            Some(BlockRead::Hash)
         );
     }
 

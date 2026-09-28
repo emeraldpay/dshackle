@@ -126,6 +126,19 @@ pub trait CallQuorum: Send {
     fn selector(&self) -> SelectorHint {
         SelectorHint::Available
     }
+
+    /// Whether the answer depends on the chain the upstream follows. A call
+    /// that doesn't read it, like broadcasting a transaction, may go to an
+    /// upstream on a fork.
+    fn reads_chain(&self) -> bool {
+        true
+    }
+
+    /// Whether a `null` answer passes the call on to the next upstream
+    /// instead of resolving it.
+    fn retries_empty(&self) -> bool {
+        false
+    }
 }
 
 /// Tells the [`Multistream`](crate::upstream::Multistream) how to pre-filter

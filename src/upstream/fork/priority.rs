@@ -173,15 +173,21 @@ impl PriorityForkChoice {
         result
     }
 
-    /// Compare an upstream's `current` chain against the `recognized` chain of
-    /// the preferential upstream.
-    fn compare_history(&self, recognized: &[BlockId], current: &[BlockId]) -> ForkStatus {
+    /// Compare an upstream's `current` chain, whose last block is at
+    /// `current_height`, against the `recognized` chain of the preferential
+    /// upstream.
+    fn compare_history(
+        &self,
+        recognized: &[BlockId],
+        current: &[BlockId],
+        current_height: u64,
+    ) -> ForkStatus {
         let Some(recognized_head) = recognized.last().copied() else {
             return ForkStatus::New;
         };
         let Some(current_head) = current.last().copied() else {
             tracing::warn!("Upstream block history is empty");
-            return ForkStatus::Rejected;
+            return ForkStatus::Rejected { common: 0 };
         };
         if recognized_head == current_head {
             return ForkStatus::Equal;
@@ -194,7 +200,17 @@ impl PriorityForkChoice {
             // recognized is ahead of current on the same chain
             return ForkStatus::Fallbehind;
         }
-        ForkStatus::Rejected
+        // A chain is kept contiguous, parent to child, so a block's height is
+        // its distance from the last one. With no tracked block in common the
+        // fork point is below both windows, and genesis is the only block
+        // known to be shared.
+        let common = current
+            .iter()
+            .rposition(|b| recognized.contains(b))
+            .map_or(0, |pos| {
+                current_height.saturating_sub((current.len() - 1 - pos) as u64)
+            });
+        ForkStatus::Rejected { common }
     }
 }
 
@@ -204,7 +220,7 @@ impl ForkChoice for PriorityForkChoice {
             // The legacy code throws on a missing parent and the watcher
             // treats the failure as a fork; mirror that.
             tracing::warn!(upstream = %upstream_id, "Block has no parent hash");
-            return ForkStatus::Rejected;
+            return ForkStatus::Rejected { common: 0 };
         };
         self.keep_journal(parent, block.hash);
         let history = self.get_blocks(upstream_id);
@@ -214,7 +230,7 @@ impl ForkChoice for PriorityForkChoice {
             None => ForkStatus::New,
             Some(preferred) => {
                 let recognized = self.get_blocks(&preferred);
-                self.compare_history(&recognized, &head)
+                self.compare_history(&recognized, &head, block.height)
             }
         }
     }
@@ -227,6 +243,7 @@ impl ForkChoice for PriorityForkChoice {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::upstream::fork::ForkState;
     use crate::upstream::id::test_id;
 
     fn id(n: u8) -> BlockId {
@@ -314,7 +331,25 @@ mod tests {
         fc.submit(&block(10, 9, 1), &test_id("low"));
         assert_eq!(
             fc.submit(&block(11, 10, 2), &test_id("low")),
-            ForkStatus::Rejected
+            ForkStatus::Rejected { common: 0 }
+        );
+    }
+
+    #[test]
+    fn rejected_reports_the_last_shared_height() {
+        let fc = PriorityForkChoice::new();
+        register(&fc, "top", 100);
+        register(&fc, "low", 50);
+        // top: 2 -> 3 -> 4, at heights 1..=3
+        fc.submit(&block(2, 1, 1), &test_id("top"));
+        fc.submit(&block(3, 2, 2), &test_id("top"));
+        fc.submit(&block(4, 3, 3), &test_id("top"));
+        // low shares block 2 (height 1), then goes its own way: 2 -> 20 -> 21
+        fc.submit(&block(2, 1, 1), &test_id("low"));
+        fc.submit(&block(20, 2, 2), &test_id("low"));
+        assert_eq!(
+            fc.submit(&block(21, 20, 3), &test_id("low")),
+            ForkStatus::Rejected { common: 1 }
         );
     }
 
@@ -324,7 +359,10 @@ mod tests {
         register(&fc, "top", 100);
         let mut b = block(2, 1, 1);
         b.parent_hash = None;
-        assert_eq!(fc.submit(&b, &test_id("top")), ForkStatus::Rejected);
+        assert_eq!(
+            fc.submit(&b, &test_id("top")),
+            ForkStatus::Rejected { common: 0 }
+        );
     }
 
     #[test]
@@ -334,7 +372,7 @@ mod tests {
         register(&fc, "low", 50);
         // top is forked/immature, so it must not be used as the reference;
         // low then has no healthy upstream above it and is trusted as New.
-        top.set_fork(true);
+        top.set_fork(ForkState::Forked { common: 0 });
         fc.submit(&block(2, 1, 1), &test_id("top"));
         assert_eq!(
             fc.submit(&block(10, 9, 1), &test_id("low")),

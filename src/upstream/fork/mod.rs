@@ -17,9 +17,10 @@
 //! Each upstream reports its own latest block, but the upstreams may disagree:
 //! one can sit on a stale or orphaned chain. A [`ForkChoice`] inspects each new
 //! block against what the other upstreams have seen and classifies the upstream
-//! with a [`ForkStatus`]. A forked upstream is taken out of rotation by its
-//! [`ForkWatch`](watch::start_fork_watch), which records the verdict on the
-//! upstream's [`UpstreamState`](crate::upstream::state::UpstreamState).
+//! with a [`ForkStatus`]. Its [`ForkWatch`](watch::start_fork_watch) records
+//! the verdict as a [`ForkState`] on the upstream's
+//! [`UpstreamState`](crate::upstream::state::UpstreamState), and routing keeps
+//! a forked upstream away from anything above the fork point.
 //!
 //! Two strategies, picked by consensus (see [`is_pos`]):
 //! - [`DifficultyForkChoice`] for Proof-of-Work — the heaviest chain wins.
@@ -53,24 +54,15 @@ pub enum ForkStatus {
     Equal,
     /// On a known block, but behind the recognized head.
     Fallbehind,
-    /// On a chain that diverges from the recognized one — forked.
-    Rejected,
+    /// On a chain that diverges from the recognized one — forked. `common` is
+    /// the height of the last block both chains share.
+    Rejected { common: u64 },
 }
 
 impl ForkStatus {
-    /// Every status, for reports that must cover the full range.
-    pub const ALL: [ForkStatus; 5] = [
-        ForkStatus::New,
-        ForkStatus::Outrun,
-        ForkStatus::Equal,
-        ForkStatus::Fallbehind,
-        ForkStatus::Rejected,
-    ];
-
-    /// `true` unless the upstream is forked away from the recognized chain.
-    pub fn is_ok(&self) -> bool {
-        !matches!(self, ForkStatus::Rejected)
-    }
+    /// The `status` metric label of every status, for reports that must cover
+    /// the full range.
+    pub const METRICS_LABELS: [&str; 5] = ["NEW", "OUTRUN", "EQUAL", "FALLBEHIND", "REJECTED"];
 
     /// The `status` metric label — the legacy enum constant name.
     pub fn metrics_label(&self) -> &'static str {
@@ -79,8 +71,41 @@ impl ForkStatus {
             ForkStatus::Outrun => "OUTRUN",
             ForkStatus::Equal => "EQUAL",
             ForkStatus::Fallbehind => "FALLBEHIND",
-            ForkStatus::Rejected => "REJECTED",
+            ForkStatus::Rejected { .. } => "REJECTED",
         }
+    }
+
+    pub fn fork_state(&self) -> ForkState {
+        match self {
+            ForkStatus::Rejected { common } => ForkState::Forked { common: *common },
+            _ => ForkState::OnChain,
+        }
+    }
+}
+
+/// Where an upstream stands against the recognized chain, as its last block
+/// was judged. A forked upstream isn't wrong about everything: below the fork
+/// point its chain is the recognized one, so it still serves reads there.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ForkState {
+    OnChain,
+    /// Diverged from the recognized chain after the block at `common`.
+    Forked {
+        common: u64,
+    },
+}
+
+impl ForkState {
+    /// Whether the upstream's block at `height` is on the recognized chain.
+    pub fn agrees_at(&self, height: u64) -> bool {
+        match self {
+            ForkState::OnChain => true,
+            ForkState::Forked { common } => height <= *common,
+        }
+    }
+
+    pub fn is_forked(&self) -> bool {
+        matches!(self, ForkState::Forked { .. })
     }
 }
 

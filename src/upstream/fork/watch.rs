@@ -14,7 +14,7 @@
 
 //! The fork watcher: feeds each upstream's blocks to its chain's fork choice.
 
-use super::{ForkChoice, ForkStatus};
+use super::{ForkChoice, ForkState, ForkStatus};
 use crate::blockchain::TargetBlockchain;
 use crate::metrics;
 use crate::upstream::head::CurrentHead;
@@ -33,8 +33,7 @@ pub struct ForkMember {
 }
 
 /// Spawn a task that submits each new block from `head` to the shared
-/// `fork_choice` and records the verdict on the upstream's state, taking a
-/// forked upstream out of rotation.
+/// `fork_choice` and records the verdict on the upstream's state.
 ///
 /// Unlike the legacy `ForkWatch` — which shared one watcher per chain and only
 /// followed the last-registered upstream — every upstream gets its own watcher
@@ -46,8 +45,7 @@ pub fn start_fork_watch(
     state: Arc<UpstreamState>,
     fork_choice: Arc<dyn ForkChoice>,
 ) {
-    let status_labels: Vec<&str> = ForkStatus::ALL.iter().map(|s| s.metrics_label()).collect();
-    metrics::fork_watch_created(fork_choice.name(), &status_labels, &chain);
+    metrics::fork_watch_created(fork_choice.name(), &ForkStatus::METRICS_LABELS, &chain);
     tokio::spawn(async move {
         let mut blocks = head.subscribe_blocks();
         loop {
@@ -55,11 +53,13 @@ pub fn start_fork_watch(
                 Ok(block) => {
                     let status = fork_choice.submit(&block, &id);
                     metrics::fork_status(fork_choice.name(), status.metrics_label(), &chain);
-                    state.set_fork(!status.is_ok());
-                    if !status.is_ok() {
+                    let fork = status.fork_state();
+                    state.set_fork(fork);
+                    if let ForkState::Forked { common } = fork {
                         tracing::warn!(
                             upstream = %id,
                             choice = fork_choice.name(),
+                            common,
                             "Upstream is forked from the recognized chain"
                         );
                     }

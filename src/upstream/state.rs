@@ -21,13 +21,18 @@
 //! reads the combination of the two.
 
 use crate::upstream::availability::UpstreamAvailability;
+use crate::upstream::fork::ForkState;
 use crate::upstream::pause::PauseReason;
 use crate::upstream::status_signal::StatusSignal;
-use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU8, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU8, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 const NO_LAG: i64 = -1;
+
+/// Stored in place of a fork height while the upstream is on the recognized
+/// chain.
+const ON_CHAIN: u64 = u64::MAX;
 
 /// No pause is active. A stored deadline is compared against
 /// [`monotonic_millis`], which starts at ~0 and only grows, so 0 always reads
@@ -51,9 +56,9 @@ pub struct UpstreamState {
     lag_status: AtomicU8,
     /// Availability reported by the active validator probes.
     validation_status: AtomicU8,
-    /// Availability derived from fork detection: `Immature` while the upstream
-    /// is forked off the recognized chain, `Ok` otherwise.
-    fork_status: AtomicU8,
+    /// [`ForkState`] from fork detection: the height of the last block shared
+    /// with the recognized chain, or [`ON_CHAIN`].
+    fork: AtomicU64,
     /// Availability reported by the upstream itself over `SubscribeStatus`.
     /// Only a remote Dshackle upstream reports its own status; for every other
     /// upstream this stays `Ok` and has no effect.
@@ -99,7 +104,7 @@ impl UpstreamState {
             lag: AtomicI64::new(NO_LAG),
             lag_status: AtomicU8::new(UpstreamAvailability::Ok as u8),
             validation_status: AtomicU8::new(UpstreamAvailability::Ok as u8),
-            fork_status: AtomicU8::new(UpstreamAvailability::Ok as u8),
+            fork: AtomicU64::new(ON_CHAIN),
             reported_status: AtomicU8::new(UpstreamAvailability::Ok as u8),
             always_valid: AtomicBool::new(false),
             paused_until: AtomicI64::new(NO_COOLDOWN),
@@ -153,7 +158,11 @@ impl UpstreamState {
         let by_lag = UpstreamAvailability::from_u8(self.lag_status.load(Ordering::Relaxed));
         let by_validation =
             UpstreamAvailability::from_u8(self.validation_status.load(Ordering::Relaxed));
-        let by_fork = UpstreamAvailability::from_u8(self.fork_status.load(Ordering::Relaxed));
+        let by_fork = if self.fork().is_forked() {
+            UpstreamAvailability::Immature
+        } else {
+            UpstreamAvailability::Ok
+        };
         let by_reported =
             UpstreamAvailability::from_u8(self.reported_status.load(Ordering::Relaxed));
         by_lag.max(by_validation).max(by_fork).max(by_reported)
@@ -197,16 +206,26 @@ impl UpstreamState {
     }
 
     /// Record a fork-detection verdict. A forked upstream is reported as
-    /// `Immature` (matching the legacy fork handling) so it drops out of
-    /// rotation; `Ok` clears it.
-    pub fn set_fork(&self, forked: bool) {
-        let status = if forked {
-            UpstreamAvailability::Immature
-        } else {
-            UpstreamAvailability::Ok
+    /// `Immature`, matching the legacy fork handling. That alone doesn't keep
+    /// it out of routing (`Immature` is still routable); the router checks
+    /// [`fork`](Self::fork) against the block each call reads.
+    pub fn set_fork(&self, fork: ForkState) {
+        let value = match fork {
+            ForkState::OnChain => ON_CHAIN,
+            ForkState::Forked { common } => common,
         };
-        self.fork_status.store(status as u8, Ordering::Relaxed);
-        self.notify_change();
+        // A verdict comes with every block, but routing consumers only care
+        // when it changes.
+        if self.fork.swap(value, Ordering::Relaxed) != value {
+            self.notify_change();
+        }
+    }
+
+    pub fn fork(&self) -> ForkState {
+        match self.fork.load(Ordering::Relaxed) {
+            ON_CHAIN => ForkState::OnChain,
+            common => ForkState::Forked { common },
+        }
     }
 
     /// Record the availability a remote Dshackle upstream reports about itself
@@ -314,6 +333,18 @@ mod tests {
     use super::*;
 
     // ── Default (Ethereum) threshold of 6 ──────────────────────────────
+
+    #[test]
+    fn fork_keeps_the_common_height_and_reports_immature() {
+        let s = UpstreamState::new();
+        s.set_fork(ForkState::Forked { common: 42 });
+        assert_eq!(s.fork(), ForkState::Forked { common: 42 });
+        assert_eq!(s.availability(), UpstreamAvailability::Immature);
+
+        s.set_fork(ForkState::OnChain);
+        assert_eq!(s.fork(), ForkState::OnChain);
+        assert_eq!(s.availability(), UpstreamAvailability::Ok);
+    }
 
     #[test]
     fn starts_with_ok_and_no_lag() {

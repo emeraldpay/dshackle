@@ -23,7 +23,8 @@
 use crate::blockchain::TargetBlockchain;
 use crate::jsonrpc::RpcMethod;
 use crate::upstream::quorum::{
-    AlwaysQuorum, BroadcastQuorum, CallQuorum, NonceQuorum, NotLaggingQuorum, QuorumFactory,
+    AlwaysQuorum, BroadcastQuorum, CallQuorum, NonEmptyQuorum, NonceQuorum, NotLaggingQuorum,
+    QuorumFactory,
 };
 use emerald_api::proto::common::ChainRef;
 use serde_json::value::RawValue;
@@ -81,6 +82,10 @@ impl QuorumFactory for DefaultEthereumMethods {
             "eth_getTransactionCount" => Box::new(NonceQuorum::new()),
             // Broadcast to multiple peers for redundancy.
             "eth_sendRawTransaction" => Box::new(BroadcastQuorum::new()),
+            // A node that hasn't seen the block (still catching up, or on
+            // another fork) answers `null`; one that has answers right. The
+            // legacy code took the first answer, `null` included.
+            "eth_getBlockByHash" => Box::new(NonEmptyQuorum::new()),
             // Hash-keyed reads are content-addressed — first valid answer wins.
             _ => Box::new(AlwaysQuorum::new()),
         }
@@ -390,6 +395,13 @@ mod tests {
             SelectorHint::Available => {}
             other => panic!("unexpected: {other:?}"),
         }
+    }
+
+    #[test]
+    fn block_by_hash_moves_past_null_answers() {
+        let quorum =
+            DefaultEthereumMethods::new(eth_chain()).quorum_for(&"eth_getBlockByHash".into());
+        assert!(quorum.retries_empty());
     }
 
     #[test]

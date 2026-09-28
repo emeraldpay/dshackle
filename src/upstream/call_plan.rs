@@ -66,6 +66,10 @@ pub enum BlockRead {
     /// down how far behind an upstream may be — counted from this block, not
     /// the chain head.
     Block(u64),
+    /// A block named by its hash (`eth_getBlockByHash`). What's under a hash
+    /// never changes, so a node answers it right whichever chain it follows,
+    /// or with `null` when it doesn't have the block.
+    Hash,
 }
 
 /// Chain-specific rules for preparing a call.
