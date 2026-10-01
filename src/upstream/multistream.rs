@@ -352,6 +352,11 @@ impl Multistream {
     /// same-tier load still spreads round-robin. Unlike legacy there are no
     /// delayed retry cycles — the router walks the list once, so fallbacks
     /// are simply appended at the tail.
+    ///
+    /// The rotation is over the upstreams that match, not over the whole
+    /// tier: rotating first and dropping the mismatches after would hand
+    /// every call of a skipped upstream to the one configured next to it,
+    /// doubling that one's load instead of sharing it across the tier.
     fn select_where<F>(&self, predicate: F) -> Vec<Arc<dyn RpcUpstream>>
     where
         F: Fn(&Arc<dyn RpcUpstream>) -> bool,
@@ -365,15 +370,11 @@ impl Multistream {
         let pos = self.cursor.fetch_add(1, Ordering::Relaxed);
         let mut out = Vec::with_capacity(self.upstreams.len());
         for tier in &self.tiers {
-            if tier.is_empty() {
-                continue;
-            }
-            let start = pos % tier.len();
-            for i in 0..tier.len() {
-                let u = &tier[(start + i) % tier.len()];
-                if predicate(u) {
-                    out.push(Arc::clone(u));
-                }
+            let tier_start = out.len();
+            out.extend(tier.iter().filter(|u| predicate(u)).cloned());
+            let matching = &mut out[tier_start..];
+            if !matching.is_empty() {
+                matching.rotate_left(pos % matching.len());
             }
         }
         out
@@ -663,6 +664,28 @@ mod tests {
             ids(&ms.select_available(&"any".into())),
             vec!["up-a", "up-b", "up-c"]
         );
+    }
+
+    #[test]
+    fn skipped_upstream_load_is_shared_evenly() {
+        let ms = ms_of(vec![
+            MockUpstream::new("up-a", UpstreamAvailability::Ok),
+            MockUpstream::new("up-b", UpstreamAvailability::Unavailable),
+            MockUpstream::new("up-c", UpstreamAvailability::Ok),
+            MockUpstream::new("up-d", UpstreamAvailability::Ok),
+        ]);
+
+        let mut first_picks: std::collections::HashMap<String, usize> = Default::default();
+        for _ in 0..12 {
+            let picked = ms.select_available(&"any".into());
+            *first_picks.entry(picked[0].id().to_string()).or_default() += 1;
+        }
+
+        // "up-c" follows the skipped one, and must not inherit its whole share.
+        assert_eq!(first_picks.len(), 3);
+        for id in ["up-a", "up-c", "up-d"] {
+            assert_eq!(first_picks[id], 4, "{id}");
+        }
     }
 
     #[test]
