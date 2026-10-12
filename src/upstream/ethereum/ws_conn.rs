@@ -16,8 +16,9 @@
 //! and exponential backoff. Requests are matched to responses via an internal
 //! ID sequence, preserving the original caller IDs.
 //!
-//! Also supports `eth_subscribe`-style subscriptions, which return a channel
-//! of raw JSON notification payloads tied to this specific connection.
+//! Also supports `eth_subscribe`-style subscriptions, which return a
+//! [`WsSubscription`] of raw JSON notification payloads tied to this specific
+//! connection.
 
 use crate::config::tls::BasicAuth;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
@@ -28,7 +29,7 @@ use base64::Engine as _;
 use futures_util::{SinkExt, StreamExt};
 use serde_json::value::RawValue;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot};
 use tokio_tungstenite::tungstenite;
@@ -108,6 +109,15 @@ pub(super) struct WsConnection {
     inner: Arc<WsConnectionInner>,
 }
 
+/// A serialized JSON-RPC message waiting for the write loop.
+struct Outgoing {
+    /// The connection the message was made for. Once that one is lost the
+    /// message must not reach its successor: the caller has already been
+    /// failed, and a subscription id inside it names something else there.
+    generation: u64,
+    json: String,
+}
+
 /// Shared state for a single WS connection, accessed by both the call site
 /// and the background connection task.
 struct WsConnectionInner {
@@ -116,7 +126,12 @@ struct WsConnectionInner {
     /// Active subscriptions: node-assigned subscription ID -> sender for notification payloads.
     subscriptions: Mutex<HashMap<String, mpsc::UnboundedSender<Box<RawValue>>>>,
     /// Channel for sending serialized JSON-RPC messages to the write loop.
-    outgoing: mpsc::Sender<String>,
+    outgoing: mpsc::Sender<Outgoing>,
+    /// Which of the successive connections to the node is the current one;
+    /// advances every time a connection is lost. Changed only while holding
+    /// both the `pending` and the `subscriptions` locks, so reading it under
+    /// either tells reliably which connection an entry there belongs to.
+    generation: AtomicU64,
     /// Monotonically increasing ID counter for request/response matching.
     next_id: AtomicU32,
     /// Whether this connection is currently established and ready.
@@ -128,12 +143,13 @@ impl WsConnection {
     /// `pause` takes the whole upstream out of rotation when the endpoint
     /// refuses the connection itself (e.g. a provider's 429 on the handshake).
     pub(super) fn new(label: String, target: WsTarget, pause: PauseHandle) -> Self {
-        let (outgoing_tx, outgoing_rx) = mpsc::channel::<String>(256);
+        let (outgoing_tx, outgoing_rx) = mpsc::channel::<Outgoing>(256);
 
         let inner = Arc::new(WsConnectionInner {
             pending: Mutex::new(HashMap::new()),
             subscriptions: Mutex::new(HashMap::new()),
             outgoing: outgoing_tx,
+            generation: AtomicU64::new(0),
             next_id: AtomicU32::new(IDS_START),
             connected: AtomicBool::new(false),
         });
@@ -162,16 +178,25 @@ impl WsConnection {
         &self,
         request: &JsonRpcRequest,
     ) -> Result<JsonRpcResponse, UpstreamError> {
+        self.exchange(request).await.map(|(_, response)| response)
+    }
+
+    /// Makes the call, also telling which connection generation answered it.
+    async fn exchange(
+        &self,
+        request: &JsonRpcRequest,
+    ) -> Result<(u64, JsonRpcResponse), UpstreamError> {
         let internal_id = self.inner.next_id.fetch_add(1, Ordering::Relaxed);
         tracing::trace!(connection = %self.label, method = %request.method, internal_id, "WS request");
 
         let (tx, rx) = oneshot::channel();
 
         // Register before sending so the read loop can route even very fast responses.
-        {
+        let generation = {
             let mut pending = self.inner.pending.lock().expect("pending lock poisoned");
             pending.insert(internal_id, tx);
-        }
+            self.inner.generation.load(Ordering::Relaxed)
+        };
 
         // Build request with the internal ID for wire-level matching
         let wire_request =
@@ -186,7 +211,8 @@ impl WsConnection {
             }
         };
 
-        if self.inner.outgoing.send(json).await.is_err() {
+        let outgoing = Outgoing { generation, json };
+        if self.inner.outgoing.send(outgoing).await.is_err() {
             self.remove_pending(internal_id);
             return Err(UpstreamError::Transport(
                 "WebSocket connection is closed".into(),
@@ -202,7 +228,7 @@ impl WsConnection {
         match result {
             Ok(Ok(result)) => {
                 tracing::trace!(connection = %self.label, internal_id, ok = result.is_ok(), "WS response received");
-                result
+                result.map(|response| (generation, response))
             }
             Ok(Err(_)) => {
                 tracing::trace!(connection = %self.label, internal_id, "WS disconnected while waiting");
@@ -222,14 +248,18 @@ impl WsConnection {
 
     /// Subscribe to an `eth_subscribe` topic on this specific connection.
     ///
-    /// The subscription is tied to this connection — when it drops, the
-    /// returned receiver closes.
-    pub(super) async fn subscribe(
-        &self,
-        topic: &str,
-    ) -> Result<mpsc::UnboundedReceiver<Box<RawValue>>, UpstreamError> {
+    /// The subscription is tied to this connection and ends when it drops.
+    pub(super) async fn subscribe(&self, topic: &str) -> Result<WsSubscription, UpstreamError> {
+        // There is no connection to tie the subscription to, and waiting for
+        // one risks the request going out only after this caller gave up —
+        // the node would then serve a subscription nobody holds or can cancel.
+        if !self.is_connected() {
+            return Err(UpstreamError::Transport(
+                "WebSocket is not connected".into(),
+            ));
+        }
         let request = JsonRpcRequest::new(0, "eth_subscribe".into(), serde_json::json!([topic]));
-        let response = self.call(&request).await?;
+        let (generation, response) = self.exchange(&request).await?;
 
         let sub_id = response.result.ok_or_else(|| {
             UpstreamError::InvalidResponse("eth_subscribe returned no result".into())
@@ -243,16 +273,87 @@ impl WsConnection {
                 .subscriptions
                 .lock()
                 .expect("subscriptions lock poisoned");
+            // The connection that granted the id may be lost by now. Its
+            // entry would sit among the next connection's subscriptions
+            // without ever being fed or closed.
+            if self.inner.generation.load(Ordering::Relaxed) != generation {
+                return Err(UpstreamError::Transport(
+                    "WebSocket disconnected while subscribing".into(),
+                ));
+            }
             subs.insert(sub_id.clone(), tx);
         }
 
         tracing::debug!(connection = %self.label, sub_id = %sub_id, topic, "subscription active");
-        Ok(rx)
+        Ok(WsSubscription {
+            id: sub_id,
+            generation,
+            notifications: rx,
+            connection: Arc::clone(&self.inner),
+        })
     }
 
     fn remove_pending(&self, id: u32) {
         let mut pending = self.inner.pending.lock().expect("pending lock poisoned");
         pending.remove(&id);
+    }
+}
+
+// ─── Subscription handle ────────────────────────────────────────────────────
+
+/// A live `eth_subscribe` subscription on one connection.
+///
+/// Dropping it cancels the subscription on the node as well (legacy
+/// `WsSubscriptionsImpl` did the same on cancel): a high-volume topic such as
+/// `newPendingTransactions` would otherwise keep streaming to a connection
+/// where nobody listens, until its next reconnect.
+pub struct WsSubscription {
+    /// Node-assigned subscription id, meaningful only on the connection that
+    /// granted it.
+    id: String,
+    /// The connection generation that granted the id.
+    generation: u64,
+    notifications: mpsc::UnboundedReceiver<Box<RawValue>>,
+    connection: Arc<WsConnectionInner>,
+}
+
+impl WsSubscription {
+    /// The next notification payload, or `None` once the connection dropped —
+    /// the subscription is gone with it and the caller should re-subscribe.
+    pub async fn recv(&mut self) -> Option<Box<RawValue>> {
+        self.notifications.recv().await
+    }
+}
+
+impl Drop for WsSubscription {
+    fn drop(&mut self) {
+        {
+            let mut subs = self
+                .connection
+                .subscriptions
+                .lock()
+                .expect("subscriptions lock poisoned");
+            // The node forgot the subscription together with the connection
+            // it was made on, and on the current one the same id may name
+            // somebody else's subscription.
+            if self.connection.generation.load(Ordering::Relaxed) != self.generation {
+                return;
+            }
+            subs.remove(&self.id);
+        }
+        let request = JsonRpcRequest::new(
+            self.connection.next_id.fetch_add(1, Ordering::Relaxed),
+            "eth_unsubscribe".into(),
+            serde_json::json!([self.id]),
+        );
+        // Best-effort: `drop` can't wait for room in the channel, and a lost
+        // unsubscribe only costs traffic until the connection is recycled.
+        if let Ok(json) = serde_json::to_string(&request) {
+            let _ = self.connection.outgoing.try_send(Outgoing {
+                generation: self.generation,
+                json,
+            });
+        }
     }
 }
 
@@ -263,7 +364,7 @@ async fn connection_loop(
     label: String,
     target: WsTarget,
     state: Arc<WsConnectionInner>,
-    mut outgoing_rx: mpsc::Receiver<String>,
+    mut outgoing_rx: mpsc::Receiver<Outgoing>,
     pause: PauseHandle,
 ) {
     let mut backoff = BACKOFF_INITIAL;
@@ -333,7 +434,7 @@ async fn connect_and_run(
     label: &str,
     target: &WsTarget,
     state: &Arc<WsConnectionInner>,
-    outgoing_rx: &mut mpsc::Receiver<String>,
+    outgoing_rx: &mut mpsc::Receiver<Outgoing>,
 ) -> Result<(), ConnectionError> {
     // Configured limits only; unset ones keep the tungstenite defaults
     // (16 MiB frame / 64 MiB message).
@@ -395,8 +496,12 @@ async fn connect_and_run(
             // Write outgoing message from the call site
             outgoing = outgoing_rx.recv() => {
                 match outgoing {
-                    Some(json) => {
-                        if let Err(e) = ws_write.send(tungstenite::Message::Text(json.into())).await {
+                    Some(message) => {
+                        if message.generation != state.generation.load(Ordering::Relaxed) {
+                            tracing::trace!("{label}: dropping a message queued for a lost connection");
+                            continue;
+                        }
+                        if let Err(e) = ws_write.send(tungstenite::Message::Text(message.json.into())).await {
                             return Err(ConnectionError::Failed(format!("write error: {e}")));
                         }
                     }
@@ -471,20 +576,19 @@ fn handle_incoming_message(label: &str, state: &WsConnectionInner, text: &str) {
 
 /// Fail all pending requests and close all subscription channels on disconnect.
 fn cleanup_on_disconnect(state: &WsConnectionInner, reason: &str) {
-    {
-        let mut pending = state.pending.lock().expect("pending lock poisoned");
-        for (_, tx) in pending.drain() {
-            let _ = tx.send(Err(UpstreamError::Transport(reason.to_string())));
-        }
+    // Both locks are held across the whole cleanup, so nobody can observe the
+    // new generation next to an entry of the old one, or the other way round.
+    let mut subs = state
+        .subscriptions
+        .lock()
+        .expect("subscriptions lock poisoned");
+    let mut pending = state.pending.lock().expect("pending lock poisoned");
+    state.generation.fetch_add(1, Ordering::Relaxed);
+    for (_, tx) in pending.drain() {
+        let _ = tx.send(Err(UpstreamError::Transport(reason.to_string())));
     }
-    {
-        // Dropping senders closes the receivers, signalling disconnect to subscribers
-        let mut subs = state
-            .subscriptions
-            .lock()
-            .expect("subscriptions lock poisoned");
-        subs.clear();
-    }
+    // Dropping senders closes the receivers, signalling disconnect to subscribers
+    subs.clear();
 }
 
 // ─── Subscription notification wire types ───────────────────────────────────
@@ -506,6 +610,7 @@ struct SubscriptionParams {
 mod tests {
     use super::*;
     use crate::upstream::availability::UpstreamAvailability;
+    use crate::upstream::ethereum::ws_stub::StubNode;
     use crate::upstream::state::UpstreamState;
 
     fn test_pause() -> PauseHandle {
@@ -671,6 +776,101 @@ mod tests {
             }
         });
         url
+    }
+
+    async fn connected(node: &StubNode) -> WsConnection {
+        let conn = WsConnection::new("test".to_string(), target_at(node.url()), test_pause());
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while !conn.is_connected() {
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("connected to the stub node");
+        conn
+    }
+
+    #[tokio::test]
+    async fn subscription_receives_node_notifications() {
+        let node = StubNode::start().await;
+        let conn = connected(&node).await;
+
+        let mut subscription = conn.subscribe("newHeads").await.unwrap();
+        node.notify(serde_json::json!({"number": "0x1"}));
+
+        let payload = subscription.recv().await.unwrap();
+        assert_eq!(payload.get(), r#"{"number":"0x1"}"#);
+    }
+
+    #[tokio::test]
+    async fn dropped_subscription_is_cancelled_on_node() {
+        let node = StubNode::start().await;
+        let conn = connected(&node).await;
+
+        let subscription = conn.subscribe("newHeads").await.unwrap();
+        drop(subscription);
+
+        assert_eq!(
+            node.requests("eth_unsubscribe", 1).await,
+            vec![serde_json::json!(["0x1"])]
+        );
+    }
+
+    /// The node forgot the subscription together with the connection it was
+    /// made on, so there is nothing to cancel — and the stub, like some real
+    /// nodes, numbers subscriptions per connection, so the stale id names
+    /// the live subscription by then.
+    #[tokio::test]
+    async fn subscription_of_lost_connection_is_not_cancelled() {
+        let node = StubNode::start().await;
+        let conn = connected(&node).await;
+
+        let mut stale = conn.subscribe("newHeads").await.unwrap();
+        node.disconnect();
+        assert!(stale.recv().await.is_none());
+
+        let live = async {
+            loop {
+                if let Ok(subscription) = conn.subscribe("newHeads").await {
+                    return subscription;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        };
+        let mut live = tokio::time::timeout(std::time::Duration::from_secs(5), live)
+            .await
+            .expect("re-subscribed after the reconnect");
+
+        drop(stale);
+        // A round trip on the same connection: once it is answered, the node
+        // has seen whatever dropping the stale subscription sent before it.
+        let probe = JsonRpcRequest::new(1, "eth_chainId".into(), serde_json::json!([]));
+        conn.call(&probe).await.unwrap();
+        assert!(node.requests("eth_unsubscribe", 0).await.is_empty());
+
+        node.notify(serde_json::json!({"number": "0x2"}));
+        assert_eq!(live.recv().await.unwrap().get(), r#"{"number":"0x2"}"#);
+
+        drop(live);
+        assert_eq!(
+            node.requests("eth_unsubscribe", 1).await,
+            vec![serde_json::json!(["0x1"])]
+        );
+    }
+
+    #[tokio::test]
+    async fn subscribe_fails_right_away_while_disconnected() {
+        let mut target = target_at("ws://127.0.0.1:1/".to_string());
+        target.call_timeout = std::time::Duration::from_secs(60);
+        let conn = WsConnection::new("test".to_string(), target, test_pause());
+
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            conn.subscribe("newHeads"),
+        )
+        .await
+        .expect("no waiting for a response that can't come");
+        assert!(matches!(result, Err(UpstreamError::Transport(_))));
     }
 
     /// The size limits were once parsed but silently ignored: prove they reach

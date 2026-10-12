@@ -23,7 +23,7 @@
 //! When that connection drops the subscription channel closes and the caller
 //! should re-subscribe.
 
-use super::ws_conn::WsTarget;
+use super::ws_conn::{WsSubscription, WsTarget};
 use super::ws_pool::WsConnectionPool;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
 use crate::upstream::availability::UpstreamAvailability;
@@ -32,9 +32,7 @@ use crate::upstream::id::UpstreamId;
 use crate::upstream::pause::PauseHandle;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
-use serde_json::value::RawValue;
 use std::sync::Arc;
-use tokio::sync::mpsc;
 
 /// An Ethereum upstream node accessed over WebSocket JSON-RPC.
 ///
@@ -83,11 +81,8 @@ impl EthereumWsUpstream {
     /// Subscribe to an `eth_subscribe` topic (e.g. `"newHeads"`).
     ///
     /// The subscription is pinned to a single underlying connection. When that
-    /// connection drops, the receiver closes — callers should re-subscribe.
-    pub async fn subscribe(
-        &self,
-        topic: &str,
-    ) -> Result<mpsc::UnboundedReceiver<Box<RawValue>>, UpstreamError> {
+    /// connection drops, the subscription ends — callers should re-subscribe.
+    pub async fn subscribe(&self, topic: &str) -> Result<WsSubscription, UpstreamError> {
         let conn = self
             .pool
             .get_connection()

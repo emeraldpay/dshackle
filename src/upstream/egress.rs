@@ -37,11 +37,11 @@ use tokio::sync::broadcast::error::RecvError;
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::{Stream, StreamExt};
 
-/// `eth_subscribe` topics. `newPendingTransactions` is deferred (needs a
-/// pending-tx source).
+/// `eth_subscribe` topics.
 pub const METHOD_NEW_HEADS: &str = "newHeads";
 pub const METHOD_SYNCING: &str = "syncing";
 pub const METHOD_LOGS: &str = "logs";
+pub const METHOD_PENDING_TXES: &str = "newPendingTransactions";
 
 /// Header fields a `newHeads` message carries beyond the parsed block metadata.
 /// Passed through verbatim from the raw header JSON, matching the legacy
@@ -1125,13 +1125,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unsupported_method_errors() {
+    async fn unknown_topic_is_rejected() {
         let merged = Arc::new(MergedHead::new(MergeOrder::Priority));
         let egress = egress(Arc::clone(&merged), StubAccess::new(false, vec![]));
-        let err = egress
-            .subscribe("newPendingTransactions", None)
-            .err()
-            .expect("newPendingTransactions is not supported yet");
-        assert!(matches!(err, EgressError::UnsupportedMethod(m) if m == "newPendingTransactions"));
+        assert!(matches!(
+            egress.subscribe("nonsense", None),
+            Err(EgressError::UnsupportedMethod(m)) if m == "nonsense"
+        ));
     }
 }

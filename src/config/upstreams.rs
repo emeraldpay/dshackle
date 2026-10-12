@@ -285,6 +285,15 @@ impl WsEndpoint {
         }
         Ok(())
     }
+
+    /// Whether `disabled-methods` keeps `eth_subscribe` off this connection.
+    /// Nothing can be subscribed on the node then: its head has to be polled,
+    /// and it announces no pending transactions.
+    pub fn subscriptions_disabled(&self) -> bool {
+        self.disabled_methods
+            .iter()
+            .any(|method| method == "eth_subscribe")
+    }
 }
 
 /// ZeroMQ endpoint for Bitcoin block notifications.
@@ -808,6 +817,17 @@ mod tests {
                 None => assert!(result.unwrap().is_some()),
             }
         }
+    }
+
+    #[test]
+    fn ws_subscriptions_follow_disabled_methods() {
+        let ws = |disabled: &[&str]| WsEndpoint {
+            disabled_methods: disabled.iter().map(|m| m.to_string()).collect(),
+            ..WsEndpoint::default()
+        };
+        assert!(!ws(&[]).subscriptions_disabled());
+        assert!(!ws(&["trace_block"]).subscriptions_disabled());
+        assert!(ws(&["trace_block", "eth_subscribe"]).subscriptions_disabled());
     }
 
     #[test]

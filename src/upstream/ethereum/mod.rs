@@ -17,10 +17,14 @@
 pub mod call_plan;
 pub mod head;
 pub mod http;
+#[expect(dead_code, reason = "no subscription topic is served from it yet")]
+pub mod pending_tx;
 pub mod validator;
 mod ws_conn;
 mod ws_pool;
 mod ws_single;
+#[cfg(test)]
+mod ws_stub;
 
 pub use ws_conn::WsTarget;
 pub use ws_single::EthereumWsUpstream;

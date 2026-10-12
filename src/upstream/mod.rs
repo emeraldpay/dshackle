@@ -90,6 +90,9 @@ use ethereum::EthereumWsUpstream;
 use ethereum::call_plan::EthereumCallPlanner;
 use ethereum::head::{start_head_poller, start_ws_head};
 use ethereum::http::EthereumHttpUpstream;
+use ethereum::pending_tx::{
+    AggregatedPendingTxes, PendingTxSource, RelayedPendingTxes, WsPendingTxes,
+};
 use ethereum::validator::EthereumValidator;
 use fees::{BitcoinFees, ChainFees, EthereumFees};
 use fork::{
@@ -158,6 +161,12 @@ pub struct UpstreamManager {
     /// `egress()` call — so all subscribers keep sharing one remote stream
     /// per topic.
     dshackle_relays: HashMap<TargetBlockchain, Vec<Arc<DshackleEgress>>>,
+    /// Per-chain pending transactions, gathered from every upstream able to
+    /// announce them (legacy `EthereumMultistream` builds the same aggregate
+    /// in `onUpstreamsUpdated`). Held here — not rebuilt per use — so all
+    /// listeners share the upstream subscriptions and the aggregate's memory
+    /// of what was already announced.
+    pending_txes: HashMap<TargetBlockchain, Arc<dyn PendingTxSource>>,
 }
 
 /// How long to wait for a remote Dshackle upstream's connect + `Describe`
@@ -220,6 +229,10 @@ impl UpstreamManager {
         // Per-chain subscription relays of the remote Dshackle upstreams,
         // feeding the chain's egress alongside the locally-served topics.
         let mut dshackle_relays: HashMap<TargetBlockchain, Vec<Arc<DshackleEgress>>> =
+            HashMap::new();
+        // Per-chain pending-transaction sources of the Ethereum nodes reached
+        // over WebSocket, the only transport a node pushes them through.
+        let mut node_pending_txes: HashMap<TargetBlockchain, Vec<Arc<dyn PendingTxSource>>> =
             HashMap::new();
         // Remote Dshackle upstreams to connect after the main loop. Their chains
         // and methods are only known from the remote's `Describe`, so they are
@@ -316,18 +329,52 @@ impl UpstreamManager {
 
                     // Start head tracking on exactly one transport per
                     // upstream and subscribe the per-chain CachingHead to it.
+                    // That head is also the one the fork watcher follows for
+                    // this upstream.
                     let caching_head = get_or_create_caching_head(
                         chain,
                         redis.as_ref(),
                         &mut per_chain_caches,
                         &mut per_chain_caching_heads,
                     );
-                    match (&ws_upstream, &http_upstream) {
-                        (Some(ws_up), _) => {
-                            caching_head.follow(&ws_up.head_height());
+                    // `disabled-methods` keeps a method off the WS
+                    // connection, and for `eth_subscribe` that leaves nothing
+                    // to subscribe to: neither the head nor the pending
+                    // transactions (legacy applied the list inside the
+                    // connection, to its own subscriptions as well).
+                    let ws_subscriptions_disabled = eth
+                        .ws
+                        .as_ref()
+                        .is_some_and(|ws| ws.subscriptions_disabled());
+                    if ws_subscriptions_disabled {
+                        tracing::info!(
+                            "Upstream {}: eth_subscribe is disabled for WS, so the head is polled and no pending transactions come from this upstream",
+                            id
+                        );
+                    }
+                    let fork_head: Option<Arc<CurrentHead>> = match (&ws_upstream, &http_upstream) {
+                        (Some(ws_up), _) if !ws_subscriptions_disabled => {
+                            let head = ws_up.head_height();
+                            caching_head.follow(&head);
                             start_ws_head(Arc::clone(ws_up));
+                            node_pending_txes
+                                .entry(chain)
+                                .or_default()
+                                .push(Arc::new(WsPendingTxes::new(Arc::clone(ws_up))));
+                            Some(head)
                         }
-                        (None, Some(http_up)) => {
+                        (Some(ws_up), None) => {
+                            // WS is the only transport, so the polling goes
+                            // through it.
+                            let head = ws_up.head_height();
+                            caching_head.follow(&head);
+                            start_head_poller(
+                                Arc::clone(ws_up) as Arc<dyn RpcUpstream>,
+                                Arc::clone(&head),
+                            );
+                            Some(head)
+                        }
+                        (_, Some(http_up)) => {
                             let head = http_up.head_height();
                             caching_head.follow(&head);
                             // The poller's requests go through an instrumented
@@ -347,20 +394,15 @@ impl UpstreamManager {
                                     id.clone(),
                                     chain,
                                 )),
-                                head,
+                                Arc::clone(&head),
                             );
+                            Some(head)
                         }
                         (None, None) => {
                             // handled below
+                            None
                         }
-                    }
-
-                    // The head being tracked (WS primary, else HTTP) is the one
-                    // the fork watcher follows for this upstream.
-                    let fork_head: Option<Arc<CurrentHead>> = ws_upstream
-                        .as_ref()
-                        .map(|u| u.head_height())
-                        .or_else(|| http_upstream.as_ref().map(|u| u.head_height()));
+                    };
 
                     // Metering and request logging sit directly above each
                     // transport, so requests are attributed to the connection
@@ -842,6 +884,7 @@ impl UpstreamManager {
             allowance_clients,
             balance_clients,
             zmq_topics: per_chain_zmq_topics,
+            pending_txes: chain_pending_txes(node_pending_txes, &dshackle_relays),
             dshackle_relays,
         })
     }
@@ -862,6 +905,7 @@ impl UpstreamManager {
             balance_clients: HashMap::new(),
             zmq_topics: HashMap::new(),
             dshackle_relays: HashMap::new(),
+            pending_txes: HashMap::new(),
         }
     }
 
@@ -881,6 +925,14 @@ impl UpstreamManager {
     /// Look up the merged head stream for a given blockchain.
     pub fn head(&self, chain: &TargetBlockchain) -> Option<&Arc<MergedHead>> {
         self.heads.get(chain)
+    }
+
+    /// The chain's pending transactions, or `None` when none of its upstreams
+    /// can announce them: that takes a node reached over WebSocket, or a
+    /// remote Dshackle relaying the topic.
+    #[expect(dead_code, reason = "no subscription topic is served from it yet")]
+    pub fn pending_txes(&self, chain: &TargetBlockchain) -> Option<&Arc<dyn PendingTxSource>> {
+        self.pending_txes.get(chain)
     }
 
     /// Build the server-pushed-subscription egress for a chain, or `None` when
@@ -1512,6 +1564,28 @@ fn local_labels(upstream: &crate::config::upstreams::Upstream) -> anyhow::Result
         .with_context(|| format!("upstream {}", upstream.id))
 }
 
+/// Folds each chain's pending-transaction sources into the one the chain
+/// serves from: the node sources plus every remote Dshackle relay that
+/// advertises the topic (legacy `EthereumDshackleIngressSubscription`).
+fn chain_pending_txes(
+    mut sources: HashMap<TargetBlockchain, Vec<Arc<dyn PendingTxSource>>>,
+    relays: &HashMap<TargetBlockchain, Vec<Arc<DshackleEgress>>>,
+) -> HashMap<TargetBlockchain, Arc<dyn PendingTxSource>> {
+    for (chain, relays) in relays {
+        for relay in relays {
+            if let Some(relayed) = RelayedPendingTxes::of(Arc::clone(relay) as _) {
+                sources.entry(*chain).or_default().push(Arc::new(relayed));
+            }
+        }
+    }
+    sources
+        .into_iter()
+        .filter_map(|(chain, sources)| {
+            AggregatedPendingTxes::combined(sources).map(|combined| (chain, combined))
+        })
+        .collect()
+}
+
 #[allow(clippy::too_many_arguments)]
 fn wire_remote_dshackle(
     pending: &PendingDshackle,
@@ -1924,6 +1998,20 @@ mod tests {
                 "newPendingTransactions".to_string(),
             ]
         );
+    }
+
+    #[tokio::test]
+    async fn pending_txes_come_from_relays_advertising_them() {
+        let ethereum: TargetBlockchain = "ethereum".parse().unwrap();
+        let sepolia: TargetBlockchain = "sepolia".parse().unwrap();
+        let mut relays =
+            manager_with_relay(ethereum, &["newHeads", "newPendingTransactions"]).dshackle_relays;
+        relays.extend(manager_with_relay(sepolia, &["newHeads"]).dshackle_relays);
+
+        let pending = chain_pending_txes(HashMap::new(), &relays);
+
+        assert!(pending.contains_key(&ethereum));
+        assert!(!pending.contains_key(&sepolia));
     }
 
     /// An Ethereum chain whose only upstream is a remote Dshackle that does
