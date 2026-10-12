@@ -22,6 +22,7 @@
 use crate::data::{BlockContainer, BlockId};
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::block_updates::{BlockUpdate, WINDOW_LIMIT};
+use crate::upstream::ethereum::pending_tx::PendingTxSource;
 #[cfg(test)]
 use crate::upstream::merged_head::MergeOrder;
 use crate::upstream::merged_head::MergedHead;
@@ -221,16 +222,29 @@ pub trait ChainAccess: Send + Sync {
     }
 }
 
-/// Ethereum egress: `newHeads` and `logs` from the chain's merged head and
-/// `syncing` from its aggregate status. Ports `EthereumEgressSubscription`.
+/// Ethereum egress: `newHeads` and `logs` from the chain's merged head,
+/// `syncing` from its aggregate status, and `newPendingTransactions` from the
+/// upstreams able to announce them. Ports `EthereumEgressSubscription`.
 pub struct EthereumEgress {
     head: Arc<MergedHead>,
     access: Arc<dyn ChainAccess>,
+    pending_txes: Option<Arc<dyn PendingTxSource>>,
 }
 
 impl EthereumEgress {
-    pub fn new(head: Arc<MergedHead>, access: Arc<dyn ChainAccess>) -> Self {
-        Self { head, access }
+    /// `pending_txes` is `None` for a chain none of whose upstreams announce
+    /// pending transactions. The topic is then neither advertised nor
+    /// accepted, where legacy accepted it and stayed silent forever.
+    pub fn new(
+        head: Arc<MergedHead>,
+        access: Arc<dyn ChainAccess>,
+        pending_txes: Option<Arc<dyn PendingTxSource>>,
+    ) -> Self {
+        Self {
+            head,
+            access,
+            pending_txes,
+        }
     }
 
     /// `newHeads` and `syncing` need only the head and status this egress
@@ -271,6 +285,14 @@ impl EgressSubscription for EthereumEgress {
                 Arc::clone(&self.access),
                 LogsFilter::from_params(params),
             )),
+            METHOD_PENDING_TXES => match &self.pending_txes {
+                // Each message is the hash as a JSON string, the same as a
+                // node sends it.
+                Some(source) => Ok(Box::pin(source.subscribe().map(|tx| {
+                    serde_json::to_vec(&tx.to_hex_prefixed()).expect("a string always serializes")
+                }))),
+                None => Err(EgressError::UnsupportedMethod(method.to_string())),
+            },
             other => Err(EgressError::UnsupportedMethod(other.to_string())),
         }
     }
@@ -279,6 +301,9 @@ impl EgressSubscription for EthereumEgress {
         let mut topics = vec![METHOD_NEW_HEADS.to_string(), METHOD_SYNCING.to_string()];
         if self.serves_logs() {
             topics.push(METHOD_LOGS.to_string());
+        }
+        if self.pending_txes.is_some() {
+            topics.push(METHOD_PENDING_TXES.to_string());
         }
         topics
     }
@@ -575,6 +600,8 @@ fn log_message(mut log: serde_json::Value, removed: bool) -> Option<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::data::TxId;
+    use crate::upstream::ethereum::pending_tx::PendingTxStream;
     use crate::upstream::status_signal::StatusSignal;
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -701,7 +728,16 @@ mod tests {
     }
 
     fn egress(head: Arc<MergedHead>, access: Arc<dyn ChainAccess>) -> EthereumEgress {
-        EthereumEgress::new(head, access)
+        EthereumEgress::new(head, access, None)
+    }
+
+    /// A pending-transaction source announcing a fixed list.
+    struct FixedPendingTxes(Vec<TxId>);
+
+    impl PendingTxSource for FixedPendingTxes {
+        fn subscribe(&self) -> PendingTxStream {
+            Box::pin(tokio_stream::iter(self.0.clone()))
+        }
     }
 
     #[test]
@@ -1122,6 +1158,53 @@ mod tests {
         ));
         // The head-derived topics are unaffected.
         assert!(egress.subscribe(METHOD_NEW_HEADS, None).is_ok());
+    }
+
+    #[tokio::test]
+    async fn pending_transactions_are_served_as_json_hashes() {
+        let egress = EthereumEgress::new(
+            Arc::new(MergedHead::new(MergeOrder::Priority)),
+            StubAccess::new(false, vec![]),
+            Some(Arc::new(FixedPendingTxes(vec![
+                TxId::from_bytes([0x11; 32]),
+                TxId::from_bytes([0x22; 32]),
+            ]))),
+        );
+        assert!(
+            egress
+                .available_topics()
+                .contains(&METHOD_PENDING_TXES.to_string())
+        );
+
+        let messages: Vec<Vec<u8>> = egress
+            .subscribe(METHOD_PENDING_TXES, None)
+            .unwrap()
+            .collect()
+            .await;
+        assert_eq!(
+            messages,
+            vec![
+                format!("\"0x{}\"", "11".repeat(32)).into_bytes(),
+                format!("\"0x{}\"", "22".repeat(32)).into_bytes(),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn pending_transactions_need_an_upstream_announcing_them() {
+        // Better a clean rejection than a subscription that can never emit.
+        let merged = Arc::new(MergedHead::new(MergeOrder::Priority));
+        let egress = egress(Arc::clone(&merged), StubAccess::new(false, vec![]));
+
+        assert!(
+            !egress
+                .available_topics()
+                .contains(&METHOD_PENDING_TXES.to_string())
+        );
+        assert!(matches!(
+            egress.subscribe(METHOD_PENDING_TXES, None),
+            Err(EgressError::UnsupportedMethod(m)) if m == METHOD_PENDING_TXES
+        ));
     }
 
     #[tokio::test]

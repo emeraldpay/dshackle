@@ -572,7 +572,7 @@ mod tests {
         let head = Arc::new(MergedHead::new(MergeOrder::Priority));
         let access: Arc<dyn ChainAccess> = multistream.clone();
         let egress: Arc<dyn EgressSubscription> =
-            Arc::new(EthereumEgress::new(Arc::clone(&head), access));
+            Arc::new(EthereumEgress::new(Arc::clone(&head), access, None));
 
         let mut routes = HashMap::new();
         routes.insert(

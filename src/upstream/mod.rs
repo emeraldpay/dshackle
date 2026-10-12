@@ -930,7 +930,6 @@ impl UpstreamManager {
     /// The chain's pending transactions, or `None` when none of its upstreams
     /// can announce them: that takes a node reached over WebSocket, or a
     /// remote Dshackle relaying the topic.
-    #[expect(dead_code, reason = "no subscription topic is served from it yet")]
     pub fn pending_txes(&self, chain: &TargetBlockchain) -> Option<&Arc<dyn PendingTxSource>> {
         self.pending_txes.get(chain)
     }
@@ -948,7 +947,11 @@ impl UpstreamManager {
             BlockchainType::Ethereum => {
                 if let (Some(head), Some(multistream)) = (self.head(chain), self.get(chain)) {
                     let access: Arc<dyn ChainAccess> = multistream.clone();
-                    let local = Arc::new(EthereumEgress::new(Arc::clone(head), access));
+                    let local = Arc::new(EthereumEgress::new(
+                        Arc::clone(head),
+                        access,
+                        self.pending_txes(chain).cloned(),
+                    ));
                     local_topics = local.available_topics();
                     sources.push(local);
                 }
@@ -1984,11 +1987,13 @@ mod tests {
         manager
             .heads
             .insert(chain, Arc::new(MergedHead::new(MergeOrder::Priority)));
+        manager.pending_txes = chain_pending_txes(HashMap::new(), &manager.dshackle_relays);
 
-        // The local topics come first; of the remote's list only
-        // `newPendingTransactions` is added — its `newHeads` is derived from
-        // the same head the local egress serves, so it is not relayed.
-        let egress = manager.egress(&chain).expect("local + relay egress");
+        // Both of the remote's topics are served locally, so neither is
+        // relayed on top: `newHeads` is derived from the same head the remote
+        // feeds, and its pending transactions come through the chain's own
+        // source, where they are merged with those of the other upstreams.
+        let egress = manager.egress(&chain).expect("local egress");
         assert_eq!(
             egress.available_topics(),
             vec![
@@ -1998,6 +2003,65 @@ mod tests {
                 "newPendingTransactions".to_string(),
             ]
         );
+    }
+
+    /// The whole path a subscriber depends on: a node announcing over its
+    /// WebSocket connection, the chain's source, and the egress handed to the
+    /// gRPC `NativeSubscribe` and the WS proxy.
+    #[tokio::test]
+    async fn egress_serves_pending_txes_announced_by_node() {
+        use ethereum::ws_stub::StubNode;
+        use tokio_stream::StreamExt;
+
+        let node = StubNode::start().await;
+        let chain: TargetBlockchain = "ethereum".parse().unwrap();
+        let ws_upstream = Arc::new(EthereumWsUpstream::new(
+            "node".parse().unwrap(),
+            ethereum::WsTarget {
+                url: node.url(),
+                origin: None,
+                basic_auth: None,
+                call_timeout: Duration::from_secs(1),
+                frame_size: None,
+                msg_size: None,
+            },
+            1,
+            Arc::new(UpstreamState::new()),
+        ));
+
+        let mut manager = UpstreamManager::from_parts(HashMap::new(), HashMap::new());
+        manager.upstreams.insert(
+            chain,
+            Arc::new(Multistream::new(
+                chain,
+                vec![Arc::clone(&ws_upstream) as Arc<dyn RpcUpstream>],
+                quorum_factory_for(chain),
+            )),
+        );
+        manager
+            .heads
+            .insert(chain, Arc::new(MergedHead::new(MergeOrder::Priority)));
+        let node_sources: Vec<Arc<dyn PendingTxSource>> =
+            vec![Arc::new(WsPendingTxes::new(ws_upstream))];
+        manager.pending_txes =
+            chain_pending_txes(HashMap::from([(chain, node_sources)]), &HashMap::new());
+
+        let egress = manager.egress(&chain).expect("ethereum egress");
+        assert!(
+            egress
+                .available_topics()
+                .contains(&"newPendingTransactions".to_string())
+        );
+        let mut stream = egress.subscribe("newPendingTransactions", None).unwrap();
+        node.requests("eth_subscribe", 1).await;
+
+        let hash = format!("0x{}", "ab".repeat(32));
+        node.notify(serde_json::json!(hash));
+        let message = tokio::time::timeout(Duration::from_secs(5), stream.next())
+            .await
+            .expect("a pending transaction in time")
+            .expect("an open stream");
+        assert_eq!(message, format!("\"{hash}\"").into_bytes());
     }
 
     #[tokio::test]

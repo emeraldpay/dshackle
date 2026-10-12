@@ -200,6 +200,13 @@ Supported subscriptions:
 - `newHeads`
 - `logs`
 - `syncing`
+- `newPendingTransactions`
+
+The same subscriptions are available with `eth_subscribe` through the WebSocket JSON RPC proxy.
+
+NOTE: `newPendingTransactions` is the exception to the note above: transactions are announced by the upstreams themselves, so it is available only for a blockchain with an upstream that can provide them.
+It is either an Ethereum node connected by WebSocket (`ws` connection), or another Dshackle that has such an upstream.
+A transaction seen by multiple upstreams is delivered only once.
 
 Method data:
 
@@ -218,7 +225,7 @@ message NativeSubscribeReplyItem {
 
 Where:
 
-- `method` is a subscriptions method (one of `newHeads`, `logs` or `syncing`)
+- `method` is a subscriptions method (one of `newHeads`, `logs`, `syncing` or `newPendingTransactions`)
 - `payload` in request is optional subscription params object, which exists only for `logs` methods.
 In that case it may be `address` or `topics`.
 Both address and topics can be a string or array of strings.
