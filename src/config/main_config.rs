@@ -422,12 +422,16 @@ mod tests {
 
     #[test]
     fn parse_upstreams_bitcoin_esplora() {
-        // Esplora is not supported: the legacy config still parses, but an
-        // enabled upstream asking for it must fail instead of silently running
-        // without the data source it expects.
         let yaml = std::fs::read_to_string(testdata("upstreams-bitcoin-esplora.yaml")).unwrap();
-        let err = yaml.parse::<UpstreamsConfig>().unwrap_err();
-        assert!(err.root_cause().to_string().contains("esplora"), "{err:#}");
+        let cfg = yaml.parse::<UpstreamsConfig>().unwrap();
+
+        assert_eq!(cfg.upstreams.len(), 1);
+        if let UpstreamConnection::Bitcoin(btc) = &cfg.upstreams[0].connection {
+            assert_eq!(btc.rpc.as_ref().unwrap().url, "http://localhost:8545");
+            assert_eq!(btc.esplora.as_ref().unwrap().url, "http://localhost:3001");
+        } else {
+            panic!("Expected Bitcoin connection");
+        }
     }
 
     #[test]

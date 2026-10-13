@@ -18,10 +18,8 @@
 //! non-hardened descendants (`key/i`), not a BIP-44 account structure — the
 //! caller is expected to pass a chain-level key, same as legacy.
 //!
-//! Only derivation lives here; the balance scan built on top of it is
-//! `upstream::balance::xpub_scan`. The legacy `activeAddresses` semantics
-//! (activity from Esplora history, including used-but-empty addresses) are not
-//! ported — that would need an address index this deployment doesn't run.
+//! Only derivation lives here; the balance scan built on top of it, the
+//! legacy `activeAddresses`, is `upstream::balance::xpub_scan`.
 
 use bitcoin::address::Address;
 use bitcoin::base58;

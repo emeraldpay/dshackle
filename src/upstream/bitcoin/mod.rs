@@ -14,6 +14,9 @@
 
 //! Bitcoin-specific upstream implementations.
 
+pub mod esplora;
+#[cfg(test)]
+pub(crate) mod esplora_stub;
 pub mod head;
 pub mod http;
 pub mod reader;

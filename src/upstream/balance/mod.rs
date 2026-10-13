@@ -25,7 +25,10 @@
 //! (single/multi/xpub + UTXO) land in later slices.
 
 pub mod bitcoin;
+pub mod esplora_unspent;
 pub mod ethereum;
+pub mod rpc_unspent;
+pub mod unspent;
 pub mod xpub_scan;
 
 pub use bitcoin::BitcoinBalance;

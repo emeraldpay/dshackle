@@ -969,6 +969,17 @@ rpc:
 | Enable compression for HTTP connection (i.e., `gzip`). May not work with some servers.
 Defaults is `false`
 
+| `esplora.url`
+a| HTTP URL of an https://github.com/Blockstream/esplora[Esplora] index running next to the node.
+With it, and with `balance: true` in the upstream options, balances and UTXO are read from the index instead of the node's `listunspent`.
+A balance request for an xpub examines at most 100 addresses on the index; continue a larger wallet with the request's `start`. +
+Accepts the same `basic-auth`, `tls` and `compress` options as `rpc`.
+[source,yaml]
+----
+esplora:
+  url: "http://127.0.0.1:3001"
+----
+
 | `zeromq.address`
 a| Set up an additional connection via ZeroMQ protocol to subscribe to the new blocks.
 The node must be launched with the same address specified as `-zmqpubhashblock="tcp://${HOST}:${POST}"` or in `bitcoin.conf`

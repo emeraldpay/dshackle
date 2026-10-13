@@ -12,65 +12,55 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Windowed xpub balance scan over `listunspent`.
+//! Xpub balance scan: find the addresses of a key that are in use.
 //!
-//! Derives the xpub's addresses in batches and asks the node for their unspent
-//! outputs, one `listunspent` call per batch — a wallet scan on the node costs
-//! the same for 100 addresses as for one, so batching is cheaper than the
-//! legacy per-address reads, and the load balancer still distributes whole
-//! requests across upstreams.
+//! Derives the xpub's addresses round by round and asks the chain's
+//! [`UnspentSource`] which of them are in use, following the wallet gap rule:
+//! the scan continues while one of the last `unused_limit` (default 20)
+//! derived addresses is in use. Ports the legacy `XpubAddresses.activeAddresses`.
 //!
-//! `listunspent` cannot tell a used-then-emptied address from a never-used
-//! one, so unlike the legacy Esplora-based scan the result holds only
-//! addresses that currently have unspent outputs, and the gap rule uses
-//! "funded" as its activity signal: the scan continues while one of the last
-//! `unused_limit` (default 20) derived addresses is funded. `limit` caps the
-//! total addresses examined (the legacy ≤100 clamp is dropped — it capped a
-//! single-window scan that no longer applies). All request parameters are
+//! What "in use" means, and how many addresses a round takes, depends on the
+//! source. Esplora knows an address's history, so the result includes
+//! used-then-emptied addresses (with a zero balance), as legacy reported them.
+//! The node's `listunspent` only knows what is currently unspent, so there the
+//! result holds funded addresses only, and a run of emptied addresses longer
+//! than the gap ends the scan early.
+//!
+//! `limit` caps the total addresses examined. All request parameters are
 //! validated into a [`ScanRequest`] before any upstream is contacted, with
 //! hard ceilings on `limit` and `unused_limit` so a single request cannot
-//! drive an unbounded number of node calls.
-//!
-//! The whole path is only reachable when the operator marked an upstream
-//! `balance: true`: for arbitrary addresses `listunspent` answers truthfully
-//! only on a full-index node or when the queried xpubs are imported
-//! watch-only, and a plain node would return confident empty results. When
-//! several upstreams are marked `balance: true` for one chain, they must be
-//! equivalent — the scan's batches are routed like any other calls, so a node
-//! that doesn't track the xpub's addresses would contribute empty batches and
-//! silently cut the scan short.
+//! drive an unbounded number of upstream calls. A source that pays per address
+//! narrows the window further (Esplora keeps the legacy cap of 100), while the
+//! node's `listunspent` takes a hundred addresses per call and gets the whole
+//! validated window.
 
 use super::BalanceError;
-use super::bitcoin::{Unspent, network_for, read_unspent};
+use super::bitcoin::network_for;
+use super::unspent::{Unspent, UnspentSource};
 use crate::blockchain::TargetBlockchain;
 use crate::upstream::bitcoin::xpub::XpubAddresses;
-use crate::upstream::egress::ChainAccess;
 use emerald_api::proto::common::XpubAddress;
-use std::collections::HashMap;
-
-/// Addresses derived per `listunspent` call.
-const BATCH: u32 = 100;
 
 /// Gap limit when the request doesn't set `unused_limit` (the legacy
 /// `INACTIVE_LIMIT`).
 const DEFAULT_UNUSED_LIMIT: u64 = 20;
 
 /// Ceiling for a client-supplied `unused_limit`. The BIP-44 gap standard is
-/// 20; one full batch is already a generous tolerance, and an unbounded value
-/// would let a single funded address keep the scan running forever.
+/// 20; five times that is already a generous tolerance, and an unbounded value
+/// would let a single used address keep the scan running forever.
 const MAX_UNUSED_LIMIT: u64 = 100;
 
 /// Ceiling for `limit`: enough for any real wallet window, small enough that
-/// one request stays bounded (at most `MAX_LIMIT / BATCH` node calls).
+/// one request stays bounded.
 const MAX_LIMIT: u64 = 100_000;
 
 /// One past the last derivable child index (non-hardened space is `0..2^31`).
 const DERIVABLE_END: u64 = 1 << 31;
 
-/// One funded address found by the scan, with the outputs backing its balance,
-/// in derivation order.
+/// One in-use address found by the scan, with the outputs backing its balance
+/// (none for an address that was used and emptied).
 #[derive(Debug)]
-pub struct FundedAddress {
+pub struct UsedAddress {
     pub(super) address: String,
     pub(super) unspent: Vec<Unspent>,
 }
@@ -135,58 +125,49 @@ impl ScanRequest {
     }
 }
 
-/// Scan the key's address sequence and return the funded addresses within the
+/// Scan the key's address sequence and return the in-use addresses within the
 /// validated window, in derivation order.
 pub async fn scan(
-    access: &dyn ChainAccess,
+    source: &dyn UnspentSource,
     request: &ScanRequest,
-) -> Result<Vec<FundedAddress>, tonic::Status> {
+) -> Result<Vec<UsedAddress>, tonic::Status> {
     let mut found = Vec::new();
     let mut scanned: u32 = 0;
-    // Offset (from `start`) of the last funded address seen, driving the gap
-    // rule across batch boundaries.
-    let mut last_funded: Option<u32> = None;
+    // Offset (from `start`) of the last in-use address seen, driving the gap
+    // rule across round boundaries.
+    let mut last_used: Option<u32> = None;
+    let cap = source
+        .scan_limit()
+        .map_or(request.cap, |limit| request.cap.min(limit));
 
-    while scanned < request.cap {
-        let batch = BATCH.min(request.cap - scanned);
+    while scanned < cap {
+        // How far the next address lies from the last in-use one. Before
+        // anything is found the gap is counted from the window start (legacy
+        // seeded `lastActive = 0`).
+        let idle = u64::from(scanned - last_used.unwrap_or(0));
+        if idle > request.gap {
+            break;
+        }
+        // `gap` is bounded by `MAX_UNUSED_LIMIT`, so this fits `u32`.
+        let until_gap = (request.gap + 1 - idle) as u32;
+        let round = source.scan_round(until_gap).clamp(1, cap - scanned);
         let addresses: Vec<String> = request
             .key
-            .addresses(request.start + scanned, batch)
+            .addresses(request.start + scanned, round)
             // Unreachable after `ScanRequest::parse` bounded the window; a
             // failure here is a bug, not a client mistake.
             .map_err(|e| tonic::Status::internal(e.to_string()))?
             .iter()
             .map(|a| a.to_string())
             .collect();
-        let mut by_address: HashMap<String, Vec<Unspent>> = HashMap::new();
-        for output in read_unspent(access, &addresses).await? {
-            by_address
-                .entry(output.address.clone())
-                .or_default()
-                .push(output);
-        }
-        for (offset, address) in addresses.iter().enumerate() {
-            if let Some(outputs) = by_address.remove(address) {
-                last_funded = Some(scanned + offset as u32);
-                found.push(FundedAddress {
-                    address: address.clone(),
-                    unspent: outputs,
-                });
+        let mut used = source.used(&addresses).await?;
+        for (offset, address) in addresses.into_iter().enumerate() {
+            if let Some(unspent) = used.remove(&address) {
+                last_used = Some(scanned + offset as u32);
+                found.push(UsedAddress { address, unspent });
             }
         }
-        scanned += batch;
-
-        // Continue only while a funded address sits within the trailing gap
-        // window. Before anything is funded the gap is counted from the window
-        // start (legacy seeded `lastActive = 0`), so a gap limit larger than
-        // one batch still reaches into the next.
-        let keep_going = match last_funded {
-            Some(f) => u64::from(scanned - f) <= request.gap,
-            None => u64::from(scanned) <= request.gap,
-        };
-        if !keep_going {
-            break;
-        }
+        scanned += round;
     }
     Ok(found)
 }
@@ -195,11 +176,13 @@ pub async fn scan(
 mod tests {
     use super::*;
     use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
+    use crate::upstream::balance::rpc_unspent::RpcUnspentSource;
+    use crate::upstream::egress::ChainAccess;
     use crate::upstream::traits::UpstreamError;
     use emerald_api::proto::common::ChainRef;
     use serde_json::{Value, json};
     use std::collections::HashSet;
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
 
     // The same key the derivation tests use (legacy `XpubAddressesSpec`).
     const MAINNET_ZPUB: &str = "zpub6tsHyQGj1UmDcw9UavB31HSChH9rqMi8Qje5KPbnczzhFSZykmm3afivpVytxWubaabDih6AbGGhioiTCg5PssYXuVGiZ1vTVaMYvvQvvmz";
@@ -216,11 +199,11 @@ mod tests {
     }
 
     impl FakeChain {
-        fn new(funded: impl IntoIterator<Item = String>) -> Self {
-            Self {
+        fn new(funded: impl IntoIterator<Item = String>) -> Arc<Self> {
+            Arc::new(Self {
                 funded: funded.into_iter().collect(),
                 batches: Mutex::new(Vec::new()),
-            }
+            })
         }
     }
 
@@ -265,9 +248,13 @@ mod tests {
         }
     }
 
-    async fn run(chain: &FakeChain, req: &XpubAddress) -> Vec<String> {
+    fn source(chain: &Arc<FakeChain>) -> RpcUnspentSource {
+        RpcUnspentSource::new(Arc::clone(chain) as Arc<dyn ChainAccess>)
+    }
+
+    async fn run(chain: &Arc<FakeChain>, req: &XpubAddress) -> Vec<String> {
         let scan_request = ScanRequest::parse(req, MAINNET).unwrap();
-        scan(chain, &scan_request)
+        scan(&source(chain), &scan_request)
             .await
             .unwrap()
             .into_iter()
@@ -359,7 +346,12 @@ mod tests {
         let chain = FakeChain::new([]);
         let start = (1u64 << 31) - 5;
         let scan_request = ScanRequest::parse(&request(start, 100_000, 0), MAINNET).unwrap();
-        assert!(scan(&chain, &scan_request).await.unwrap().is_empty());
+        assert!(
+            scan(&source(&chain), &scan_request)
+                .await
+                .unwrap()
+                .is_empty()
+        );
         assert_eq!(*chain.batches.lock().unwrap(), [5]);
     }
 

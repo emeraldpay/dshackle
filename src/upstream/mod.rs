@@ -67,7 +67,11 @@ use crate::config::tokens::{TokenConfig, TokenType};
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
 use allowance::{AllowanceError, AllowanceStream};
 use anyhow::Context as _;
+use balance::esplora_unspent::EsploraUnspentSource;
+use balance::rpc_unspent::RpcUnspentSource;
+use balance::unspent::UnspentSource;
 use balance::{BalanceError, BalanceStream, BitcoinBalance, EthereumBalance};
+use bitcoin::esplora::EsploraClient;
 use bitcoin::head::start_head_poller as start_btc_head_poller;
 use bitcoin::http::BitcoinHttpUpstream;
 use bitcoin::reader::BitcoinReader;
@@ -115,6 +119,7 @@ use overload::OverloadGuard;
 use quorum::QuorumFactory;
 use state::UpstreamState;
 use status::ChainStatus;
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
@@ -151,6 +156,10 @@ pub struct UpstreamManager {
     /// than computed from local UTXO RPC (legacy `CurrentUnspentReader` →
     /// `RemoteUnspentReader`).
     balance_clients: HashMap<TargetBlockchain, BlockchainClient<Channel>>,
+    /// Per-chain Esplora index configured on a Bitcoin upstream. When present
+    /// it is the chain's source of unspent outputs, ahead of a remote Dshackle
+    /// and of the node's own `listunspent` (legacy `CurrentUnspentReader`).
+    esplora: HashMap<TargetBlockchain, Arc<EsploraClient>>,
     /// Per-chain ZMQ topic streams of the Bitcoin upstreams, backing the
     /// Bitcoin egress subscriptions.
     zmq_topics: HashMap<TargetBlockchain, Vec<Arc<ZmqTopicStream>>>,
@@ -226,6 +235,9 @@ impl UpstreamManager {
         // Bitcoin balance requests.
         let mut balance_clients: HashMap<TargetBlockchain, BlockchainClient<Channel>> =
             HashMap::new();
+        // First Esplora index configured per Bitcoin chain (legacy takes the
+        // first upstream that has one).
+        let mut per_chain_esplora: HashMap<TargetBlockchain, Arc<EsploraClient>> = HashMap::new();
         // Per-chain subscription relays of the remote Dshackle upstreams,
         // feeding the chain's egress alongside the locally-served topics.
         let mut dshackle_relays: HashMap<TargetBlockchain, Vec<Arc<DshackleEgress>>> =
@@ -598,6 +610,28 @@ impl UpstreamManager {
                     let fork_head = Arc::clone(&head);
                     start_btc_head_poller(Arc::clone(&reader), Arc::clone(&head));
 
+                    if let Some(esplora) = &btc.esplora
+                        && let Entry::Vacant(slot) = per_chain_esplora.entry(chain)
+                    {
+                        let tls =
+                            crate::tls::client_tls(id.as_str(), esplora.tls.as_ref(), config_dir)?;
+                        let client = crate::tls::reqwest_client(
+                            tls.as_ref(),
+                            options.timeout,
+                            esplora.compress.unwrap_or(false),
+                        )?;
+                        tracing::info!(
+                            "Using Esplora at {} of upstream '{}' for {} balances",
+                            esplora.url,
+                            id,
+                            blockchain_name,
+                        );
+                        let client =
+                            EsploraClient::new(&esplora.url, esplora.basic_auth.clone(), client)
+                                .with_context(|| format!("Upstream {id}"))?;
+                        slot.insert(Arc::new(client));
+                    }
+
                     // ZMQ push notifications complement the poller; both feed
                     // the same head, which dedups the overlap by block hash.
                     if let Some(zeromq) = &btc.zeromq {
@@ -883,6 +917,7 @@ impl UpstreamManager {
             tokens: build_token_registry(tokens),
             allowance_clients,
             balance_clients,
+            esplora: per_chain_esplora,
             zmq_topics: per_chain_zmq_topics,
             pending_txes: chain_pending_txes(node_pending_txes, &dshackle_relays),
             dshackle_relays,
@@ -903,6 +938,7 @@ impl UpstreamManager {
             tokens: HashMap::new(),
             allowance_clients: HashMap::new(),
             balance_clients: HashMap::new(),
+            esplora: HashMap::new(),
             zmq_topics: HashMap::new(),
             dshackle_relays: HashMap::new(),
             pending_txes: HashMap::new(),
@@ -1015,15 +1051,24 @@ impl UpstreamManager {
 
         let chain = balance::request_chain(request)?;
 
+        // A local Esplora index outranks every other Bitcoin balance source
+        // (legacy `CurrentUnspentReader`), under the same gate as the rest of
+        // the local path: an upstream of the chain is marked `balance: true`.
+        let esplora = self
+            .esplora
+            .get(&chain)
+            .filter(|_| self.chain_provides_balance(&chain));
+
         // Bitcoin: when a remote Dshackle advertises the BALANCE capability it
         // serves `GetBalance` directly, so forward to it rather than compute from
         // local UTXO RPC (legacy `CurrentUnspentReader` → `RemoteUnspentReader`).
-        if chain.blockchain_type() == BlockchainType::Bitcoin {
-            if let Some(client) = self.balance_clients.get(&chain) {
-                return self
-                    .remote_balance(client.clone(), request.clone(), subscribe)
-                    .await;
-            }
+        if chain.blockchain_type() == BlockchainType::Bitcoin
+            && esplora.is_none()
+            && let Some(client) = self.balance_clients.get(&chain)
+        {
+            return self
+                .remote_balance(client.clone(), request.clone(), subscribe)
+                .await;
         }
 
         let access: Arc<dyn ChainAccess> = self
@@ -1116,19 +1161,23 @@ impl UpstreamManager {
                 if !self.chain_provides_balance(&chain) {
                     return Err(BalanceError::Unsupported);
                 }
+                let source: Arc<dyn UnspentSource> = match esplora {
+                    Some(client) => Arc::new(EsploraUnspentSource::new(Arc::clone(client))),
+                    None => Arc::new(RpcUnspentSource::new(access)),
+                };
                 let mut addresses = match resolved {
                     balance::ResolvedAddresses::List(addresses) => addresses,
-                    // An xpub address: derive and scan for funded addresses
-                    // (funded-only entries — see `balance::xpub_scan`), then
-                    // answer from the scan or watch the found set.
+                    // An xpub address: derive and scan for the addresses in
+                    // use (see `balance::xpub_scan`), then answer from the
+                    // scan or watch the found set.
                     balance::ResolvedAddresses::Xpub(xpub) => {
                         let scan_request = balance::xpub_scan::ScanRequest::parse(&xpub, chain)?;
                         let found =
-                            match balance::xpub_scan::scan(access.as_ref(), &scan_request).await {
+                            match balance::xpub_scan::scan(source.as_ref(), &scan_request).await {
                                 Ok(found) => found,
                                 Err(status) => return Ok(balance::error_stream(status)),
                             };
-                        let t = BitcoinBalance::new(access, head, chain_id, request.include_utxo);
+                        let t = BitcoinBalance::new(source, head, chain_id, request.include_utxo);
                         return Ok(if subscribe {
                             t.subscribe_scanned(found)
                         } else {
@@ -1138,7 +1187,7 @@ impl UpstreamManager {
                 };
                 addresses.sort(); // legacy sorts multi addresses for Bitcoin
                 let addresses = balance::bitcoin::validate_addresses(addresses, chain)?;
-                let t = BitcoinBalance::new(access, head, chain_id, request.include_utxo);
+                let t = BitcoinBalance::new(source, head, chain_id, request.include_utxo);
                 if subscribe {
                     t.subscribe(addresses)
                 } else {
@@ -2155,6 +2204,112 @@ mod tests {
             egress.available_topics(),
             vec!["newHeads".to_string(), "newPendingTransactions".to_string()]
         );
+    }
+
+    const BITCOIN: TargetBlockchain = TargetBlockchain::Standard(ChainRef::ChainBitcoin);
+
+    // BIP173 example mainnet P2WPKH address.
+    const BITCOIN_ADDRESS: &str = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
+
+    /// A manager with a Bitcoin chain of one unreachable node, marked as a
+    /// balance provider (`balance: true`) or not, plus an Esplora index at
+    /// `esplora_url`.
+    fn bitcoin_manager_with_esplora(provides_balance: bool, esplora_url: &str) -> UpstreamManager {
+        let node: Arc<dyn RpcUpstream> = Arc::new(DshackleUpstream::new(
+            "node".parse().unwrap(),
+            BITCOIN.id(),
+            dead_client(),
+            6,
+            Duration::from_secs(1),
+        ));
+        let node: Arc<dyn RpcUpstream> = Arc::new(IdentifiedUpstream::new(
+            node,
+            Vec::new(),
+            local_capabilities(provides_balance),
+            crate::config::upstreams::UpstreamRole::Primary,
+        ));
+        let mut manager = UpstreamManager::from_parts(HashMap::new(), HashMap::new());
+        manager.upstreams.insert(
+            BITCOIN,
+            Arc::new(Multistream::new(
+                BITCOIN,
+                vec![node],
+                quorum_factory_for(BITCOIN),
+            )),
+        );
+        let http = crate::tls::reqwest_client(None, Duration::from_secs(5), false).unwrap();
+        let esplora = EsploraClient::new(esplora_url, None, http).unwrap();
+        manager.esplora.insert(BITCOIN, Arc::new(esplora));
+        manager
+    }
+
+    fn bitcoin_balance_request() -> BalanceRequest {
+        use emerald_api::proto::blockchain::balance_request::BalanceType;
+        use emerald_api::proto::common::any_address::AddrType;
+        use emerald_api::proto::common::{AnyAddress, Asset, SingleAddress};
+        BalanceRequest {
+            address: Some(AnyAddress {
+                addr_type: Some(AddrType::AddressSingle(SingleAddress {
+                    address: BITCOIN_ADDRESS.to_string(),
+                })),
+            }),
+            include_utxo: false,
+            balance_type: Some(BalanceType::Asset(Asset {
+                chain: BITCOIN.id(),
+                code: "BTC".to_string(),
+            })),
+        }
+    }
+
+    /// An Esplora that knows one 700 satoshi output on [`BITCOIN_ADDRESS`].
+    async fn esplora_with_balance() -> bitcoin::esplora_stub::StubEsplora {
+        let esplora = bitcoin::esplora_stub::StubEsplora::start().await;
+        esplora.respond(
+            &format!("/address/{BITCOIN_ADDRESS}/utxo"),
+            r#"[{"txid":"aa","vout":0,"status":{"confirmed":true},"value":700}]"#,
+        );
+        esplora
+    }
+
+    async fn first_balance(manager: &UpstreamManager) -> String {
+        use futures::StreamExt;
+        let mut stream = manager
+            .balance(&bitcoin_balance_request(), false)
+            .await
+            .map_err(BalanceError::into_status)
+            .unwrap();
+        stream.next().await.unwrap().unwrap().balance
+    }
+
+    // The node of these chains is unreachable, so an answer can only have
+    // come from Esplora.
+
+    #[tokio::test]
+    async fn bitcoin_balance_is_read_from_esplora_when_configured() {
+        let esplora = esplora_with_balance().await;
+        let manager = bitcoin_manager_with_esplora(true, esplora.url());
+
+        assert_eq!(first_balance(&manager).await, "700");
+    }
+
+    #[tokio::test]
+    async fn esplora_outranks_a_remote_balance_provider() {
+        let esplora = esplora_with_balance().await;
+        let mut manager = bitcoin_manager_with_esplora(true, esplora.url());
+        manager.balance_clients.insert(BITCOIN, dead_client());
+
+        assert_eq!(first_balance(&manager).await, "700");
+    }
+
+    #[tokio::test]
+    async fn esplora_is_left_alone_without_a_balance_provider() {
+        let esplora = esplora_with_balance().await;
+        let manager = bitcoin_manager_with_esplora(false, esplora.url());
+
+        let result = manager.balance(&bitcoin_balance_request(), false).await;
+
+        assert!(matches!(result, Err(BalanceError::Unsupported)));
+        assert!(esplora.requests().is_empty());
     }
 
     #[test]
