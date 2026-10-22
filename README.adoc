@@ -69,8 +69,8 @@ proxy:
   routes:
     - id: eth
       blockchain: ethereum
-    - id: kovan
-      blockchain: kovan
+    - id: sepolia
+      blockchain: sepolia
     - id: btc
       blockchain: bitcoin
 
@@ -84,14 +84,14 @@ cluster:
             url: "https://mainnet.infura.io/v3/${INFURA_USER}"
           ws:
             url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
-    - id: infura-kovan
-      blockchain: kovan
+    - id: infura-sepolia
+      blockchain: sepolia
       connection:
         ethereum:
           rpc:
-            url: "https://kovan.infura.io/v3/${INFURA_USER}"
+            url: "https://sepolia.infura.io/v3/${INFURA_USER}"
           ws:
-            url: "wss://kovan.infura.io/ws/v3/${INFURA_USER}"
+            url: "wss://sepolia.infura.io/ws/v3/${INFURA_USER}"
     - id: bitcoin-main
       blockchain: bitcoin
       connection:
@@ -107,13 +107,13 @@ Which sets the following:
 
 - gRPC access through 0.0.0.0:2449
 ** TLS security is disabled (_please don't use in production!_)
-- JSON RPC access through 0.0.0.0:8545 (both HTTP and WebsScket)
-** proxy requests to Ethereum and Kovan upstreams
-** request path for Ethereum Mainnet is `/eth`, `/kovan` for Kovan Testnet, and `/btc` for bitcoin
-** i.e. call Ethereum Mainnet by `POST http://127.0.0.0:8545/eth` with JSON RPC payload
-- two upstreams, one for Ethereum Mainnet and another for Kovan Testnet (both upstreams are configured to use Infura endpoint)
+- JSON RPC access through 0.0.0.0:8545 (both HTTP and WebSocket)
+** proxy requests to Ethereum and Sepolia upstreams
+** request path for Ethereum Mainnet is `/eth`, `/sepolia` for Sepolia Testnet, and `/btc` for bitcoin
+** i.e. call Ethereum Mainnet by `POST http://127.0.0.1:8545/eth` with JSON RPC payload
+- three upstreams, one for Ethereum Mainnet and another for Sepolia Testnet (both upstreams are configured to use Infura endpoint)
 - for Ethereum Mainnet it connects using JSON RPC and WebSocket connections,
-- for Bitcoin Mainet only JSON RPC is used
+- for Bitcoin Mainnet only JSON RPC is used
 - `${INFURA_USER}` will be provided through environment variable
 
 Please note that you can configure many upstreams for a single blockchains.
@@ -309,47 +309,26 @@ WARNING: The code in `master` branch is considered a development version, which 
 
 === Setting up environment
 
-Dshackle is JVM based project written in Kotlin.
-To build and run it from sources you'll need to install https://openjdk.java.net/projects/jdk/13/[Java JDK] and https://gradle.org/[Gradle]
+Dshackle is written in Rust.
+Follow the https://rustup.rs/[Rustup] to setup the environment
 
 === Build Dshackle
 
-==== Build everything
+==== Build local binary
 
 [source,bash]
 ----
-gradle build
+cargo build --release
 ----
 
-==== Make a Zip distribution
-
-[source,bash]
-----
-gradle distZip
-----
-
-You can find a redistributable zip in `build/distributions`
+You can find a redistributable zip in `target/release`
 
 ==== Make a Docker distribution
 
 [source, bash]
 ----
-gradle jib -Pdocker=gcr.io/myproject
+docker build -t dshackle:dev .
 ----
-
-Gradle will prepare a Docker image and upload it to your custom Docker Registry at `gcr.io/myproject` (please change to address of your actual registry)
-
-==== Architecture
-
-Dshackle is built using:
-
-- Kotlin
-- Spring Framework + Spring Boot
-- Spring Reactor
-- Netty
-- Etherjar
-- gRPC and HTTP2 protocol
-- Groovy and Spock for testing
 
 == Community
 
@@ -367,7 +346,7 @@ Please contact splix@emerald.cash to discuss the possibility.
 
 == License
 
-Copyright 2023 EmeraldPay, Inc
+Copyright 2026 EmeraldPay, Ltd
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at

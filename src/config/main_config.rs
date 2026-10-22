@@ -233,7 +233,7 @@ mod tests {
         // Proxy
         let proxy = cfg.proxy.as_ref().unwrap();
         assert_eq!(proxy.port, 8082);
-        assert_eq!(proxy.routes.len(), 5);
+        assert_eq!(proxy.routes.len(), 3);
         assert_eq!(proxy.routes[0].id, "eth");
         assert_eq!(proxy.routes[0].blockchain, "ethereum");
 

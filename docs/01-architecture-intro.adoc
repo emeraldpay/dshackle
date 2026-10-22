@@ -2,19 +2,16 @@
 
 Dshackle is built using/based on:
 
-- Java Virtual Machine, Java 8+
-- Kotlin
-- Spring Framework, Boot and Reactor
+- Rust
+- Tokio
 
-Its own communication protocol is based on Protobuf and gRPC, though it connects to other nodes using different protocols,
-such as JSON RPC or Websockets.
+Its own communication protocol is based on Protobuf and gRPC, though it connects to other nodes using different protocols, such as JSON RPC or Websockets.
 
-Dshackle connects to actual blockchain nodes and provides an aggregated API, automatically directing requests to
-currently healthy nodes. It's built using _reactive_ and non-blocking code and provides low latency and high efficient
-API.
+Dshackle connects to actual blockchain nodes and provides an aggregated API, automatically directing requests to currently healthy nodes.
+It provides low latency and high efficient API.
 
-Dshackle servers can be connected to each other as well, or work in parallel, to provide scalable and fault tolerant
-connection to blockchains. All connections can be secured and authenticated with client/server certificates.
+Dshackle servers can be connected to each other as well, or work in parallel, to provide scalable and fault tolerant connection to blockchains.
+All connections can be secured and authenticated with client/server certificates.
 
 === Upstream selection
 

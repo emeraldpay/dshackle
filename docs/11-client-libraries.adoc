@@ -26,18 +26,15 @@ details at https://github.com/emeraldpay/emerald-java-client
 [source,groovy]
 ----
 repositories {
-    maven {
-        url  "https://dl.bintray.com/emerald/emerald-grpc"
-    }
+    maven { url  "https://maven.emrld.io" }
 }
 
 dependencies {
-    compile "io.emeraldpay:emerald-grpc:0.6.0-0.2"
+    implementation 'io.emeraldpay:emerald-api:0.11.0'
 }
 ----
 
 === EtherJar Java library
-image:https://api.bintray.com/packages/infinitape/etherjar/etherjar-domain/images/download.svg[link="https://bintray.com/infinitape/etherjar"]
 
 EtherJar is a framework agnostic modular Java 8+ integration library for Ethereum blockchains, it supports different protocols
-to connect to an Ethereum API, including gRPC protocol via module `etherjar-rpc-emerald`. More details at https://github.com/infinitape/etherjar
+to connect to an Ethereum API, including gRPC protocol via module `etherjar-rpc-emerald`. More details at https://github.com/emeraldpay/etherjar

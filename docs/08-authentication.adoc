@@ -140,7 +140,6 @@ version: v1
 cluster:
   upstreams:
     - id: ds
-      chain: auto
       provider: dshackle
       connection:
         dshackle:
@@ -179,15 +178,15 @@ tls:
 ----
 | Path to certificate and certificate private key
 
-a| `client.ca`, `client.required`
+a| `client.ca`, `client.require`
 a|
 [source,yaml]
 ----
 tls:
   client:
     ca: ca.crt
-    required: true
+    require: true
 ----
-a| Path to CA used to authenticate incoming connections, used if `required: true`
+a| Path to CA used to authenticate incoming connections, used if `require: true`
 
 |===

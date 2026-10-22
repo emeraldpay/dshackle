@@ -4,9 +4,11 @@
 
 == Chat
 
-image:https://badges.gitter.im/emeraldpay/community.svg[link="https://gitter.im/emeraldpay/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge]
+Join our Discord chat to discuss development and ask questions:
+
+image:https://img.shields.io/discord/1107840420240707704?style=flat-square[Discord,link="https://discord.gg/k9HpF9Jqee"]
 
 == Support
 
 Want to support the project, prioritize a specific feature, or get commercial help with using Dshackle in your project?
-Please contact splix@emeraldpay.io to discuss the possibility
+Please contact splix@emerald.cash to discuss the possibility

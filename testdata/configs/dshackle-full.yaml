@@ -37,10 +37,6 @@ proxy:
       blockchain: ethereum
     - id: etc
       blockchain: ethereum_classic
-    - id: kovan
-      blockchain: kovan
-    - id: goerli
-      blockchain: goerli
     - id: sepolia
       blockchain: sepolia
 

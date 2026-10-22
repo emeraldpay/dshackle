@@ -68,8 +68,8 @@ proxy:
   routes:
     - id: eth
       blockchain: ethereum
-    - id: kovan
-      blockchain: kovan
+    - id: sepolia
+      blockchain: sepolia
 
 tokens:
   - id: dai
@@ -97,7 +97,7 @@ cluster:
         - ethereum
       min-peers: 10
     - blockchains:
-        - kovan
+        - sepolia
       min-peers: 3
   include:
     - "upstreams-extra.yaml"
@@ -165,7 +165,7 @@ cluster:
 | Option | Default Value | Description
 
 | `host`
-| `127.0.0.0`
+| `127.0.0.1`
 | Host to bind gRPC server
 
 | `port`
@@ -387,8 +387,8 @@ proxy:
   routes:
     - id: eth
       blockchain: ethereum
-    - id: kovan
-      blockchain: kovan
+    - id: sepolia
+      blockchain: sepolia
 ----
 
 .Top config
@@ -397,12 +397,12 @@ proxy:
 | Option | Default Value | Description
 
 | `host`
-| `127.0.0.0`
+| `127.0.0.1`
 | Host to bind HTTP server
 
 | `port`
 | `8080`
-| Port to bind HTT server
+| Port to bind HTTP server
 
 | `port`
 | `false`
@@ -429,7 +429,7 @@ Note that latter is ineffective and use this option only when a client cannot re
 
 | `cors-allowed-headers`
 | `Content-Type`
-| Access-Control-Allow-Headers contents. Takes effect only if сors-origi is present in config
+| Access-Control-Allow-Headers contents. Takes effect only if cors-origin is present in config
 
 | `routes`
 |
@@ -889,7 +889,7 @@ Tells if the Upstream can be used to call balance methods, which requires that t
 | `rpc.url`
 a| HTTP URL to connect to.This is required for a connection. +
 URL can be configured with Environment Variable placeholders `${ENV_VAR_NAME}`. +
-Example: `https://kovan.infura.io/v3/${INFURA_USER}`
+Example: `https://sepolia.infura.io/v3/${INFURA_USER}`
 
 | `rpc.basic-auth` + `rpc.basic-auth.username`, `rpc.basic-auth.password`
 a| HTTP Basic Auth configuration, if required by the remote server. +

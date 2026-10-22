@@ -5,7 +5,7 @@
 === Prerequisites
 
 Dshackle is designed for the cloud environment and supposed to be used withing Docker and/or Kubernetes.
-However, it's a JVM based application and, therefore, can be used in most of the standard environments where Java Virtual Machine can be installed.
+However, it can be uses as a standalone binary and compiled for most architectures and OSes, where Rust compiler is supported.
 
 We're going to use Docker image for this quick start.
 
@@ -29,8 +29,8 @@ proxy:
   routes:
     - id: eth
       blockchain: ethereum
-    - id: kovan
-      blockchain: kovan
+    - id: sepolia
+      blockchain: sepolia
 cluster:
   upstreams: # <4>
     - id: infura-eth
@@ -62,7 +62,7 @@ cluster:
 <1> application listen for gRPC connections on 0.0.0.0:2449
 <2> with TLS security for gRPC disabled (_never use in production!_)
 <3> listen for HTTP JSON RPC connections on 0.0.0.0:8545, without TLS security too (again, _don't use in production, it's insecure_)
-<4> sets up 2 upstreams
+<4> sets up 3 upstreams
 <5> one for Ethereum Mainnet, using
 <6> HTTP and
 <7> `${INFURA_USER}` value is provided through environment variable
