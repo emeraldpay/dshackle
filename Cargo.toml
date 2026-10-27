@@ -7,7 +7,7 @@ edition = "2024"
 clap = { version = "4.6", features = ["derive", "string"] }
 serde = { version = "1.0" , features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
-tokio = { version = "1.50", features = ["fs", "rt-multi-thread", "macros"] }
+tokio = { version = "1.54", features = ["fs", "rt-multi-thread", "macros"] }
 tokio-retry2 = { version = "0.9", features = ["jitter"] }
 tokio-util = { version = "0.7" , features = ["io", "io-util", "rt"] }
 tonic = { version = "0.14", features = ["tls-ring", "tls-native-roots", "gzip"] }
@@ -20,48 +20,48 @@ enum-display-derive = "0.1"
 futures-util = "0.3"
 lazy_static = "1.5"
 moka = { version = "0.12", features = ["sync"] }
-alloy = { version = "1.8", features = ["rpc-types", "sol-types"] }
+alloy = { version = "2.5", features = ["rpc-types", "sol-types"] }
 bitcoin = "0.32"
-hex = "0.4.3"
+hex = "0.4"
 shutdown = "0.5"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 dunce = "1.0"
 jiff = "0.2"
-regex = "1.11"
+regex = "1.13"
 serde_yaml = "0.9"
-shadow-rs = "1.1"
+shadow-rs = "2.0"
 anyhow = { version = "1.0", features = ["backtrace"] }
-bytes = "1.11"
-itertools = "0.14"
+bytes = "1.12"
+itertools = "0.15"
 prometheus = "0.14"
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "__rustls", "gzip"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
-tokio-tungstenite = { version = "0.29", features = ["rustls-tls-native-roots"] }
-zeromq = { version = "0.4", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
+tokio-tungstenite = { version = "0.30", features = ["rustls-tls-native-roots"] }
+zeromq = { version = "0.6", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
 url = "2"
 warp = { version = "0.4", features = ["server", "websocket"] }
-hyper = "1"
+hyper = "1.12"
 hyper-util = { version = "0.1", features = ["server-auto", "tokio"] }
 tokio-rustls = "0.26"
 rustls-pemfile = "2"
 tower-service = "0.3"
-base64 = "0.22"
-k256 = { version = "0.13", features = ["ecdsa", "pkcs8", "pem"] }
-p256 = { version = "0.13", features = ["ecdsa", "pkcs8", "pem"] }
-sha2 = "0.10"
-redis = { version = "1.2.2", features = ["tokio-comp", "connection-manager"] }
+base64 = "0.23"
+k256 = { version = "0.14", features = ["ecdsa", "pkcs8", "pem"] }
+p256 = { version = "0.14", features = ["ecdsa", "pkcs8", "pem"] }
+sha2 = "0.11"
+redis = { version = "1.8", features = ["tokio-comp", "connection-manager"] }
 prost = "0.14"
 
 [build-dependencies]
 prost-build = "0.14"
-shadow-rs = "1.1"
+shadow-rs = "2.0"
 
 [dev-dependencies]
 tokio = { version = "1.50", features = ["test-util"] }
-testcontainers = "0.27"
-tempfile = "3.19"
+testcontainers = "0.28"
+tempfile = "3.27"
 rand = "0.10"
 # Enables `warp::test` for the proxy filter tests without pulling it into the binary.
 warp = { version = "0.4", features = ["test"] }
