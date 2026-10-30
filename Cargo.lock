@@ -2160,6 +2160,7 @@ dependencies = [
  "lazy_static",
  "moka",
  "p256",
+ "percent-encoding",
  "prometheus",
  "prost",
  "prost-build",

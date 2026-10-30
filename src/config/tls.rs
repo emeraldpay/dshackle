@@ -14,7 +14,15 @@
 
 //! TLS and authentication configuration types.
 
+use percent_encoding::percent_decode_str;
 use serde::Deserialize;
+
+fn decode_userinfo_component(component: &str) -> anyhow::Result<String> {
+    percent_decode_str(component)
+        .decode_utf8()
+        .map(|s| s.into_owned())
+        .map_err(|_| anyhow::anyhow!("invalid percent-encoding in upstream URL credentials"))
+}
 
 /// Server-side TLS configuration as it appears in YAML.
 #[derive(Debug, Clone, Deserialize)]
@@ -66,8 +74,8 @@ pub fn basic_auth_from_url(url: &str) -> anyhow::Result<(String, Option<BasicAut
     }
 
     let auth = BasicAuth {
-        username: parsed.username().to_string(),
-        password: parsed.password().unwrap_or_default().to_string(),
+        username: decode_userinfo_component(parsed.username())?,
+        password: decode_userinfo_component(parsed.password().unwrap_or_default())?,
     };
     parsed
         .set_username("")
@@ -98,6 +106,16 @@ mod tests {
         let auth = auth.unwrap();
         assert_eq!(auth.username, "user");
         assert_eq!(auth.password, "pass");
+    }
+
+    #[test]
+    fn basic_auth_from_url_decodes_percent_encoded_userinfo() {
+        let (url, auth) =
+            basic_auth_from_url("https://us%40er:p%40ss@rpc.example.com/v1").unwrap();
+        assert_eq!(url, "https://rpc.example.com/v1");
+        let auth = auth.unwrap();
+        assert_eq!(auth.username, "us@er");
+        assert_eq!(auth.password, "p@ss");
     }
 
     #[test]

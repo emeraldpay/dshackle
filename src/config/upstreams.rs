@@ -577,13 +577,25 @@ pub fn process_raw_upstream(raw: RawUpstream) -> Result<Option<Upstream>> {
     let connection = match raw.connection {
         Some(mut conn) => {
             if let Some(mut eth) = conn.ethereum.take() {
-                eth.resolve_url_credentials()?;
+                if enabled {
+                    eth.resolve_url_credentials()?;
+                } else if let Err(e) = eth.resolve_url_credentials() {
+                    warn!(
+                        "Disabled upstream {id}: ignoring URL credential resolution failure: {e:#}"
+                    );
+                }
                 if let Some(ws) = &eth.ws {
                     ws.validate()?;
                 }
                 UpstreamConnection::Ethereum(eth)
             } else if let Some(mut btc) = conn.bitcoin.take() {
-                btc.resolve_url_credentials()?;
+                if enabled {
+                    btc.resolve_url_credentials()?;
+                } else if let Err(e) = btc.resolve_url_credentials() {
+                    warn!(
+                        "Disabled upstream {id}: ignoring URL credential resolution failure: {e:#}"
+                    );
+                }
                 UpstreamConnection::Bitcoin(btc)
             } else if let Some(ds) = conn.dshackle {
                 UpstreamConnection::Dshackle(ds)
@@ -1048,6 +1060,63 @@ mod tests {
     }
 
     // ── UpstreamRole ─────────────────────────────────────────────────────
+
+    #[test]
+    fn disabled_upstream_with_invalid_rpc_url_still_loads() {
+        let mut raw = raw_upstream(Some("disabled-bad-url"));
+        raw.enabled = Some(false);
+        raw.connection = Some(RawConnection {
+            ethereum: Some(EthereumConnection {
+                rpc: Some(HttpEndpoint {
+                    url: "not a valid url".to_string(),
+                    basic_auth: None,
+                    tls: None,
+                    compress: None,
+                }),
+                ws: None,
+            }),
+            bitcoin: None,
+            dshackle: None,
+        });
+        let upstream = process_raw_upstream(raw).unwrap().unwrap();
+        assert!(!upstream.enabled);
+        if let UpstreamConnection::Ethereum(eth) = upstream.connection {
+            assert_eq!(
+                eth.rpc.as_ref().unwrap().url,
+                "not a valid url"
+            );
+        } else {
+            panic!("expected ethereum connection");
+        }
+    }
+
+    #[test]
+    fn disabled_bitcoin_upstream_with_invalid_rpc_url_still_loads() {
+        let mut raw = raw_upstream(Some("disabled-btc-bad-url"));
+        raw.enabled = Some(false);
+        raw.blockchain = Some("bitcoin".to_string());
+        raw.connection = Some(RawConnection {
+            ethereum: None,
+            bitcoin: Some(BitcoinConnection {
+                rpc: Some(HttpEndpoint {
+                    url: "://".to_string(),
+                    basic_auth: None,
+                    tls: None,
+                    compress: None,
+                }),
+                esplora: None,
+                zeromq: None,
+            }),
+            dshackle: None,
+        });
+        let upstream = process_raw_upstream(raw).unwrap().unwrap();
+        assert!(!upstream.enabled);
+        if let UpstreamConnection::Bitcoin(btc) = upstream.connection {
+            assert_eq!(btc.rpc.as_ref().unwrap().url, "://");
+        } else {
+            panic!("expected bitcoin connection");
+        }
+    }
 
     #[test]
     fn resolves_basic_auth_embedded_in_rpc_url() {
