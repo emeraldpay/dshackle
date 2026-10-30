@@ -14,7 +14,15 @@
 
 //! TLS and authentication configuration types.
 
+use percent_encoding::percent_decode_str;
 use serde::Deserialize;
+
+fn decode_userinfo_component(component: &str) -> anyhow::Result<String> {
+    percent_decode_str(component)
+        .decode_utf8()
+        .map(|s| s.into_owned())
+        .map_err(|_| anyhow::anyhow!("invalid percent-encoding in upstream URL credentials"))
+}
 
 /// Server-side TLS configuration as it appears in YAML.
 #[derive(Debug, Clone, Deserialize)]
@@ -48,11 +56,34 @@ pub struct TlsClientRequirement {
 }
 
 /// Client-side basic authentication credentials.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub struct BasicAuth {
     pub username: String,
     pub password: String,
+}
+
+/// If `url` carries HTTP basic credentials in the userinfo (`user:pass@host`),
+/// returns the same URL with the userinfo removed and those credentials.
+/// Percent-encoded usernames and passwords are decoded. When there is no
+/// userinfo, returns the input URL unchanged and `None`.
+pub fn basic_auth_from_url(url: &str) -> anyhow::Result<(String, Option<BasicAuth>)> {
+    let mut parsed = url::Url::parse(url)?;
+    if parsed.username().is_empty() && parsed.password().is_none() {
+        return Ok((url.to_string(), None));
+    }
+
+    let auth = BasicAuth {
+        username: decode_userinfo_component(parsed.username())?,
+        password: decode_userinfo_component(parsed.password().unwrap_or_default())?,
+    };
+    parsed
+        .set_username("")
+        .map_err(|_| anyhow::anyhow!("failed to strip username from upstream URL"))?;
+    parsed
+        .set_password(None)
+        .map_err(|_| anyhow::anyhow!("failed to strip password from upstream URL"))?;
+    Ok((parsed.to_string(), Some(auth)))
 }
 
 /// Client-side TLS authentication (used for gRPC and upstream connections).
@@ -66,6 +97,33 @@ pub struct ClientTlsAuth {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn basic_auth_from_url_decodes_userinfo() {
+        let (url, auth) =
+            basic_auth_from_url("https://user:pass@rpc.example.com/v1").unwrap();
+        assert_eq!(url, "https://rpc.example.com/v1");
+        let auth = auth.unwrap();
+        assert_eq!(auth.username, "user");
+        assert_eq!(auth.password, "pass");
+    }
+
+    #[test]
+    fn basic_auth_from_url_decodes_percent_encoded_userinfo() {
+        let (url, auth) =
+            basic_auth_from_url("https://us%40er:p%40ss@rpc.example.com/v1").unwrap();
+        assert_eq!(url, "https://rpc.example.com/v1");
+        let auth = auth.unwrap();
+        assert_eq!(auth.username, "us@er");
+        assert_eq!(auth.password, "p@ss");
+    }
+
+    #[test]
+    fn basic_auth_from_url_leaves_plain_urls_alone() {
+        let (url, auth) = basic_auth_from_url("http://localhost:8545").unwrap();
+        assert_eq!(url, "http://localhost:8545");
+        assert!(auth.is_none());
+    }
 
     #[test]
     fn parse_basic_auth() {
