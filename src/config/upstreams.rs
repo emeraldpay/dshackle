@@ -17,7 +17,7 @@
 
 use crate::blockchain::TargetBlockchain;
 use crate::config::bytes::deserialize_opt_bytes;
-use crate::config::tls::{BasicAuth, ClientTlsAuth};
+use crate::config::tls::{BasicAuth, ClientTlsAuth, basic_auth_from_url};
 use crate::upstream::id::{InvalidUpstreamId, UpstreamId};
 use crate::upstream::label::{InvalidUpstreamLabel, UpstreamLabel, UpstreamLabels};
 use anyhow::{Context, Result, bail};
@@ -197,6 +197,18 @@ pub struct EthereumConnection {
     pub ws: Option<WsEndpoint>,
 }
 
+impl EthereumConnection {
+    fn resolve_url_credentials(&mut self) -> Result<()> {
+        if let Some(rpc) = &mut self.rpc {
+            rpc.resolve_url_credentials()?;
+        }
+        if let Some(ws) = &mut self.ws {
+            ws.resolve_url_credentials()?;
+        }
+        Ok(())
+    }
+}
+
 /// Bitcoin upstream connection (JSON RPC + optional Esplora + optional ZeroMQ).
 #[derive(Debug, Clone, Deserialize)]
 pub struct BitcoinConnection {
@@ -204,6 +216,18 @@ pub struct BitcoinConnection {
     pub esplora: Option<HttpEndpoint>,
     #[serde(alias = "zeromq")]
     pub zeromq: Option<ZeromqEndpoint>,
+}
+
+impl BitcoinConnection {
+    fn resolve_url_credentials(&mut self) -> Result<()> {
+        if let Some(rpc) = &mut self.rpc {
+            rpc.resolve_url_credentials()?;
+        }
+        if let Some(esplora) = &mut self.esplora {
+            esplora.resolve_url_credentials()?;
+        }
+        Ok(())
+    }
 }
 
 /// Dshackle gRPC upstream connection.
@@ -225,6 +249,20 @@ pub struct HttpEndpoint {
     pub tls: Option<ClientTlsAuth>,
     #[serde(default)]
     pub compress: Option<bool>,
+}
+
+impl HttpEndpoint {
+    /// Pulls basic auth out of the URL userinfo when `basic-auth` is not set,
+    /// and strips credentials from the URL either way so logs and transports
+    /// never carry embedded passwords.
+    pub fn resolve_url_credentials(&mut self) -> Result<()> {
+        let (url, from_url) = basic_auth_from_url(&self.url)?;
+        self.url = url;
+        if self.basic_auth.is_none() {
+            self.basic_auth = from_url;
+        }
+        Ok(())
+    }
 }
 
 /// WebSocket endpoint.
@@ -271,6 +309,16 @@ impl Default for WsEndpoint {
 }
 
 impl WsEndpoint {
+    /// Same rules as [`HttpEndpoint::resolve_url_credentials`].
+    pub fn resolve_url_credentials(&mut self) -> Result<()> {
+        let (url, from_url) = basic_auth_from_url(&self.url)?;
+        self.url = url;
+        if self.basic_auth.is_none() {
+            self.basic_auth = from_url;
+        }
+        Ok(())
+    }
+
     /// Rejects size limits below the legacy floor at parse time. A limit
     /// smaller than a single max-size handshake/response frame would make
     /// the connection unusable, so legacy refuses to start — with the exact
@@ -527,13 +575,15 @@ pub fn process_raw_upstream(raw: RawUpstream) -> Result<Option<Upstream>> {
     };
 
     let connection = match raw.connection {
-        Some(conn) => {
-            if let Some(eth) = conn.ethereum {
+        Some(mut conn) => {
+            if let Some(mut eth) = conn.ethereum.take() {
+                eth.resolve_url_credentials()?;
                 if let Some(ws) = &eth.ws {
                     ws.validate()?;
                 }
                 UpstreamConnection::Ethereum(eth)
-            } else if let Some(btc) = conn.bitcoin {
+            } else if let Some(mut btc) = conn.bitcoin.take() {
+                btc.resolve_url_credentials()?;
                 UpstreamConnection::Bitcoin(btc)
             } else if let Some(ds) = conn.dshackle {
                 UpstreamConnection::Dshackle(ds)
@@ -998,6 +1048,58 @@ mod tests {
     }
 
     // ── UpstreamRole ─────────────────────────────────────────────────────
+
+    #[test]
+    fn resolves_basic_auth_embedded_in_rpc_url() {
+        let yaml = r#"
+version: v1
+upstreams:
+  - id: geth-lighthouse
+    chain: ethereum
+    connection:
+      ethereum:
+        rpc:
+          url: "https://username:pass@rpc.lighthouse-geth-001.example/v1"
+"#;
+        let cfg: UpstreamsConfig = yaml.parse().unwrap();
+        let upstream = &cfg.upstreams[0];
+        if let UpstreamConnection::Ethereum(eth) = &upstream.connection {
+            let rpc = eth.rpc.as_ref().unwrap();
+            assert_eq!(rpc.url, "https://rpc.lighthouse-geth-001.example/v1");
+            let auth = rpc.basic_auth.as_ref().unwrap();
+            assert_eq!(auth.username, "username");
+            assert_eq!(auth.password, "pass");
+        } else {
+            panic!("expected ethereum connection");
+        }
+    }
+
+    #[test]
+    fn explicit_basic_auth_overrides_url_userinfo() {
+        let yaml = r#"
+version: v1
+upstreams:
+  - id: node
+    chain: ethereum
+    connection:
+      ethereum:
+        rpc:
+          url: "https://url-user:url-pass@host/"
+          basic-auth:
+            username: config-user
+            password: config-pass
+"#;
+        let cfg: UpstreamsConfig = yaml.parse().unwrap();
+        if let UpstreamConnection::Ethereum(eth) = &cfg.upstreams[0].connection {
+            let rpc = eth.rpc.as_ref().unwrap();
+            assert_eq!(rpc.url, "https://host/");
+            let auth = rpc.basic_auth.as_ref().unwrap();
+            assert_eq!(auth.username, "config-user");
+            assert_eq!(auth.password, "config-pass");
+        } else {
+            panic!("expected ethereum connection");
+        }
+    }
 
     #[test]
     fn role_from_str_lenient() {
