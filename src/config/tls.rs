@@ -100,8 +100,7 @@ mod tests {
 
     #[test]
     fn basic_auth_from_url_decodes_userinfo() {
-        let (url, auth) =
-            basic_auth_from_url("https://user:pass@rpc.example.com/v1").unwrap();
+        let (url, auth) = basic_auth_from_url("https://user:pass@rpc.example.com/v1").unwrap();
         assert_eq!(url, "https://rpc.example.com/v1");
         let auth = auth.unwrap();
         assert_eq!(auth.username, "user");
@@ -110,8 +109,7 @@ mod tests {
 
     #[test]
     fn basic_auth_from_url_decodes_percent_encoded_userinfo() {
-        let (url, auth) =
-            basic_auth_from_url("https://us%40er:p%40ss@rpc.example.com/v1").unwrap();
+        let (url, auth) = basic_auth_from_url("https://us%40er:p%40ss@rpc.example.com/v1").unwrap();
         assert_eq!(url, "https://rpc.example.com/v1");
         let auth = auth.unwrap();
         assert_eq!(auth.username, "us@er");

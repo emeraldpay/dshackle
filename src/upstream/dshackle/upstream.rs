@@ -18,11 +18,12 @@
 //! server. RPC calls are forwarded via the `NativeCall` gRPC method, and head
 //! tracking uses the `SubscribeHead` stream.
 
-use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
+use crate::jsonrpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse};
 use crate::signature::ProvidedSignature;
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::{CurrentHead, Head};
 use crate::upstream::id::UpstreamId;
+use crate::upstream::overload::Refusal;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
 use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
@@ -139,7 +140,12 @@ impl RpcUpstream for DshackleUpstream {
         })??;
 
         if !reply.succeed {
-            return Err(remote_failure(reply.error_message));
+            return Ok(JsonRpcResponse {
+                id: serde_json::Value::from(request.id),
+                result: None,
+                error: Some(remote_error(reply.error_message)?),
+                provided_signature: None,
+            });
         }
 
         // The reply payload is the raw JSON result value (e.g. `"0x1"` or `{...}`)
@@ -183,27 +189,43 @@ impl RpcUpstream for DshackleUpstream {
     }
 }
 
-/// Converts a remote's reply signature into a [`ProvidedSignature`] for
-/// pass-through, dropping it when the remote sent no usable signature.
+/// The error of a `NativeCall` the remote answered as failed: the JSON-RPC
+/// error its node answered with, or why the remote couldn't call one.
 ///
-/// The error for a `NativeCall` the remote answered as failed.
+/// The reply carries only a message. A remote of this version forwards a
+/// node's JSON-RPC error as the error object itself, which is an answer about
+/// the request, like any node's, and goes back to the client as it is. Any
+/// other message, and every one from a legacy remote, is the remote's final
+/// failure for the call. That includes a node's error behind an HTTP error
+/// status (e.g. Bitcoin's 500 "Already Spent"): the remote sends only its
+/// text, as legacy did, and gRPC clients expect it that way. Except that a remote whose upstreams are all at their
+/// request limits never asked a node, so the call has to move on to another
+/// upstream instead of ending there; a remote of this version reports that
+/// with [`UpstreamError::LIMIT_REACHED_MESSAGE`], and a legacy one has no
+/// request limits.
 ///
-/// The reply carries only a message, and most failures are the remote's final
-/// answer for the call. A remote whose upstreams are all at their request
-/// limits never asked a node, though, so the call has to move on to another
-/// upstream instead of ending there. A remote of this version reports that
-/// with [`UpstreamError::LIMIT_REACHED_MESSAGE`]; a legacy one has no request
-/// limits and never sends it.
-fn remote_failure(message: String) -> UpstreamError {
+/// A node's error that is really a refusal, e.g. a rate limit the remote
+/// didn't recognize itself, isn't an answer either: it moves on as
+/// [`UpstreamError::Overloaded`], like the same error from a node of our own.
+fn remote_error(message: String) -> Result<JsonRpcError, UpstreamError> {
     if message.is_empty() {
-        UpstreamError::InvalidResponse("remote call failed".into())
-    } else if message == UpstreamError::LIMIT_REACHED_MESSAGE {
-        UpstreamError::LimitReached
-    } else {
-        UpstreamError::InvalidResponse(message)
+        return Err(UpstreamError::InvalidResponse("remote call failed".into()));
+    }
+    if message == UpstreamError::LIMIT_REACHED_MESSAGE {
+        return Err(UpstreamError::LimitReached);
+    }
+    match serde_json::from_str::<JsonRpcError>(&message) {
+        Ok(error) if error.pause_reason().is_some() => {
+            Err(UpstreamError::Overloaded(error.message))
+        }
+        Ok(error) => Ok(error),
+        Err(_) => Err(UpstreamError::InvalidResponse(message)),
     }
 }
 
+/// Converts a remote's reply signature into a [`ProvidedSignature`] for
+/// pass-through, dropping it when the remote sent no usable signature.
+///
 /// Matches legacy `JsonRpcGrpcClient.extractSignature`: an empty signature or
 /// empty upstream id means "not signed", not a malformed signature to forward.
 ///
@@ -237,22 +259,41 @@ mod tests {
 
     #[test]
     fn remote_at_its_limits_is_a_limit_refusal() {
-        let err = remote_failure(UpstreamError::LimitReached.to_string());
-        assert!(matches!(err, UpstreamError::LimitReached));
+        let err = remote_error(UpstreamError::LimitReached.to_string());
+        assert!(matches!(err, Err(UpstreamError::LimitReached)));
+    }
+
+    #[test]
+    fn node_error_relayed_by_the_remote_is_an_answer() {
+        let error =
+            remote_error(r#"{"code":3,"message":"execution reverted","data":"0x08c379a0"}"#.into())
+                .unwrap();
+        assert_eq!(error.code, 3);
+        assert_eq!(error.message, "execution reverted");
+        assert_eq!(error.data, Some(serde_json::json!("0x08c379a0")));
+    }
+
+    #[test]
+    fn refusal_relayed_by_the_remote_moves_on() {
+        let err = remote_error(r#"{"code":429,"message":"compute units exceeded"}"#.into());
+        assert!(matches!(&err, Err(UpstreamError::Overloaded(m)) if m == "compute units exceeded"));
     }
 
     #[test]
     fn other_remote_failures_stay_final() {
-        let err = remote_failure(r#"{"code":-32000,"message":"execution reverted"}"#.into());
+        // A remote's own failure, and what a legacy remote sends for any error.
+        let err = remote_error("no upstream available for ETH".into());
         assert!(
-            matches!(&err, UpstreamError::InvalidResponse(m) if m == r#"{"code":-32000,"message":"execution reverted"}"#)
+            matches!(&err, Err(UpstreamError::InvalidResponse(m)) if m == "no upstream available for ETH")
         );
     }
 
     #[test]
     fn empty_remote_failure_gets_a_message() {
-        let err = remote_failure(String::new());
-        assert!(matches!(&err, UpstreamError::InvalidResponse(m) if m == "remote call failed"));
+        let err = remote_error(String::new());
+        assert!(
+            matches!(&err, Err(UpstreamError::InvalidResponse(m)) if m == "remote call failed")
+        );
     }
 
     #[test]

@@ -24,6 +24,7 @@ use crate::logs;
 use crate::logs::access;
 use crate::metrics::{self, ApiMethod, CallMethod, DownstreamProtocol, RequestStatus};
 use crate::rpc::downstream_request::DownstreamRequest;
+use crate::rpc::downstream_stream::DownstreamStream;
 use crate::rpc::native_call;
 use crate::upstream::egress::EgressError;
 use crate::upstream::fees::{FeeError, FeeMode};
@@ -540,16 +541,13 @@ impl Blockchain for BlockchainRpcService {
             .balance(&req, false)
             .await
             .map_err(|e| downstream_request.refused(chain.as_ref(), e.into_status()))?;
-        let mut unanswered = Some(downstream_request);
         let stream = stream.map(move |item| {
-            if let Some(request) = unanswered.take() {
-                request.answered(chain.as_ref(), &item);
-            }
             if let Ok(balance) = &item {
                 balance_log.on_reply(balance);
             }
             item
         });
+        let stream = DownstreamStream::new(downstream_request, chain, stream);
         Ok(tonic::Response::new(Box::pin(stream)))
     }
 
@@ -572,16 +570,13 @@ impl Blockchain for BlockchainRpcService {
             .address_allowance(req, false)
             .await
             .map_err(|e| downstream_request.refused(chain.as_ref(), e.into_status()))?;
-        let mut unanswered = Some(downstream_request);
         let stream = stream.map(move |item| {
-            if let Some(request) = unanswered.take() {
-                request.answered(chain.as_ref(), &item);
-            }
             if let Ok(allowance) = &item {
                 allowance_log.on_reply(allowance);
             }
             item
         });
+        let stream = DownstreamStream::new(downstream_request, chain, stream);
         Ok(tonic::Response::new(Box::pin(stream)))
     }
 

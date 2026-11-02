@@ -248,9 +248,8 @@ pub fn reqwest_client(
         if let Some(ca) = &setup.ca {
             // `tls_certs_merge` would also keep the system roots, so any
             // publicly trusted certificate could impersonate the upstream.
-            builder = builder.tls_certs_only([
-                reqwest::Certificate::from_pem(ca).context("parsing TLS CA")?
-            ]);
+            builder = builder
+                .tls_certs_only([reqwest::Certificate::from_pem(ca).context("parsing TLS CA")?]);
         }
         if let Some(identity) = &setup.identity {
             // reqwest's rustls backend takes the certificate and key as one

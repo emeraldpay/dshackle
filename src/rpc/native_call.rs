@@ -47,10 +47,11 @@ pub async fn execute_call(
 }
 
 /// How the metrics may name a JSON-RPC `method` called on this chain: by its
-/// own name only when the chain serves it.
+/// own name only when the chain's method lists have it. The client picks the
+/// name, and a remote Dshackle upstream would take any name to try it.
 pub fn call_method<'a>(multistream: &Multistream, method: &'a str) -> CallMethod<'a> {
     match method.parse::<RpcMethod>() {
-        Ok(parsed) if multistream.method_available(&parsed) => CallMethod::Supported(method),
+        Ok(parsed) if multistream.method_listed(&parsed) => CallMethod::Supported(method),
         _ => CallMethod::Unsupported,
     }
 }
@@ -776,5 +777,22 @@ mod tests {
         let result = parse_payload(b"not json");
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("JSON"));
+    }
+
+    // ── Metric labels ─────────────────────────────────────────────────────
+
+    #[test]
+    fn pass_through_chain_labels_no_method_by_name() {
+        // A pass-through upstream, like a remote Dshackle, takes any name to
+        // try it, so routing alone would let a client mint a series per
+        // made-up method.
+        let ms = Multistream::new(
+            test_chain(),
+            vec![LabeledUpstream::new("remote", &[], Some(100))],
+            Arc::new(AlwaysFactory),
+        );
+
+        assert!(ms.method_available(&"eth_madeUp_1".into()));
+        assert_eq!(call_method(&ms, "eth_madeUp_1"), CallMethod::Unsupported);
     }
 }

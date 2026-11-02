@@ -164,16 +164,16 @@ pub fn downstream_call(
         .on_call(protocol, &chain_label(chain), method, status, elapsed);
 }
 
-/// A request for an API method other than a JSON-RPC call ended with `status`
-/// after `elapsed`: answered, refused, or a subscription started. `None`
-/// chain is reported as `NA` (e.g. `Describe`, which isn't chain-specific, or
-/// an unknown chain id).
+/// A request for an API method other than a JSON-RPC call ended with `status`:
+/// answered, refused, or a subscription started, after `elapsed`; or `None`
+/// for one never answered at all. `None` chain is reported as `NA` (e.g.
+/// `Describe`, which isn't chain-specific, or an unknown chain id).
 pub fn downstream_request(
     protocol: DownstreamProtocol,
     method: ApiMethod,
     chain: Option<&TargetBlockchain>,
     status: RequestStatus,
-    elapsed: Duration,
+    elapsed: Option<Duration>,
 ) {
     if !ENABLED.load(Ordering::Relaxed) {
         return;
@@ -419,14 +419,14 @@ pub(crate) mod tests {
             ApiMethod::EstimateFee,
             Some(&chain),
             RequestStatus::Success,
-            Duration::from_millis(3),
+            Some(Duration::from_millis(3)),
         );
         downstream_request(
             DownstreamProtocol::Dshackle,
             ApiMethod::Describe,
             None,
             RequestStatus::Success,
-            Duration::from_millis(1),
+            Some(Duration::from_millis(1)),
         );
 
         let out = scrape();
@@ -450,7 +450,7 @@ pub(crate) mod tests {
             ApiMethod::SubscribeHead,
             Some(&chain),
             RequestStatus::Success,
-            Duration::from_millis(1),
+            Some(Duration::from_millis(1)),
         );
         downstream_subscription_message(
             DownstreamProtocol::Dshackle,

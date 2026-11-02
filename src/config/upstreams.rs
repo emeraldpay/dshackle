@@ -1170,10 +1170,7 @@ connection:
         let upstream = process_raw_upstream(raw).unwrap().unwrap();
         assert!(!upstream.enabled);
         if let UpstreamConnection::Ethereum(eth) = upstream.connection {
-            assert_eq!(
-                eth.rpc.as_ref().unwrap().url,
-                "not a valid url"
-            );
+            assert_eq!(eth.rpc.as_ref().unwrap().url, "not a valid url");
         } else {
             panic!("expected ethereum connection");
         }

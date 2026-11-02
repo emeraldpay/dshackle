@@ -212,12 +212,12 @@ The requests clients make to Dshackle are measured with labels:
 - `protocol` - how the client reached Dshackle: `dshackle` (Dshackle's own gRPC API), `http-json-rpc` or `ws-json-rpc` (the JSON RPC proxy over HTTP or WebSocket)
 - `method` - the gRPC method, e.g. `nativeCall`, `subscribeHead` or `getBalance`.
 A JSON RPC call is a `nativeCall`, whether it came through the proxy or as an item of a gRPC `NativeCall`, and an `eth_subscribe` over WebSocket is a `nativeSubscribe`.
-With `extended` monitoring, a JSON RPC call is labeled with its own method instead, e.g. `eth_call`, or `unsupported` for a method the blockchain doesn't serve.
+With `extended` monitoring, a JSON RPC call is labeled with its own method instead, e.g. `eth_call`, or `unsupported` for a method Dshackle doesn't know for that blockchain: one that is neither in its built-in methods for the blockchain type, nor added in the upstream `methods` config, nor advertised by a Dshackle upstream.
 - `chain` - the blockchain, e.g. `ETH`, or `NA` when the request isn't for one chain
 - `status` - how the request ended (only for `dshackle_downstream_requests_total`):
-** `success` - answered with a result. For a subscription, it means it started.
+** `success` - answered with a result. For a subscription, it means it started, and for a response that streams several results (e.g. `getBalance`), that the stream completed, even without any result.
 ** `error` - answered with an error that belongs to the request, e.g. a reverted call, invalid parameters, an unsupported method, or a transaction the node rejected
-** `failed` - Dshackle couldn't serve it, e.g. no upstream was available or all of them failed
+** `failed` - Dshackle couldn't serve it, e.g. no upstream was available or all of them failed, or the client left before a streamed response completed
 ** `rate-limited` - every upstream that could serve it was at its <<04-upstream-config.adoc#request-limits,request limits>>
 
 [cols="2a,5"]
@@ -227,9 +227,10 @@ With `extended` monitoring, a JSON RPC call is labeled with its own method inste
 | `dshackle_downstream_requests_total`
 | Number of requests, by `status`.
 Each item of a gRPC `NativeCall` counts as a request, also when the whole `NativeCall` is refused.
+A response that streams several results counts when the stream ends, with the status of the first error if there's one.
 
 | `dshackle_downstream_request_duration_seconds`
-| Time to process a request and respond, up to its first result for a response that streams several.
+| Time to process a request and respond, up to its first result for a response that streams several, or until it completes if it has none.
 Not measured for subscriptions.
 
 | `dshackle_downstream_subscription_messages_total`
@@ -249,7 +250,8 @@ The requests Dshackle makes to its upstreams are measured per upstream, with lab
 ** `success` - the upstream answered with a result
 ** `error` - the upstream answered with a JSON RPC error, e.g. a reverted call or invalid parameters.
 That includes an error the node sent with an HTTP error status, e.g. Bitcoin's `500` "Already Spent".
-** `failed` - no usable answer: connection error, timeout, an HTTP error from a struggling provider (`401`, `429`, `502`-`504`) or without a JSON RPC error, invalid response, or the upstream said it's overloaded.
+Through a remote Dshackle (`protocol="dshackle"`), though, such an error arrives only as its text, which can't be told apart from the remote failing, so it counts as `failed`.
+** `failed` - no usable answer: connection error, timeout, an HTTP error from a struggling provider (`401`, `429`, `502`-`504`) or without a JSON RPC error, invalid response, or the upstream refusing calls for now: rate limited (e.g. Alchemy's code `429`, Infura's "request rate exceeded") or overloaded (Erigon's "server overloaded"), even when it says so with a JSON RPC error.
 A request abandoned before the upstream answered, e.g. by a validation timeout or a client that left, is `failed` too.
 ** `rate-limited` - the request was refused by the request limits.
 With `protocol="internal"` it's the upstream's own <<04-upstream-config.adoc#request-limits,`limits`>>, and nothing was sent.

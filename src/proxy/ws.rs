@@ -166,7 +166,7 @@ async fn handle_subscribe(
             ApiMethod::NativeSubscribe,
             Some(&route.chain),
             status,
-            started.elapsed(),
+            Some(started.elapsed()),
         );
     };
 

@@ -17,8 +17,7 @@
 //! can work with them uniformly.
 
 use crate::config::upstreams::UpstreamRole;
-use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
-use crate::metrics::RequestStatus;
+use crate::jsonrpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
 use crate::upstream::id::UpstreamId;
@@ -134,11 +133,11 @@ pub enum UpstreamError {
     /// body (only the status is known).
     HttpStatus(u16),
     /// The upstream returned a non-200 HTTP status *and* a JSON-RPC error body.
-    /// Carries the provider's own message so it can be forwarded to the caller
+    /// Carries the provider's own error so it can be forwarded to the caller
     /// (issue #251, and Bitcoin nodes that answer 500 with a real error). The
     /// status is retained so the quorum can still decide whether the call is
     /// retryable (429/401/502–504) or definitive (e.g. 500 "Already Spent").
-    Rejected { status: u16, message: String },
+    Rejected { status: u16, error: JsonRpcError },
     /// The upstream answered with a JSON-RPC error refusing the call for now:
     /// the node is overloaded (Erigon's "server overloaded, retry later") or
     /// the provider's rate limit is hit (Alchemy's code 429 over WebSocket).
@@ -170,9 +169,8 @@ impl std::fmt::Display for UpstreamError {
             UpstreamError::HttpStatus(code) => write!(f, "upstream returned HTTP {code}"),
             // Rendered verbatim, with no wrapping prefix: this message is
             // forwarded to the caller as the upstream's own error (issue #251).
-            UpstreamError::Rejected { message, .. } | UpstreamError::Overloaded(message) => {
-                write!(f, "{message}")
-            }
+            UpstreamError::Rejected { error, .. } => write!(f, "{}", error.message),
+            UpstreamError::Overloaded(message) => write!(f, "{message}"),
             UpstreamError::InvalidResponse(msg) => write!(f, "invalid response: {msg}"),
             // The exact legacy `VerifyingReader` message — it reaches clients
             // through the gRPC `error_message` and the proxy error body.
@@ -183,29 +181,6 @@ impl std::fmt::Display for UpstreamError {
 }
 
 impl std::error::Error for UpstreamError {}
-
-/// How a call ended, for the request metrics of both the API and the
-/// upstream connections.
-impl From<Result<&JsonRpcResponse, &UpstreamError>> for RequestStatus {
-    fn from(result: Result<&JsonRpcResponse, &UpstreamError>) -> Self {
-        match result {
-            Ok(response) if response.error.is_some() => RequestStatus::Error,
-            Ok(_) => RequestStatus::Success,
-            Err(UpstreamError::MethodNotAllowed(_)) => RequestStatus::Error,
-            // The node's own answer about the request, e.g. Bitcoin's 500
-            // "Already Spent", unlike a 429 or 502 from a struggling provider.
-            Err(UpstreamError::Rejected { status, .. })
-                if !crate::upstream::quorum::is_unavailable_status(*status) =>
-            {
-                RequestStatus::Error
-            }
-            // Our own limits, or a remote Dshackle whose upstreams are all at
-            // theirs.
-            Err(UpstreamError::LimitReached) => RequestStatus::RateLimited,
-            Err(_) => RequestStatus::Failed,
-        }
-    }
-}
 
 /// Sanitize an HTTP error response body for safe logging.
 ///
@@ -220,24 +195,6 @@ pub fn sanitize_error_body(body: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn node_rejecting_the_request_is_an_error() {
-        let rejected = UpstreamError::Rejected {
-            status: 500,
-            message: "Already Spent".into(),
-        };
-        assert_eq!(RequestStatus::from(Err(&rejected)), RequestStatus::Error);
-    }
-
-    #[test]
-    fn struggling_provider_is_a_failure() {
-        let rejected = UpstreamError::Rejected {
-            status: 429,
-            message: "Too Many Requests".into(),
-        };
-        assert_eq!(RequestStatus::from(Err(&rejected)), RequestStatus::Failed);
-    }
 
     #[test]
     fn sanitize_keeps_printable_ascii() {

@@ -101,10 +101,15 @@ impl RpcUpstream for MeteredUpstream {
         let mut sent = SentRequest::new(self);
         let start = std::time::Instant::now();
         let result = self.inner.call(request).await;
-        sent.status = RequestStatus::from(result.as_ref());
+        let status = RequestStatus::from(result.as_ref());
+        sent.status = status;
         drop(sent);
-        if let Ok(response) = &result {
+        // An `error` is an answer too, also when it comes as an `Err`, e.g.
+        // Bitcoin's 500 "Already Spent"; a refusal is `failed`, not answered.
+        if matches!(status, RequestStatus::Success | RequestStatus::Error) {
             metrics::upstream_answered(self.protocol, upstream, &self.chain, start.elapsed());
+        }
+        if let Ok(response) = &result {
             // Like the legacy `RpcMetrics.processResponseSize`, the size is
             // of the result payload — an error response records nothing.
             if let Some(payload) = &response.result {
@@ -159,9 +164,18 @@ impl RpcUpstream for MeteredUpstream {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::jsonrpc::JsonRpcError;
     use crate::metrics::tests::{enable, scrape};
     use crate::upstream::head::NoHead;
     use std::time::Duration;
+
+    fn rpc_error(message: &str) -> JsonRpcError {
+        JsonRpcError {
+            code: -32000,
+            message: message.into(),
+            data: None,
+        }
+    }
 
     /// An upstream that never answers.
     struct HangingUpstream {
@@ -213,6 +227,82 @@ mod tests {
         ));
         assert!(out.contains(
             r#"dshackle_upstream_requests_total{chain="ETH",protocol="http-json-rpc",status="failed",upstream="metered-hanging"} 1"#
+        ));
+    }
+
+    /// An upstream that answers every call with an HTTP 500 and `message`.
+    struct RejectingUpstream {
+        message: &'static str,
+        state: Arc<UpstreamState>,
+    }
+
+    #[async_trait::async_trait]
+    impl RpcUpstream for RejectingUpstream {
+        async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
+            Err(UpstreamError::Rejected {
+                status: 500,
+                error: rpc_error(self.message),
+            })
+        }
+        fn id(&self) -> &UpstreamId {
+            crate::upstream::id::stub_id()
+        }
+        fn availability(&self) -> UpstreamAvailability {
+            self.state.availability()
+        }
+        fn head(&self) -> &dyn Head {
+            &NoHead
+        }
+        fn lag(&self) -> Option<u64> {
+            None
+        }
+        fn state(&self) -> &Arc<UpstreamState> {
+            &self.state
+        }
+    }
+
+    /// Calls an upstream answering 500 with `message` once, through a
+    /// [`MeteredUpstream`] labelled `upstream`.
+    async fn call_rejecting(upstream: &str, message: &'static str) {
+        let metered = MeteredUpstream::new(
+            Arc::new(RejectingUpstream {
+                message,
+                state: Arc::new(UpstreamState::new()),
+            }),
+            UpstreamProtocol::HttpJsonRpc,
+            upstream.parse().unwrap(),
+            "bitcoin".parse().unwrap(),
+        );
+        let request = JsonRpcRequest::new(1, "sendrawtransaction".into(), serde_json::json!([]));
+        assert!(metered.call(&request).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn definitive_answer_behind_http_error_is_timed() {
+        enable();
+        call_rejecting("metered-already-spent", "Already Spent").await;
+
+        let out = scrape();
+        assert!(out.contains(
+            r#"dshackle_upstream_requests_total{chain="BTC",protocol="http-json-rpc",status="error",upstream="metered-already-spent"} 1"#
+        ));
+        assert!(out.contains(
+            r#"dshackle_upstream_request_duration_seconds_count{chain="BTC",protocol="http-json-rpc",upstream="metered-already-spent"} 1"#
+        ));
+    }
+
+    #[tokio::test]
+    async fn overload_behind_http_error_is_not_timed() {
+        enable();
+        call_rejecting("metered-overloaded", "server overloaded, retry later").await;
+
+        let out = scrape();
+        assert!(out.contains(
+            r#"dshackle_upstream_requests_total{chain="BTC",protocol="http-json-rpc",status="failed",upstream="metered-overloaded"} 1"#
+        ));
+        // The series exists from the upstream's creation, with nothing in it.
+        assert!(out.contains(
+            r#"dshackle_upstream_request_duration_seconds_count{chain="BTC",protocol="http-json-rpc",upstream="metered-overloaded"} 0"#
         ));
     }
 }

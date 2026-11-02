@@ -16,7 +16,7 @@
 
 use crate::blockchain::TargetBlockchain;
 use crate::metrics::{self, ApiMethod, DownstreamProtocol, RequestStatus};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tonic::Code;
 
 /// Times a gRPC request and records how it ended in the downstream metrics.
@@ -46,19 +46,14 @@ impl DownstreamRequest {
             Ok(_) => RequestStatus::Success,
             Err(status) => RequestStatus::from(status),
         };
-        self.record(chain, status);
+        self.record(chain, status, Some(self.elapsed()));
         result
     }
 
-    /// Records the request as ended with the first `item` of its response
-    /// stream: a lazy stream does the work, and meets its errors, only as it's
-    /// read.
-    pub fn answered<T>(&self, chain: Option<&TargetBlockchain>, item: &Result<T, tonic::Status>) {
-        let status = match item {
-            Ok(_) => RequestStatus::Success,
-            Err(status) => RequestStatus::from(status),
-        };
-        self.record(chain, status);
+    /// For a caller that takes the response time at a point of its own, like
+    /// the first item of a stream.
+    pub fn elapsed(&self) -> Duration {
+        self.started.elapsed()
     }
 
     /// Records the request as refused with `status` and passes it on.
@@ -67,17 +62,24 @@ impl DownstreamRequest {
         chain: Option<&TargetBlockchain>,
         status: tonic::Status,
     ) -> tonic::Status {
-        self.record(chain, RequestStatus::from(&status));
+        self.record(chain, RequestStatus::from(&status), Some(self.elapsed()));
         status
     }
 
-    fn record(&self, chain: Option<&TargetBlockchain>, status: RequestStatus) {
+    /// Records the request as ended with `status`, answered after `elapsed`,
+    /// or `None` if the client left before any answer.
+    pub fn record(
+        &self,
+        chain: Option<&TargetBlockchain>,
+        status: RequestStatus,
+        elapsed: Option<Duration>,
+    ) {
         metrics::downstream_request(
             DownstreamProtocol::Dshackle,
             self.method,
             chain,
             status,
-            self.started.elapsed(),
+            elapsed,
         );
     }
 }

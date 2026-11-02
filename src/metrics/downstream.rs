@@ -98,15 +98,15 @@ impl ApiMethod {
 
 /// The JSON-RPC method of a call, as far as the `method` label may name it.
 ///
-/// The name comes from the client, so only methods the chain serves become
-/// label values; anything else would let a client create new series at will
-/// with made-up names.
+/// The name comes from the client, so only methods in the chain's method lists
+/// become label values; anything else would let a client create new series at
+/// will with made-up names.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CallMethod<'a> {
-    /// A method the chain serves.
+    /// A method in the chain's method lists.
     Supported(&'a str),
-    /// A method the chain doesn't serve, or not a method name at all
-    /// (`unsupported`).
+    /// A method not in the lists, even if a pass-through upstream would try
+    /// it, or not a method name at all (`unsupported`).
     Unsupported,
 }
 
@@ -200,19 +200,22 @@ impl DownstreamMetrics {
     }
 
     /// A request for an API method other than a JSON-RPC call ended with
-    /// `status` after `elapsed`.
+    /// `status`, answered after `elapsed`, or `None` if it never was (the
+    /// client left first), which has no response time to measure.
     pub fn on_request(
         &self,
         protocol: DownstreamProtocol,
         method: ApiMethod,
         chain: &str,
         status: RequestStatus,
-        elapsed: Duration,
+        elapsed: Option<Duration>,
     ) {
         self.requests
             .with_label_values(&[protocol.label(), method.label(), chain, status.label()])
             .inc();
-        if !method.is_subscription() {
+        if let Some(elapsed) = elapsed
+            && !method.is_subscription()
+        {
             self.duration
                 .with_label_values(&[protocol.label(), method.label(), chain])
                 .observe(elapsed.as_secs_f64());

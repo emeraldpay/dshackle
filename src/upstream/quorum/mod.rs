@@ -66,6 +66,22 @@ pub trait QuorumFactory: Send + Sync {
         self.hardcoded_response(method).is_some()
     }
 
+    /// Whether [`is_callable`](Self::is_callable) answers from a list of
+    /// methods, rather than passing every method through. Defaults to `false`,
+    /// like `is_callable` defaults to pass-through.
+    fn has_method_list(&self) -> bool {
+        false
+    }
+
+    /// Whether the method is one this configuration names: answered from a
+    /// hardcoded response, or callable from its method list. Unlike
+    /// [`is_callable`](Self::is_callable) it's never true just because the
+    /// configuration passes every method through, so the answers stay within
+    /// a bounded set, which is what lets them name a metric label.
+    fn is_listed(&self, method: &RpcMethod) -> bool {
+        self.is_hardcoded(method) || (self.has_method_list() && self.is_callable(method))
+    }
+
     /// The hardcoded response body for a method, if one is configured.
     /// Returning `Some` means the method bypasses the upstream entirely.
     fn hardcoded_response(&self, _method: &RpcMethod) -> Option<&RawValue> {

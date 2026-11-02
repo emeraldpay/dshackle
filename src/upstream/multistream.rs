@@ -257,6 +257,15 @@ impl Multistream {
         self.quorum_factory.is_callable(method) || self.quorum_factory.is_hardcoded(method)
     }
 
+    /// Whether the method is in the chain's method lists, configured or
+    /// advertised by a remote Dshackle. Narrower than
+    /// [`method_available`](Self::method_available), which lets everything
+    /// through for a pass-through upstream; a client picks the method name, so
+    /// only this bounded set may name a metric label.
+    pub fn method_listed(&self, method: &RpcMethod) -> bool {
+        self.quorum_factory.is_listed(method)
+    }
+
     /// Pick candidate upstreams matching the given selector hint, filtered to
     /// those that accept `method`. Upstreams that reject the method up front
     /// are skipped so the router doesn't waste a round-trip just to learn

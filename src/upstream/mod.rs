@@ -21,6 +21,7 @@ pub mod balance;
 pub(crate) mod bitcoin;
 pub mod block_updates;
 pub mod call_plan;
+mod call_status;
 mod disabled_methods;
 mod dshackle;
 pub mod egress;
@@ -1767,12 +1768,7 @@ fn wire_remote_dshackle(
             upstream_id.clone(),
             chain,
         ));
-        let reader = RequestLimitGuard::wrap(
-            reader,
-            pending.budget.as_ref(),
-            upstream_id,
-            chain,
-        );
+        let reader = RequestLimitGuard::wrap(reader, pending.budget.as_ref(), upstream_id, chain);
 
         // Capabilities come from the remote's own report (legacy
         // `RemoteCapabilities.extract`), so a Dshackle relay re-advertises what
