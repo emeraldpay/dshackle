@@ -211,7 +211,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "dshackle_upstreams_availability{instance=~\"$instance\", chain=~\"$chain\"}",
+          "expr": "dshackle_upstream_availability{instance=~\"$instance\", chain=~\"$chain\"}",
           "format": "time_series",
           "instant": false,
           "interval": "",
@@ -271,7 +271,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "dshackle_upstreams_lag{instance=~\"$instance\", chain=~\"$chain\"}",
+          "expr": "dshackle_upstream_lag{instance=~\"$instance\", chain=~\"$chain\"}",
           "format": "table",
           "instant": true,
           "interval": "",
@@ -351,14 +351,14 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(dshackle_request_jsonrpc_request_total{chain=~\"$chain\", instance=~\"$instance\"}[1m])",
+          "expr": "sum(rate(dshackle_downstream_requests_total{protocol=~\"http-json-rpc|ws-json-rpc\", chain=~\"$chain\", instance=~\"$instance\"}[1m]))",
           "interval": "",
           "legendFormat": "Total",
           "refId": "A"
         },
         {
           "exemplar": true,
-          "expr": "rate(dshackle_request_jsonrpc_err_total{instance=~\"$instance\", chain=~\"$chain\"}[1m])",
+          "expr": "sum(rate(dshackle_downstream_requests_total{protocol=~\"http-json-rpc|ws-json-rpc\", status!=\"success\", chain=~\"$chain\", instance=~\"$instance\"}[1m]))",
           "hide": false,
           "interval": "",
           "legendFormat": "Failed",
@@ -448,14 +448,14 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(dshackle_request_grpc_request_total{chain=~\"$chain\", instance=~\"$instance\"}[1m])",
+          "expr": "sum(rate(dshackle_downstream_requests_total{protocol=\"dshackle\", chain=~\"$chain\", instance=~\"$instance\"}[1m]))",
           "interval": "",
           "legendFormat": "Total",
           "refId": "A"
         },
         {
           "exemplar": true,
-          "expr": "rate(dshackle_request_grpc_err_total{instance=~\"$instance\", chain=~\"$chain\"}[1m])",
+          "expr": "sum(rate(dshackle_downstream_requests_total{protocol=\"dshackle\", status!=\"success\", chain=~\"$chain\", instance=~\"$instance\"}[1m]))",
           "hide": false,
           "interval": "",
           "legendFormat": "Failed",
@@ -545,7 +545,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "sum by (method) (rate(dshackle_request_jsonrpc_request_total{chain=~\"$chain\", instance=~\"$instance\"}[1m]))",
+          "expr": "sum by (method) (rate(dshackle_downstream_requests_total{protocol=~\"http-json-rpc|ws-json-rpc\", status=\"success\", chain=~\"$chain\", instance=~\"$instance\"}[1m]))",
           "interval": "",
           "legendFormat": "{{ method }}",
           "refId": "A"
@@ -638,7 +638,7 @@
             "uid": "lQ3xLXW7k"
           },
           "exemplar": true,
-          "expr": "sum by (method) (rate(dshackle_request_jsonrpc_err_total{chain=~\"$chain\", instance=~\"$instance\"}[1m]))",
+          "expr": "sum by (method) (rate(dshackle_downstream_requests_total{protocol=~\"http-json-rpc|ws-json-rpc\", status=\"error\", chain=~\"$chain\", instance=~\"$instance\"}[1m]))",
           "interval": "",
           "legendFormat": "{{ method }}",
           "refId": "A"
@@ -731,7 +731,7 @@
             "uid": "lQ3xLXW7k"
           },
           "exemplar": true,
-          "expr": "sum by (method) (rate(dshackle_request_jsonrpc_fail_total{chain=~\"$chain\", instance=~\"$instance\"}[1m]))",
+          "expr": "sum by (method) (rate(dshackle_downstream_requests_total{protocol=~\"http-json-rpc|ws-json-rpc\", status=\"failed\", chain=~\"$chain\", instance=~\"$instance\"}[1m]))",
           "interval": "",
           "legendFormat": "{{ method }}",
           "refId": "A"
@@ -814,7 +814,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(dshackle_request_jsonrpc_call_seconds_sum{chain=~\"$chain\",instance=~\"$instance\"}[1m]) / rate(dshackle_request_jsonrpc_call_seconds_count{chain=~\"$chain\",instance=~\"$instance\"}[1m])",
+          "expr": "sum by (instance) (rate(dshackle_downstream_request_duration_seconds_sum{protocol=~\"http-json-rpc|ws-json-rpc\", chain=~\"$chain\", instance=~\"$instance\"}[1m])) / sum by (instance) (rate(dshackle_downstream_request_duration_seconds_count{protocol=~\"http-json-rpc|ws-json-rpc\", chain=~\"$chain\", instance=~\"$instance\"}[1m]))",
           "interval": "",
           "legendFormat": "{{ instance }}",
           "refId": "A"
@@ -903,7 +903,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(dshackle_upstream_rpc_err_total{chain=~\"$chain\", instance=~\"$instance\"}[1m])",
+          "expr": "sum by (upstream) (rate(dshackle_upstream_requests_total{protocol=\"http-json-rpc\", status=\"failed\", chain=~\"$chain\", instance=~\"$instance\"}[1m]))",
           "interval": "",
           "legendFormat": "{{ upstream }}",
           "refId": "A"
@@ -986,7 +986,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "histogram_quantile(0.50, dshackle_upstream_rpc_conn_seconds_bucket{instance=~\"$instance\",chain=~\"$chain\"})",
+          "expr": "histogram_quantile(0.50, dshackle_upstream_request_duration_seconds_bucket{protocol=\"http-json-rpc\",instance=~\"$instance\",chain=~\"$chain\"})",
           "interval": "",
           "legendFormat": "{{ upstream }}",
           "refId": "A"
@@ -1069,7 +1069,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "histogram_quantile(0.75, dshackle_upstream_rpc_conn_seconds_bucket{instance=~\"$instance\",chain=~\"$chain\"})",
+          "expr": "histogram_quantile(0.75, dshackle_upstream_request_duration_seconds_bucket{protocol=\"http-json-rpc\",instance=~\"$instance\",chain=~\"$chain\"})",
           "interval": "",
           "legendFormat": "{{ upstream }}",
           "refId": "A"
@@ -1152,7 +1152,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "histogram_quantile(0.90, dshackle_upstream_rpc_conn_seconds_bucket{instance=~\"$instance\",chain=~\"$chain\"})",
+          "expr": "histogram_quantile(0.90, dshackle_upstream_request_duration_seconds_bucket{protocol=\"http-json-rpc\",instance=~\"$instance\",chain=~\"$chain\"})",
           "interval": "",
           "legendFormat": "{{ upstream }}",
           "refId": "A"
@@ -1235,7 +1235,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "histogram_quantile(0.99, dshackle_upstream_rpc_conn_seconds_bucket{instance=~\"$instance\",chain=~\"$chain\"})",
+          "expr": "histogram_quantile(0.99, dshackle_upstream_request_duration_seconds_bucket{protocol=\"http-json-rpc\",instance=~\"$instance\",chain=~\"$chain\"})",
           "interval": "",
           "legendFormat": "{{ upstream }}",
           "refId": "A"
@@ -1324,7 +1324,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(dshackle_upstream_ws_err_total{chain=~\"$chain\", instance=~\"$instance\"}[1m])",
+          "expr": "sum by (upstream) (rate(dshackle_upstream_requests_total{protocol=\"ws-json-rpc\", status=\"failed\", chain=~\"$chain\", instance=~\"$instance\"}[1m]))",
           "interval": "",
           "legendFormat": "{{ upstream }}",
           "refId": "A"
@@ -1407,7 +1407,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "histogram_quantile(0.50, dshackle_upstream_ws_conn_seconds_bucket{instance=~\"$instance\",chain=~\"$chain\"})",
+          "expr": "histogram_quantile(0.50, dshackle_upstream_request_duration_seconds_bucket{protocol=\"ws-json-rpc\",instance=~\"$instance\",chain=~\"$chain\"})",
           "interval": "",
           "legendFormat": "{{ upstream }}",
           "refId": "A"
@@ -1490,7 +1490,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "histogram_quantile(0.75, dshackle_upstream_ws_conn_seconds_bucket{instance=~\"$instance\",chain=~\"$chain\"})",
+          "expr": "histogram_quantile(0.75, dshackle_upstream_request_duration_seconds_bucket{protocol=\"ws-json-rpc\",instance=~\"$instance\",chain=~\"$chain\"})",
           "interval": "",
           "legendFormat": "{{ upstream }}",
           "refId": "A"
@@ -1574,7 +1574,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "dshackle_upstreams_lag{instance=~\"$instance\", chain=~\"$chain\"}",
+          "expr": "dshackle_upstream_lag{instance=~\"$instance\", chain=~\"$chain\"}",
           "interval": "",
           "legendFormat": "{{ upstream }}",
           "refId": "A"
@@ -1668,7 +1668,7 @@
             "uid": "lQ3xLXW7k"
           },
           "exemplar": false,
-          "expr": "sum by (method) (dshackle_request_jsonrpc_err_total{chain=~\"$chain\", instance=~\"$instance\"})",
+          "expr": "sum by (method) (dshackle_downstream_requests_total{protocol=~\"http-json-rpc|ws-json-rpc\", status=\"error\", chain=~\"$chain\", instance=~\"$instance\"})",
           "format": "table",
           "instant": true,
           "interval": "",
@@ -1753,7 +1753,7 @@
             "uid": "lQ3xLXW7k"
           },
           "exemplar": false,
-          "expr": "sum by (method) (dshackle_request_jsonrpc_fail_total{chain=~\"$chain\", instance=~\"$instance\"})",
+          "expr": "sum by (method) (dshackle_downstream_requests_total{protocol=~\"http-json-rpc|ws-json-rpc\", status=\"failed\", chain=~\"$chain\", instance=~\"$instance\"})",
           "format": "table",
           "instant": true,
           "interval": "",
@@ -1843,7 +1843,7 @@
             "uid": "lQ3xLXW7k"
           },
           "exemplar": false,
-          "expr": "sum by (method) (dshackle_request_jsonrpc_request_total{chain=~\"$chain\", instance=~\"$instance\"})",
+          "expr": "sum by (method) (dshackle_downstream_requests_total{protocol=~\"http-json-rpc|ws-json-rpc\", status=\"success\", chain=~\"$chain\", instance=~\"$instance\"})",
           "format": "table",
           "instant": true,
           "interval": "",
@@ -1905,14 +1905,14 @@
           "text": "dshackle-01",
           "value": "dshackle-01"
         },
-        "definition": "label_values(dshackle_request_jsonrpc_err_total{},instance)",
+        "definition": "label_values(dshackle_downstream_requests_total{},instance)",
         "hide": 0,
         "includeAll": false,
         "multi": false,
         "name": "instance",
         "options": [],
         "query": {
-          "query": "label_values(dshackle_request_jsonrpc_err_total{},instance)",
+          "query": "label_values(dshackle_downstream_requests_total{},instance)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 1,
@@ -1934,14 +1934,14 @@
             "ETH"
           ]
         },
-        "definition": "label_values(dshackle_upstreams_availability,chain)",
+        "definition": "label_values(dshackle_upstream_availability,chain)",
         "hide": 0,
         "includeAll": true,
         "multi": true,
         "name": "chain",
         "options": [],
         "query": {
-          "query": "label_values(dshackle_upstreams_availability,chain)",
+          "query": "label_values(dshackle_upstream_availability,chain)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 1,

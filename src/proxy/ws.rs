@@ -25,6 +25,7 @@ use super::handler;
 use super::protocol::{self, BodyKind, ProxyRequest};
 use crate::logs;
 use crate::logs::access;
+use crate::metrics::{self, ApiMethod, DownstreamProtocol, RequestStatus};
 use crate::upstream::egress::EgressError;
 use futures::{SinkExt, StreamExt};
 use std::collections::HashMap;
@@ -115,8 +116,15 @@ pub async fn serve(socket: WebSocket, route: Arc<ProxyRoute>, ctx: Arc<logs::Ing
                 let ctx = Arc::clone(&ctx);
                 tokio::spawn(logs::with_context((*ctx).clone(), async move {
                     let access = handler::AccessMeta::new(logs::Channel::WsJsonRpc, ctx);
-                    let response =
-                        handler::run(&multistream, &chain, &req, access.as_ref(), 0).await;
+                    let response = handler::run(
+                        &multistream,
+                        DownstreamProtocol::WsJsonRpc,
+                        &chain,
+                        &req,
+                        access.as_ref(),
+                        0,
+                    )
+                    .await;
                     let _ = out_tx.send(Message::text(response)).await;
                 }));
             }
@@ -151,13 +159,26 @@ async fn handle_subscribe(
     subscriptions: &mut HashMap<String, AbortHandle>,
     ctx: &Arc<logs::IngressContext>,
 ) {
+    let started = std::time::Instant::now();
+    let record = |status: RequestStatus| {
+        metrics::downstream_request(
+            DownstreamProtocol::WsJsonRpc,
+            ApiMethod::NativeSubscribe,
+            Some(&route.chain),
+            status,
+            started.elapsed(),
+        );
+    };
+
     // A malformed subscribe (no topic, or too many params) is ignored, matching
     // the legacy `splitMethodParams` returning null.
     let Some((topic, params)) = subscribe_params(&req.params) else {
+        record(RequestStatus::Error);
         return;
     };
 
     let Some(egress) = &route.egress else {
+        record(RequestStatus::Error);
         let _ = out_tx
             .send(Message::text(protocol::build_error(
                 &req.id,
@@ -171,6 +192,7 @@ async fn handle_subscribe(
 
     match egress.subscribe(&topic, params) {
         Ok(mut stream) => {
+            record(RequestStatus::Success);
             let sub_id = next_subscription_id();
             // The id response must precede any pushed event; the channel is FIFO
             // and this enqueues before the pump task is spawned.
@@ -191,6 +213,11 @@ async fn handle_subscribe(
                     let Some(msg) = subscription_message(&id, &event) else {
                         break;
                     };
+                    metrics::downstream_subscription_message(
+                        DownstreamProtocol::WsJsonRpc,
+                        ApiMethod::NativeSubscribe,
+                        Some(&chain),
+                    );
                     if logs::access_enabled() {
                         logs::access_log(&access::AccessRecord::new(
                             logs::Channel::WsJsonRpc,
@@ -217,6 +244,7 @@ async fn handle_subscribe(
             subscriptions.insert(sub_id, handle.abort_handle());
         }
         Err(EgressError::UnsupportedMethod(method)) => {
+            record(RequestStatus::Error);
             let _ = out_tx
                 .send(Message::text(protocol::build_error(
                     &req.id,

@@ -18,6 +18,7 @@
 
 use crate::config::upstreams::UpstreamRole;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
+use crate::metrics::RequestStatus;
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
 use crate::upstream::id::UpstreamId;
@@ -183,6 +184,29 @@ impl std::fmt::Display for UpstreamError {
 
 impl std::error::Error for UpstreamError {}
 
+/// How a call ended, for the request metrics of both the API and the
+/// upstream connections.
+impl From<Result<&JsonRpcResponse, &UpstreamError>> for RequestStatus {
+    fn from(result: Result<&JsonRpcResponse, &UpstreamError>) -> Self {
+        match result {
+            Ok(response) if response.error.is_some() => RequestStatus::Error,
+            Ok(_) => RequestStatus::Success,
+            Err(UpstreamError::MethodNotAllowed(_)) => RequestStatus::Error,
+            // The node's own answer about the request, e.g. Bitcoin's 500
+            // "Already Spent", unlike a 429 or 502 from a struggling provider.
+            Err(UpstreamError::Rejected { status, .. })
+                if !crate::upstream::quorum::is_unavailable_status(*status) =>
+            {
+                RequestStatus::Error
+            }
+            // Our own limits, or a remote Dshackle whose upstreams are all at
+            // theirs.
+            Err(UpstreamError::LimitReached) => RequestStatus::RateLimited,
+            Err(_) => RequestStatus::Failed,
+        }
+    }
+}
+
 /// Sanitize an HTTP error response body for safe logging.
 ///
 /// Keeps only printable ASCII (0x20..=0x7E) and truncates to 1024 characters.
@@ -196,6 +220,24 @@ pub fn sanitize_error_body(body: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn node_rejecting_the_request_is_an_error() {
+        let rejected = UpstreamError::Rejected {
+            status: 500,
+            message: "Already Spent".into(),
+        };
+        assert_eq!(RequestStatus::from(Err(&rejected)), RequestStatus::Error);
+    }
+
+    #[test]
+    fn struggling_provider_is_a_failure() {
+        let rejected = UpstreamError::Rejected {
+            status: 429,
+            message: "Too Many Requests".into(),
+        };
+        assert_eq!(RequestStatus::from(Err(&rejected)), RequestStatus::Failed);
+    }
 
     #[test]
     fn sanitize_keeps_printable_ascii() {

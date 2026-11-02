@@ -397,7 +397,7 @@ impl UpstreamManager {
                             // counted and logged (as INTERNAL) too.
                             let metered = MeteredUpstream::new(
                                 Arc::clone(http_up) as Arc<dyn RpcUpstream>,
-                                crate::metrics::UpstreamProtocol::Rpc,
+                                crate::metrics::UpstreamProtocol::HttpJsonRpc,
                                 id.clone(),
                                 chain,
                             );
@@ -425,7 +425,7 @@ impl UpstreamManager {
                     let ws_rpc: Option<Arc<dyn RpcUpstream>> = ws_upstream.map(|u| {
                         let metered = MeteredUpstream::new(
                             u,
-                            crate::metrics::UpstreamProtocol::Ws,
+                            crate::metrics::UpstreamProtocol::WsJsonRpc,
                             id.clone(),
                             chain,
                         );
@@ -453,7 +453,7 @@ impl UpstreamManager {
                     let http_rpc: Option<Arc<dyn RpcUpstream>> = http_upstream.map(|u| {
                         let metered = MeteredUpstream::new(
                             u,
-                            crate::metrics::UpstreamProtocol::Rpc,
+                            crate::metrics::UpstreamProtocol::HttpJsonRpc,
                             id.clone(),
                             chain,
                         );
@@ -525,6 +525,8 @@ impl UpstreamManager {
                     let reader = RequestLimitGuard::wrap(
                         reader,
                         RequestBudget::new(&upstream.limits).as_ref(),
+                        &id,
+                        chain,
                     );
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(MethodFilter::new(reader, Arc::clone(&methods)));
@@ -604,7 +606,7 @@ impl UpstreamManager {
                     caching_head.follow(&head);
                     let metered = MeteredUpstream::new(
                         Arc::new(http_up),
-                        crate::metrics::UpstreamProtocol::Rpc,
+                        crate::metrics::UpstreamProtocol::HttpJsonRpc,
                         id.clone(),
                         chain,
                     );
@@ -700,6 +702,8 @@ impl UpstreamManager {
                     let reader = RequestLimitGuard::wrap(
                         reader,
                         RequestBudget::new(&upstream.limits).as_ref(),
+                        &id,
+                        chain,
                     );
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(MethodFilter::new(reader, Arc::clone(&methods)));
@@ -1753,7 +1757,7 @@ fn wire_remote_dshackle(
 
         let metered = MeteredUpstream::new(
             ds_upstream,
-            crate::metrics::UpstreamProtocol::Grpc,
+            crate::metrics::UpstreamProtocol::Dshackle,
             upstream_id.clone(),
             chain,
         );
@@ -1763,7 +1767,12 @@ fn wire_remote_dshackle(
             upstream_id.clone(),
             chain,
         ));
-        let reader = RequestLimitGuard::wrap(reader, pending.budget.as_ref());
+        let reader = RequestLimitGuard::wrap(
+            reader,
+            pending.budget.as_ref(),
+            upstream_id,
+            chain,
+        );
 
         // Capabilities come from the remote's own report (legacy
         // `RemoteCapabilities.extract`), so a Dshackle relay re-advertises what

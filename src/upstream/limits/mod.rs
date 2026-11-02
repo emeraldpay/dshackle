@@ -30,7 +30,9 @@ mod budget;
 
 pub use budget::RequestBudget;
 
+use crate::blockchain::TargetBlockchain;
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
+use crate::metrics;
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
 use crate::upstream::id::UpstreamId;
@@ -46,11 +48,26 @@ use std::sync::Arc;
 pub struct RequestLimitGuard {
     inner: Arc<dyn RpcUpstream>,
     budget: Arc<RequestBudget>,
+    /// The `upstream` metric label: the configured id, which a remote
+    /// Dshackle's inner id extends with the chain.
+    upstream: UpstreamId,
+    chain: TargetBlockchain,
 }
 
 impl RequestLimitGuard {
-    fn new(inner: Arc<dyn RpcUpstream>, budget: Arc<RequestBudget>) -> Self {
-        Self { inner, budget }
+    fn new(
+        inner: Arc<dyn RpcUpstream>,
+        budget: Arc<RequestBudget>,
+        upstream: UpstreamId,
+        chain: TargetBlockchain,
+    ) -> Self {
+        metrics::upstream_limits_created(upstream.as_str(), &chain);
+        Self {
+            inner,
+            budget,
+            upstream,
+            chain,
+        }
     }
 
     /// `inner` guarded by `budget`, or `inner` as is for an upstream
@@ -58,9 +75,16 @@ impl RequestLimitGuard {
     pub fn wrap(
         inner: Arc<dyn RpcUpstream>,
         budget: Option<&Arc<RequestBudget>>,
+        upstream: &UpstreamId,
+        chain: TargetBlockchain,
     ) -> Arc<dyn RpcUpstream> {
         match budget {
-            Some(budget) => Arc::new(Self::new(inner, Arc::clone(budget))),
+            Some(budget) => Arc::new(Self::new(
+                inner,
+                Arc::clone(budget),
+                upstream.clone(),
+                chain,
+            )),
             None => inner,
         }
     }
@@ -75,6 +99,7 @@ impl RpcUpstream for RequestLimitGuard {
                 self.inner.id(),
                 request.method
             );
+            metrics::upstream_limited(self.upstream.as_str(), &self.chain);
             return Err(UpstreamError::LimitReached);
         }
         self.inner.call(request).await
@@ -158,6 +183,15 @@ mod tests {
         .unwrap()
     }
 
+    fn guard(inner: Arc<dyn RpcUpstream>, budget: Arc<RequestBudget>) -> RequestLimitGuard {
+        RequestLimitGuard::new(
+            inner,
+            budget,
+            crate::upstream::id::stub_id().clone(),
+            "ethereum".parse().unwrap(),
+        )
+    }
+
     fn request() -> JsonRpcRequest {
         JsonRpcRequest::new(1, "eth_blockNumber".into(), serde_json::json!([]))
     }
@@ -165,7 +199,7 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn refuses_without_calling_once_budget_is_spent() {
         let inner = CountingUpstream::new();
-        let guard = RequestLimitGuard::new(Arc::clone(&inner) as Arc<dyn RpcUpstream>, budget(2));
+        let guard = guard(Arc::clone(&inner) as Arc<dyn RpcUpstream>, budget(2));
 
         assert!(guard.call(&request()).await.is_ok());
         assert!(guard.call(&request()).await.is_ok());
@@ -180,7 +214,7 @@ mod tests {
         // Running out of budget is about this moment's traffic, not the
         // upstream's health; it must not drop out of selection.
         let inner = CountingUpstream::new();
-        let guard = RequestLimitGuard::new(inner, budget(1));
+        let guard = guard(inner, budget(1));
         guard.call(&request()).await.unwrap();
 
         assert!(guard.call(&request()).await.is_err());
@@ -191,8 +225,8 @@ mod tests {
     async fn guards_sharing_a_budget_share_the_limit() {
         // A remote Dshackle gets one guard per chain, all on one budget.
         let shared = budget(2);
-        let a = RequestLimitGuard::new(CountingUpstream::new(), Arc::clone(&shared));
-        let b = RequestLimitGuard::new(CountingUpstream::new(), shared);
+        let a = guard(CountingUpstream::new(), Arc::clone(&shared));
+        let b = guard(CountingUpstream::new(), shared);
 
         assert!(a.call(&request()).await.is_ok());
         assert!(b.call(&request()).await.is_ok());

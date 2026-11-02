@@ -22,18 +22,17 @@ use crate::blockchain::TargetBlockchain;
 use crate::data::BlockContainer;
 use crate::logs;
 use crate::logs::access;
-use crate::metrics::{self, GrpcRequestType};
+use crate::metrics::{self, ApiMethod, CallMethod, DownstreamProtocol, RequestStatus};
+use crate::rpc::downstream_request::DownstreamRequest;
 use crate::rpc::native_call;
-use crate::upstream::allowance::AllowanceError;
-use crate::upstream::balance::BalanceError;
 use crate::upstream::egress::EgressError;
 use crate::upstream::fees::{FeeError, FeeMode};
 use crate::upstream::selector::LabelSelector;
-use crate::upstream::tx_status::TxStatusError;
 use crate::upstream::{Multistream, UpstreamManager};
 use emerald_api::proto::blockchain::blockchain_server::Blockchain;
 use emerald_api::proto::blockchain::*;
 use emerald_api::proto::common;
+use futures::FutureExt;
 use futures::stream::{self, FuturesUnordered, StreamExt};
 use std::pin::Pin;
 use std::sync::Arc;
@@ -236,20 +235,30 @@ impl Blockchain for BlockchainRpcService {
             "native_call request"
         );
 
+        // Each item is recorded as a call of its own, even when the request is
+        // refused as a whole, so the metrics count in one unit.
+        let started = std::time::Instant::now();
         let chain = TargetBlockchain::try_from(req.chain).map_err(|id| {
             tracing::trace!(chain = id, "unknown chain id");
-            tonic::Status::invalid_argument(format!("unknown chain id {id}"))
+            refused_native_call(
+                &req.items,
+                None,
+                started,
+                tonic::Status::invalid_argument(format!("unknown chain id {id}")),
+            )
         })?;
-
-        metrics::grpc_request(GrpcRequestType::NativeCall, Some(&chain));
-        let start = std::time::Instant::now();
 
         let multistream = self
             .upstreams
             .get(&chain)
             .ok_or_else(|| {
                 tracing::trace!(%chain, "no upstream for chain");
-                tonic::Status::unavailable(format!("no upstream available for chain {chain}"))
+                refused_native_call(
+                    &req.items,
+                    Some(&chain),
+                    started,
+                    tonic::Status::unavailable(format!("no upstream available for chain {chain}")),
+                )
             })?
             .clone();
 
@@ -287,6 +296,7 @@ impl Blockchain for BlockchainRpcService {
             .items
             .into_iter()
             .map(|item| {
+                let method = item.method.clone();
                 let multistream = multistream.clone();
                 let signer = self.signer.clone();
                 let labels = Arc::clone(&labels);
@@ -295,31 +305,30 @@ impl Blockchain for BlockchainRpcService {
                 AbortOnDropHandle::new(tokio::spawn(logs::with_context(
                     (*ctx).clone(),
                     async move {
-                        native_call::execute_native_call(
+                        let outcome = native_call::execute_native_call(
                             multistream.as_ref(),
                             &item,
                             &labels,
                             signer.as_deref(),
                         )
-                        .await
+                        .await;
+                        metrics::downstream_call(
+                            DownstreamProtocol::Dshackle,
+                            Some(&chain),
+                            native_call::call_method(&multistream, &item.method),
+                            outcome.status,
+                            started.elapsed(),
+                        );
+                        outcome.reply
                     },
                 )))
+                .map(move |joined| (method, joined))
             })
             .collect();
 
         let mut log_index = 0usize;
-        let stream = tasks.map(move |joined| match joined {
+        let stream = tasks.map(move |(method, joined)| match joined {
             Ok(reply) => {
-                if reply.succeed {
-                    metrics::grpc_response(GrpcRequestType::NativeCall, Some(&chain));
-                    metrics::grpc_response_time(
-                        GrpcRequestType::NativeCall,
-                        Some(&chain),
-                        start.elapsed(),
-                    );
-                } else {
-                    metrics::grpc_response_err(GrpcRequestType::NativeCall, Some(&chain));
-                }
                 if let Some(detail) = log_items
                     .as_ref()
                     .and_then(|items| items.iter().find(|d| d.id == reply.id))
@@ -366,7 +375,14 @@ impl Blockchain for BlockchainRpcService {
                 Ok(reply)
             }
             Err(e) => {
-                metrics::grpc_fail();
+                // The task died before it recorded its call.
+                metrics::downstream_call(
+                    DownstreamProtocol::Dshackle,
+                    Some(&chain),
+                    native_call::call_method(&multistream, &method),
+                    RequestStatus::Failed,
+                    started.elapsed(),
+                );
                 Err(tonic::Status::internal(format!(
                     "native_call task failed: {e}"
                 )))
@@ -383,16 +399,21 @@ impl Blockchain for BlockchainRpcService {
         request: tonic::Request<common::Chain>,
     ) -> Result<tonic::Response<Self::SubscribeHeadStream>, tonic::Status> {
         let ctx = ingress_context(&request);
+        let downstream_request = DownstreamRequest::start(ApiMethod::SubscribeHead);
         let chain = TargetBlockchain::try_from(request.into_inner().r#type).map_err(|id| {
             tracing::trace!(chain = id, "unknown chain id");
-            tonic::Status::invalid_argument(format!("unknown chain id {id}"))
+            downstream_request.refused(
+                None,
+                tonic::Status::invalid_argument(format!("unknown chain id {id}")),
+            )
         })?;
-
-        metrics::grpc_request(GrpcRequestType::SubscribeHead, Some(&chain));
 
         let head = self.upstreams.head(&chain).ok_or_else(|| {
             tracing::trace!(%chain, "no head stream for chain");
-            tonic::Status::unavailable(format!("no upstream available for chain {chain}"))
+            downstream_request.refused(
+                Some(&chain),
+                tonic::Status::unavailable(format!("no upstream available for chain {chain}")),
+            )
         })?;
 
         let chain_id = chain.id();
@@ -404,7 +425,11 @@ impl Blockchain for BlockchainRpcService {
             let log_index = Arc::clone(&log_index);
             async move {
                 item.ok().map(|block| {
-                    metrics::grpc_reply(GrpcRequestType::SubscribeHead, Some(&chain));
+                    metrics::downstream_subscription_message(
+                        DownstreamProtocol::Dshackle,
+                        ApiMethod::SubscribeHead,
+                        Some(&chain),
+                    );
                     if logs::access_enabled() {
                         logs::access_log(&access::AccessRecord::new(
                             logs::Channel::Dshackle,
@@ -422,7 +447,7 @@ impl Blockchain for BlockchainRpcService {
             }
         });
 
-        Ok(tonic::Response::new(Box::pin(stream)))
+        downstream_request.finish(Some(&chain), Ok(tonic::Response::new(Box::pin(stream))))
     }
 
     async fn subscribe_balance(
@@ -432,22 +457,26 @@ impl Blockchain for BlockchainRpcService {
         let ctx = ingress_context(&request);
         let req = request.into_inner();
         let chain = request_balance_chain(&req);
-        metrics::grpc_request(GrpcRequestType::SubscribeBalance, chain.as_ref());
+        let downstream_request = DownstreamRequest::start(ApiMethod::SubscribeBalance);
         let balance_log =
             BalanceLog::new(access::Payload::SubscribeBalance, &req, chain.as_ref(), ctx);
         let stream = self
             .upstreams
             .balance(&req, true)
             .await
-            .map_err(BalanceError::into_status)?;
+            .map_err(|e| downstream_request.refused(chain.as_ref(), e.into_status()))?;
         let stream = stream.map(move |item| {
             if let Ok(balance) = &item {
-                metrics::grpc_reply(GrpcRequestType::SubscribeBalance, chain.as_ref());
+                metrics::downstream_subscription_message(
+                    DownstreamProtocol::Dshackle,
+                    ApiMethod::SubscribeBalance,
+                    chain.as_ref(),
+                );
                 balance_log.on_reply(balance);
             }
             item
         });
-        Ok(tonic::Response::new(Box::pin(stream)))
+        downstream_request.finish(chain.as_ref(), Ok(tonic::Response::new(Box::pin(stream))))
     }
 
     async fn subscribe_tx_status(
@@ -457,14 +486,21 @@ impl Blockchain for BlockchainRpcService {
         let ctx = ingress_context(&request);
         let req = request.into_inner();
         let chain = TargetBlockchain::try_from(req.chain).ok();
-        metrics::grpc_request(GrpcRequestType::SubscribeTx, chain.as_ref());
+        let downstream_request = DownstreamRequest::start(ApiMethod::SubscribeTx);
         let tx_id = req.tx_id.clone();
         let log_index = Arc::new(AtomicUsize::new(0));
         let stream = self
             .upstreams
             .tx_status(&req)
-            .map_err(TxStatusError::into_status)?;
+            .map_err(|e| downstream_request.refused(chain.as_ref(), e.into_status()))?;
         let stream = stream.map(move |item| {
+            if item.is_ok() {
+                metrics::downstream_subscription_message(
+                    DownstreamProtocol::Dshackle,
+                    ApiMethod::SubscribeTx,
+                    chain.as_ref(),
+                );
+            }
             if let Ok(status) = &item
                 && logs::access_enabled()
             {
@@ -487,7 +523,7 @@ impl Blockchain for BlockchainRpcService {
             }
             item
         });
-        Ok(tonic::Response::new(Box::pin(stream)))
+        downstream_request.finish(chain.as_ref(), Ok(tonic::Response::new(Box::pin(stream))))
     }
 
     async fn get_balance(
@@ -497,22 +533,19 @@ impl Blockchain for BlockchainRpcService {
         let ctx = ingress_context(&request);
         let req = request.into_inner();
         let chain = request_balance_chain(&req);
-        metrics::grpc_request(GrpcRequestType::GetBalance, chain.as_ref());
+        let downstream_request = DownstreamRequest::start(ApiMethod::GetBalance);
         let balance_log = BalanceLog::new(access::Payload::GetBalance, &req, chain.as_ref(), ctx);
-        let start = std::time::Instant::now();
         let stream = self
             .upstreams
             .balance(&req, false)
             .await
-            .map_err(BalanceError::into_status)?;
+            .map_err(|e| downstream_request.refused(chain.as_ref(), e.into_status()))?;
+        let mut unanswered = Some(downstream_request);
         let stream = stream.map(move |item| {
+            if let Some(request) = unanswered.take() {
+                request.answered(chain.as_ref(), &item);
+            }
             if let Ok(balance) = &item {
-                metrics::grpc_response(GrpcRequestType::GetBalance, chain.as_ref());
-                metrics::grpc_response_time(
-                    GrpcRequestType::GetBalance,
-                    chain.as_ref(),
-                    start.elapsed(),
-                );
                 balance_log.on_reply(balance);
             }
             item
@@ -527,27 +560,24 @@ impl Blockchain for BlockchainRpcService {
         let ctx = ingress_context(&request);
         let req = request.into_inner();
         let chain = TargetBlockchain::try_from(req.chain).ok();
-        metrics::grpc_request(GrpcRequestType::GetAllowance, chain.as_ref());
+        let downstream_request = DownstreamRequest::start(ApiMethod::GetAllowance);
         let allowance_log = AllowanceLog::new(
             access::Payload::GetAddressAllowance,
             &req,
             chain.as_ref(),
             ctx,
         );
-        let start = std::time::Instant::now();
         let stream = self
             .upstreams
             .address_allowance(req, false)
             .await
-            .map_err(AllowanceError::into_status)?;
+            .map_err(|e| downstream_request.refused(chain.as_ref(), e.into_status()))?;
+        let mut unanswered = Some(downstream_request);
         let stream = stream.map(move |item| {
+            if let Some(request) = unanswered.take() {
+                request.answered(chain.as_ref(), &item);
+            }
             if let Ok(allowance) = &item {
-                metrics::grpc_response(GrpcRequestType::GetAllowance, chain.as_ref());
-                metrics::grpc_response_time(
-                    GrpcRequestType::GetAllowance,
-                    chain.as_ref(),
-                    start.elapsed(),
-                );
                 allowance_log.on_reply(allowance);
             }
             item
@@ -562,7 +592,7 @@ impl Blockchain for BlockchainRpcService {
         let ctx = ingress_context(&request);
         let req = request.into_inner();
         let chain = TargetBlockchain::try_from(req.chain).ok();
-        metrics::grpc_request(GrpcRequestType::SubscribeAllowance, chain.as_ref());
+        let downstream_request = DownstreamRequest::start(ApiMethod::SubscribeAllowance);
         let allowance_log = AllowanceLog::new(
             access::Payload::SubscribeAddressAllowance,
             &req,
@@ -573,15 +603,19 @@ impl Blockchain for BlockchainRpcService {
             .upstreams
             .address_allowance(req, true)
             .await
-            .map_err(AllowanceError::into_status)?;
+            .map_err(|e| downstream_request.refused(chain.as_ref(), e.into_status()))?;
         let stream = stream.map(move |item| {
             if let Ok(allowance) = &item {
-                metrics::grpc_response(GrpcRequestType::SubscribeAllowance, chain.as_ref());
+                metrics::downstream_subscription_message(
+                    DownstreamProtocol::Dshackle,
+                    ApiMethod::SubscribeAllowance,
+                    chain.as_ref(),
+                );
                 allowance_log.on_reply(allowance);
             }
             item
         });
-        Ok(tonic::Response::new(Box::pin(stream)))
+        downstream_request.finish(chain.as_ref(), Ok(tonic::Response::new(Box::pin(stream))))
     }
 
     async fn estimate_fee(
@@ -591,8 +625,7 @@ impl Blockchain for BlockchainRpcService {
         let ctx = ingress_context(&request);
         let req = request.into_inner();
         let chain = TargetBlockchain::try_from(req.chain).ok();
-        metrics::grpc_request(GrpcRequestType::EstimateFee, chain.as_ref());
-        let start = std::time::Instant::now();
+        let downstream_request = DownstreamRequest::start(ApiMethod::EstimateFee);
 
         // An unconfigured (or non-fee-supporting, e.g. Bitcoin) chain is
         // `UNAVAILABLE`; the fee estimator is `None` in both cases. Carry the
@@ -601,21 +634,22 @@ impl Blockchain for BlockchainRpcService {
             .ok()
             .and_then(|chain| self.upstreams.fees(&chain))
             .ok_or_else(|| {
-                tonic::Status::unavailable(format!("BLOCKCHAIN UNAVAILABLE: {}", req.chain))
+                downstream_request.refused(
+                    chain.as_ref(),
+                    tonic::Status::unavailable(format!("BLOCKCHAIN UNAVAILABLE: {}", req.chain)),
+                )
             })?;
 
         // Reject an unusable mode up front (legacy `ChainFees.extractMode`).
-        let mode = FeeMode::from_proto(req.mode)
-            .ok_or_else(|| tonic::Status::unavailable(format!("UNSUPPORTED MODE: {}", req.mode)))?;
+        let mode = FeeMode::from_proto(req.mode).ok_or_else(|| {
+            downstream_request.refused(
+                chain.as_ref(),
+                tonic::Status::unavailable(format!("UNSUPPORTED MODE: {}", req.mode)),
+            )
+        })?;
 
-        match fees.estimate(mode, req.blocks).await {
+        let result = match fees.estimate(mode, req.blocks).await {
             Ok(response) => {
-                metrics::grpc_response(GrpcRequestType::EstimateFee, chain.as_ref());
-                metrics::grpc_response_time(
-                    GrpcRequestType::EstimateFee,
-                    chain.as_ref(),
-                    start.elapsed(),
-                );
                 if logs::access_enabled() {
                     logs::access_log(&access::AccessRecord::new(
                         logs::Channel::Dshackle,
@@ -639,7 +673,8 @@ impl Blockchain for BlockchainRpcService {
             Err(FeeError::NoData) => Err(tonic::Status::unavailable(
                 "not enough data to estimate fee",
             )),
-        }
+        };
+        downstream_request.finish(chain.as_ref(), result)
     }
 
     async fn native_subscribe(
@@ -649,58 +684,74 @@ impl Blockchain for BlockchainRpcService {
         let ctx = ingress_context(&request);
         let req = request.into_inner();
 
-        let chain = TargetBlockchain::try_from(req.chain)
-            .map_err(|id| tonic::Status::unavailable(format!("BLOCKCHAIN UNAVAILABLE: {id}")))?;
-        metrics::grpc_request(GrpcRequestType::NativeSubscribe, Some(&chain));
-        let params = parse_subscribe_params(&req.payload)?;
+        let downstream_request = DownstreamRequest::start(ApiMethod::NativeSubscribe);
+        let chain = TargetBlockchain::try_from(req.chain).map_err(|id| {
+            downstream_request.refused(
+                None,
+                tonic::Status::unavailable(format!("BLOCKCHAIN UNAVAILABLE: {id}")),
+            )
+        })?;
+        let params = parse_subscribe_params(&req.payload)
+            .map_err(|status| downstream_request.refused(Some(&chain), status))?;
 
         // No egress means the chain can't serve subscriptions: an Ethereum
         // chain that tracks no head yet, or a Bitcoin chain with neither
         // `zeromq.topics` configured nor a remote Dshackle upstream
         // advertising topics to relay.
         let egress = self.upstreams.egress(&chain).ok_or_else(|| {
-            tonic::Status::unavailable(format!("BLOCKCHAIN UNAVAILABLE: {chain}"))
+            downstream_request.refused(
+                Some(&chain),
+                tonic::Status::unavailable(format!("BLOCKCHAIN UNAVAILABLE: {chain}")),
+            )
         })?;
 
-        match egress.subscribe(&req.method, params) {
-            Ok(stream) => {
-                let topic = req.method.clone();
-                let mapped = stream.map(move |payload| {
-                    metrics::grpc_response(GrpcRequestType::NativeSubscribe, Some(&chain));
-                    if logs::access_enabled() {
-                        logs::access_log(&access::AccessRecord::new(
-                            logs::Channel::Dshackle,
-                            access::Payload::NativeSubscribe(access::OnBlockchain::new(
-                                Some(&chain),
-                                access::NativeSubscribe {
-                                    request: ctx.request_details(),
-                                    payload_size_bytes: payload.len() as u64,
-                                    native_subscribe: access::NativeSubscribeItemDetails {
-                                        method: topic.clone(),
+        let result: Result<tonic::Response<Self::NativeSubscribeStream>, tonic::Status> =
+            match egress.subscribe(&req.method, params) {
+                Ok(stream) => {
+                    let topic = req.method.clone();
+                    let mapped = stream.map(move |payload| {
+                        metrics::downstream_subscription_message(
+                            DownstreamProtocol::Dshackle,
+                            ApiMethod::NativeSubscribe,
+                            Some(&chain),
+                        );
+                        if logs::access_enabled() {
+                            logs::access_log(&access::AccessRecord::new(
+                                logs::Channel::Dshackle,
+                                access::Payload::NativeSubscribe(access::OnBlockchain::new(
+                                    Some(&chain),
+                                    access::NativeSubscribe {
+                                        request: ctx.request_details(),
                                         payload_size_bytes: payload.len() as u64,
+                                        native_subscribe: access::NativeSubscribeItemDetails {
+                                            method: topic.clone(),
+                                            payload_size_bytes: payload.len() as u64,
+                                        },
+                                        // Bitcoin ZMQ topics push raw binary
+                                        // (rawblock is a whole serialized block);
+                                        // dumping that lossily would bloat the log
+                                        // with megabytes of replacement characters,
+                                        // so only text payloads are recorded.
+                                        response_body: logs::include_messages()
+                                            .then(|| {
+                                                std::str::from_utf8(&payload)
+                                                    .ok()
+                                                    .map(str::to_owned)
+                                            })
+                                            .flatten(),
                                     },
-                                    // Bitcoin ZMQ topics push raw binary
-                                    // (rawblock is a whole serialized block);
-                                    // dumping that lossily would bloat the log
-                                    // with megabytes of replacement characters,
-                                    // so only text payloads are recorded.
-                                    response_body: logs::include_messages()
-                                        .then(|| {
-                                            std::str::from_utf8(&payload).ok().map(str::to_owned)
-                                        })
-                                        .flatten(),
-                                },
-                            )),
-                        ));
-                    }
-                    Ok(NativeSubscribeReplyItem { payload })
-                });
-                Ok(tonic::Response::new(Box::pin(mapped)))
-            }
-            Err(EgressError::UnsupportedMethod(method)) => Err(tonic::Status::unimplemented(
-                format!("Method {method} is not supported"),
-            )),
-        }
+                                )),
+                            ));
+                        }
+                        Ok(NativeSubscribeReplyItem { payload })
+                    });
+                    Ok(tonic::Response::new(Box::pin(mapped)))
+                }
+                Err(EgressError::UnsupportedMethod(method)) => Err(tonic::Status::unimplemented(
+                    format!("Method {method} is not supported"),
+                )),
+            };
+        downstream_request.finish(Some(&chain), result)
     }
 
     async fn describe(
@@ -708,7 +759,7 @@ impl Blockchain for BlockchainRpcService {
         _request: tonic::Request<DescribeRequest>,
     ) -> Result<tonic::Response<DescribeResponse>, tonic::Status> {
         let ctx = ingress_context(&_request);
-        metrics::grpc_request(GrpcRequestType::Describe, None);
+        let downstream_request = DownstreamRequest::start(ApiMethod::Describe);
         // Discovery: advertise every configured chain with its status, the
         // methods/subscriptions it can serve, and its nodes. Mirrors the legacy
         // `Describe`. A Dshackle-behind-Dshackle upstream relies on `chain` and
@@ -776,7 +827,7 @@ impl Blockchain for BlockchainRpcService {
             ));
         }
 
-        Ok(tonic::Response::new(DescribeResponse { chains }))
+        downstream_request.finish(None, Ok(tonic::Response::new(DescribeResponse { chains })))
     }
 
     async fn subscribe_status(
@@ -785,7 +836,7 @@ impl Blockchain for BlockchainRpcService {
     ) -> Result<tonic::Response<Self::SubscribeStatusStream>, tonic::Status> {
         let ctx = ingress_context(&request);
         let req = request.into_inner();
-        metrics::grpc_request(GrpcRequestType::SubscribeStatus, None);
+        let downstream_request = DownstreamRequest::start(ApiMethod::SubscribeStatus);
 
         // One sub-stream per requested chain, merged into a single response
         // stream (legacy `Flux.merge`). A configured chain streams its status
@@ -806,6 +857,14 @@ impl Blockchain for BlockchainRpcService {
             .collect();
 
         let merged = stream::select_all(streams).map(move |item| {
+            if let Ok(status) = &item {
+                let chain = TargetBlockchain::try_from(status.chain).ok();
+                metrics::downstream_subscription_message(
+                    DownstreamProtocol::Dshackle,
+                    ApiMethod::SubscribeStatus,
+                    chain.as_ref(),
+                );
+            }
             if let Ok(status) = &item
                 && logs::access_enabled()
             {
@@ -822,8 +881,29 @@ impl Blockchain for BlockchainRpcService {
             item
         });
 
-        Ok(tonic::Response::new(Box::pin(merged)))
+        downstream_request.finish(None, Ok(tonic::Response::new(Box::pin(merged))))
     }
+}
+
+/// Records every item of a `NativeCall` refused as a whole as a call ended
+/// with `status`, and passes the status on. The chain serves none of their
+/// methods, so they're all `unsupported` to the metrics.
+fn refused_native_call(
+    items: &[NativeCallItem],
+    chain: Option<&TargetBlockchain>,
+    started: std::time::Instant,
+    status: tonic::Status,
+) -> tonic::Status {
+    for _ in items {
+        metrics::downstream_call(
+            DownstreamProtocol::Dshackle,
+            chain,
+            CallMethod::Unsupported,
+            RequestStatus::from(&status),
+            started.elapsed(),
+        );
+    }
+    status
 }
 
 /// A single-item status stream that emits `status` once and completes. Used for

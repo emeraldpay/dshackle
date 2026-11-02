@@ -12,167 +12,194 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Metrics of the connections to upstream nodes (legacy `upstream.*` and the
-//! per-connection `RpcMetrics`).
+//! Metrics of the requests Dshackle makes to its upstreams.
+//!
+//! One family per measure, with the connection as the `protocol` label and
+//! the outcome as the `status` label, instead of the legacy
+//! `upstream.rpc.*` / `upstream.ws.*` / `upstream.grpc.*` families that
+//! repeated each measure per connection type.
 
+use super::status::RequestStatus;
 use prometheus::{
     HistogramOpts, HistogramVec, IntCounterVec, IntGaugeVec, Opts, Registry, exponential_buckets,
 };
 use std::time::Duration;
 
-/// The connection protocol used to reach an upstream, distinguishing the three
-/// metric families the legacy version had (`upstream.rpc.*`, `upstream.ws.*`,
-/// `upstream.grpc.*`).
+/// The connection a request to an upstream went through, as the `protocol`
+/// label.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UpstreamProtocol {
-    /// JSON-RPC over HTTP.
-    Rpc,
-    /// JSON-RPC over WebSocket.
-    Ws,
-    /// A remote Dshackle over gRPC.
-    Grpc,
+    /// JSON-RPC over HTTP (`http-json-rpc`).
+    HttpJsonRpc,
+    /// JSON-RPC over WebSocket (`ws-json-rpc`).
+    WsJsonRpc,
+    /// A remote Dshackle (`dshackle`).
+    Dshackle,
+    /// None: Dshackle settled the request itself before choosing a
+    /// connection, e.g. refused it for the upstream's `limits` (`internal`).
+    Internal,
 }
 
-/// The `conn` / `fail` / `response.size` triple of one connection protocol.
-struct ProtocolMetrics {
-    conn: HistogramVec,
-    fail: IntCounterVec,
+impl UpstreamProtocol {
+    fn label(self) -> &'static str {
+        match self {
+            UpstreamProtocol::HttpJsonRpc => "http-json-rpc",
+            UpstreamProtocol::WsJsonRpc => "ws-json-rpc",
+            UpstreamProtocol::Dshackle => "dshackle",
+            UpstreamProtocol::Internal => "internal",
+        }
+    }
+}
+
+/// The outcomes of a request that went out over a connection. A remote
+/// Dshackle may also answer `rate-limited`; a request held back by the local
+/// limits never goes out, and has its own `internal` series.
+const SENT: [RequestStatus; 3] = [
+    RequestStatus::Success,
+    RequestStatus::Error,
+    RequestStatus::Failed,
+];
+
+/// Per-upstream request metrics, labeled by upstream id and chain.
+pub struct UpstreamMetrics {
+    requests: IntCounterVec,
+    duration: HistogramVec,
     response_size: HistogramVec,
+    in_flight: IntGaugeVec,
 }
 
-impl ProtocolMetrics {
-    /// `size_name` is passed in full because the legacy names are inconsistent:
-    /// the WS and gRPC summaries carried a `Bytes` base unit (adding a `_bytes`
-    /// suffix on export) while the HTTP one did not.
-    fn new(conn_name: String, fail_name: String, size_name: String, what: &str) -> Self {
+impl UpstreamMetrics {
+    /// The metrics, not yet registered.
+    pub fn new(prefix: &str) -> Self {
         // Response sizes from 128B to ~0.5GB; anything larger is effectively
         // "the last bucket" anyway.
         let size_buckets = exponential_buckets(128.0, 4.0, 12).expect("valid bucket definition");
         Self {
-            conn: HistogramVec::new(
-                HistogramOpts::new(conn_name, format!("Request time through {what}")),
-                &["upstream", "chain"],
+            requests: IntCounterVec::new(
+                Opts::new(
+                    format!("{prefix}_upstream_requests_total"),
+                    "Number of requests to the upstream, by how they ended",
+                ),
+                &["upstream", "chain", "protocol", "status"],
             )
             .expect("valid metric definition"),
-            fail: IntCounterVec::new(
-                Opts::new(fail_name, format!("Number of failures of {what}")),
-                &["upstream", "chain"],
+            duration: HistogramVec::new(
+                HistogramOpts::new(
+                    format!("{prefix}_upstream_request_duration_seconds"),
+                    "Time the upstream took to answer a request",
+                ),
+                &["upstream", "chain", "protocol"],
             )
             .expect("valid metric definition"),
             response_size: HistogramVec::new(
-                HistogramOpts::new(size_name, format!("Size of responses through {what}"))
-                    .buckets(size_buckets),
-                &["upstream", "chain"],
+                HistogramOpts::new(
+                    format!("{prefix}_upstream_response_size_bytes"),
+                    "Size of the results the upstream answered with",
+                )
+                .buckets(size_buckets),
+                &["upstream", "chain", "protocol"],
+            )
+            .expect("valid metric definition"),
+            in_flight: IntGaugeVec::new(
+                Opts::new(
+                    format!("{prefix}_upstream_requests_in_flight"),
+                    "Number of requests sent to the upstream and not yet answered",
+                ),
+                &["upstream", "chain", "protocol"],
             )
             .expect("valid metric definition"),
         }
     }
 
-    fn register(&self, registry: &Registry) {
+    /// Adds the metrics to `registry`.
+    pub fn register(&self, registry: &Registry) {
         registry
-            .register(Box::new(self.conn.clone()))
+            .register(Box::new(self.requests.clone()))
             .expect("register once");
         registry
-            .register(Box::new(self.fail.clone()))
+            .register(Box::new(self.duration.clone()))
             .expect("register once");
         registry
             .register(Box::new(self.response_size.clone()))
             .expect("register once");
-    }
-}
-
-/// Per-upstream connection metrics, labeled by upstream id and chain.
-pub struct UpstreamMetrics {
-    rpc: ProtocolMetrics,
-    ws: ProtocolMetrics,
-    grpc: ProtocolMetrics,
-    queue_size: IntGaugeVec,
-}
-
-impl UpstreamMetrics {
-    pub fn new(prefix: &str) -> Self {
-        Self {
-            rpc: ProtocolMetrics::new(
-                format!("{prefix}_upstream_rpc_conn_seconds"),
-                format!("{prefix}_upstream_rpc_fail_total"),
-                // Unlike WS/gRPC, no `_bytes` suffix — the legacy HTTP summary
-                // had no base unit.
-                format!("{prefix}_upstream_rpc_response_size"),
-                "a HTTP JSON RPC connection",
-            ),
-            ws: ProtocolMetrics::new(
-                format!("{prefix}_upstream_ws_conn_seconds"),
-                format!("{prefix}_upstream_ws_fail_total"),
-                format!("{prefix}_upstream_ws_response_size_bytes"),
-                "a WebSocket JSON RPC connection",
-            ),
-            grpc: ProtocolMetrics::new(
-                format!("{prefix}_upstream_grpc_conn_seconds"),
-                format!("{prefix}_upstream_grpc_fail_total"),
-                format!("{prefix}_upstream_grpc_response_size_bytes"),
-                "a Dshackle gRPC connection",
-            ),
-            queue_size: IntGaugeVec::new(
-                Opts::new(
-                    format!("{prefix}_upstream_rpc_queue_size"),
-                    "Number of requests currently in flight to the upstream",
-                ),
-                &["upstream", "chain"],
-            )
-            .expect("valid metric definition"),
-        }
-    }
-
-    pub fn register(&self, registry: &Registry) {
-        self.rpc.register(registry);
-        self.ws.register(registry);
-        self.grpc.register(registry);
         registry
-            .register(Box::new(self.queue_size.clone()))
+            .register(Box::new(self.in_flight.clone()))
             .expect("register once");
     }
 
-    fn protocol(&self, protocol: UpstreamProtocol) -> &ProtocolMetrics {
-        match protocol {
-            UpstreamProtocol::Rpc => &self.rpc,
-            UpstreamProtocol::Ws => &self.ws,
-            UpstreamProtocol::Grpc => &self.grpc,
-        }
-    }
-
-    /// Create the upstream's zero-valued series upfront, so a configured
+    /// Create the connection's zero-valued series upfront, so a configured
     /// upstream is visible in the scrape before it served its first request —
     /// like the legacy metrics, which were registered when the connection was
     /// built.
     pub fn on_created(&self, protocol: UpstreamProtocol, upstream: &str, chain: &str) {
-        let metrics = self.protocol(protocol);
-        let labels = &[upstream, chain];
-        metrics.conn.with_label_values(labels);
-        metrics.fail.with_label_values(labels);
-        metrics.response_size.with_label_values(labels);
-        self.queue_size.with_label_values(labels);
+        let labels = &[upstream, chain, protocol.label()];
+        for status in SENT {
+            self.requests
+                .with_label_values(&[upstream, chain, protocol.label(), status.label()]);
+        }
+        if protocol == UpstreamProtocol::Dshackle {
+            self.requests.with_label_values(&[
+                upstream,
+                chain,
+                protocol.label(),
+                RequestStatus::RateLimited.label(),
+            ]);
+        }
+        self.duration.with_label_values(labels);
+        self.response_size.with_label_values(labels);
+        self.in_flight.with_label_values(labels);
     }
 
-    pub fn on_call(
+    /// Like [`on_created`](Self::on_created), for an upstream configured with
+    /// `limits`.
+    pub fn on_limits_created(&self, upstream: &str, chain: &str) {
+        self.requests.with_label_values(&[
+            upstream,
+            chain,
+            UpstreamProtocol::Internal.label(),
+            RequestStatus::RateLimited.label(),
+        ]);
+    }
+
+    /// A request sent to the upstream ended with `status`.
+    pub fn on_request(
+        &self,
+        protocol: UpstreamProtocol,
+        upstream: &str,
+        chain: &str,
+        status: RequestStatus,
+    ) {
+        self.requests
+            .with_label_values(&[upstream, chain, protocol.label(), status.label()])
+            .inc();
+    }
+
+    /// The upstream's own `limits` refused a request before it was sent.
+    pub fn on_limited(&self, upstream: &str, chain: &str) {
+        self.requests
+            .with_label_values(&[
+                upstream,
+                chain,
+                UpstreamProtocol::Internal.label(),
+                RequestStatus::RateLimited.label(),
+            ])
+            .inc();
+    }
+
+    /// The upstream answered a request, with a result or an error, in `elapsed`.
+    pub fn on_answered(
         &self,
         protocol: UpstreamProtocol,
         upstream: &str,
         chain: &str,
         elapsed: Duration,
     ) {
-        self.protocol(protocol)
-            .conn
-            .with_label_values(&[upstream, chain])
+        self.duration
+            .with_label_values(&[upstream, chain, protocol.label()])
             .observe(elapsed.as_secs_f64());
     }
 
-    pub fn on_fail(&self, protocol: UpstreamProtocol, upstream: &str, chain: &str) {
-        self.protocol(protocol)
-            .fail
-            .with_label_values(&[upstream, chain])
-            .inc();
-    }
-
+    /// Size of a result the upstream answered with.
     pub fn on_response_size(
         &self,
         protocol: UpstreamProtocol,
@@ -180,17 +207,22 @@ impl UpstreamMetrics {
         chain: &str,
         size: usize,
     ) {
-        self.protocol(protocol)
-            .response_size
-            .with_label_values(&[upstream, chain])
+        self.response_size
+            .with_label_values(&[upstream, chain, protocol.label()])
             .observe(size as f64);
     }
 
-    pub fn on_enqueued(&self, upstream: &str, chain: &str) {
-        self.queue_size.with_label_values(&[upstream, chain]).inc();
+    /// A request is about to be sent to the upstream.
+    pub fn on_sent(&self, protocol: UpstreamProtocol, upstream: &str, chain: &str) {
+        self.in_flight
+            .with_label_values(&[upstream, chain, protocol.label()])
+            .inc();
     }
 
-    pub fn on_finished(&self, upstream: &str, chain: &str) {
-        self.queue_size.with_label_values(&[upstream, chain]).dec();
+    /// A sent request ended, in any way.
+    pub fn on_finished(&self, protocol: UpstreamProtocol, upstream: &str, chain: &str) {
+        self.in_flight
+            .with_label_values(&[upstream, chain, protocol.label()])
+            .dec();
     }
 }

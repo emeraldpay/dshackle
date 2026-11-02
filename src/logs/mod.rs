@@ -34,6 +34,7 @@ use crate::config::log::{AccessLogConfig, RequestLogConfig};
 use serde::Serialize;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
+pub use writer::LogKind;
 use writer::LogWriter;
 
 static ACCESS: OnceLock<LogWriter> = OnceLock::new();
@@ -46,7 +47,7 @@ static INCLUDE_PARAMS: AtomicBool = AtomicBool::new(false);
 pub fn init(access: &AccessLogConfig, request: &RequestLogConfig) {
     if access.enabled {
         INCLUDE_MESSAGES.store(access.include_messages, Ordering::SeqCst);
-        if let Some(writer) = LogWriter::start(&access.target, "access") {
+        if let Some(writer) = LogWriter::start(&access.target, LogKind::Access) {
             tracing::info!(
                 "Writing access log to {}",
                 access.target.filename.as_deref().unwrap_or("socket")
@@ -58,7 +59,7 @@ pub fn init(access: &AccessLogConfig, request: &RequestLogConfig) {
     }
     if request.enabled {
         INCLUDE_PARAMS.store(request.include_params, Ordering::SeqCst);
-        if let Some(writer) = LogWriter::start(&request.target, "request") {
+        if let Some(writer) = LogWriter::start(&request.target, LogKind::Request) {
             tracing::info!(
                 "Writing request log to {}",
                 request.target.filename.as_deref().unwrap_or("socket")

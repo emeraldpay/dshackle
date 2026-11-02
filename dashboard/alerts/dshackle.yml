@@ -2,7 +2,7 @@ groups:
 - name: Dshackle
   rules:
   - alert: JsonRpcDshackleErrorRateIsHigh
-    expr: rate(dshackle_request_jsonrpc_err_total[1m]) > 0.1
+    expr: sum by (instance) (rate(dshackle_downstream_requests_total{protocol=~"http-json-rpc|ws-json-rpc", status="error"}[1m])) > 0.1
     for: 1m
     labels:
       severity: critical
@@ -10,7 +10,7 @@ groups:
       summary: "Json RPC erorr rate is high for (instance {{ $labels.instance }})"
 
   - alert: JsonRpcDshackleFailRateIsHigh
-    expr: rate(dshackle_request_jsonrpc_fail_total[1m]) > 0.1
+    expr: sum by (instance) (rate(dshackle_downstream_requests_total{protocol=~"http-json-rpc|ws-json-rpc", status="failed"}[1m])) > 0.1
     for: 1m
     labels:
       severity: critical
@@ -19,7 +19,7 @@ groups:
 
 
   - alert: JsonRpcDshackleRateToHigh
-    expr: rate(dshackle_request_jsonrpc_request_total[1m]) > 1000
+    expr: sum by (instance) (rate(dshackle_downstream_requests_total{protocol=~"http-json-rpc|ws-json-rpc"}[1m])) > 1000
     for: 1m
     labels:
       severity: critical
@@ -28,7 +28,7 @@ groups:
 
 
   - alert: WsRpcDshackleErrorRateIsHigh
-    expr: rate(dshackle_upstream_ws_err_total[1m]) > 0.1
+    expr: sum by (instance, upstream) (rate(dshackle_upstream_requests_total{protocol="ws-json-rpc", status="failed"}[1m])) > 0.1
     for: 1m
     labels:
       severity: critical
@@ -36,7 +36,7 @@ groups:
       summary: "WS RPC erorr rate is high for (instance {{ $labels.instance }})"
 
   - alert: UpstreamUnavailable
-    expr: dshackle_upstreams_availability{status!~"(ok|lagging)"} > 0
+    expr: dshackle_upstream_availability{status!~"(ok|lagging)"} > 0
     for: 1m
     labels:
       severity: warning
@@ -44,7 +44,7 @@ groups:
       summary: "One of the eth node is broken (instance {{ $labels.instance }})"
 
   - alert: NoEthNodesForNetwork
-    expr: dshackle_upstreams_connected < 1
+    expr: sum by (instance, chain) (dshackle_upstream_availability{status=~"ok|lagging"}) < 1
     for: 1m
     labels:
       severity: critical
@@ -52,7 +52,7 @@ groups:
       summary: "No nodes for network on (instance {{ $labels.instance }})"
 
   - alert: UpstreamIsNotSyncing
-    expr: rate(dshackle_upstreams_lag[5m]) < 0
+    expr: rate(dshackle_upstream_lag[5m]) < 0
     for: 1m
     labels:
       severity: critical

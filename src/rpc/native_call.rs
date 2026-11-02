@@ -16,7 +16,8 @@
 //! `Multistream` with a method-specific quorum policy, then converting the
 //! result back to a gRPC reply.
 
-use crate::jsonrpc::JsonRpcRequest;
+use crate::jsonrpc::{JsonRpcRequest, RpcMethod};
+use crate::metrics::{CallMethod, RequestStatus};
 use crate::signature::{ProvidedSignature, ResponseSigner};
 use crate::upstream::router::Routed;
 use crate::upstream::selector::LabelSelector;
@@ -45,6 +46,22 @@ pub async fn execute_call(
     multistream.execute(request, labels).await
 }
 
+/// How the metrics may name a JSON-RPC `method` called on this chain: by its
+/// own name only when the chain serves it.
+pub fn call_method<'a>(multistream: &Multistream, method: &'a str) -> CallMethod<'a> {
+    match method.parse::<RpcMethod>() {
+        Ok(parsed) if multistream.method_available(&parsed) => CallMethod::Supported(method),
+        _ => CallMethod::Unsupported,
+    }
+}
+
+/// The reply to one `NativeCallItem`, with how the call ended for the
+/// metrics, which the reply's `succeed` flag can't tell apart.
+pub struct NativeCallOutcome {
+    pub reply: NativeCallReplyItem,
+    pub status: RequestStatus,
+}
+
 /// Execute a single native call item against the upstreams of a chain.
 ///
 /// Looks up the per-method `CallQuorum` from the `Multistream`'s factory,
@@ -57,16 +74,19 @@ pub async fn execute_native_call(
     item: &NativeCallItem,
     labels: &LabelSelector,
     signer: Option<&ResponseSigner>,
-) -> NativeCallReplyItem {
+) -> NativeCallOutcome {
     let params = match parse_payload(&item.payload) {
         Ok(v) => v,
         Err(msg) => {
-            return NativeCallReplyItem {
-                id: item.id,
-                succeed: false,
-                payload: Vec::new(),
-                error_message: msg,
-                signature: None,
+            return NativeCallOutcome {
+                reply: NativeCallReplyItem {
+                    id: item.id,
+                    succeed: false,
+                    payload: Vec::new(),
+                    error_message: msg,
+                    signature: None,
+                },
+                status: RequestStatus::Error,
             };
         }
     };
@@ -77,7 +97,9 @@ pub async fn execute_native_call(
     request.nonce = item.nonce;
     tracing::trace!(id = item.id, method = %item.method, "executing native call item");
 
-    match execute_call(multistream, &request, labels).await {
+    let routed = execute_call(multistream, &request, labels).await;
+    let status = RequestStatus::from(routed.as_ref().map(|r| &r.response));
+    let reply = match routed {
         Ok(routed) => {
             let resp = routed.response;
             let provided = resp.provided_signature;
@@ -124,7 +146,8 @@ pub async fn execute_native_call(
                 signature: None,
             }
         }
-    }
+    };
+    NativeCallOutcome { reply, status }
 }
 
 /// Builds the reply signature when the client asked for one. A `nonce` of 0
@@ -374,7 +397,9 @@ mod tests {
             nonce: 5,
         };
 
-        let reply = execute_native_call(&ms, &item, &LabelSelector::Any, None).await;
+        let reply = execute_native_call(&ms, &item, &LabelSelector::Any, None)
+            .await
+            .reply;
 
         assert!(reply.succeed);
         assert_eq!(reply.payload, b"null");

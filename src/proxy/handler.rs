@@ -23,8 +23,8 @@ use crate::blockchain::TargetBlockchain;
 use crate::jsonrpc::{JsonRpcRequest, RpcMethod};
 use crate::logs;
 use crate::logs::access;
-use crate::metrics;
-use crate::rpc::native_call::execute_call;
+use crate::metrics::{self, DownstreamProtocol, RequestStatus};
+use crate::rpc::native_call::{self, execute_call};
 use crate::upstream::Multistream;
 use crate::upstream::selector::LabelSelector;
 use crate::upstream::traits::UpstreamError;
@@ -80,7 +80,17 @@ pub async fn process(
 
     match kind {
         BodyKind::Single => match protocol::validate_item(&parsed) {
-            Ok(req) => run(multistream, chain, &req, access.as_ref(), 0).await,
+            Ok(req) => {
+                run(
+                    multistream,
+                    DownstreamProtocol::HttpJsonRpc,
+                    chain,
+                    &req,
+                    access.as_ref(),
+                    0,
+                )
+                .await
+            }
             Err(e) => protocol::build_protocol_error(&e),
         },
         BodyKind::Batch => process_batch(parsed, multistream, chain, preserve_order, access).await,
@@ -126,12 +136,16 @@ async fn process_batch(
 
     let bodies = if preserve_order {
         // `join_all` resolves concurrently but yields results in request order.
-        join_all(
-            requests
-                .iter()
-                .enumerate()
-                .map(|(pos, req)| run(multistream, chain, req, access.as_ref(), pos)),
-        )
+        join_all(requests.iter().enumerate().map(|(pos, req)| {
+            run(
+                multistream,
+                DownstreamProtocol::HttpJsonRpc,
+                chain,
+                req,
+                access.as_ref(),
+                pos,
+            )
+        }))
         .await
     } else {
         // Emit in completion order — cheaper and the default, since clients
@@ -139,7 +153,16 @@ async fn process_batch(
         let mut pending: FuturesUnordered<_> = requests
             .iter()
             .enumerate()
-            .map(|(pos, req)| run(multistream, chain, req, access.as_ref(), pos))
+            .map(|(pos, req)| {
+                run(
+                    multistream,
+                    DownstreamProtocol::HttpJsonRpc,
+                    chain,
+                    req,
+                    access.as_ref(),
+                    pos,
+                )
+            })
             .collect();
         let mut out = Vec::with_capacity(requests.len());
         while let Some(body) = pending.next().await {
@@ -154,6 +177,7 @@ async fn process_batch(
 /// What a call ended with, for the access log record.
 struct CallOutcome {
     succeed: bool,
+    status: RequestStatus,
     /// Response and error payloads, filled only under `include-messages`.
     response: Option<String>,
     error: Option<String>,
@@ -164,15 +188,21 @@ struct CallOutcome {
 /// `pos` is the call's position in its batch (0 for a single request).
 pub(super) async fn run(
     multistream: &Multistream,
+    protocol: DownstreamProtocol,
     chain: &TargetBlockchain,
     req: &ProxyRequest,
     access: Option<&AccessMeta>,
     pos: usize,
 ) -> String {
-    metrics::jsonrpc_request(chain, &req.method);
     let start = std::time::Instant::now();
-    let (body, outcome) = execute(multistream, chain, req).await;
-    metrics::jsonrpc_call(chain, &req.method, start.elapsed());
+    let (body, outcome) = execute(multistream, req).await;
+    metrics::downstream_call(
+        protocol,
+        Some(chain),
+        native_call::call_method(multistream, &req.method),
+        outcome.status,
+        start.elapsed(),
+    );
 
     if let Some(meta) = access {
         // The params are the "payload" of a proxy call, matching the legacy
@@ -221,23 +251,19 @@ fn params_json_size(params: &serde_json::Value) -> usize {
     }
 }
 
-async fn execute(
-    multistream: &Multistream,
-    chain: &TargetBlockchain,
-    req: &ProxyRequest,
-) -> (String, CallOutcome) {
+async fn execute(multistream: &Multistream, req: &ProxyRequest) -> (String, CallOutcome) {
     let include = logs::access_enabled() && logs::include_messages();
     let method = match req.method.parse::<RpcMethod>() {
         Ok(method) => method,
         Err(_) => {
             // The transport never sees a malformed method name; report it the
             // way a node would rather than forwarding garbage.
-            metrics::jsonrpc_err(chain, &req.method);
             let body = protocol::build_error(&req.id, -32601, "Method not found".to_string(), None);
             return (
                 body,
                 CallOutcome {
                     succeed: false,
+                    status: RequestStatus::Error,
                     response: None,
                     error: include.then(|| "Method not found".to_string()),
                 },
@@ -250,13 +276,15 @@ async fn execute(
     let request = JsonRpcRequest::new(0, method, req.params.clone());
 
     // Proxy requests carry no label selector — that's a gRPC-only input.
-    match execute_call(multistream, &request, &LabelSelector::Any).await {
+    let routed = execute_call(multistream, &request, &LabelSelector::Any).await;
+    let status = RequestStatus::from(routed.as_ref().map(|r| &r.response));
+    match routed {
         Ok(routed) => {
             let resp = routed.response;
             if let Some(err) = resp.error {
-                metrics::jsonrpc_err(chain, &req.method);
                 let outcome = CallOutcome {
                     succeed: false,
+                    status,
                     response: None,
                     error: include.then(|| err.message.clone()),
                 };
@@ -267,6 +295,7 @@ async fn execute(
             } else if let Some(result) = resp.result {
                 let outcome = CallOutcome {
                     succeed: true,
+                    status,
                     response: include.then(|| result.get().to_string()),
                     error: None,
                 };
@@ -275,6 +304,7 @@ async fn execute(
                 let null = RawValue::from_string("null".to_string()).expect("valid json");
                 let outcome = CallOutcome {
                     succeed: true,
+                    status,
                     response: include.then(|| "null".to_string()),
                     error: None,
                 };
@@ -282,7 +312,6 @@ async fn execute(
             }
         }
         Err(e) => {
-            metrics::jsonrpc_fail(chain, &req.method);
             // An unsupported method keeps its distinct legacy code; every
             // other failure is a generic routing/quorum error.
             let code = match &e {
@@ -291,6 +320,7 @@ async fn execute(
             };
             let outcome = CallOutcome {
                 succeed: false,
+                status,
                 response: None,
                 error: include.then(|| e.to_string()),
             };

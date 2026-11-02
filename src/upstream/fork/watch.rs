@@ -45,14 +45,14 @@ pub fn start_fork_watch(
     state: Arc<UpstreamState>,
     fork_choice: Arc<dyn ForkChoice>,
 ) {
-    metrics::fork_watch_created(fork_choice.name(), &ForkStatus::METRICS_LABELS, &chain);
+    metrics::fork_watch_created(&ForkStatus::METRICS_LABELS, &chain);
     tokio::spawn(async move {
         let mut blocks = head.subscribe_blocks();
         loop {
             match blocks.recv().await {
                 Ok(block) => {
                     let status = fork_choice.submit(&block, &id);
-                    metrics::fork_status(fork_choice.name(), status.metrics_label(), &chain);
+                    metrics::fork_status(status.metrics_label(), &chain);
                     let fork = status.fork_state();
                     state.set_fork(fork);
                     if let ForkState::Forked { common } = fork {
