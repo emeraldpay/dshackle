@@ -15,4 +15,6 @@
 //! gRPC service implementations for the Dshackle API.
 
 pub mod blockchain_rpc;
+mod downstream_request;
+mod downstream_stream;
 pub mod native_call;

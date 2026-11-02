@@ -74,12 +74,15 @@ impl QuorumFactory for DefaultMethods {
 /// it carries the concrete method list the remote reported during `Describe`
 /// discovery, so the local `Describe` re-advertises it instead of nothing.
 pub struct RemoteMethods {
-    supported: Vec<String>,
+    /// A set, since every call looks a method up in it for the metric label.
+    supported: HashSet<RpcMethod>,
 }
 
 impl RemoteMethods {
     pub fn new(supported: Vec<String>) -> Self {
-        Self { supported }
+        Self {
+            supported: supported.into_iter().map(RpcMethod::from).collect(),
+        }
     }
 }
 
@@ -88,8 +91,20 @@ impl QuorumFactory for RemoteMethods {
         Box::new(AlwaysQuorum::new())
     }
 
+    /// Only what the remote advertised: [`is_callable`](QuorumFactory::is_callable)
+    /// lets anything through, and the remote rejects what it doesn't serve.
+    fn is_listed(&self, method: &RpcMethod) -> bool {
+        self.supported.contains(method)
+    }
+
     fn supported_methods(&self) -> Vec<String> {
-        self.supported.clone()
+        let mut out: Vec<String> = self
+            .supported
+            .iter()
+            .map(|m| m.as_str().to_string())
+            .collect();
+        out.sort();
+        out
     }
 }
 
@@ -129,6 +144,10 @@ impl QuorumFactory for AggregatedMethods {
         self.delegates.iter().any(|d| d.is_hardcoded(method))
     }
 
+    fn is_listed(&self, method: &RpcMethod) -> bool {
+        self.delegates.iter().any(|d| d.is_listed(method))
+    }
+
     fn supported_methods(&self) -> Vec<String> {
         // A method is supported on the chain if any upstream's config supports
         // it (legacy `AggregatedCallMethods`).
@@ -147,6 +166,12 @@ impl QuorumFactory for AggregatedMethods {
 mod tests {
     use super::*;
     use crate::upstream::quorum::SelectorHint;
+
+    #[test]
+    fn default_methods_list_nothing() {
+        assert!(DefaultMethods.is_callable(&"eth_call".into()));
+        assert!(!DefaultMethods.is_listed(&"eth_call".into()));
+    }
 
     #[test]
     fn default_methods_always_available() {
@@ -169,6 +194,9 @@ mod tests {
         // ...yet still pass-through: any method is callable and gets the
         // permissive quorum, since the remote enforces its own filtering.
         assert!(remote.is_callable(&"debug_traceTransaction".into()));
+        // ...but only the advertised ones are listed.
+        assert!(remote.is_listed(&"eth_call".into()));
+        assert!(!remote.is_listed(&"debug_traceTransaction".into()));
         assert!(matches!(
             remote.quorum_for(&"eth_call".into()).selector(),
             SelectorHint::Available

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Gauges of the current upstream state (legacy `upstreams.*`).
+//! Gauges of the current upstream state (`upstream_*`, legacy `upstreams.*`).
 //!
 //! The legacy version registered Micrometer gauges that polled the live
 //! upstream objects on every scrape. The same approach is used here: a custom
@@ -47,11 +47,10 @@ pub struct UpstreamStatus {
     pub height: Option<u64>,
 }
 
-/// Scrape-time collector of the `upstreams.*` gauges.
+/// Scrape-time collector of the upstream state gauges.
 pub struct UpstreamsCollector {
     source: Arc<dyn UpstreamsStatus>,
     availability: IntGaugeVec,
-    connected: IntGaugeVec,
     lag: IntGaugeVec,
     height: IntGaugeVec,
 }
@@ -62,23 +61,15 @@ impl UpstreamsCollector {
             source,
             availability: IntGaugeVec::new(
                 Opts::new(
-                    format!("{prefix}_upstreams_availability"),
+                    format!("{prefix}_upstream_availability"),
                     "Number of upstreams in each availability status",
                 ),
                 &["chain", "status"],
             )
             .expect("valid metric definition"),
-            connected: IntGaugeVec::new(
-                Opts::new(
-                    format!("{prefix}_upstreams_connected"),
-                    "Number of connected upstreams",
-                ),
-                &["chain"],
-            )
-            .expect("valid metric definition"),
             lag: IntGaugeVec::new(
                 Opts::new(
-                    format!("{prefix}_upstreams_lag"),
+                    format!("{prefix}_upstream_lag"),
                     "How many blocks the upstream is behind the chain head",
                 ),
                 &["chain", "upstream"],
@@ -86,7 +77,7 @@ impl UpstreamsCollector {
             .expect("valid metric definition"),
             height: IntGaugeVec::new(
                 Opts::new(
-                    format!("{prefix}_upstreams_height"),
+                    format!("{prefix}_upstream_height"),
                     "Current head height of the upstream",
                 ),
                 &["chain", "upstream"],
@@ -101,7 +92,6 @@ impl Collector for UpstreamsCollector {
         self.availability
             .desc()
             .into_iter()
-            .chain(self.connected.desc())
             .chain(self.lag.desc())
             .chain(self.height.desc())
             .collect()
@@ -111,15 +101,11 @@ impl Collector for UpstreamsCollector {
         // Rebuild all values from a fresh snapshot; reset first so upstreams
         // removed since the last scrape don't linger with stale values.
         self.availability.reset();
-        self.connected.reset();
         self.lag.reset();
         self.height.reset();
 
         for chain in self.source.chains_status() {
             let chain_code = chain.chain.code();
-            self.connected
-                .with_label_values(&[&chain_code])
-                .set(chain.upstreams.len() as i64);
             // Every status is reported, including zero counts, matching the
             // legacy gauges that were registered per status upfront.
             for status in UpstreamAvailability::ALL {
@@ -143,7 +129,6 @@ impl Collector for UpstreamsCollector {
         }
 
         let mut families = self.availability.collect();
-        families.extend(self.connected.collect());
         families.extend(self.lag.collect());
         families.extend(self.height.collect());
         families
@@ -189,12 +174,11 @@ mod tests {
             .encode_to_string(&registry.gather())
             .unwrap();
 
-        assert!(out.contains(r#"dshackle_upstreams_connected{chain="ETH"} 2"#));
-        assert!(out.contains(r#"dshackle_upstreams_availability{chain="ETH",status="ok"} 1"#));
-        assert!(out.contains(r#"dshackle_upstreams_availability{chain="ETH",status="syncing"} 1"#));
+        assert!(out.contains(r#"dshackle_upstream_availability{chain="ETH",status="ok"} 1"#));
+        assert!(out.contains(r#"dshackle_upstream_availability{chain="ETH",status="syncing"} 1"#));
         // Zero counts are reported too, like the legacy per-status gauges.
-        assert!(out.contains(r#"dshackle_upstreams_availability{chain="ETH",status="lagging"} 0"#));
-        assert!(out.contains(r#"dshackle_upstreams_lag{chain="ETH",upstream="remote"} 5"#));
-        assert!(out.contains(r#"dshackle_upstreams_height{chain="ETH",upstream="local"} 100"#));
+        assert!(out.contains(r#"dshackle_upstream_availability{chain="ETH",status="lagging"} 0"#));
+        assert!(out.contains(r#"dshackle_upstream_lag{chain="ETH",upstream="remote"} 5"#));
+        assert!(out.contains(r#"dshackle_upstream_height{chain="ETH",upstream="local"} 100"#));
     }
 }

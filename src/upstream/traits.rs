@@ -17,7 +17,7 @@
 //! can work with them uniformly.
 
 use crate::config::upstreams::UpstreamRole;
-use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
+use crate::jsonrpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::head::Head;
 use crate::upstream::id::UpstreamId;
@@ -133,11 +133,11 @@ pub enum UpstreamError {
     /// body (only the status is known).
     HttpStatus(u16),
     /// The upstream returned a non-200 HTTP status *and* a JSON-RPC error body.
-    /// Carries the provider's own message so it can be forwarded to the caller
+    /// Carries the provider's own error so it can be forwarded to the caller
     /// (issue #251, and Bitcoin nodes that answer 500 with a real error). The
     /// status is retained so the quorum can still decide whether the call is
     /// retryable (429/401/502–504) or definitive (e.g. 500 "Already Spent").
-    Rejected { status: u16, message: String },
+    Rejected { status: u16, error: JsonRpcError },
     /// The upstream answered with a JSON-RPC error refusing the call for now:
     /// the node is overloaded (Erigon's "server overloaded, retry later") or
     /// the provider's rate limit is hit (Alchemy's code 429 over WebSocket).
@@ -169,9 +169,8 @@ impl std::fmt::Display for UpstreamError {
             UpstreamError::HttpStatus(code) => write!(f, "upstream returned HTTP {code}"),
             // Rendered verbatim, with no wrapping prefix: this message is
             // forwarded to the caller as the upstream's own error (issue #251).
-            UpstreamError::Rejected { message, .. } | UpstreamError::Overloaded(message) => {
-                write!(f, "{message}")
-            }
+            UpstreamError::Rejected { error, .. } => write!(f, "{}", error.message),
+            UpstreamError::Overloaded(message) => write!(f, "{message}"),
             UpstreamError::InvalidResponse(msg) => write!(f, "invalid response: {msg}"),
             // The exact legacy `VerifyingReader` message — it reaches clients
             // through the gRPC `error_message` and the proxy error body.

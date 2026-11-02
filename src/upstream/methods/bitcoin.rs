@@ -77,6 +77,10 @@ impl QuorumFactory for DefaultBitcoinMethods {
         self.callable.contains(method)
     }
 
+    fn has_method_list(&self) -> bool {
+        true
+    }
+
     fn hardcoded_response(&self, method: &RpcMethod) -> Option<&RawValue> {
         self.hardcoded.get(method).map(|b| &**b)
     }

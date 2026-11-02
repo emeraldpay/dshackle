@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Metrics of the fork detection (legacy `forkwatch.*`).
+//! Metrics of the fork detection (`forkwatch_*`).
 
 use prometheus::{IntCounterVec, Opts, Registry};
 
-/// Counts of fork-choice verdicts, labeled by strategy (`type`), verdict
-/// (`status`) and chain.
+/// Counts of fork-choice verdicts, labeled by verdict (`status`) and chain.
+/// The fork choice itself isn't a label: a chain has only one.
 pub struct ForkMetrics {
     status: IntCounterVec,
 }
@@ -27,10 +27,10 @@ impl ForkMetrics {
         Self {
             status: IntCounterVec::new(
                 Opts::new(
-                    format!("{prefix}_forkwatch_status_bychain_total"),
+                    format!("{prefix}_forkwatch_status_total"),
                     "Number of fork-choice verdicts per status",
                 ),
-                &["type", "status", "chain"],
+                &["status", "chain"],
             )
             .expect("valid metric definition"),
         }
@@ -42,17 +42,15 @@ impl ForkMetrics {
             .expect("register once");
     }
 
-    pub fn on_status(&self, choice: &str, status: &str, chain: &str) {
-        self.status
-            .with_label_values(&[choice, status, chain])
-            .inc();
+    pub fn on_status(&self, status: &str, chain: &str) {
+        self.status.with_label_values(&[status, chain]).inc();
     }
 
     /// Create the zero-valued series for every status upfront, like the legacy
     /// `ForkWatch` that registered a counter per status at construction.
-    pub fn on_created(&self, choice: &str, statuses: &[&str], chain: &str) {
+    pub fn on_created(&self, statuses: &[&str], chain: &str) {
         for status in statuses {
-            self.status.with_label_values(&[choice, status, chain]);
+            self.status.with_label_values(&[status, chain]);
         }
     }
 }

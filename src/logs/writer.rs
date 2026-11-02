@@ -37,6 +37,31 @@ const SOCKET_IDLE_SLEEP: Duration = Duration::from_millis(25);
 const RECONNECT_INITIAL: Duration = Duration::from_millis(100);
 const RECONNECT_MAX: Duration = Duration::from_secs(30);
 
+/// Which of the two logs a writer delivers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LogKind {
+    /// The access log: the requests clients make to Dshackle.
+    Access,
+    /// The request log: the requests Dshackle makes to its upstreams.
+    Request,
+}
+
+impl LogKind {
+    /// How the log is named in messages and in the `log` metric label.
+    pub fn name(self) -> &'static str {
+        match self {
+            LogKind::Access => "access",
+            LogKind::Request => "request",
+        }
+    }
+}
+
+impl std::fmt::Display for LogKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
 /// A handle submitting serialized events to a background writer task.
 ///
 /// Submission never blocks: when the queue is full the event is dropped, as
@@ -44,9 +69,7 @@ const RECONNECT_MAX: Duration = Duration::from_secs(30);
 #[derive(Clone)]
 pub struct LogWriter {
     tx: mpsc::Sender<Vec<u8>>,
-    /// The log category (`access` / `request`): the display name in messages
-    /// and the `type` label of the `monitoringLogs_*` metrics.
-    label: &'static str,
+    kind: LogKind,
     dropped: Arc<AtomicU64>,
     queued: Arc<AtomicU64>,
 }
@@ -55,22 +78,22 @@ impl LogWriter {
     /// Start a writer for the configured target. Returns `None` for a target
     /// that can't be started (e.g. a socket without a port), which the caller
     /// reports; a `None` matches the legacy fallback to a disabled writer.
-    pub fn start(config: &LogTargetConfig, label: &'static str) -> Option<LogWriter> {
+    pub fn start(config: &LogTargetConfig, kind: LogKind) -> Option<LogWriter> {
         match config.target_type.as_str() {
             "file" => {
                 let filename = config.filename.clone()?;
-                let (writer, rx) = Self::new(QUEUE_LIMIT, label);
+                let (writer, rx) = Self::new(QUEUE_LIMIT, kind);
                 tokio::spawn(run_file(
                     rx,
                     PathBuf::from(filename),
-                    label,
+                    kind,
                     Arc::clone(&writer.queued),
                 ));
                 Some(writer)
             }
             "socket" => {
                 let Some(port) = config.port else {
-                    tracing::error!("No port set for a {} socket target", label);
+                    tracing::error!("No port set for a {} socket target", kind);
                     return None;
                 };
                 let host = config
@@ -78,30 +101,30 @@ impl LogWriter {
                     .clone()
                     .unwrap_or_else(|| "127.0.0.1".to_string());
                 let limit = config.buffer.unwrap_or(QUEUE_LIMIT);
-                let (writer, rx) = Self::new(limit, label);
+                let (writer, rx) = Self::new(limit, kind);
                 tokio::spawn(run_socket(
                     rx,
                     format!("{host}:{port}"),
                     config.resolved_encoding(),
-                    label,
+                    kind,
                     Arc::clone(&writer.queued),
                 ));
                 Some(writer)
             }
             other => {
-                tracing::error!("Unsupported {} log target: {}", label, other);
+                tracing::error!("Unsupported {} log target: {}", kind, other);
                 None
             }
         }
     }
 
-    fn new(limit: usize, label: &'static str) -> (LogWriter, mpsc::Receiver<Vec<u8>>) {
-        metrics::log_writer_created(label);
+    fn new(limit: usize, kind: LogKind) -> (LogWriter, mpsc::Receiver<Vec<u8>>) {
+        metrics::log_writer_created(kind);
         let (tx, rx) = mpsc::channel(limit);
         (
             LogWriter {
                 tx,
-                label,
+                kind,
                 dropped: Arc::new(AtomicU64::new(0)),
                 queued: Arc::new(AtomicU64::new(0)),
             },
@@ -112,15 +135,15 @@ impl LogWriter {
     /// Queue one serialized event. Drops it when the queue is full.
     /// Returns whether the event was queued.
     pub fn submit(&self, event: Vec<u8>) -> bool {
-        metrics::log_produced(self.label);
+        metrics::log_produced(self.kind);
         match self.tx.try_send(event) {
             Ok(()) => {
                 let size = self.queued.fetch_add(1, Ordering::Relaxed) + 1;
-                metrics::log_queue_size(self.label, size);
+                metrics::log_queue_size(self.kind, size);
                 true
             }
             Err(_) => {
-                metrics::log_dropped(self.label);
+                metrics::log_dropped(self.kind);
                 // Warn once in a while, not per event — a full queue drops in bursts.
                 let dropped = self.dropped.fetch_add(1, Ordering::Relaxed);
                 if dropped % 1000 == 0 {
@@ -137,14 +160,14 @@ impl LogWriter {
     }
 }
 
-/// Report `count` events written to the storage: the collect counter and the
+/// Report `count` events written to the storage: the written counter and the
 /// shrunk queue gauge.
-fn on_written(queued: &AtomicU64, label: &'static str, count: u64) {
+fn on_written(queued: &AtomicU64, kind: LogKind, count: u64) {
     let size = queued
         .fetch_sub(count, Ordering::Relaxed)
         .saturating_sub(count);
-    metrics::log_collected(label, count);
-    metrics::log_queue_size(label, size);
+    metrics::log_written(kind, count);
+    metrics::log_queue_size(kind, size);
 }
 
 /// Append-only file writer: wakes on an interval and writes everything queued
@@ -152,7 +175,7 @@ fn on_written(queued: &AtomicU64, label: &'static str, count: u64) {
 async fn run_file(
     mut rx: mpsc::Receiver<Vec<u8>>,
     path: PathBuf,
-    label: &'static str,
+    kind: LogKind,
     queued: Arc<AtomicU64>,
 ) {
     let mut pending: Vec<Vec<u8>> = Vec::new();
@@ -185,13 +208,13 @@ async fn run_file(
         };
         match result {
             Ok(()) => {
-                on_written(&queued, label, pending.len() as u64);
+                on_written(&queued, kind, pending.len() as u64);
                 pending.clear();
             }
             // Keep the batch for the next flush, like the legacy writer
             // returning unwritten events back to the queue.
             Err(e) => {
-                tracing::warn!("Failed to write {} log to {}: {}", label, path.display(), e);
+                tracing::warn!("Failed to write {} log to {}: {}", kind, path.display(), e);
             }
         }
     }
@@ -203,7 +226,7 @@ async fn run_socket(
     mut rx: mpsc::Receiver<Vec<u8>>,
     addr: String,
     encoding: LogEncoding,
-    label: &'static str,
+    kind: LogKind,
     queued: Arc<AtomicU64>,
 ) {
     let mut backoff = RECONNECT_INITIAL;
@@ -213,7 +236,7 @@ async fn run_socket(
             Err(e) => {
                 tracing::warn!(
                     "Failed to connect {} log to {}, retry in {:?}: {}",
-                    label,
+                    kind,
                     addr,
                     backoff,
                     e
@@ -223,7 +246,7 @@ async fn run_socket(
                 continue;
             }
         };
-        tracing::info!("Sending {} log to {}", label, addr);
+        tracing::info!("Sending {} log to {}", kind, addr);
 
         // One unsent event survives a broken connection and is retried first.
         let mut unsent: Option<Vec<u8>> = None;
@@ -237,24 +260,24 @@ async fn run_socket(
                 },
             };
             if let Err(e) = conn.write_all(&encoding::frame(&encoding, &event)).await {
-                tracing::warn!("Lost {} log connection to {}: {}", label, addr, e);
+                tracing::warn!("Lost {} log connection to {}: {}", kind, addr, e);
                 unsent = Some(event);
                 tokio::time::sleep(backoff).await;
                 backoff = (backoff * 2).min(RECONNECT_MAX);
                 break 'connected;
             }
-            on_written(&queued, label, 1);
+            on_written(&queued, kind, 1);
             backoff = RECONNECT_INITIAL;
             // Batch what's already queued before the next await, so an idle
             // stream doesn't hold a half-written buffer.
             while let Ok(event) = rx.try_recv() {
                 if let Err(e) = conn.write_all(&encoding::frame(&encoding, &event)).await {
-                    tracing::warn!("Lost {} log connection to {}: {}", label, addr, e);
+                    tracing::warn!("Lost {} log connection to {}: {}", kind, addr, e);
                     unsent = Some(event);
                     tokio::time::sleep(SOCKET_IDLE_SLEEP).await;
                     break 'connected;
                 }
-                on_written(&queued, label, 1);
+                on_written(&queued, kind, 1);
             }
             let _ = conn.flush().await;
         }
@@ -273,7 +296,7 @@ mod tests {
     async fn writes_events_as_jsonl() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("events.jsonl");
-        let writer = LogWriter::start(&file_target(&path), "test").unwrap();
+        let writer = LogWriter::start(&file_target(&path), LogKind::Access).unwrap();
 
         assert!(writer.submit(br#"{"n":1}"#.to_vec()));
         assert!(writer.submit(br#"{"n":2}"#.to_vec()));
@@ -291,7 +314,7 @@ mod tests {
         let path = dir.path().join("events.jsonl");
         std::fs::write(&path, "{\"old\":true}\n").unwrap();
 
-        let writer = LogWriter::start(&file_target(&path), "test").unwrap();
+        let writer = LogWriter::start(&file_target(&path), LogKind::Access).unwrap();
         writer.submit(br#"{"new":true}"#.to_vec());
 
         tokio::time::sleep(Duration::from_millis(600)).await;
@@ -311,7 +334,7 @@ mod tests {
             encoding: Some("newline".to_string()),
             ..Default::default()
         };
-        let writer = LogWriter::start(&config, "test").unwrap();
+        let writer = LogWriter::start(&config, LogKind::Access).unwrap();
         writer.submit(br#"{"n":1}"#.to_vec());
 
         let (mut conn, _) = listener.accept().await.unwrap();
@@ -333,7 +356,7 @@ mod tests {
             port: Some(addr.port()),
             ..Default::default()
         };
-        let writer = LogWriter::start(&config, "test").unwrap();
+        let writer = LogWriter::start(&config, LogKind::Access).unwrap();
         writer.submit(br#"{"n":1}"#.to_vec());
 
         let (mut conn, _) = listener.accept().await.unwrap();
@@ -351,6 +374,6 @@ mod tests {
             ..Default::default()
         };
         // Outside a runtime this would panic on spawn if it tried to start.
-        assert!(LogWriter::start(&config, "test").is_none());
+        assert!(LogWriter::start(&config, LogKind::Access).is_none());
     }
 }

@@ -62,16 +62,16 @@ pub enum ForkStatus {
 impl ForkStatus {
     /// The `status` metric label of every status, for reports that must cover
     /// the full range.
-    pub const METRICS_LABELS: [&str; 5] = ["NEW", "OUTRUN", "EQUAL", "FALLBEHIND", "REJECTED"];
+    pub const METRICS_LABELS: [&str; 5] = ["new", "outrun", "equal", "fallbehind", "rejected"];
 
-    /// The `status` metric label — the legacy enum constant name.
+    /// The `status` metric label: the legacy enum constant name, in lowercase.
     pub fn metrics_label(&self) -> &'static str {
         match self {
-            ForkStatus::New => "NEW",
-            ForkStatus::Outrun => "OUTRUN",
-            ForkStatus::Equal => "EQUAL",
-            ForkStatus::Fallbehind => "FALLBEHIND",
-            ForkStatus::Rejected { .. } => "REJECTED",
+            ForkStatus::New => "new",
+            ForkStatus::Outrun => "outrun",
+            ForkStatus::Equal => "equal",
+            ForkStatus::Fallbehind => "fallbehind",
+            ForkStatus::Rejected { .. } => "rejected",
         }
     }
 

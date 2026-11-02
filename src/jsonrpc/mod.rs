@@ -180,7 +180,7 @@ impl JsonRpcResponse {
 ///
 /// The `data` field is omitted on serialize when `None` to avoid emitting
 /// `"data":null` for upstreams that didn't include it in the original error.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct JsonRpcError {
     pub code: i64,
     pub message: String,

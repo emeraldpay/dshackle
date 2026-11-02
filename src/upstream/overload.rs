@@ -79,14 +79,23 @@ impl OverloadGuard {
     }
 }
 
-/// An upstream's reply that may say it refuses calls for now.
-trait Refusal {
+/// An upstream's reply that may say it refuses calls for now. Shared with
+/// the request metrics, which see the reply before this guard turns it into
+/// an [`UpstreamError::Overloaded`].
+pub(super) trait Refusal {
+    /// Why the upstream refuses calls, if the reply says it does.
     fn pause_reason(&self) -> Option<PauseReason>;
 }
 
+/// Case-insensitive, without a lowercase copy of the message: every error
+/// reply is checked, by the metrics as well as the guard.
 fn starts_with_any(message: &str, prefixes: &[&str]) -> bool {
-    let message = message.to_ascii_lowercase();
-    prefixes.iter().any(|p| message.starts_with(p))
+    prefixes.iter().any(|p| {
+        message
+            .as_bytes()
+            .get(..p.len())
+            .is_some_and(|head| head.eq_ignore_ascii_case(p.as_bytes()))
+    })
 }
 
 impl Refusal for JsonRpcError {
@@ -107,8 +116,8 @@ impl Refusal for UpstreamError {
     fn pause_reason(&self) -> Option<PauseReason> {
         match self {
             // Erigon behind HTTP answers overload with a 503.
-            UpstreamError::Rejected { message, .. }
-                if starts_with_any(message, OVERLOAD_MESSAGES) =>
+            UpstreamError::Rejected { error, .. }
+                if starts_with_any(&error.message, OVERLOAD_MESSAGES) =>
             {
                 Some(PauseReason::Overloaded)
             }
@@ -146,10 +155,8 @@ impl RpcUpstream for OverloadGuard {
                     // front of the node (e.g. a proxy answering 500), and one
                     // outside 401/429/502–504 would read as a definitive
                     // answer. The message is what says to try elsewhere.
-                    UpstreamError::Rejected { message, .. }
-                        if reason == PauseReason::Overloaded =>
-                    {
-                        Err(UpstreamError::Overloaded(message))
+                    UpstreamError::Rejected { error, .. } if reason == PauseReason::Overloaded => {
+                        Err(UpstreamError::Overloaded(error.message))
                     }
                     other => Err(other),
                 }
@@ -187,6 +194,14 @@ mod tests {
     use super::*;
     use crate::upstream::head::NoHead;
     use crate::upstream::quorum::is_connection_unavailable;
+
+    fn rpc_error(message: &str) -> JsonRpcError {
+        JsonRpcError {
+            code: -32000,
+            message: message.into(),
+            data: None,
+        }
+    }
 
     struct ScriptedUpstream {
         outcome: Result<String, UpstreamError>,
@@ -280,7 +295,7 @@ mod tests {
     async fn http_429_pauses_upstream() {
         let inner = ScriptedUpstream::new(Err(UpstreamError::Rejected {
             status: 429,
-            message: "Your app has exceeded its compute units per second capacity".into(),
+            error: rpc_error("Your app has exceeded its compute units per second capacity"),
         }));
         let guard = OverloadGuard::new(inner);
 
@@ -296,7 +311,7 @@ mod tests {
         for status in [500, 503] {
             let inner = ScriptedUpstream::new(Err(UpstreamError::Rejected {
                 status,
-                message: "server overloaded, retry later".into(),
+                error: rpc_error("server overloaded, retry later"),
             }));
             let guard = OverloadGuard::new(inner);
 
@@ -314,7 +329,7 @@ mod tests {
     async fn definitive_http_error_does_not_pause() {
         let inner = ScriptedUpstream::new(Err(UpstreamError::Rejected {
             status: 500,
-            message: "Already Spent".into(),
+            error: rpc_error("Already Spent"),
         }));
         let guard = OverloadGuard::new(inner);
 

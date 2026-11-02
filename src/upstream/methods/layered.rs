@@ -59,6 +59,12 @@ impl QuorumFactory for LayeredMethods {
         self.configured.is_enabled(method) || self.default.is_callable(method)
     }
 
+    /// The user's methods only add to the default's, so it's the default that
+    /// decides whether everything passes through.
+    fn has_method_list(&self) -> bool {
+        self.default.has_method_list()
+    }
+
     fn hardcoded_response(&self, method: &RpcMethod) -> Option<&RawValue> {
         self.configured
             .hardcoded_response(method)
@@ -109,6 +115,9 @@ mod tests {
         }
         fn hardcoded_response(&self, method: &RpcMethod) -> Option<&RawValue> {
             self.hardcoded.get(method).map(|b| &**b)
+        }
+        fn has_method_list(&self) -> bool {
+            true
         }
         fn supported_methods(&self) -> Vec<String> {
             let mut out: Vec<String> = self
@@ -338,11 +347,36 @@ mod tests {
         assert!(supported.contains(&"net_version".to_string()));
         // ...but the disabled method is removed, even though it was a default.
         assert!(!supported.contains(&"admin_shutdown".to_string()));
+        // `is_listed` names what's served.
+        for method in ["eth_call", "parity_trace", "net_version"] {
+            assert!(layered.is_listed(&method.into()), "{method}");
+        }
+        assert!(!layered.is_listed(&"admin_shutdown".into()));
+        assert!(!layered.is_listed(&"eth_madeUp".into()));
         // Sorted, no duplicates.
         let mut sorted = supported.clone();
         sorted.sort();
         sorted.dedup();
         assert_eq!(supported, sorted);
+    }
+
+    #[test]
+    fn disabled_method_still_answered_is_listed() {
+        // A hardcoded answer outlives `disabled`, so the method is still served
+        // and its calls are worth a label of their own.
+        let default = default_with(&["eth_call"], &[("net_version", "\"1\"")]);
+        let configured = cfg(
+            vec![],
+            vec![MethodConfig {
+                name: "net_version".into(),
+                quorum: None,
+                static_value: None,
+            }],
+        );
+        let layered = LayeredMethods::new(default, configured);
+
+        assert!(layered.is_hardcoded(&"net_version".into()));
+        assert!(layered.is_listed(&"net_version".into()));
     }
 
     #[test]

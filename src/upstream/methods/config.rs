@@ -182,6 +182,10 @@ impl QuorumFactory for ConfiguredMethods {
         self.is_enabled(method) && !self.is_disabled(method)
     }
 
+    fn has_method_list(&self) -> bool {
+        true
+    }
+
     fn hardcoded_response(&self, method: &RpcMethod) -> Option<&RawValue> {
         self.static_responses.get(method).map(|b| &**b)
     }
