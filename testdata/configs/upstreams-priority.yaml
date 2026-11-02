@@ -22,5 +22,5 @@ upstreams:
   - id: remote
     priority: 75
     connection:
-      grpc:
+      dshackle:
         host: "10.2.0.15"

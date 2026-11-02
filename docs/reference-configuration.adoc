@@ -1044,7 +1044,8 @@ Balance and allowance requests and subscriptions forwarded to it are not limited
 
 | `connection.dshackle`
 | yes
-| Connection configuration for Dshackle gRPC
+| Connection configuration for the remote Dshackle.
+`connection.grpc` is accepted as its older name.
 |===
 
 .Connection Config
