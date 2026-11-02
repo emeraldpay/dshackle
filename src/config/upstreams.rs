@@ -401,6 +401,7 @@ impl ZeromqEndpoint {
 pub struct RawConnection {
     pub ethereum: Option<EthereumConnection>,
     pub bitcoin: Option<BitcoinConnection>,
+    /// `grpc` is the name older configs use for it.
     #[serde(alias = "grpc")]
     pub dshackle: Option<DshackleConnection>,
 }
@@ -855,8 +856,44 @@ connection:
 
     #[test]
     fn upstream_without_limits_is_unlimited() {
-        let upstream = process_raw_upstream(raw_upstream(Some("up"))).unwrap().unwrap();
+        let upstream = process_raw_upstream(raw_upstream(Some("up")))
+            .unwrap()
+            .unwrap();
         assert!(upstream.limits.is_empty());
+    }
+
+    // ── Remote Dshackle connection ───────────────────────────────────────
+
+    fn remote_connection(key: &str) -> UpstreamConnection {
+        let raw: RawUpstream = serde_yaml::from_str(&format!(
+            "
+id: remote
+connection:
+  {key}:
+    host: 10.2.0.15
+    port: 2449
+"
+        ))
+        .unwrap();
+        process_raw_upstream(raw).unwrap().unwrap().connection
+    }
+
+    #[test]
+    fn dshackle_key_connects_to_remote_dshackle() {
+        let UpstreamConnection::Dshackle(ds) = remote_connection("dshackle") else {
+            panic!("expected a Dshackle connection");
+        };
+        assert_eq!(ds.host.as_deref(), Some("10.2.0.15"));
+        assert_eq!(ds.port, Some(2449));
+    }
+
+    #[test]
+    fn legacy_grpc_key_connects_to_remote_dshackle() {
+        let UpstreamConnection::Dshackle(ds) = remote_connection("grpc") else {
+            panic!("expected a Dshackle connection");
+        };
+        assert_eq!(ds.host.as_deref(), Some("10.2.0.15"));
+        assert_eq!(ds.port, Some(2449));
     }
 
     // ── ID validation ────────────────────────────────────────────────────

@@ -6,7 +6,7 @@ Supported upstream protocols:
 
 - JSON RPC
 - Websockets
-- gRPC (i.e. can connect to another Dshackle)
+- Dshackle (i.e. can connect to another Dshackle, using its gRPC API)
 
 Those protocols can be configures with additional security, TLS and authentication.
 
