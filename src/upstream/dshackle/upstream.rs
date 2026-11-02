@@ -139,13 +139,7 @@ impl RpcUpstream for DshackleUpstream {
         })??;
 
         if !reply.succeed {
-            return Err(UpstreamError::InvalidResponse(
-                if reply.error_message.is_empty() {
-                    "remote call failed".into()
-                } else {
-                    reply.error_message
-                },
-            ));
+            return Err(remote_failure(reply.error_message));
         }
 
         // The reply payload is the raw JSON result value (e.g. `"0x1"` or `{...}`)
@@ -192,6 +186,24 @@ impl RpcUpstream for DshackleUpstream {
 /// Converts a remote's reply signature into a [`ProvidedSignature`] for
 /// pass-through, dropping it when the remote sent no usable signature.
 ///
+/// The error for a `NativeCall` the remote answered as failed.
+///
+/// The reply carries only a message, and most failures are the remote's final
+/// answer for the call. A remote whose upstreams are all at their request
+/// limits never asked a node, though, so the call has to move on to another
+/// upstream instead of ending there. A remote of this version reports that
+/// with [`UpstreamError::LIMIT_REACHED_MESSAGE`]; a legacy one has no request
+/// limits and never sends it.
+fn remote_failure(message: String) -> UpstreamError {
+    if message.is_empty() {
+        UpstreamError::InvalidResponse("remote call failed".into())
+    } else if message == UpstreamError::LIMIT_REACHED_MESSAGE {
+        UpstreamError::LimitReached
+    } else {
+        UpstreamError::InvalidResponse(message)
+    }
+}
+
 /// Matches legacy `JsonRpcGrpcClient.extractSignature`: an empty signature or
 /// empty upstream id means "not signed", not a malformed signature to forward.
 ///
@@ -222,6 +234,26 @@ fn extract_signature(signature: Option<NativeCallReplySignature>) -> Option<Prov
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn remote_at_its_limits_is_a_limit_refusal() {
+        let err = remote_failure(UpstreamError::LimitReached.to_string());
+        assert!(matches!(err, UpstreamError::LimitReached));
+    }
+
+    #[test]
+    fn other_remote_failures_stay_final() {
+        let err = remote_failure(r#"{"code":-32000,"message":"execution reverted"}"#.into());
+        assert!(
+            matches!(&err, UpstreamError::InvalidResponse(m) if m == r#"{"code":-32000,"message":"execution reverted"}"#)
+        );
+    }
+
+    #[test]
+    fn empty_remote_failure_gets_a_message() {
+        let err = remote_failure(String::new());
+        assert!(matches!(&err, UpstreamError::InvalidResponse(m) if m == "remote call failed"));
+    }
 
     #[test]
     fn extracts_populated_signature() {
