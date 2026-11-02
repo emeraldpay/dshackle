@@ -64,9 +64,16 @@ pub async fn route(
     }
 
     let mut tried = 0;
+    let mut limit_reached = false;
     for upstream in candidates {
-        tried += 1;
         match upstream.call(request).await {
+            // Refused by our own request limits before anything was sent.
+            // Recording it would spend one of the quorum's tries (e.g. the
+            // three of `NonEmptyQuorum`) on an upstream that was never asked.
+            Err(UpstreamError::LimitReached) => {
+                limit_reached = true;
+                continue;
+            }
             Ok(response) => {
                 quorum.record_response(response, upstream.as_ref());
             }
@@ -74,6 +81,7 @@ pub async fn route(
                 quorum.record_error(&err, upstream.as_ref());
             }
         }
+        tried += 1;
         if quorum.is_resolved() || quorum.is_failed() {
             break;
         }
@@ -88,6 +96,7 @@ pub async fn route(
             source: quorum.resolved_by().cloned(),
         }),
         QuorumOutcome::Failed(e) => Err(e),
+        QuorumOutcome::Empty if limit_reached => Err(UpstreamError::LimitReached),
         QuorumOutcome::Empty => Err(UpstreamError::Transport(
             "no upstream produced a response".into(),
         )),
@@ -99,7 +108,7 @@ mod tests {
     use super::*;
     use crate::upstream::availability::UpstreamAvailability;
     use crate::upstream::head::{Head, NoHead};
-    use crate::upstream::quorum::AlwaysQuorum;
+    use crate::upstream::quorum::{AlwaysQuorum, NonEmptyQuorum};
     use crate::upstream::state::UpstreamState;
     use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
 
@@ -255,6 +264,60 @@ mod tests {
         .unwrap_err();
 
         assert!(matches!(err, UpstreamError::HttpStatus(_)));
+    }
+
+    #[tokio::test]
+    async fn upstream_at_its_limit_does_not_spend_a_quorum_try() {
+        let a = ScriptedUpstream::err("up-a", UpstreamError::LimitReached);
+        let b = ScriptedUpstream::ok("up-b", r#"{"jsonrpc":"2.0","id":1,"result":"0xb"}"#);
+
+        let resp = route(
+            &test_chain(),
+            vec_of(&[a.clone(), b.clone()]),
+            Box::new(NonEmptyQuorum::with_max_tries(1)),
+            &dummy_request(),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(resp.response.result.unwrap().get(), r#""0xb""#);
+        assert_eq!(resp.source.map(|s| s.to_string()), Some("up-b".to_string()));
+    }
+
+    #[tokio::test]
+    async fn every_upstream_at_its_limit_reports_the_limit() {
+        let a = ScriptedUpstream::err("up-a", UpstreamError::LimitReached);
+        let b = ScriptedUpstream::err("up-b", UpstreamError::LimitReached);
+
+        let err = route(
+            &test_chain(),
+            vec_of(&[a.clone(), b.clone()]),
+            Box::new(AlwaysQuorum::new()),
+            &dummy_request(),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(err, UpstreamError::LimitReached));
+    }
+
+    #[tokio::test]
+    async fn upstream_error_wins_over_limit_reached() {
+        // The error of an upstream that was actually called says more about
+        // why the request failed than another one's spent budget.
+        let a = ScriptedUpstream::err("up-a", UpstreamError::HttpStatus(503));
+        let b = ScriptedUpstream::err("up-b", UpstreamError::LimitReached);
+
+        let err = route(
+            &test_chain(),
+            vec_of(&[a.clone(), b.clone()]),
+            Box::new(AlwaysQuorum::new()),
+            &dummy_request(),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(err, UpstreamError::HttpStatus(503)));
     }
 
     #[tokio::test]

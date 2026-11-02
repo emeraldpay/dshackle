@@ -148,6 +148,10 @@ pub enum UpstreamError {
     InvalidResponse(String),
     /// The requested RPC method is not supported by this upstream.
     MethodNotAllowed(String),
+    /// The upstream's configured request limits refused the call, so it was
+    /// never sent. Unlike [`Overloaded`](Self::Overloaded), the upstream
+    /// itself said nothing.
+    LimitReached,
 }
 
 impl std::fmt::Display for UpstreamError {
@@ -164,6 +168,7 @@ impl std::fmt::Display for UpstreamError {
             // The exact legacy `VerifyingReader` message — it reaches clients
             // through the gRPC `error_message` and the proxy error body.
             UpstreamError::MethodNotAllowed(method) => write!(f, "Unsupported method: {method}"),
+            UpstreamError::LimitReached => write!(f, "upstream request limit reached"),
         }
     }
 }

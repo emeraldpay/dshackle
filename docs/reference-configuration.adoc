@@ -745,6 +745,11 @@ configuration, and may be omitted for most of the situations.
         quorum: "not_empty"
     disabled:
       - name: "admin_shutdown"
+  limits:
+    - period: minute
+      requests: 100
+    - period: day
+      requests: 100000
   connection:
     ethereum:
       rpc:
@@ -800,6 +805,19 @@ See link:09-quorum-and-selectors.adoc[Quorum and Selectors]
 `not_empty` - accept not _null_ value, otherwise retry another upstream;
 `not_lagging` - accept response only from a fully synced upstream.
 
+| `limits`
+| no
+| Request limits for the upstream.
+A request goes to the upstream only when every limit allows it, otherwise it goes to another upstream.
+See link:04-upstream-config.adoc#request-limits[Request Limits]
+
+| `limits.period`
+| yes
+| Period the limit counts requests over: `minute`, `hour`, or `day`
+
+| `limits.requests`
+| yes
+| How many requests the upstream gets per period. Must be greater than zero.
 
 | `connection.ethereum`
 | yes
@@ -1017,6 +1035,12 @@ It's more effective, easier to secure connection, and allows to build a distribu
 | `id`
 | yes
 | Per-cluster identifier of an upstream
+
+| `limits`
+| no
+| Request limits, the same as for a JSON RPC upstream.
+They apply to the JSON RPC calls to the remote Dshackle, shared by all blockchains it serves.
+Balance and allowance requests and subscriptions forwarded to it are not limited.
 
 | `connection.dshackle`
 | yes

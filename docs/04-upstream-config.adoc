@@ -300,6 +300,32 @@ upstreams:
           static: "false"
 ----
 
+[#request-limits]
+=== Request Limits
+
+An upstream may have a limited request budget, for example a provider plan with a quota per minute or per day.
+The `limits` option keeps Dshackle within it:
+
+[source,yaml]
+----
+upstreams:
+  - id: infura-eth
+    blockchain: ethereum
+    limits:
+      - period: minute
+        requests: 10
+      - period: hour
+        requests: 300
+----
+
+A period is one of `minute`, `hour`, or `day`, and an upstream may have several limits.
+A request goes to the upstream only when all its limits allow it.
+When any of them doesn't, the request goes to another upstream with the same methods and labels, and if there is none the client gets an `upstream request limit reached` error.
+
+The limits are per upstream, not per connection: when an upstream has both WebSocket and HTTP connections, a request counts once even if it's retried over the other one.
+
+NOTE: The requests Dshackle makes to keep track of the upstream itself, its validation when enabled or head polling, are not limited.
+
 === Authentication
 
 ==== TLS
