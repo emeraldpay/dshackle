@@ -17,6 +17,7 @@
 
 use crate::blockchain::TargetBlockchain;
 use crate::config::bytes::deserialize_opt_bytes;
+use crate::config::limits::RequestLimit;
 use crate::config::tls::{BasicAuth, ClientTlsAuth, basic_auth_from_url};
 use crate::upstream::id::{InvalidUpstreamId, UpstreamId};
 use crate::upstream::label::{InvalidUpstreamLabel, UpstreamLabel, UpstreamLabels};
@@ -425,6 +426,8 @@ pub struct RawUpstream {
     #[serde(default, deserialize_with = "deserialize_labels")]
     pub labels: HashMap<String, String>,
     pub methods: Option<MethodsConfig>,
+    #[serde(default)]
+    pub limits: Vec<RequestLimit>,
     pub connection: Option<RawConnection>,
 
     // Options can appear directly on the upstream entry
@@ -458,6 +461,9 @@ pub struct Upstream {
     pub role: UpstreamRole,
     pub labels: HashMap<String, String>,
     pub methods: Option<MethodsConfig>,
+    /// Request limits that must all allow a call for it to go to this
+    /// upstream. Empty means unlimited.
+    pub limits: Vec<RequestLimit>,
     pub connection: UpstreamConnection,
     pub options: PartialOptions,
 }
@@ -645,6 +651,7 @@ pub fn process_raw_upstream(raw: RawUpstream) -> Result<Option<Upstream>> {
         role,
         labels: raw.labels,
         methods: raw.methods,
+        limits: raw.limits,
         connection,
         options,
     }))
@@ -746,6 +753,7 @@ mod tests {
             role: UpstreamRole::Primary,
             labels: HashMap::new(),
             methods: None,
+            limits: Vec::new(),
             connection: UpstreamConnection::Ethereum(EthereumConnection {
                 rpc: None,
                 ws: None,
@@ -808,6 +816,49 @@ mod tests {
         assert_eq!(config.options_for(&upstream).min_peers, 3);
     }
 
+    // ── Request limits ───────────────────────────────────────────────────
+
+    #[test]
+    fn limits_are_carried_to_processed_upstream() {
+        let raw: RawUpstream = serde_yaml::from_str(
+            "
+id: infura-eth
+blockchain: ethereum
+limits:
+  - period: minute
+    requests: 10
+  - period: hour
+    requests: 300
+connection:
+  ethereum:
+    rpc:
+      url: https://mainnet.example.com
+",
+        )
+        .unwrap();
+
+        let upstream = process_raw_upstream(raw).unwrap().unwrap();
+
+        let limits: Vec<_> = upstream
+            .limits
+            .iter()
+            .map(|l| (l.period, l.requests.get()))
+            .collect();
+        assert_eq!(
+            limits,
+            vec![
+                (crate::config::limits::LimitPeriod::Minute, 10),
+                (crate::config::limits::LimitPeriod::Hour, 300),
+            ]
+        );
+    }
+
+    #[test]
+    fn upstream_without_limits_is_unlimited() {
+        let upstream = process_raw_upstream(raw_upstream(Some("up"))).unwrap().unwrap();
+        assert!(upstream.limits.is_empty());
+    }
+
     // ── ID validation ────────────────────────────────────────────────────
 
     fn raw_upstream(id: Option<&str>) -> RawUpstream {
@@ -818,6 +869,7 @@ mod tests {
             role: None,
             labels: HashMap::new(),
             methods: None,
+            limits: Vec::new(),
             connection: Some(RawConnection {
                 ethereum: Some(EthereumConnection {
                     rpc: None,

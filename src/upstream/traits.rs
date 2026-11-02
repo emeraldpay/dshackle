@@ -148,6 +148,18 @@ pub enum UpstreamError {
     InvalidResponse(String),
     /// The requested RPC method is not supported by this upstream.
     MethodNotAllowed(String),
+    /// Request limits refused the call before it reached a node: this
+    /// upstream's configured limits, or those of every upstream on a remote
+    /// Dshackle. Unlike [`Overloaded`](Self::Overloaded), no node said
+    /// anything, so another upstream may still answer.
+    LimitReached,
+}
+
+impl UpstreamError {
+    /// How [`LimitReached`](Self::LimitReached) reads to clients. A remote
+    /// Dshackle reports it with this text in its `NativeCall` reply, which is
+    /// how a Dshackle in front of it recognizes the refusal.
+    pub const LIMIT_REACHED_MESSAGE: &str = "upstream request limit reached";
 }
 
 impl std::fmt::Display for UpstreamError {
@@ -164,6 +176,7 @@ impl std::fmt::Display for UpstreamError {
             // The exact legacy `VerifyingReader` message — it reaches clients
             // through the gRPC `error_message` and the proxy error body.
             UpstreamError::MethodNotAllowed(method) => write!(f, "Unsupported method: {method}"),
+            UpstreamError::LimitReached => write!(f, "{}", Self::LIMIT_REACHED_MESSAGE),
         }
     }
 }

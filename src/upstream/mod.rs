@@ -34,6 +34,7 @@ pub mod id;
 mod identified;
 pub mod label;
 mod lag;
+mod limits;
 mod logged;
 pub mod merged_head;
 mod metered;
@@ -103,6 +104,7 @@ use fork::{
     DifficultyForkChoice, ForkChoice, ForkMember, PriorityForkChoice, is_pos, start_fork_watch,
 };
 use head::CurrentHead;
+use limits::{RequestBudget, RequestLimitGuard};
 use logged::LoggedUpstream;
 use merged_head::{MergeOrder, MergedHead};
 use metered::MeteredUpstream;
@@ -509,15 +511,21 @@ impl UpstreamManager {
                         Arc::new(LayeredMethods::new(default_layer, configured_layer));
 
                     // Wrapping order (outermost first):
-                    //   HardcodedMethods → CachingUpstream → MethodFilter → transport
+                    //   HardcodedMethods → CachingUpstream → MethodFilter
+                    //     → RequestLimitGuard → transport
                     // Hardcoded responses are cheapest, then cache, then network.
-                    // Requests reach it already prepared by the chain's
-                    // planner, e.g. rewritten to block-by-hash, which the
-                    // cache can answer.
+                    // Only calls that reach the network spend the request
+                    // limits. Requests reach it already prepared by the
+                    // chain's planner, e.g. rewritten to block-by-hash, which
+                    // the cache can answer.
                     let caches = per_chain_caches
                         .get(&chain)
                         .cloned()
                         .unwrap_or_else(|| Arc::new(Caches::new()));
+                    let reader = RequestLimitGuard::wrap(
+                        reader,
+                        RequestBudget::new(&upstream.limits).as_ref(),
+                    );
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(MethodFilter::new(reader, Arc::clone(&methods)));
                     let reader: Arc<dyn RpcUpstream> =
@@ -684,10 +692,15 @@ impl UpstreamManager {
                     let methods: Arc<dyn QuorumFactory> =
                         Arc::new(LayeredMethods::new(default_layer, configured_layer));
 
+                    // Same wrapping order as the Ethereum branch.
                     let caches = per_chain_caches
                         .get(&chain)
                         .cloned()
                         .unwrap_or_else(|| Arc::new(Caches::new()));
+                    let reader = RequestLimitGuard::wrap(
+                        reader,
+                        RequestBudget::new(&upstream.limits).as_ref(),
+                    );
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(MethodFilter::new(reader, Arc::clone(&methods)));
                     let reader: Arc<dyn RpcUpstream> =
@@ -763,6 +776,7 @@ impl UpstreamManager {
                         // legacy: gRPC negotiates the encoding per call, so a
                         // remote without gzip support is not harmed.
                         compress: ds.compress.unwrap_or(true),
+                        budget: RequestBudget::new(&upstream.limits),
                     });
                 }
             }
@@ -1606,6 +1620,9 @@ struct PendingDshackle {
     /// Merge priority of the discovered chains' heads, as for local upstreams.
     priority: i32,
     compress: bool,
+    /// One budget for every chain the remote serves: the configured limits
+    /// are for the connection to the remote, not for each of its chains.
+    budget: Option<Arc<RequestBudget>>,
 }
 
 /// The validated labels of a local upstream, with the failure attributed to
@@ -1746,6 +1763,7 @@ fn wire_remote_dshackle(
             upstream_id.clone(),
             chain,
         ));
+        let reader = RequestLimitGuard::wrap(reader, pending.budget.as_ref());
 
         // Capabilities come from the remote's own report (legacy
         // `RemoteCapabilities.extract`), so a Dshackle relay re-advertises what
@@ -1963,6 +1981,7 @@ mod tests {
             call_timeout: Duration::from_secs(1),
             priority: 42,
             compress: false,
+            budget: None,
         };
         let mut caches_map = HashMap::new();
         let mut caching_heads = HashMap::new();
