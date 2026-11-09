@@ -102,7 +102,8 @@ use ethereum::pending_tx::{
 use ethereum::validator::EthereumValidator;
 use fees::{BitcoinFees, ChainFees, EthereumFees};
 use fork::{
-    DifficultyForkChoice, ForkChoice, ForkMember, PriorityForkChoice, is_pos, start_fork_watch,
+    DifficultyForkChoice, ForkChoice, ForkMember, NeverForkChoice, PriorityForkChoice, is_pos,
+    start_fork_watch,
 };
 use head::CurrentHead;
 use limits::{RequestBudget, RequestLimitGuard};
@@ -860,7 +861,11 @@ impl UpstreamManager {
         let mut heads: HashMap<TargetBlockchain, Arc<MergedHead>> = HashMap::new();
         for (chain, members) in per_chain_fork {
             let TargetBlockchain::Standard(chain_ref) = chain;
-            let fork_choice: Arc<dyn ForkChoice> = if is_pos(chain_ref) {
+            // A lone upstream has nothing to diverge from, and flagging it
+            // would only take the chain's sole upstream out of routing.
+            let fork_choice: Arc<dyn ForkChoice> = if members.len() < 2 {
+                Arc::new(NeverForkChoice::new())
+            } else if is_pos(chain_ref) {
                 let priority = Arc::new(PriorityForkChoice::new());
                 for member in &members {
                     priority.add_upstream(

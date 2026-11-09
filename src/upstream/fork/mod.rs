@@ -26,6 +26,9 @@
 //! - [`DifficultyForkChoice`] for Proof-of-Work — the heaviest chain wins.
 //! - [`PriorityForkChoice`] for Proof-of-Stake — divergence from the
 //!   highest-priority healthy upstream is a fork.
+//!
+//! A chain with a single upstream uses [`NeverForkChoice`]: there is nothing
+//! to diverge from.
 
 mod difficulty;
 mod never;
@@ -114,7 +117,9 @@ impl ForkState {
 /// submits its blocks to it, so the choice sees the whole picture.
 pub trait ForkChoice: Send + Sync {
     /// Classify `block` reported by the upstream identified by `upstream_id`.
-    fn submit(&self, block: &BlockContainer, upstream_id: &UpstreamId) -> ForkStatus;
+    /// `None` when the block carries too little to judge, in which case the
+    /// upstream keeps its previous verdict.
+    fn submit(&self, block: &BlockContainer, upstream_id: &UpstreamId) -> Option<ForkStatus>;
 
     /// Name of the strategy, for logging.
     fn name(&self) -> &'static str;

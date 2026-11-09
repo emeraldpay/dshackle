@@ -28,12 +28,30 @@ use crate::jsonrpc::JsonRpcRequest;
 use crate::upstream::dshackle::DshackleUpstream;
 use crate::upstream::id::UpstreamId;
 use crate::upstream::traits::RpcUpstream;
+use emerald_api::proto::blockchain::ChainHead;
 use emerald_api::proto::common::Chain;
+use futures::FutureExt;
 use std::sync::Arc;
 use std::time::Duration;
+use tonic::{Status, Streaming};
 
 /// Pause between reconnection attempts.
 const RETRY_DELAY: Duration = Duration::from_secs(5);
+
+/// Limit for one full-block fetch. The head stream waits on it, and a block
+/// that slow to fetch isn't worth holding the head back for: the bare head is
+/// used instead.
+const ENRICH_TIMEOUT: Duration = Duration::from_millis(250);
+
+/// Pauses before each full-block fetch: the first goes out right away, the
+/// rest are retries. The remote announces a head as soon as its fastest node
+/// has it, so a fetch can land on one of its nodes that hasn't imported the
+/// block yet, and a moment later another try usually finds it.
+const ENRICH_ATTEMPT_DELAYS: [Duration; 3] = [
+    Duration::ZERO,
+    Duration::from_millis(50),
+    Duration::from_millis(50),
+];
 
 /// Spawns a background task that subscribes to `SubscribeHead` on the remote
 /// Dshackle and updates the upstream's shared head tracker with block data.
@@ -67,39 +85,12 @@ async fn subscribe_once(
 
     match client.subscribe_head(chain).await {
         Ok(response) => {
-            let mut stream = response.into_inner();
             tracing::debug!(upstream = %upstream_id, chain = chain_ref, "listening for head updates");
 
+            let mut announcements = Announcements::new(response.into_inner());
             loop {
-                match stream.message().await {
-                    Ok(Some(chain_head)) => {
-                        match parse_chain_head(
-                            &chain_head.block_id,
-                            chain_head.height,
-                            chain_head.timestamp,
-                            &chain_head.weight,
-                        ) {
-                            Some(bare) => {
-                                let block = enrich(upstream, blockchain_type, bare).await;
-                                tracing::trace!(
-                                    upstream = %upstream_id,
-                                    height = block.height,
-                                    hash = %block.hash,
-                                    "head updated via gRPC"
-                                );
-                                head.update_with_block(block);
-                            }
-                            None => {
-                                // Fallback: use height only
-                                tracing::debug!(
-                                    upstream = %upstream_id,
-                                    height = chain_head.height,
-                                    "partial head update (block_id parse failed)"
-                                );
-                                head.update(chain_head.height);
-                            }
-                        }
-                    }
+                let chain_head = match announcements.next().await {
+                    Ok(Some(chain_head)) => chain_head,
                     Ok(None) => {
                         tracing::debug!(
                             upstream = %upstream_id,
@@ -115,7 +106,29 @@ async fn subscribe_once(
                         );
                         break;
                     }
-                }
+                };
+                let Some(bare) = parse_chain_head(
+                    &chain_head.block_id,
+                    chain_head.height,
+                    chain_head.timestamp,
+                    &chain_head.weight,
+                ) else {
+                    tracing::debug!(
+                        upstream = %upstream_id,
+                        height = chain_head.height,
+                        "partial head update (block_id parse failed)"
+                    );
+                    head.update(chain_head.height);
+                    continue;
+                };
+                let block = enrich(upstream, blockchain_type, bare).await;
+                tracing::trace!(
+                    upstream = %upstream_id,
+                    height = block.height,
+                    hash = %block.hash,
+                    "head updated via gRPC"
+                );
+                head.update_with_block(block);
             }
         }
         Err(e) => {
@@ -128,17 +141,56 @@ async fn subscribe_once(
     }
 }
 
+/// The remote's head announcements, read newest-first: whatever piled up
+/// while the previous head was being fetched is skipped down to the latest.
+/// Only the current head matters, and on fast chains handling every one in
+/// turn would leave the subscriber further and further behind.
+struct Announcements {
+    stream: Streaming<ChainHead>,
+    /// The stream's close or error, met while skipping ahead. Held back so
+    /// the head read just before it is still handled; the stream reports an
+    /// error only once.
+    end: Option<Result<Option<ChainHead>, Status>>,
+}
+
+impl Announcements {
+    fn new(stream: Streaming<ChainHead>) -> Self {
+        Self { stream, end: None }
+    }
+
+    /// The newest announcement, waiting for one when none is ready.
+    /// `Ok(None)` or an error once the stream is over.
+    async fn next(&mut self) -> Result<Option<ChainHead>, Status> {
+        if let Some(end) = self.end.take() {
+            return end;
+        }
+        let mut latest = self.stream.message().await;
+        while let Ok(Some(_)) = latest {
+            // `message()` keeps its progress in the stream, so a poll that
+            // finds nothing ready loses nothing.
+            match self.stream.message().now_or_never() {
+                None => break,
+                Some(Ok(Some(newer))) => latest = Ok(Some(newer)),
+                Some(end) => {
+                    self.end = Some(end);
+                    break;
+                }
+            }
+        }
+        latest
+    }
+}
+
 /// Fetch the announced head's full block through the remote's `NativeCall`
 /// and replace the bare `ChainHead` data with it.
 ///
-/// The announcement itself carries no parent hash — PoS fork verification
-/// rejects a parent-less block as unverifiable, which would permanently flag
-/// the remote as forked — and no block data. The full block fixes both, and
-/// warms the cache with the hottest possible entry: the `CachingHead`
-/// following this head stores blocks that carry their JSON, so the block is
-/// usually cached before the first client asks for it. Any failure falls
-/// back to the bare head — tracking the height must never stall on the
-/// extra fetch.
+/// The announcement itself carries no parent hash, which PoS fork
+/// verification needs to link the block into a chain, and no block data. The
+/// full block fixes both, and warms the cache with the hottest possible
+/// entry: the `CachingHead` following this head stores blocks that carry
+/// their JSON, so the block is usually cached before the first client asks
+/// for it. When every attempt fails it falls back to the bare head, since
+/// tracking the height must never stall on the extra fetch.
 async fn enrich(
     upstream: &DshackleUpstream,
     blockchain_type: BlockchainType,
@@ -157,23 +209,46 @@ async fn enrich(
         ),
         BlockchainType::Unknown => return bare,
     };
-    let response = match upstream.call(&request).await {
-        Ok(response) if response.error.is_none() => response,
-        Ok(_) | Err(_) => {
-            tracing::debug!(hash = %bare.hash, "head block fetch failed, keeping the bare head");
-            return bare;
+    for delay in ENRICH_ATTEMPT_DELAYS {
+        tokio::time::sleep(delay).await;
+        if let Some(full) = fetch_full(upstream, blockchain_type, &bare, &request).await {
+            return full;
+        }
+    }
+    tracing::debug!(upstream = %upstream.id(), hash = %bare.hash, "head block unavailable, keeping the bare head");
+    bare
+}
+
+/// One attempt at fetching the full block for `bare`.
+async fn fetch_full(
+    upstream: &DshackleUpstream,
+    blockchain_type: BlockchainType,
+    bare: &BlockContainer,
+    request: &JsonRpcRequest,
+) -> Option<BlockContainer> {
+    let response = match tokio::time::timeout(ENRICH_TIMEOUT, upstream.call(request)).await {
+        Ok(Ok(response)) if response.error.is_none() => response,
+        Ok(Ok(response)) => {
+            tracing::debug!(upstream = %upstream.id(), hash = %bare.hash, error = ?response.error, "head block fetch failed");
+            return None;
+        }
+        Ok(Err(e)) => {
+            tracing::debug!(upstream = %upstream.id(), hash = %bare.hash, error = %e, "head block fetch failed");
+            return None;
+        }
+        Err(_) => {
+            tracing::debug!(upstream = %upstream.id(), hash = %bare.hash, "head block fetch timed out");
+            return None;
         }
     };
     let full = response
         .result
-        .and_then(|raw| enriched_block(&bare, blockchain_type, raw.get()));
-    match full {
-        Some(full) => full,
-        None => {
-            tracing::debug!(hash = %bare.hash, "head block not parseable, keeping the bare head");
-            bare
-        }
+        .and_then(|raw| enriched_block(bare, blockchain_type, raw.get()));
+    if full.is_none() {
+        // Usually `null`: the remote routed the call to a node without the block yet.
+        tracing::debug!(upstream = %upstream.id(), hash = %bare.hash, "head block not parseable");
     }
+    full
 }
 
 /// The bare head replaced by its parsed full block. Keeps the announced
@@ -236,106 +311,173 @@ fn parse_chain_head(
 mod tests {
     use super::*;
 
-    #[test]
-    fn parse_valid_chain_head() {
-        let block = parse_chain_head(
-            "fc58a258adccc94466ae967b1178eea721349b0667f59d5fe1b0b436460bce75",
-            8_396_159,
-            1_566_423_564_000,
-            &[],
-        )
-        .unwrap();
-
-        assert_eq!(block.height, 8_396_159);
-        assert_eq!(
-            block.hash.to_hex(),
-            "fc58a258adccc94466ae967b1178eea721349b0667f59d5fe1b0b436460bce75"
-        );
-        assert!(block.parent_hash.is_none());
-        assert!(block.transaction_hashes.is_empty());
-        assert!(block.json.is_none());
-        // No weight reported — the difficulty signal is simply absent.
-        assert!(block.total_difficulty.is_zero());
-    }
-
-    #[test]
-    fn parse_chain_head_weight_as_total_difficulty() {
-        // The trimmed big-endian encoding the serving side produces:
-        // 1024 == 0x0400.
-        let block = parse_chain_head(
-            "fc58a258adccc94466ae967b1178eea721349b0667f59d5fe1b0b436460bce75",
-            1,
-            0,
-            &[0x04, 0x00],
-        )
-        .unwrap();
-        assert_eq!(block.total_difficulty, alloy::primitives::U256::from(1024));
-    }
-
-    #[test]
-    fn parse_chain_head_oversized_weight_is_ignored() {
-        // Wider than 256 bits cannot be an honest cumulative work value;
-        // dropped rather than panicking in `from_be_slice`.
-        let block = parse_chain_head(
-            "fc58a258adccc94466ae967b1178eea721349b0667f59d5fe1b0b436460bce75",
-            1,
-            0,
-            &[0xff; 33],
-        )
-        .unwrap();
-        assert!(block.total_difficulty.is_zero());
-    }
-
-    #[test]
-    fn parse_chain_head_invalid_hash() {
-        assert!(parse_chain_head("not-a-hash", 100, 0, &[]).is_none());
-    }
-
     const HASH: &str = "fc58a258adccc94466ae967b1178eea721349b0667f59d5fe1b0b436460bce75";
 
-    fn bare_head() -> BlockContainer {
-        parse_chain_head(HASH, 16, 1_566_423_564_000, &[0x04, 0x00]).unwrap()
+    /// Reading the remote's announcement stream.
+    mod announcements {
+        use super::*;
+
+        /// Decodes test frames the way the generated gRPC client does.
+        struct ChainHeadDecoder;
+
+        impl tonic::codec::Decoder for ChainHeadDecoder {
+            type Item = ChainHead;
+            type Error = Status;
+
+            fn decode(
+                &mut self,
+                src: &mut tonic::codec::DecodeBuf<'_>,
+            ) -> Result<Option<ChainHead>, Status> {
+                prost::Message::decode(src)
+                    .map(Some)
+                    .map_err(|e| Status::internal(e.to_string()))
+            }
+        }
+
+        /// A stream whose announcements of `heights` have all arrived
+        /// already, followed by its close.
+        fn arrived(heights: &[u64]) -> Announcements {
+            let mut body = Vec::new();
+            for &height in heights {
+                let message = prost::Message::encode_to_vec(&ChainHead {
+                    height,
+                    ..Default::default()
+                });
+                body.push(0); // uncompressed
+                body.extend_from_slice(&(message.len() as u32).to_be_bytes());
+                body.extend_from_slice(&message);
+            }
+            let body = http_body_util::Full::new(bytes::Bytes::from(body));
+            Announcements::new(Streaming::new_request(ChainHeadDecoder, body, None, None))
+        }
+
+        #[tokio::test]
+        async fn skip_to_the_newest_waiting() {
+            let mut announcements = arrived(&[10, 11, 12]);
+            assert_eq!(announcements.next().await.unwrap().unwrap().height, 12);
+        }
+
+        #[tokio::test]
+        async fn report_the_close_only_after_the_last_head() {
+            // The close is met while skipping ahead; it must not swallow the
+            // head read before it.
+            let mut announcements = arrived(&[10, 11]);
+            assert_eq!(announcements.next().await.unwrap().unwrap().height, 11);
+            assert!(announcements.next().await.unwrap().is_none());
+        }
+
+        #[tokio::test]
+        async fn report_the_close_of_an_empty_stream() {
+            let mut announcements = arrived(&[]);
+            assert!(announcements.next().await.unwrap().is_none());
+        }
     }
 
-    #[test]
-    fn enriched_block_fills_parent_hash_and_json() {
-        let raw = format!(
-            r#"{{"hash":"0x{HASH}","number":"0x10","parentHash":"0x{parent}","timestamp":"0x5d5d4a0c","transactions":[]}}"#,
-            parent = "aa".repeat(32),
-        );
-        let full = enriched_block(&bare_head(), BlockchainType::Ethereum, &raw).unwrap();
-        assert_eq!(full.hash, bare_head().hash);
-        assert!(full.parent_hash.is_some());
-        assert!(full.json.is_some());
-        // No totalDifficulty in the block (post-merge): the announced weight
-        // stays as the difficulty signal.
-        assert_eq!(full.total_difficulty, alloy::primitives::U256::from(1024));
+    /// Turning a `ChainHead` announcement into a bare block.
+    mod chain_head {
+        use super::*;
+
+        #[test]
+        fn becomes_a_block_without_parent_or_data() {
+            let block = parse_chain_head(HASH, 8_396_159, 1_566_423_564_000, &[]).unwrap();
+
+            assert_eq!(block.height, 8_396_159);
+            assert_eq!(block.hash.to_hex(), HASH);
+            assert_eq!(
+                block.timestamp,
+                jiff::Timestamp::from_millisecond(1_566_423_564_000).unwrap()
+            );
+            assert!(block.parent_hash.is_none());
+            assert!(block.transaction_hashes.is_empty());
+            assert!(block.json.is_none());
+            // No weight reported: the difficulty signal is simply absent.
+            assert!(block.total_difficulty.is_zero());
+        }
+
+        #[test]
+        fn weight_is_the_total_difficulty() {
+            // The trimmed big-endian encoding the serving side produces.
+            let block = parse_chain_head(HASH, 1, 0, &[0x04, 0x00]).unwrap();
+            assert_eq!(
+                block.total_difficulty,
+                alloy::primitives::U256::from(0x0400)
+            );
+        }
+
+        #[test]
+        fn oversized_weight_is_ignored() {
+            // Wider than 256 bits can't be an honest cumulative work value;
+            // dropped rather than panicking in `from_be_slice`.
+            let block = parse_chain_head(HASH, 1, 0, &[0xff; 33]).unwrap();
+            assert!(block.total_difficulty.is_zero());
+        }
+
+        #[test]
+        fn invalid_hash_is_not_a_block() {
+            assert!(parse_chain_head("not-a-hash", 100, 0, &[]).is_none());
+        }
     }
 
-    #[test]
-    fn enriched_block_prefers_the_blocks_own_total_difficulty() {
-        let raw = format!(
-            r#"{{"hash":"0x{HASH}","number":"0x10","parentHash":"0x{parent}","timestamp":"0x5d5d4a0c","totalDifficulty":"0x800","transactions":[]}}"#,
-            parent = "aa".repeat(32),
-        );
-        let full = enriched_block(&bare_head(), BlockchainType::Ethereum, &raw).unwrap();
-        assert_eq!(full.total_difficulty, alloy::primitives::U256::from(0x800));
-    }
+    /// Replacing the bare block with the full one fetched from the remote.
+    mod full_block {
+        use super::*;
 
-    #[test]
-    fn enriched_block_rejects_a_different_block() {
-        // A response for another hash must not replace the announced head.
-        let raw = format!(
-            r#"{{"hash":"0x{other}","number":"0x10","parentHash":"0x{parent}","timestamp":"0x5d5d4a0c","transactions":[]}}"#,
-            other = "bb".repeat(32),
-            parent = "aa".repeat(32),
-        );
-        assert!(enriched_block(&bare_head(), BlockchainType::Ethereum, &raw).is_none());
-    }
+        const PARENT: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
-    #[test]
-    fn enriched_block_rejects_garbage() {
-        assert!(enriched_block(&bare_head(), BlockchainType::Ethereum, "null").is_none());
-        assert!(enriched_block(&bare_head(), BlockchainType::Ethereum, "{}").is_none());
+        /// Announced with a weight of 1024.
+        fn bare_head() -> BlockContainer {
+            parse_chain_head(HASH, 16, 1_566_423_564_000, &[0x04, 0x00]).unwrap()
+        }
+
+        /// `eth_getBlockByHash` result for block `hash`, with `extra` JSON
+        /// fields appended.
+        fn eth_block(hash: &str, extra: &str) -> String {
+            format!(
+                r#"{{"hash":"0x{hash}","number":"0x10","parentHash":"0x{PARENT}","timestamp":"0x5d5d4a0c","transactions":[]{extra}}}"#
+            )
+        }
+
+        fn enrich_eth(raw: &str) -> Option<BlockContainer> {
+            enriched_block(&bare_head(), BlockchainType::Ethereum, raw)
+        }
+
+        #[test]
+        fn fills_in_the_parent_hash_and_block_data() {
+            let full = enrich_eth(&eth_block(HASH, "")).unwrap();
+            assert_eq!(full.hash, bare_head().hash);
+            assert_eq!(full.parent_hash, Some(PARENT.parse().unwrap()));
+            assert!(full.json.is_some());
+        }
+
+        #[test]
+        fn keeps_the_announced_weight_when_the_block_has_none() {
+            // Post-merge clients omit totalDifficulty.
+            let full = enrich_eth(&eth_block(HASH, "")).unwrap();
+            assert_eq!(full.total_difficulty, alloy::primitives::U256::from(1024));
+        }
+
+        #[test]
+        fn prefers_the_blocks_own_total_difficulty() {
+            let full = enrich_eth(&eth_block(HASH, r#","totalDifficulty":"0x800""#)).unwrap();
+            assert_eq!(full.total_difficulty, alloy::primitives::U256::from(0x800));
+        }
+
+        #[test]
+        fn different_block_is_refused() {
+            // A response for another hash must not replace the announced head.
+            assert!(enrich_eth(&eth_block(&"bb".repeat(32), "")).is_none());
+        }
+
+        #[test]
+        fn null_is_refused() {
+            // What a remote node answers when it hasn't imported the block
+            // yet, the case the fetch retries for.
+            assert!(enrich_eth("null").is_none());
+        }
+
+        #[test]
+        fn malformed_block_is_refused() {
+            assert!(enrich_eth("{}").is_none());
+        }
     }
 }

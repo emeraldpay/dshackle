@@ -20,9 +20,9 @@ use crate::upstream::id::UpstreamId;
 use std::cmp::Ordering;
 use std::sync::atomic::{AtomicU64, Ordering as MemOrder};
 
-/// Tracks only the best height seen and never reports a fork. The default for
-/// chains without a real fork strategy, and a stand-in in tests. Ported from
-/// the legacy `NeverForkChoice`.
+/// Tracks only the best height seen and never reports a fork. Used for a
+/// chain with a single upstream, and as a stand-in in tests. Ported from the
+/// legacy `NeverForkChoice`.
 pub struct NeverForkChoice {
     height: AtomicU64,
 }
@@ -36,12 +36,12 @@ impl NeverForkChoice {
 }
 
 impl ForkChoice for NeverForkChoice {
-    fn submit(&self, block: &BlockContainer, _upstream_id: &UpstreamId) -> ForkStatus {
+    fn submit(&self, block: &BlockContainer, _upstream_id: &UpstreamId) -> Option<ForkStatus> {
         let previous = self.height.fetch_max(block.height, MemOrder::Relaxed);
         match previous.cmp(&block.height) {
-            Ordering::Greater => ForkStatus::Fallbehind,
-            Ordering::Less => ForkStatus::New,
-            Ordering::Equal => ForkStatus::Equal,
+            Ordering::Greater => Some(ForkStatus::Fallbehind),
+            Ordering::Less => Some(ForkStatus::New),
+            Ordering::Equal => Some(ForkStatus::Equal),
         }
     }
 
@@ -73,14 +73,21 @@ mod tests {
     #[test]
     fn tracks_height_and_never_rejects() {
         let fc = NeverForkChoice::new();
-        assert_eq!(fc.submit(&block(10), &test_id("up-a")), ForkStatus::New);
-        assert_eq!(fc.submit(&block(10), &test_id("up-b")), ForkStatus::Equal);
+        assert_eq!(
+            fc.submit(&block(10), &test_id("up-a")),
+            Some(ForkStatus::New)
+        );
+        assert_eq!(
+            fc.submit(&block(10), &test_id("up-b")),
+            Some(ForkStatus::Equal)
+        );
         assert_eq!(
             fc.submit(&block(5), &test_id("up-c")),
-            ForkStatus::Fallbehind
+            Some(ForkStatus::Fallbehind)
         );
         assert!(
             !fc.submit(&block(1), &test_id("up-d"))
+                .unwrap()
                 .fork_state()
                 .is_forked()
         );

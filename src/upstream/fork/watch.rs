@@ -51,7 +51,9 @@ pub fn start_fork_watch(
         loop {
             match blocks.recv().await {
                 Ok(block) => {
-                    let status = fork_choice.submit(&block, &id);
+                    let Some(status) = fork_choice.submit(&block, &id) else {
+                        continue;
+                    };
                     metrics::fork_status(status.metrics_label(), &chain);
                     let fork = status.fork_state();
                     state.set_fork(fork);
