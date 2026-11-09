@@ -35,6 +35,21 @@ use std::time::Duration;
 /// Pause between reconnection attempts.
 const RETRY_DELAY: Duration = Duration::from_secs(5);
 
+/// Limit for one full-block fetch. The head stream waits on it (unless a newer
+/// head arrives), and a block that slow to fetch isn't worth holding the head
+/// back for: the bare head is used instead.
+const ENRICH_TIMEOUT: Duration = Duration::from_millis(250);
+
+/// Pauses before each full-block fetch: the first goes out right away, the
+/// rest are retries. The remote announces a head as soon as its fastest node
+/// has it, so a fetch can land on one of its nodes that hasn't imported the
+/// block yet, and a moment later another try usually finds it.
+const ENRICH_ATTEMPT_DELAYS: [Duration; 3] = [
+    Duration::ZERO,
+    Duration::from_millis(50),
+    Duration::from_millis(50),
+];
+
 /// Spawns a background task that subscribes to `SubscribeHead` on the remote
 /// Dshackle and updates the upstream's shared head tracker with block data.
 ///
@@ -70,36 +85,10 @@ async fn subscribe_once(
             let mut stream = response.into_inner();
             tracing::debug!(upstream = %upstream_id, chain = chain_ref, "listening for head updates");
 
+            let mut incoming = stream.message().await;
             loop {
-                match stream.message().await {
-                    Ok(Some(chain_head)) => {
-                        match parse_chain_head(
-                            &chain_head.block_id,
-                            chain_head.height,
-                            chain_head.timestamp,
-                            &chain_head.weight,
-                        ) {
-                            Some(bare) => {
-                                let block = enrich(upstream, blockchain_type, bare).await;
-                                tracing::trace!(
-                                    upstream = %upstream_id,
-                                    height = block.height,
-                                    hash = %block.hash,
-                                    "head updated via gRPC"
-                                );
-                                head.update_with_block(block);
-                            }
-                            None => {
-                                // Fallback: use height only
-                                tracing::debug!(
-                                    upstream = %upstream_id,
-                                    height = chain_head.height,
-                                    "partial head update (block_id parse failed)"
-                                );
-                                head.update(chain_head.height);
-                            }
-                        }
-                    }
+                let chain_head = match incoming {
+                    Ok(Some(chain_head)) => chain_head,
                     Ok(None) => {
                         tracing::debug!(
                             upstream = %upstream_id,
@@ -114,6 +103,44 @@ async fn subscribe_once(
                             "head stream error, will re-subscribe"
                         );
                         break;
+                    }
+                };
+                let Some(bare) = parse_chain_head(
+                    &chain_head.block_id,
+                    chain_head.height,
+                    chain_head.timestamp,
+                    &chain_head.weight,
+                ) else {
+                    tracing::debug!(
+                        upstream = %upstream_id,
+                        height = chain_head.height,
+                        "partial head update (block_id parse failed)"
+                    );
+                    head.update(chain_head.height);
+                    incoming = stream.message().await;
+                    continue;
+                };
+                // A newer head makes this one moot, so it doesn't wait behind
+                // the full-block fetch. On fast chains the fetch would
+                // otherwise let the stream back up.
+                tokio::select! {
+                    block = enrich(upstream, blockchain_type, bare) => {
+                        tracing::trace!(
+                            upstream = %upstream_id,
+                            height = block.height,
+                            hash = %block.hash,
+                            "head updated via gRPC"
+                        );
+                        head.update_with_block(block);
+                        incoming = stream.message().await;
+                    }
+                    newer = stream.message() => {
+                        tracing::debug!(
+                            upstream = %upstream_id,
+                            height = chain_head.height,
+                            "head superseded before its full block arrived"
+                        );
+                        incoming = newer;
                     }
                 }
             }
@@ -131,14 +158,13 @@ async fn subscribe_once(
 /// Fetch the announced head's full block through the remote's `NativeCall`
 /// and replace the bare `ChainHead` data with it.
 ///
-/// The announcement itself carries no parent hash — PoS fork verification
-/// rejects a parent-less block as unverifiable, which would permanently flag
-/// the remote as forked — and no block data. The full block fixes both, and
-/// warms the cache with the hottest possible entry: the `CachingHead`
-/// following this head stores blocks that carry their JSON, so the block is
-/// usually cached before the first client asks for it. Any failure falls
-/// back to the bare head — tracking the height must never stall on the
-/// extra fetch.
+/// The announcement itself carries no parent hash, which PoS fork
+/// verification needs to link the block into a chain, and no block data. The
+/// full block fixes both, and warms the cache with the hottest possible
+/// entry: the `CachingHead` following this head stores blocks that carry
+/// their JSON, so the block is usually cached before the first client asks
+/// for it. When every attempt fails it falls back to the bare head, since
+/// tracking the height must never stall on the extra fetch.
 async fn enrich(
     upstream: &DshackleUpstream,
     blockchain_type: BlockchainType,
@@ -157,23 +183,46 @@ async fn enrich(
         ),
         BlockchainType::Unknown => return bare,
     };
-    let response = match upstream.call(&request).await {
-        Ok(response) if response.error.is_none() => response,
-        Ok(_) | Err(_) => {
-            tracing::debug!(hash = %bare.hash, "head block fetch failed, keeping the bare head");
-            return bare;
+    for delay in ENRICH_ATTEMPT_DELAYS {
+        tokio::time::sleep(delay).await;
+        if let Some(full) = fetch_full(upstream, blockchain_type, &bare, &request).await {
+            return full;
+        }
+    }
+    tracing::debug!(upstream = %upstream.id(), hash = %bare.hash, "head block unavailable, keeping the bare head");
+    bare
+}
+
+/// One attempt at fetching the full block for `bare`.
+async fn fetch_full(
+    upstream: &DshackleUpstream,
+    blockchain_type: BlockchainType,
+    bare: &BlockContainer,
+    request: &JsonRpcRequest,
+) -> Option<BlockContainer> {
+    let response = match tokio::time::timeout(ENRICH_TIMEOUT, upstream.call(request)).await {
+        Ok(Ok(response)) if response.error.is_none() => response,
+        Ok(Ok(response)) => {
+            tracing::debug!(upstream = %upstream.id(), hash = %bare.hash, error = ?response.error, "head block fetch failed");
+            return None;
+        }
+        Ok(Err(e)) => {
+            tracing::debug!(upstream = %upstream.id(), hash = %bare.hash, error = %e, "head block fetch failed");
+            return None;
+        }
+        Err(_) => {
+            tracing::debug!(upstream = %upstream.id(), hash = %bare.hash, "head block fetch timed out");
+            return None;
         }
     };
     let full = response
         .result
-        .and_then(|raw| enriched_block(&bare, blockchain_type, raw.get()));
-    match full {
-        Some(full) => full,
-        None => {
-            tracing::debug!(hash = %bare.hash, "head block not parseable, keeping the bare head");
-            bare
-        }
+        .and_then(|raw| enriched_block(bare, blockchain_type, raw.get()));
+    if full.is_none() {
+        // Usually `null`: the remote routed the call to a node without the block yet.
+        tracing::debug!(upstream = %upstream.id(), hash = %bare.hash, "head block not parseable");
     }
+    full
 }
 
 /// The bare head replaced by its parsed full block. Keeps the announced

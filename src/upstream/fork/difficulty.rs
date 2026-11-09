@@ -57,7 +57,7 @@ impl DifficultyForkChoice {
 }
 
 impl ForkChoice for DifficultyForkChoice {
-    fn submit(&self, block: &BlockContainer, upstream_id: &UpstreamId) -> ForkStatus {
+    fn submit(&self, block: &BlockContainer, upstream_id: &UpstreamId) -> Option<ForkStatus> {
         let difficulty = block.total_difficulty;
         let mut state = self.state.lock().unwrap();
         if difficulty == U256::ZERO && state.reported_zero.insert(upstream_id.clone()) {
@@ -78,9 +78,9 @@ impl ForkChoice for DifficultyForkChoice {
             state.best_height = block.height;
         }
         match order {
-            Ordering::Greater => ForkStatus::Fallbehind,
-            Ordering::Less => ForkStatus::New,
-            Ordering::Equal => ForkStatus::Equal,
+            Ordering::Greater => Some(ForkStatus::Fallbehind),
+            Ordering::Less => Some(ForkStatus::New),
+            Ordering::Equal => Some(ForkStatus::Equal),
         }
     }
 
@@ -116,21 +116,30 @@ mod tests {
     #[test]
     fn first_block_is_new() {
         let fc = DifficultyForkChoice::new();
-        assert_eq!(fc.submit(&block(100), &test_id("up-a")), ForkStatus::New);
+        assert_eq!(
+            fc.submit(&block(100), &test_id("up-a")),
+            Some(ForkStatus::New)
+        );
     }
 
     #[test]
     fn higher_difficulty_is_new() {
         let fc = DifficultyForkChoice::new();
         fc.submit(&block(100), &test_id("up-a"));
-        assert_eq!(fc.submit(&block(200), &test_id("up-b")), ForkStatus::New);
+        assert_eq!(
+            fc.submit(&block(200), &test_id("up-b")),
+            Some(ForkStatus::New)
+        );
     }
 
     #[test]
     fn same_difficulty_is_equal() {
         let fc = DifficultyForkChoice::new();
         fc.submit(&block(100), &test_id("up-a"));
-        assert_eq!(fc.submit(&block(100), &test_id("up-b")), ForkStatus::Equal);
+        assert_eq!(
+            fc.submit(&block(100), &test_id("up-b")),
+            Some(ForkStatus::Equal)
+        );
     }
 
     #[test]
@@ -139,7 +148,7 @@ mod tests {
         fc.submit(&block(200), &test_id("up-a"));
         assert_eq!(
             fc.submit(&block(100), &test_id("up-b")),
-            ForkStatus::Fallbehind
+            Some(ForkStatus::Fallbehind)
         );
     }
 
@@ -149,6 +158,7 @@ mod tests {
         fc.submit(&block(200), &test_id("up-a"));
         assert!(
             !fc.submit(&block(1), &test_id("up-b"))
+                .unwrap()
                 .fork_state()
                 .is_forked()
         );
@@ -161,19 +171,19 @@ mod tests {
         let fc = DifficultyForkChoice::new();
         assert_eq!(
             fc.submit(&block_at(0, 100), &test_id("up-a")),
-            ForkStatus::New
+            Some(ForkStatus::New)
         );
         assert_eq!(
             fc.submit(&block_at(0, 101), &test_id("up-a")),
-            ForkStatus::New
+            Some(ForkStatus::New)
         );
         assert_eq!(
             fc.submit(&block_at(0, 101), &test_id("up-b")),
-            ForkStatus::Equal
+            Some(ForkStatus::Equal)
         );
         assert_eq!(
             fc.submit(&block_at(0, 99), &test_id("up-b")),
-            ForkStatus::Fallbehind
+            Some(ForkStatus::Fallbehind)
         );
     }
 
@@ -187,11 +197,11 @@ mod tests {
         fc.submit(&block_at(0, 1000), &test_id("up-a"));
         assert_eq!(
             fc.submit(&block_at(500, 500), &test_id("up-b")),
-            ForkStatus::Fallbehind
+            Some(ForkStatus::Fallbehind)
         );
         assert_eq!(
             fc.submit(&block_at(0, 1001), &test_id("up-a")),
-            ForkStatus::New
+            Some(ForkStatus::New)
         );
     }
 }

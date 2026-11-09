@@ -19,7 +19,7 @@ use crate::data::{BlockContainer, BlockId};
 use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::id::UpstreamId;
 use crate::upstream::state::UpstreamState;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
 
 /// How many blocks of an upstream's chain to keep. A healthy high-priority
@@ -47,6 +47,9 @@ pub struct PriorityForkChoice {
     journal: Mutex<VecDeque<(BlockId, BlockId)>>,
     /// The reconstructed recent chain for each upstream, oldest first.
     blocks: Mutex<HashMap<UpstreamId, Vec<BlockId>>>,
+    /// Upstreams already reported for sending blocks without a parent hash,
+    /// so the warning shows once rather than on every block.
+    reported_unlinked: Mutex<HashSet<UpstreamId>>,
 }
 
 impl PriorityForkChoice {
@@ -55,6 +58,7 @@ impl PriorityForkChoice {
             members: RwLock::new(Vec::new()),
             journal: Mutex::new(VecDeque::new()),
             blocks: Mutex::new(HashMap::new()),
+            reported_unlinked: Mutex::new(HashSet::new()),
         }
     }
 
@@ -212,27 +216,77 @@ impl PriorityForkChoice {
             });
         ForkStatus::Rejected { common }
     }
+
+    /// Judge a block that came without its parent hash (e.g. a Dshackle
+    /// upstream whose head couldn't be fetched in full). It can't be linked
+    /// into a chain, so only its own hash is checked against the recognized
+    /// chain, and a block that can't be placed there gets no verdict at all:
+    /// legacy flagged it as a fork, which knocks a healthy upstream out of
+    /// routing over a missing field, while calling it on-chain would clear a
+    /// real fork.
+    fn judge_unlinked(
+        &self,
+        block: &BlockContainer,
+        upstream_id: &UpstreamId,
+    ) -> Option<ForkStatus> {
+        if self
+            .reported_unlinked
+            .lock()
+            .unwrap()
+            .insert(upstream_id.clone())
+        {
+            tracing::warn!(
+                upstream = %upstream_id,
+                "Upstream sends blocks without a parent hash; fork detection can't follow its chain"
+            );
+        }
+        self.forget_stale_chain(upstream_id, block.hash);
+        let Some(preferred) = self.preferential_upstream(upstream_id) else {
+            return Some(ForkStatus::New);
+        };
+        let recognized = self.get_blocks(&preferred);
+        if recognized.is_empty() {
+            Some(ForkStatus::New)
+        } else if recognized.last() == Some(&block.hash) {
+            Some(ForkStatus::Equal)
+        } else if recognized.contains(&block.hash) {
+            Some(ForkStatus::Fallbehind)
+        } else {
+            tracing::debug!(upstream = %upstream_id, hash = %block.hash, "Block without parent hash can't be placed on the recognized chain");
+            None
+        }
+    }
+
+    /// Drop the upstream's tracked chain once its head has moved to `head`
+    /// without a link to it. The chain no longer describes where the
+    /// upstream stands, and when it's the reference for the others they'd
+    /// keep comparing against it until their own windows slide past it and
+    /// they look forked.
+    fn forget_stale_chain(&self, upstream_id: &UpstreamId, head: BlockId) {
+        let mut blocks = self.blocks.lock().unwrap();
+        if blocks.get(upstream_id).and_then(|chain| chain.last()) != Some(&head) {
+            blocks.remove(upstream_id);
+        }
+    }
 }
 
 impl ForkChoice for PriorityForkChoice {
-    fn submit(&self, block: &BlockContainer, upstream_id: &UpstreamId) -> ForkStatus {
+    fn submit(&self, block: &BlockContainer, upstream_id: &UpstreamId) -> Option<ForkStatus> {
         let Some(parent) = block.parent_hash else {
-            // The legacy code throws on a missing parent and the watcher
-            // treats the failure as a fork; mirror that.
-            tracing::warn!(upstream = %upstream_id, "Block has no parent hash");
-            return ForkStatus::Rejected { common: 0 };
+            return self.judge_unlinked(block, upstream_id);
         };
         self.keep_journal(parent, block.hash);
         let history = self.get_blocks(upstream_id);
         let head = self.merge(&history, parent, block.hash);
         self.set_blocks(upstream_id, head.clone());
-        match self.preferential_upstream(upstream_id) {
+        let status = match self.preferential_upstream(upstream_id) {
             None => ForkStatus::New,
             Some(preferred) => {
                 let recognized = self.get_blocks(&preferred);
                 self.compare_history(&recognized, &head, block.height)
             }
-        }
+        };
+        Some(status)
     }
 
     fn name(&self) -> &'static str {
@@ -277,7 +331,10 @@ mod tests {
         let fc = PriorityForkChoice::new();
         register(&fc, "top", 100);
         // No higher-priority upstream exists, so it's trusted.
-        assert_eq!(fc.submit(&block(2, 1, 1), &test_id("top")), ForkStatus::New);
+        assert_eq!(
+            fc.submit(&block(2, 1, 1), &test_id("top")),
+            Some(ForkStatus::New)
+        );
     }
 
     #[test]
@@ -288,7 +345,7 @@ mod tests {
         fc.submit(&block(2, 1, 1), &test_id("top"));
         assert_eq!(
             fc.submit(&block(2, 1, 1), &test_id("low")),
-            ForkStatus::Equal
+            Some(ForkStatus::Equal)
         );
     }
 
@@ -302,7 +359,7 @@ mod tests {
         fc.submit(&block(3, 2, 2), &test_id("top"));
         assert_eq!(
             fc.submit(&block(2, 1, 1), &test_id("low")),
-            ForkStatus::Fallbehind
+            Some(ForkStatus::Fallbehind)
         );
     }
 
@@ -315,7 +372,7 @@ mod tests {
         // low builds on top's head (2 -> 3) before top sees block 3
         assert_eq!(
             fc.submit(&block(3, 2, 2), &test_id("low")),
-            ForkStatus::Outrun
+            Some(ForkStatus::Outrun)
         );
     }
 
@@ -331,7 +388,7 @@ mod tests {
         fc.submit(&block(10, 9, 1), &test_id("low"));
         assert_eq!(
             fc.submit(&block(11, 10, 2), &test_id("low")),
-            ForkStatus::Rejected { common: 0 }
+            Some(ForkStatus::Rejected { common: 0 })
         );
     }
 
@@ -349,20 +406,88 @@ mod tests {
         fc.submit(&block(20, 2, 2), &test_id("low"));
         assert_eq!(
             fc.submit(&block(21, 20, 3), &test_id("low")),
-            ForkStatus::Rejected { common: 1 }
+            Some(ForkStatus::Rejected { common: 1 })
+        );
+    }
+
+    fn unlinked(hash: u8, height: u64) -> BlockContainer {
+        let mut b = block(hash, 0, height);
+        b.parent_hash = None;
+        b
+    }
+
+    #[test]
+    fn top_priority_without_parent_is_new() {
+        let fc = PriorityForkChoice::new();
+        register(&fc, "top", 100);
+        assert_eq!(
+            fc.submit(&unlinked(2, 1), &test_id("top")),
+            Some(ForkStatus::New)
         );
     }
 
     #[test]
-    fn missing_parent_is_rejected() {
+    fn lower_priority_without_parent_is_placed_by_hash() {
         let fc = PriorityForkChoice::new();
         register(&fc, "top", 100);
-        let mut b = block(2, 1, 1);
-        b.parent_hash = None;
+        register(&fc, "low", 50);
+        fc.submit(&block(2, 1, 1), &test_id("top"));
+        fc.submit(&block(3, 2, 2), &test_id("top"));
         assert_eq!(
-            fc.submit(&b, &test_id("top")),
-            ForkStatus::Rejected { common: 0 }
+            fc.submit(&unlinked(3, 2), &test_id("low")),
+            Some(ForkStatus::Equal)
         );
+        assert_eq!(
+            fc.submit(&unlinked(2, 1), &test_id("low")),
+            Some(ForkStatus::Fallbehind)
+        );
+    }
+
+    #[test]
+    fn block_without_parent_off_the_recognized_chain_gets_no_verdict() {
+        let fc = PriorityForkChoice::new();
+        register(&fc, "top", 100);
+        register(&fc, "low", 50);
+        // low is correctly judged forked from linked blocks: top 2 -> 3 -> 4,
+        // low 2 -> 20 -> 21.
+        fc.submit(&block(2, 1, 1), &test_id("top"));
+        fc.submit(&block(3, 2, 2), &test_id("top"));
+        fc.submit(&block(4, 3, 3), &test_id("top"));
+        fc.submit(&block(2, 1, 1), &test_id("low"));
+        fc.submit(&block(20, 2, 2), &test_id("low"));
+        fc.submit(&block(21, 20, 3), &test_id("low"));
+        // A block that can't be placed must not clear that verdict.
+        assert_eq!(fc.submit(&unlinked(22, 4), &test_id("low")), None);
+    }
+
+    #[test]
+    fn block_without_parent_is_new_while_the_reference_has_no_chain() {
+        let fc = PriorityForkChoice::new();
+        register(&fc, "top", 100);
+        register(&fc, "low", 50);
+        assert_eq!(
+            fc.submit(&unlinked(2, 1), &test_id("low")),
+            Some(ForkStatus::New)
+        );
+    }
+
+    #[test]
+    fn reference_without_parents_does_not_leave_a_stale_chain() {
+        let fc = PriorityForkChoice::new();
+        register(&fc, "top", 100);
+        register(&fc, "low", 50);
+        fc.submit(&block(2, 1, 1), &test_id("top"));
+        fc.submit(&block(3, 2, 2), &test_id("top"));
+        // From here top's heads come without parents, so its tracked chain
+        // can't follow them.
+        fc.submit(&unlinked(4, 3), &test_id("top"));
+        // low keeps following the real chain well past the tracking window;
+        // it must not end up judged against top's frozen chain.
+        let mut status = None;
+        for hash in 2..=(TRACK_LIMIT as u8 + 10) {
+            status = fc.submit(&block(hash, hash - 1, hash as u64 - 1), &test_id("low"));
+        }
+        assert_eq!(status, Some(ForkStatus::New));
     }
 
     #[test]
@@ -376,7 +501,7 @@ mod tests {
         fc.submit(&block(2, 1, 1), &test_id("top"));
         assert_eq!(
             fc.submit(&block(10, 9, 1), &test_id("low")),
-            ForkStatus::New
+            Some(ForkStatus::New)
         );
     }
 }
