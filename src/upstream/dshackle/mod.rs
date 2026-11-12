@@ -20,8 +20,12 @@
 //! single gRPC connection. Available chains are discovered dynamically by
 //! calling the remote's `Describe` RPC.
 
+pub mod connection;
 pub mod head;
+pub mod remote;
 pub mod status;
+#[cfg(test)]
+pub mod stub_remote;
 pub mod subscribe;
 pub mod upstream;
 

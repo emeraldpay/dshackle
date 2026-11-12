@@ -27,6 +27,7 @@ use crate::data::{BlockContainer, BlockId};
 use crate::jsonrpc::JsonRpcRequest;
 use crate::upstream::dshackle::DshackleUpstream;
 use crate::upstream::id::UpstreamId;
+use crate::upstream::pause::PauseHandle;
 use crate::upstream::traits::RpcUpstream;
 use emerald_api::proto::blockchain::ChainHead;
 use emerald_api::proto::common::Chain;
@@ -82,6 +83,9 @@ async fn subscribe_once(
     let chain = Chain { r#type: chain_ref };
     let mut client = upstream.grpc_client();
     let head = upstream.head_height();
+    // A refused subscription takes the upstream out of rotation too, so it
+    // shows up even when no call is made to it meanwhile.
+    let pause = PauseHandle::new(upstream_id.clone(), Arc::clone(upstream.state()));
 
     match client.subscribe_head(chain).await {
         Ok(response) => {
@@ -104,6 +108,7 @@ async fn subscribe_once(
                             error = %e,
                             "head stream error, will re-subscribe"
                         );
+                        pause.pause_on_refusal(&e.into());
                         break;
                     }
                 };
@@ -137,6 +142,7 @@ async fn subscribe_once(
                 error = %e,
                 "subscribe_head failed, retrying"
             );
+            pause.pause_on_refusal(&e.into());
         }
     }
 }

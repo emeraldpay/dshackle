@@ -26,6 +26,7 @@
 
 use crate::blockchain::TargetBlockchain;
 use crate::upstream::availability::UpstreamAvailability;
+use crate::upstream::chains::Chains;
 use crate::upstream::traits::RpcUpstream;
 use itertools::Itertools;
 use std::sync::Arc;
@@ -110,13 +111,14 @@ fn format_status(
 }
 
 /// Spawns a background task that logs upstream status for all chains every 30 seconds.
-pub fn start_status_reporter(chains: Vec<ChainStatus>) {
+pub fn start_status_reporter(chains: Arc<Chains>) {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(STATUS_INTERVAL);
         loop {
             interval.tick().await;
-            for entry in &chains {
-                tracing::info!("{}", status_line(entry));
+            // Taken anew each time: upstreams may join after the start
+            for entry in chains.statuses() {
+                tracing::info!("{}", status_line(&entry));
             }
         }
     });

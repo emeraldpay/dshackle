@@ -31,11 +31,13 @@
 //! to diverge from.
 
 mod difficulty;
+mod group;
 mod never;
 mod priority;
 mod watch;
 
 pub use difficulty::DifficultyForkChoice;
+pub use group::ForkGroup;
 pub use never::NeverForkChoice;
 pub use priority::PriorityForkChoice;
 pub use watch::{ForkMember, start_fork_watch};

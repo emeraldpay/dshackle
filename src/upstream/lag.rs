@@ -22,9 +22,9 @@
 //! block behind for a moment is back at lag 0 as soon as its own head
 //! arrives, like with the legacy `HeadLagObserver`.
 
+use crate::upstream::multistream::Multistream;
 use crate::upstream::traits::RpcUpstream;
 use std::sync::Arc;
-use tokio::sync::Notify;
 
 /// Recalculate the lag, and the availability derived from it, of each
 /// upstream of one chain against the best head among them.
@@ -56,17 +56,14 @@ pub fn update_lags(upstreams: &[Arc<dyn RpcUpstream>]) {
 
 /// Keep the lag of one chain's upstreams current, recalculating it on every
 /// head change of any of them.
-pub fn start_lag_tracking(upstreams: Vec<Arc<dyn RpcUpstream>>) {
-    let signal = Arc::new(Notify::new());
-    for u in &upstreams {
-        u.head().notify_growth(&signal);
-    }
+pub fn start_lag_tracking(chain: Arc<Multistream>) {
     tokio::spawn(async move {
         loop {
-            update_lags(&upstreams);
+            // Read anew each pass: an upstream may join the chain at any time.
+            update_lags(&chain.upstreams());
             // A single pending wake-up covers any number of head changes
             // since the last pass, as each pass reads all heads anew.
-            signal.notified().await;
+            chain.head_growth().notified().await;
         }
     });
 }
@@ -74,13 +71,16 @@ pub fn start_lag_tracking(upstreams: Vec<Arc<dyn RpcUpstream>>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::blockchain::TargetBlockchain;
     use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse};
     use crate::upstream::availability::UpstreamAvailability;
     use crate::upstream::fork::ForkState;
     use crate::upstream::head::{CurrentHead, Head};
     use crate::upstream::id::UpstreamId;
+    use crate::upstream::methods::DefaultMethods;
     use crate::upstream::state::UpstreamState;
     use crate::upstream::traits::UpstreamError;
+    use emerald_api::proto::common::ChainRef;
     use std::time::Duration;
 
     struct StubUpstream {
@@ -158,7 +158,11 @@ mod tests {
     async fn lag_follows_every_head_change() {
         let (fast, fast_head) = upstream("fast", 100);
         let (slow, slow_head) = upstream("slow", 100);
-        start_lag_tracking(vec![Arc::clone(&fast), Arc::clone(&slow)]);
+        start_lag_tracking(Arc::new(Multistream::new(
+            TargetBlockchain::from(ChainRef::ChainEthereum),
+            vec![Arc::clone(&fast), Arc::clone(&slow)],
+            Arc::new(DefaultMethods),
+        )));
         wait_for_lag(&slow, 0).await;
 
         // A new block reaches one upstream first...

@@ -804,7 +804,7 @@ impl Blockchain for BlockchainRpcService {
 
             chains.push(DescribeChain {
                 chain: chain.id(),
-                status: Some(chain_status(&chain, multistream)),
+                status: Some(chain_status(&chain, &multistream)),
                 nodes,
                 supported_methods: multistream.supported_methods(),
                 excluded_methods: Vec::new(),

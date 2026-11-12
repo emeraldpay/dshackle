@@ -67,5 +67,4 @@ rand = "0.10"
 warp = { version = "0.4", features = ["test"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 http-body-util = "0.1"
-
-
+emerald-api = { git = "https://github.com/emeraldpay/emerald-api-rs", features = ["server-auth"] }

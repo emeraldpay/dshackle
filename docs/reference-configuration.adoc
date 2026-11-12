@@ -1015,6 +1015,10 @@ zeromq:
 Another option is using another Dshackle server as an upstream.
 It's more effective, easier to secure connection, and allows to build a distributed network of servers.
 
+The blockchains of such an upstream are the ones the remote reports when Dshackle connects to it.
+When the remote can't be reached at the start, or rejects the auth token, Dshackle starts without them and keeps reconnecting: after 10 seconds, then doubling the wait up to 5 minutes.
+Its blockchains are added as soon as it connects.
+
 [source,yaml]
 ----
 - id: test1
@@ -1074,5 +1078,24 @@ See link:08-authentication.adoc[Authentication] docs and <<tls>>.
 | Enable compression for gRPC requests (i.e., `gzip`).
 Defaults is `true`
 
+| `emerald-auth.token`
+a| Optional. A secret Auth Token for consuming the public Emerald API, which serves the same gRPC API as Dshackle.
+A connection to another Dshackle doesn't use it. +
+Dshackle exchanges it for a short-lived JWT on the first call and sends that JWT with every call.
+A call made within the last minute of the JWT renews it, and so does the next call after the remote rejects it (e.g. revoked). +
+A remote that rejects the token is taken out of rotation the same way as an upstream answering HTTP `401`: for 10 seconds, then doubling up to 5 minutes. +
+Better to provide it through an environment variable, e.g. `token: ${EMERALD_TOKEN}`; an empty value is rejected, so an unset variable fails at the start instead of on the first call.
+Use it with TLS, otherwise the token is readable by anyone on the network path (Dshackle warns about that).
 
 |===
+
+.Connection to the Emerald API
+[source,yaml]
+----
+- id: emerald
+  connection:
+    dshackle:
+      url: https://api.emrld.io
+      emerald-auth:
+        token: ${EMERALD_TOKEN}
+----

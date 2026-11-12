@@ -25,13 +25,13 @@
 //! remote is still caught by lag tracking (its head stops advancing).
 
 use crate::upstream::availability::UpstreamAvailability;
+use crate::upstream::dshackle::connection::RemoteClient;
 use crate::upstream::id::UpstreamId;
+use crate::upstream::pause::PauseHandle;
 use crate::upstream::state::UpstreamState;
-use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
 use emerald_api::proto::blockchain::{AvailabilityEnum, StatusRequest};
 use std::sync::Arc;
 use std::time::Duration;
-use tonic::transport::Channel;
 
 /// Pause between reconnection attempts.
 const RETRY_DELAY: Duration = Duration::from_secs(5);
@@ -41,7 +41,7 @@ const RETRY_DELAY: Duration = Duration::from_secs(5);
 pub fn start_status_subscriber(
     upstream_id: UpstreamId,
     chain_ref: i32,
-    client: BlockchainClient<Channel>,
+    client: RemoteClient,
     state: Arc<UpstreamState>,
 ) {
     tokio::spawn(async move {
@@ -55,14 +55,17 @@ pub fn start_status_subscriber(
 async fn subscribe_once(
     upstream_id: &UpstreamId,
     chain_ref: i32,
-    client: &BlockchainClient<Channel>,
-    state: &UpstreamState,
+    client: &RemoteClient,
+    state: &Arc<UpstreamState>,
 ) {
     // Ask only for our chain; the remote streams a `ChainStatus` per chain.
     let request = StatusRequest {
         chains: vec![chain_ref],
     };
     let mut client = client.clone();
+    // A refused subscription takes the upstream out of rotation too, so it
+    // shows up even when no call is made to it meanwhile.
+    let pause = PauseHandle::new(upstream_id.clone(), Arc::clone(state));
 
     match client.subscribe_status(request).await {
         Ok(response) => {
@@ -98,6 +101,7 @@ async fn subscribe_once(
                             error = %e,
                             "status stream error, will re-subscribe"
                         );
+                        pause.pause_on_refusal(&e.into());
                         break;
                     }
                 }
@@ -109,6 +113,7 @@ async fn subscribe_once(
                 error = %e,
                 "subscribe_status failed, retrying"
             );
+            pause.pause_on_refusal(&e.into());
         }
     }
 }

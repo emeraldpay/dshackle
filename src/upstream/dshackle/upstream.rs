@@ -21,27 +21,26 @@
 use crate::jsonrpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse};
 use crate::signature::ProvidedSignature;
 use crate::upstream::availability::UpstreamAvailability;
+use crate::upstream::dshackle::connection::RemoteClient;
 use crate::upstream::head::{CurrentHead, Head};
 use crate::upstream::id::UpstreamId;
 use crate::upstream::overload::Refusal;
 use crate::upstream::state::UpstreamState;
 use crate::upstream::traits::{RpcUpstream, UpstreamError};
-use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
 use emerald_api::proto::blockchain::{NativeCallItem, NativeCallReplySignature, NativeCallRequest};
 use serde_json::value::RawValue;
 use std::sync::Arc;
-use tonic::transport::Channel;
 
 /// A single-blockchain upstream backed by a remote Dshackle gRPC server.
 ///
 /// Forwards JSON-RPC calls through `NativeCall`, which lets the remote server
-/// route them to its own upstreams. The `BlockchainClient` is cloned per call —
-/// tonic's `Channel` is designed to be cheaply cloned and shares the underlying
-/// HTTP/2 connection pool.
+/// route them to its own upstreams. The client is cloned per call — tonic's
+/// `Channel` is designed to be cheaply cloned and shares the underlying HTTP/2
+/// connection pool, and the clones share the connection's JWT as well.
 pub struct DshackleUpstream {
     id: UpstreamId,
     chain_ref: i32,
-    client: BlockchainClient<Channel>,
+    client: RemoteClient,
     /// Overall bound on one `NativeCall` round-trip (the upstream's
     /// `options.timeout`). The one place legacy applied that option.
     call_timeout: std::time::Duration,
@@ -58,7 +57,7 @@ impl DshackleUpstream {
     pub fn new(
         id: UpstreamId,
         chain_ref: i32,
-        client: BlockchainClient<Channel>,
+        client: RemoteClient,
         syncing_lag: u64,
         call_timeout: std::time::Duration,
     ) -> Self {
@@ -78,7 +77,7 @@ impl DshackleUpstream {
     }
 
     /// Returns the gRPC client handle (cheap clone) for spawning subscriptions.
-    pub fn grpc_client(&self) -> BlockchainClient<Channel> {
+    pub fn grpc_client(&self) -> RemoteClient {
         self.client.clone()
     }
 
@@ -118,18 +117,10 @@ impl RpcUpstream for DshackleUpstream {
         // One deadline over the request and the first reply frame: a hung
         // remote must fail the call so the router can try the next candidate.
         let reply = tokio::time::timeout(self.call_timeout, async {
-            let response = client
-                .native_call(native_request)
-                .await
-                .map_err(|e| UpstreamError::Transport(format!("gRPC error: {e}")))?;
-            response
-                .into_inner()
-                .message()
-                .await
-                .map_err(|e| UpstreamError::Transport(format!("gRPC stream error: {e}")))?
-                .ok_or_else(|| {
-                    UpstreamError::InvalidResponse("empty NativeCall response stream".into())
-                })
+            let response = client.native_call(native_request).await?;
+            response.into_inner().message().await?.ok_or_else(|| {
+                UpstreamError::InvalidResponse("empty NativeCall response stream".into())
+            })
         })
         .await
         .map_err(|_| {

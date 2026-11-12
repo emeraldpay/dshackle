@@ -16,6 +16,7 @@
 
 pub mod bytes;
 pub mod cache;
+pub mod emerald_auth;
 pub mod env;
 pub mod health;
 pub mod limits;

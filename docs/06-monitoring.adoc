@@ -251,7 +251,7 @@ The requests Dshackle makes to its upstreams are measured per upstream, with lab
 ** `error` - the upstream answered with a JSON RPC error, e.g. a reverted call or invalid parameters.
 That includes an error the node sent with an HTTP error status, e.g. Bitcoin's `500` "Already Spent".
 Through a remote Dshackle (`protocol="dshackle"`), though, such an error arrives only as its text, which can't be told apart from the remote failing, so it counts as `failed`.
-** `failed` - no usable answer: connection error, timeout, an HTTP error from a struggling provider (`401`, `429`, `502`-`504`) or without a JSON RPC error, invalid response, or the upstream refusing calls for now: rate limited (e.g. Alchemy's code `429`, Infura's "request rate exceeded") or overloaded (Erigon's "server overloaded"), even when it says so with a JSON RPC error.
+** `failed` - no usable answer: connection error, timeout, an HTTP error from a struggling provider (`401`, `429`, `502`-`504`) or without a JSON RPC error, a Dshackle upstream rejecting the auth token, invalid response, or the upstream refusing calls for now: rate limited (e.g. Alchemy's code `429`, Infura's "request rate exceeded") or overloaded (Erigon's "server overloaded"), even when it says so with a JSON RPC error.
 A request abandoned before the upstream answered, e.g. by a validation timeout or a client that left, is `failed` too.
 ** `rate-limited` - the request was refused by the request limits.
 With `protocol="internal"` it's the upstream's own <<04-upstream-config.adoc#request-limits,`limits`>>, and nothing was sent.
