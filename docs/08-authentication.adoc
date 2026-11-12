@@ -152,6 +152,33 @@ cluster:
 
 Now if you run second server it will connect to first server ("upstream") running on port 2449, will verify upstream with certificate `ca.myhost.dev.crt` and authenticate itself by using a pair of `client_1.crt` and `client_1.p8.key`
 
+==== Use Emerald API as an Upstream
+
+The public Emerald API serves the same gRPC API as Dshackle, so it can be used as a `dshackle` upstream.
+Unlike another Dshackle, it authenticates clients with a secret Auth Token, which is provided with the connection:
+
+[source,yaml]
+----
+cluster:
+  upstreams:
+    - id: emerald
+      connection:
+        dshackle:
+          url: https://api.emrld.io
+          emerald-auth:
+            token: ${EMERALD_TOKEN}
+----
+
+The `emerald-auth` section is optional and is not needed for a connection to another Dshackle.
+
+Dshackle exchanges the token for a short-lived JWT on the first call to the upstream, and then sends that JWT with each call.
+The first call within the last minute of the JWT renews it, with the refresh token it received alongside, or by authenticating with the Auth Token again if the refresh is rejected.
+A connection without calls in that minute renews the JWT on its next call, and a JWT the upstream rejects before it expires (e.g. revoked) is replaced the same way.
+
+If the upstream rejects the token at the start, Dshackle starts without its blockchains and keeps reconnecting: after 10 seconds, then doubling the wait up to 5 minutes.
+Its blockchains are added as soon as the token is accepted.
+If it rejects the token later, the upstream is taken out of rotation the same way as one answering HTTP `401`, for 10 seconds and then doubling up to 5 minutes, until it accepts the token again.
+
 === Server TLS configuration
 
 |===

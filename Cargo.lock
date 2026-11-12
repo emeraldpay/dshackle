@@ -2302,7 +2302,7 @@ dependencies = [
 [[package]]
 name = "emerald-api"
 version = "0.2.0-dev"
-source = "git+https://github.com/emeraldpay/emerald-api-rs#2b724853a2d704dea5c10224ff470b45448c41d5"
+source = "git+https://github.com/emeraldpay/emerald-api-rs#f5082f40831440686a21ddbb6118cb58d9676c79"
 dependencies = [
  "bytes",
  "chrono",

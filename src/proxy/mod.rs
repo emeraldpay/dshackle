@@ -52,10 +52,11 @@ struct Cors {
     allowed_headers: String,
 }
 
-/// Resolved routing state shared with every request handler.
+/// Routing state shared with every request handler.
 struct ProxyState {
-    /// Route id (URL path segment, e.g. `eth`) → the chain's route.
-    routes: HashMap<String, Arc<ProxyRoute>>,
+    /// Route id (URL path segment, e.g. `eth`) → the chain it serves.
+    routes: HashMap<String, TargetBlockchain>,
+    upstreams: Arc<UpstreamManager>,
     preserve_batch_order: bool,
     /// Whether WebSocket upgrades are served; when off, the path is HTTP-only.
     websocket: bool,
@@ -64,8 +65,12 @@ struct ProxyState {
 }
 
 /// Everything one route needs: the upstreams for plain JSON-RPC calls and, when
-/// the chain tracks a head, the egress for `eth_subscribe`. `egress` is `None`
-/// for chains without a head — they answer calls but reject subscriptions.
+/// the chain tracks a head and it's a WebSocket connection, the egress for
+/// `eth_subscribe`. `egress` is `None` for chains without a head — they answer
+/// calls but reject subscriptions.
+///
+/// Resolved per request (per connection for WebSocket): a chain's upstreams
+/// may appear after the start, when a remote Dshackle connects later.
 struct ProxyRoute {
     chain: TargetBlockchain,
     multistream: Arc<Multistream>,
@@ -99,6 +104,7 @@ pub async fn start(
 
     let state = Arc::new(ProxyState {
         routes,
+        upstreams,
         preserve_batch_order: config.preserve_batch_order,
         websocket: config.websocket,
         cors,
@@ -148,9 +154,8 @@ fn routes_filter(
                     return warp::reply::with_status(String::new(), StatusCode::METHOD_NOT_ALLOWED)
                         .into_response();
                 }
-                match state.routes.get(&segment) {
+                match state.ws_route(&segment) {
                     Some(route) => {
-                        let route = Arc::clone(route);
                         // The whole connection is one client request in the
                         // access log: every call and subscription reply on it
                         // shares the identity created at the upgrade.
@@ -190,12 +195,11 @@ fn remote_details(peer: Option<SocketAddr>, headers: &HeaderMap) -> logs::Remote
     )
 }
 
-/// Build the path → route map, skipping routes whose blockchain is unknown or
-/// has no configured upstreams.
+/// Build the path → chain map, skipping routes whose blockchain is unknown.
 fn resolve_routes(
     config: &ProxyConfig,
     upstreams: &UpstreamManager,
-) -> HashMap<String, Arc<ProxyRoute>> {
+) -> HashMap<String, TargetBlockchain> {
     let mut routes = HashMap::new();
     for route in &config.routes {
         let chain: TargetBlockchain = match route.blockchain.parse() {
@@ -209,34 +213,48 @@ fn resolve_routes(
                 continue;
             }
         };
-        match upstreams.get(&chain) {
-            Some(multistream) => {
-                tracing::info!("Proxy route '/{}' -> {}", route.id, chain);
-                // eth_subscribe is an Ethereum protocol feature: Bitcoin ZMQ
-                // topics are served over gRPC NativeSubscribe only, so a
-                // Bitcoin route gets no egress and rejects subscribe requests
-                // (legacy leaked them through the WS proxy unintentionally).
-                let egress = match chain.blockchain_type() {
-                    BlockchainType::Ethereum => upstreams.egress(&chain),
-                    _ => None,
-                };
-                routes.insert(
-                    route.id.clone(),
-                    Arc::new(ProxyRoute {
-                        chain,
-                        multistream: Arc::clone(multistream),
-                        egress,
-                    }),
-                );
-            }
-            None => tracing::warn!(
-                "Proxy route '/{}' -> {} has no upstreams, skipping",
+        if upstreams.get(&chain).is_some() {
+            tracing::info!("Proxy route '/{}' -> {}", route.id, chain);
+        } else {
+            // Answers 404, as an unknown route, until an upstream of the
+            // chain connects
+            tracing::warn!(
+                "Proxy route '/{}' -> {} has no upstreams yet",
                 route.id,
                 chain
-            ),
+            );
         }
+        routes.insert(route.id.clone(), chain);
     }
     routes
+}
+
+impl ProxyState {
+    /// The route of a JSON-RPC call over HTTP, if its chain has upstreams.
+    /// Without the egress, which only a WebSocket connection uses.
+    fn route(&self, segment: &str) -> Option<ProxyRoute> {
+        let chain = *self.routes.get(segment)?;
+        let multistream = self.upstreams.get(&chain)?;
+        Some(ProxyRoute {
+            chain,
+            multistream,
+            egress: None,
+        })
+    }
+
+    /// The route of a WebSocket connection, which serves `eth_subscribe` too.
+    fn ws_route(&self, segment: &str) -> Option<Arc<ProxyRoute>> {
+        let route = self.route(segment)?;
+        // eth_subscribe is an Ethereum protocol feature: Bitcoin ZMQ topics are
+        // served over gRPC NativeSubscribe only, so a Bitcoin route gets no
+        // egress and rejects subscribe requests (legacy leaked them through
+        // the WS proxy unintentionally).
+        let egress = match route.chain.blockchain_type() {
+            BlockchainType::Ethereum => self.upstreams.egress(&route.chain),
+            _ => None,
+        };
+        Some(Arc::new(ProxyRoute { egress, ..route }))
+    }
 }
 
 async fn handle(
@@ -247,7 +265,7 @@ async fn handle(
     headers: HeaderMap,
     state: Arc<ProxyState>,
 ) -> warp::reply::Response {
-    let Some(route) = state.routes.get(&segment) else {
+    let Some(route) = state.route(&segment) else {
         // Unknown route, any method.
         return warp::reply::with_status(String::new(), StatusCode::NOT_FOUND).into_response();
     };
@@ -358,22 +376,26 @@ mod tests {
         ))
     }
 
-    fn state_with(cors: Option<Cors>) -> Arc<ProxyState> {
-        let mut routes = HashMap::new();
-        routes.insert(
-            "eth".to_string(),
-            Arc::new(ProxyRoute {
-                chain: "ethereum".parse().unwrap(),
-                multistream: stub_multistream(),
-                egress: None,
-            }),
-        );
+    fn eth() -> TargetBlockchain {
+        "ethereum".parse().unwrap()
+    }
+
+    fn state_of(upstreams: UpstreamManager, cors: Option<Cors>) -> Arc<ProxyState> {
         Arc::new(ProxyState {
-            routes,
+            routes: HashMap::from([("eth".to_string(), eth())]),
+            upstreams: Arc::new(upstreams),
             preserve_batch_order: false,
             websocket: true,
             cors,
         })
+    }
+
+    fn state_with(cors: Option<Cors>) -> Arc<ProxyState> {
+        let upstreams = UpstreamManager::from_parts(
+            HashMap::from([(eth(), stub_multistream())]),
+            HashMap::new(),
+        );
+        state_of(upstreams, cors)
     }
 
     fn state_with_eth_route() -> Arc<ProxyState> {
@@ -565,31 +587,57 @@ mod tests {
         Arc<ProxyState>,
         Arc<crate::upstream::merged_head::MergedHead>,
     ) {
-        use crate::upstream::egress::{ChainAccess, EthereumEgress};
-        use crate::upstream::merged_head::{MergeOrder, MergedHead};
+        use crate::upstream::chains::{ChainMember, Chains};
+        use crate::upstream::fork::ForkMember;
+        use crate::upstream::head::CurrentHead;
 
-        let multistream = stub_multistream();
-        let head = Arc::new(MergedHead::new(MergeOrder::Priority));
-        let access: Arc<dyn ChainAccess> = multistream.clone();
-        let egress: Arc<dyn EgressSubscription> =
-            Arc::new(EthereumEgress::new(Arc::clone(&head), access, None));
-
-        let mut routes = HashMap::new();
-        routes.insert(
-            "eth".to_string(),
-            Arc::new(ProxyRoute {
-                chain: "ethereum".parse().unwrap(),
-                multistream,
-                egress: Some(egress),
-            }),
+        let state = Arc::new(UpstreamState::new());
+        let chains = Chains::new(None);
+        chains.join(
+            eth(),
+            ChainMember {
+                reader: Arc::new(StubUpstream(Arc::clone(&state))),
+                methods: Arc::new(AlwaysFactory),
+                fork: Some(ForkMember {
+                    id: "stub".parse().unwrap(),
+                    priority: 0,
+                    head: Arc::new(CurrentHead::new()),
+                    state,
+                }),
+            },
         );
-        let state = Arc::new(ProxyState {
-            routes,
-            preserve_batch_order: false,
-            websocket: true,
-            cors: None,
-        });
-        (state, head)
+        let upstreams = UpstreamManager::from_chains(Arc::new(chains));
+        let head = upstreams.head(&eth()).unwrap();
+        (state_of(upstreams, None), head)
+    }
+
+    #[tokio::test]
+    async fn route_without_upstreams_is_not_found_until_one_joins() {
+        use crate::upstream::chains::{ChainMember, Chains};
+
+        let chains = Arc::new(Chains::new(None));
+        let filter = routes_filter(state_of(
+            UpstreamManager::from_chains(Arc::clone(&chains)),
+            None,
+        ));
+        let call = || {
+            warp::test::request()
+                .method("POST")
+                .path("/eth")
+                .body(r#"{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber"}"#)
+        };
+        assert_eq!(call().reply(&filter).await.status(), StatusCode::NOT_FOUND);
+
+        chains.join(
+            eth(),
+            ChainMember {
+                reader: Arc::new(StubUpstream(Arc::new(UpstreamState::new()))),
+                methods: Arc::new(AlwaysFactory),
+                fork: None,
+            },
+        );
+
+        assert_eq!(call().reply(&filter).await.status(), StatusCode::OK);
     }
 
     fn head_block(height: u64) -> crate::data::BlockContainer {

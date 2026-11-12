@@ -17,6 +17,7 @@
 
 use crate::blockchain::TargetBlockchain;
 use crate::config::bytes::deserialize_opt_bytes;
+use crate::config::emerald_auth::EmeraldAuth;
 use crate::config::limits::RequestLimit;
 use crate::config::tls::{BasicAuth, ClientTlsAuth, basic_auth_from_url};
 use crate::upstream::id::{InvalidUpstreamId, UpstreamId};
@@ -239,6 +240,11 @@ pub struct DshackleConnection {
     pub url: Option<String>,
     pub tls: Option<ClientTlsAuth>,
     pub compress: Option<bool>,
+    /// Token auth for consuming the public Emerald API. A dshackle-to-dshackle
+    /// connection doesn't use it (it relies on TLS client certificates, as in
+    /// legacy).
+    #[serde(rename = "emerald-auth")]
+    pub emerald_auth: Option<EmeraldAuth>,
 }
 
 /// HTTP JSON RPC endpoint.
@@ -605,6 +611,13 @@ pub fn process_raw_upstream(raw: RawUpstream) -> Result<Option<Upstream>> {
                 }
                 UpstreamConnection::Bitcoin(btc)
             } else if let Some(ds) = conn.dshackle {
+                if let Some(auth) = &ds.emerald_auth {
+                    if enabled {
+                        auth.validate().with_context(|| format!("upstream {id}"))?;
+                    } else if let Err(e) = auth.validate() {
+                        warn!("Disabled upstream {id}: ignoring invalid auth: {e:#}");
+                    }
+                }
                 UpstreamConnection::Dshackle(ds)
             } else {
                 warn!("Upstream {id} has no recognized connection type");
@@ -894,6 +907,67 @@ connection:
         };
         assert_eq!(ds.host.as_deref(), Some("10.2.0.15"));
         assert_eq!(ds.port, Some(2449));
+    }
+
+    #[test]
+    fn remote_dshackle_with_emerald_auth_token() {
+        let raw: RawUpstream = serde_yaml::from_str(
+            "
+id: remote
+connection:
+  dshackle:
+    url: https://api.emrld.io
+    emerald-auth:
+      token: abc123
+",
+        )
+        .unwrap();
+        let UpstreamConnection::Dshackle(ds) =
+            process_raw_upstream(raw).unwrap().unwrap().connection
+        else {
+            panic!("expected a Dshackle connection");
+        };
+        assert!(ds.emerald_auth.is_some());
+    }
+
+    fn remote_with_empty_token(enabled: bool) -> Result<Option<Upstream>> {
+        let raw: RawUpstream = serde_yaml::from_str(&format!(
+            "
+id: emerald
+enabled: {enabled}
+connection:
+  dshackle:
+    url: https://api.emrld.io
+    emerald-auth:
+      token: ''
+"
+        ))
+        .unwrap();
+        process_raw_upstream(raw)
+    }
+
+    #[test]
+    fn empty_token_names_the_upstream() {
+        let err = remote_with_empty_token(true).unwrap_err();
+        let message = format!("{err:#}");
+        assert!(message.contains("upstream emerald"), "{message}");
+        assert!(
+            message.contains("`emerald-auth.token` is empty"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn empty_token_on_disabled_upstream_is_not_an_error() {
+        assert!(remote_with_empty_token(false).is_ok());
+    }
+
+    #[test]
+    fn remote_dshackle_without_emerald_auth() {
+        let UpstreamConnection::Dshackle(ds) = remote_connection("dshackle") else {
+            panic!("expected a Dshackle connection");
+        };
+        assert!(ds.emerald_auth.is_none());
     }
 
     // ── ID validation ────────────────────────────────────────────────────

@@ -126,6 +126,8 @@ impl Refusal for UpstreamError {
             {
                 Some(PauseReason::RateLimited)
             }
+            // Same as an HTTP 401, which `is_unavailable_status` covers above.
+            UpstreamError::Unauthorized(_) => Some(PauseReason::RateLimited),
             _ => None,
         }
     }
@@ -278,6 +280,20 @@ mod tests {
         let err = guard.call(&request()).await.unwrap_err();
 
         assert!(matches!(err, UpstreamError::Overloaded(_)));
+        assert_eq!(guard.availability(), UpstreamAvailability::Unavailable);
+    }
+
+    #[tokio::test]
+    async fn rejected_credentials_pause_upstream_like_http_401() {
+        let unauthorized = UpstreamError::Unauthorized("invalid token".into());
+        assert_eq!(
+            unauthorized.pause_reason(),
+            UpstreamError::HttpStatus(401).pause_reason()
+        );
+        let guard = OverloadGuard::new(ScriptedUpstream::new(Err(unauthorized)));
+        let err = guard.call(&request()).await.unwrap_err();
+        assert!(matches!(err, UpstreamError::Unauthorized(_)));
+        assert!(is_connection_unavailable(&err));
         assert_eq!(guard.availability(), UpstreamAvailability::Unavailable);
     }
 

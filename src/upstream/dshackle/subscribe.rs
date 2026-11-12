@@ -25,18 +25,17 @@
 //! everyone shares one stream, it reconnects with backoff while subscribers
 //! remain, and it is torn down once the last one is gone.
 
+use crate::upstream::dshackle::connection::RemoteClient;
 use crate::upstream::egress::{EgressError, EgressSubscription, SubscriptionStream};
 use crate::upstream::fanout::SharedFanout;
 use crate::upstream::id::UpstreamId;
 use emerald_api::proto::blockchain::NativeSubscribeRequest;
-use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::broadcast;
 use tokio_stream::StreamExt;
 use tokio_stream::wrappers::BroadcastStream;
-use tonic::transport::Channel;
 
 /// Reconnect backoff for a lost remote stream, matching the legacy
 /// `DurableFlux` settings.
@@ -49,7 +48,7 @@ const MAX_RETRY_DELAY: Duration = Duration::from_secs(60);
 pub struct DshackleEgress {
     upstream: UpstreamId,
     chain_ref: i32,
-    client: BlockchainClient<Channel>,
+    client: RemoteClient,
     topics: Vec<String>,
     /// Bound on one remote `native_subscribe` connect (the upstream's
     /// `options.timeout`, as for `NativeCall`).
@@ -66,7 +65,7 @@ impl DshackleEgress {
     pub fn new(
         upstream: UpstreamId,
         chain_ref: i32,
-        client: BlockchainClient<Channel>,
+        client: RemoteClient,
         topics: Vec<String>,
         connect_timeout: Duration,
     ) -> Self {
@@ -143,7 +142,7 @@ impl EgressSubscription for DshackleEgress {
 struct TopicRelay {
     upstream: UpstreamId,
     request: NativeSubscribeRequest,
-    client: BlockchainClient<Channel>,
+    client: RemoteClient,
     connect_timeout: Duration,
     fanout: SharedFanout<Vec<u8>>,
 }
@@ -152,7 +151,7 @@ impl TopicRelay {
     fn new(
         upstream: UpstreamId,
         request: NativeSubscribeRequest,
-        client: BlockchainClient<Channel>,
+        client: RemoteClient,
         connect_timeout: Duration,
     ) -> Self {
         Self {
@@ -289,147 +288,21 @@ impl TopicRelay {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use emerald_api::proto::blockchain::blockchain_server::{Blockchain, BlockchainServer};
-    use emerald_api::proto::blockchain::{
-        AddressAllowance, AddressAllowanceRequest, AddressBalance, BalanceRequest, ChainHead,
-        ChainStatus, DescribeRequest, DescribeResponse, EstimateFeeRequest, EstimateFeeResponse,
-        NativeCallReplyItem, NativeCallRequest, NativeSubscribeReplyItem, StatusRequest, TxStatus,
-        TxStatusRequest,
-    };
-    use emerald_api::proto::common;
+    use crate::upstream::dshackle::connection::remote_client;
+    use crate::upstream::dshackle::stub_remote::StubRemote;
+    use emerald_api::creds::Credentials;
     use serde_json::json;
-    use std::pin::Pin;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    use tokio_stream::Stream;
-    use tokio_stream::wrappers::TcpListenerStream;
+    use std::sync::atomic::Ordering;
 
-    type BoxStream<T> = Pin<Box<dyn Stream<Item = Result<T, tonic::Status>> + Send>>;
-
-    /// A remote Dshackle stub: `NativeSubscribe` records each request and
-    /// streams whatever the test feeds, ending the stream after `end_after`
-    /// items when set. Everything else is unimplemented.
-    struct StubRemote {
-        connections: AtomicUsize,
-        requests: Mutex<Vec<NativeSubscribeRequest>>,
-        feed: broadcast::Sender<Vec<u8>>,
-        end_after: Option<usize>,
-    }
-
-    impl StubRemote {
-        fn new(end_after: Option<usize>) -> Arc<Self> {
-            Arc::new(Self {
-                connections: AtomicUsize::new(0),
-                requests: Mutex::new(Vec::new()),
-                feed: broadcast::channel(16).0,
-                end_after,
-            })
-        }
-    }
-
-    #[tonic::async_trait]
-    impl Blockchain for StubRemote {
-        type SubscribeHeadStream = BoxStream<ChainHead>;
-        type SubscribeBalanceStream = BoxStream<AddressBalance>;
-        type SubscribeTxStatusStream = BoxStream<TxStatus>;
-        type GetBalanceStream = BoxStream<AddressBalance>;
-        type GetAddressAllowanceStream = BoxStream<AddressAllowance>;
-        type SubscribeAddressAllowanceStream = BoxStream<AddressAllowance>;
-        type NativeCallStream = BoxStream<NativeCallReplyItem>;
-        type NativeSubscribeStream = BoxStream<NativeSubscribeReplyItem>;
-        type SubscribeStatusStream = BoxStream<ChainStatus>;
-
-        async fn native_subscribe(
-            &self,
-            request: tonic::Request<NativeSubscribeRequest>,
-        ) -> Result<tonic::Response<Self::NativeSubscribeStream>, tonic::Status> {
-            self.connections.fetch_add(1, Ordering::SeqCst);
-            self.requests.lock().unwrap().push(request.into_inner());
-            let stream = BroadcastStream::new(self.feed.subscribe())
-                .filter_map(|item| item.ok())
-                .map(|payload| Ok(NativeSubscribeReplyItem { payload }));
-            Ok(tonic::Response::new(match self.end_after {
-                Some(n) => Box::pin(stream.take(n)),
-                None => Box::pin(stream),
-            }))
-        }
-
-        async fn native_call(
-            &self,
-            _: tonic::Request<NativeCallRequest>,
-        ) -> Result<tonic::Response<Self::NativeCallStream>, tonic::Status> {
-            Err(tonic::Status::unimplemented("stub"))
-        }
-        async fn subscribe_head(
-            &self,
-            _: tonic::Request<common::Chain>,
-        ) -> Result<tonic::Response<Self::SubscribeHeadStream>, tonic::Status> {
-            Err(tonic::Status::unimplemented("stub"))
-        }
-        async fn subscribe_balance(
-            &self,
-            _: tonic::Request<BalanceRequest>,
-        ) -> Result<tonic::Response<Self::SubscribeBalanceStream>, tonic::Status> {
-            Err(tonic::Status::unimplemented("stub"))
-        }
-        async fn subscribe_tx_status(
-            &self,
-            _: tonic::Request<TxStatusRequest>,
-        ) -> Result<tonic::Response<Self::SubscribeTxStatusStream>, tonic::Status> {
-            Err(tonic::Status::unimplemented("stub"))
-        }
-        async fn get_balance(
-            &self,
-            _: tonic::Request<BalanceRequest>,
-        ) -> Result<tonic::Response<Self::GetBalanceStream>, tonic::Status> {
-            Err(tonic::Status::unimplemented("stub"))
-        }
-        async fn get_address_allowance(
-            &self,
-            _: tonic::Request<AddressAllowanceRequest>,
-        ) -> Result<tonic::Response<Self::GetAddressAllowanceStream>, tonic::Status> {
-            Err(tonic::Status::unimplemented("stub"))
-        }
-        async fn subscribe_address_allowance(
-            &self,
-            _: tonic::Request<AddressAllowanceRequest>,
-        ) -> Result<tonic::Response<Self::SubscribeAddressAllowanceStream>, tonic::Status> {
-            Err(tonic::Status::unimplemented("stub"))
-        }
-        async fn estimate_fee(
-            &self,
-            _: tonic::Request<EstimateFeeRequest>,
-        ) -> Result<tonic::Response<EstimateFeeResponse>, tonic::Status> {
-            Err(tonic::Status::unimplemented("stub"))
-        }
-        async fn describe(
-            &self,
-            _: tonic::Request<DescribeRequest>,
-        ) -> Result<tonic::Response<DescribeResponse>, tonic::Status> {
-            Err(tonic::Status::unimplemented("stub"))
-        }
-        async fn subscribe_status(
-            &self,
-            _: tonic::Request<StatusRequest>,
-        ) -> Result<tonic::Response<Self::SubscribeStatusStream>, tonic::Status> {
-            Err(tonic::Status::unimplemented("stub"))
-        }
-    }
-
-    async fn start_remote(stub: Arc<StubRemote>) -> BlockchainClient<Channel> {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = listener.local_addr().unwrap();
-        tokio::spawn(
-            tonic::transport::Server::builder()
-                .add_service(BlockchainServer::from_arc(stub))
-                .serve_with_incoming(TcpListenerStream::new(listener)),
-        );
-        let channel = tonic::transport::Endpoint::from_shared(format!("http://{addr}"))
+    async fn start_remote(stub: Arc<StubRemote>) -> RemoteClient {
+        let url = stub.start().await;
+        let channel = tonic::transport::Endpoint::from_shared(url)
             .unwrap()
             .connect_lazy();
-        BlockchainClient::new(channel)
+        remote_client(channel, Credentials::None)
     }
 
-    fn egress(client: BlockchainClient<Channel>, topics: &[&str]) -> DshackleEgress {
+    fn egress(client: RemoteClient, topics: &[&str]) -> DshackleEgress {
         DshackleEgress::new(
             "remote".parse().unwrap(),
             1,
@@ -462,7 +335,7 @@ mod tests {
 
     #[tokio::test]
     async fn unadvertised_topic_is_rejected_without_calling_the_remote() {
-        let stub = StubRemote::new(None);
+        let stub = StubRemote::new();
         let client = start_remote(Arc::clone(&stub)).await;
         let egress = egress(client, &["hashtx"]);
 
@@ -470,13 +343,13 @@ mod tests {
             egress.subscribe("rawtx", None),
             Err(EgressError::UnsupportedMethod(m)) if m == "rawtx"
         ));
-        assert_eq!(stub.connections.load(Ordering::SeqCst), 0);
+        assert_eq!(stub.subscriptions.load(Ordering::SeqCst), 0);
         assert_eq!(egress.available_topics(), vec!["hashtx".to_string()]);
     }
 
     #[tokio::test]
     async fn relays_remote_payloads() {
-        let stub = StubRemote::new(None);
+        let stub = StubRemote::new();
         let client = start_remote(Arc::clone(&stub)).await;
         let egress = egress(client, &["hashtx"]);
 
@@ -485,7 +358,7 @@ mod tests {
         let received = feed_until_received(&stub, &mut stream, &payload).await;
         assert_eq!(received, payload);
 
-        let requests = stub.requests.lock().unwrap();
+        let requests = stub.subscribe_requests.lock().unwrap();
         assert_eq!(requests.len(), 1);
         assert_eq!(requests[0].chain, 1);
         assert_eq!(requests[0].method, "hashtx");
@@ -494,7 +367,7 @@ mod tests {
 
     #[tokio::test]
     async fn subscribers_share_one_remote_stream() {
-        let stub = StubRemote::new(None);
+        let stub = StubRemote::new();
         let client = start_remote(Arc::clone(&stub)).await;
         let egress = egress(client, &["hashtx"]);
 
@@ -510,12 +383,12 @@ mod tests {
             .unwrap();
         assert_eq!(received, payload);
 
-        assert_eq!(stub.connections.load(Ordering::SeqCst), 1);
+        assert_eq!(stub.subscriptions.load(Ordering::SeqCst), 1);
     }
 
     #[tokio::test]
     async fn params_open_a_dedicated_stream_and_forward_the_payload() {
-        let stub = StubRemote::new(None);
+        let stub = StubRemote::new();
         let client = start_remote(Arc::clone(&stub)).await;
         let egress = egress(client, &["logs"]);
 
@@ -530,8 +403,8 @@ mod tests {
         let received = feed_until_received(&stub, &mut filtered, &payload).await;
         assert_eq!(received, payload);
 
-        assert_eq!(stub.connections.load(Ordering::SeqCst), 2);
-        let requests = stub.requests.lock().unwrap();
+        assert_eq!(stub.subscriptions.load(Ordering::SeqCst), 2);
+        let requests = stub.subscribe_requests.lock().unwrap();
         let payloads: Vec<serde_json::Value> = requests
             .iter()
             .filter(|r| !r.payload.is_empty())
@@ -542,7 +415,7 @@ mod tests {
 
     #[tokio::test]
     async fn tears_down_promptly_after_the_last_subscriber_leaves() {
-        let stub = StubRemote::new(None);
+        let stub = StubRemote::new();
         let client = start_remote(Arc::clone(&stub)).await;
         let egress = egress(client, &["hashtx"]);
 
@@ -567,7 +440,7 @@ mod tests {
     async fn reconnects_after_the_remote_stream_ends() {
         // Each remote stream ends after one message; a subscriber still gets
         // a second one because the relay re-subscribes with backoff.
-        let stub = StubRemote::new(Some(1));
+        let stub = StubRemote::ending_subscriptions_after(Some(1));
         let client = start_remote(Arc::clone(&stub)).await;
         let egress = egress(client, &["hashtx"]);
 
@@ -575,6 +448,6 @@ mod tests {
         feed_until_received(&stub, &mut stream, &[0x01]).await;
         feed_until_received(&stub, &mut stream, &[0x02]).await;
 
-        assert!(stub.connections.load(Ordering::SeqCst) >= 2);
+        assert!(stub.subscriptions.load(Ordering::SeqCst) >= 2);
     }
 }

@@ -21,7 +21,9 @@
 //! few seconds.
 
 use crate::upstream::id::UpstreamId;
+use crate::upstream::overload::Refusal;
 use crate::upstream::state::UpstreamState;
+use crate::upstream::traits::UpstreamError;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -75,6 +77,14 @@ impl PauseHandle {
     /// transport's.
     pub fn new(id: UpstreamId, state: Arc<UpstreamState>) -> Self {
         Self { id, state }
+    }
+
+    /// Pause the upstream if `err` says it refuses calls for now. For a failure
+    /// seen outside of a call, e.g. by a subscription to the upstream.
+    pub fn pause_on_refusal(&self, err: &UpstreamError) {
+        if let Some(reason) = err.pause_reason() {
+            self.pause(reason, &err.to_string());
+        }
     }
 
     /// Pause the upstream (see [`UpstreamState::pause`]); `cause` is what the

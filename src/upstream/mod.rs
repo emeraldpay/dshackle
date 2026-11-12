@@ -22,6 +22,7 @@ pub(crate) mod bitcoin;
 pub mod block_updates;
 pub mod call_plan;
 mod call_status;
+pub(crate) mod chains;
 mod disabled_methods;
 mod dshackle;
 pub mod egress;
@@ -56,14 +57,11 @@ pub mod validation;
 
 pub use id::UpstreamId;
 pub use identified::IdentifiedUpstream;
-pub use label::{UpstreamLabel, UpstreamLabels};
+pub use label::UpstreamLabels;
 pub use multistream::Multistream;
 
 use crate::blockchain::{BlockchainType, TargetBlockchain};
-use crate::cache::{
-    BitcoinCacheCodec, Caches, CachingHead, CachingUpstream, EthereumCacheCodec, RedisCache,
-    redis_cache,
-};
+use crate::cache::{BitcoinCacheCodec, Caches, CachingUpstream, EthereumCacheCodec, redis_cache};
 use crate::config::cache::CacheConfig;
 use crate::config::tokens::{TokenConfig, TokenType};
 use crate::config::upstreams::{UpstreamConnection, UpstreamsConfig};
@@ -81,54 +79,40 @@ use bitcoin::subscribe::{BitcoinEgress, BitcoinZmqTopic, ZmqTopicStream};
 use bitcoin::validator::BitcoinValidator;
 use bitcoin::zmq::start_zmq_head;
 use call_plan::{AsIs, CallPlanner};
-use dshackle::DshackleUpstream;
-use dshackle::head::start_head_subscriber;
-use dshackle::status::start_status_subscriber;
-use dshackle::subscribe::DshackleEgress;
+use chains::{ChainMember, Chains};
+use dshackle::connection::{RemoteClient, RemoteEndpoint};
+use dshackle::remote::RemoteDshackle;
 use egress::{ChainAccess, EgressSubscription, EthereumEgress, MergedEgress, TopicSubset};
 use emerald_api::proto::blockchain::AddressAllowanceRequest;
 use emerald_api::proto::blockchain::BalanceRequest;
 use emerald_api::proto::blockchain::TxStatusRequest;
-use emerald_api::proto::blockchain::blockchain_client::BlockchainClient;
-use emerald_api::proto::blockchain::{DescribeChain, DescribeRequest};
 use emerald_api::proto::common::ChainRef;
 use ethereum::EthereumWsUpstream;
 use ethereum::call_plan::EthereumCallPlanner;
 use ethereum::head::{start_head_poller, start_ws_head};
 use ethereum::http::EthereumHttpUpstream;
-use ethereum::pending_tx::{
-    AggregatedPendingTxes, PendingTxSource, RelayedPendingTxes, WsPendingTxes,
-};
+use ethereum::pending_tx::{PendingTxSource, WsPendingTxes};
 use ethereum::validator::EthereumValidator;
 use fees::{BitcoinFees, ChainFees, EthereumFees};
-use fork::{
-    DifficultyForkChoice, ForkChoice, ForkMember, NeverForkChoice, PriorityForkChoice, is_pos,
-    start_fork_watch,
-};
+use fork::ForkMember;
 use head::CurrentHead;
 use limits::{RequestBudget, RequestLimitGuard};
 use logged::LoggedUpstream;
-use merged_head::{MergeOrder, MergedHead};
+use merged_head::MergedHead;
 use metered::MeteredUpstream;
-use methods::AggregatedMethods;
 use methods::ConfiguredMethods;
-use methods::DefaultMethods;
 use methods::HardcodedMethods;
 use methods::LayeredMethods;
 use methods::MethodFilter;
-use methods::RemoteMethods;
 use methods::bitcoin::DefaultBitcoinMethods;
 use methods::ethereum::DefaultEthereumMethods;
 use overload::OverloadGuard;
 use quorum::QuorumFactory;
 use state::UpstreamState;
-use status::ChainStatus;
+use std::collections::HashMap;
 use std::collections::hash_map::Entry;
-use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::time::Duration;
 use switch::SwitchClient;
-use tonic::transport::Channel;
 use traits::{Capability, RpcUpstream};
 use tx_status::bitcoin::BitcoinTxReader;
 use tx_status::ethereum::EthereumTxReader;
@@ -142,24 +126,13 @@ pub(crate) const USER_AGENT: &str = concat!("EmeraldDshackle/", env!("CARGO_PKG_
 /// Each chain entry is a [`Multistream`] aggregate — even chains with a single
 /// configured upstream are wrapped uniformly so the call path is the same.
 pub struct UpstreamManager {
-    upstreams: HashMap<TargetBlockchain, Arc<Multistream>>,
-    caches: HashMap<TargetBlockchain, Arc<Caches>>,
-    /// Per-chain merged head stream, used by `SubscribeHead` and the proxy's
-    /// `newHeads` subscription.
-    heads: HashMap<TargetBlockchain, Arc<MergedHead>>,
+    /// Everything per chain that a remote Dshackle connecting after the start
+    /// may add to.
+    chains: Arc<Chains>,
     /// Configured ERC-20 tokens, keyed by `(chain, lowercased name)` → the
     /// lowercased contract address. Lets a `GetBalance` request name a token by
     /// its configured code (legacy `TrackERC20Address` `tokens` map).
     tokens: HashMap<(TargetBlockchain, String), String>,
-    /// Per-chain gRPC client of a remote Dshackle upstream that advertises the
-    /// `ALLOWANCE` capability, used to forward allowance requests (legacy
-    /// `TrackERC20Allowance` proxies to such an upstream).
-    allowance_clients: HashMap<TargetBlockchain, BlockchainClient<Channel>>,
-    /// Per-chain gRPC client of a remote Dshackle upstream that advertises the
-    /// `BALANCE` capability. A Bitcoin balance request is forwarded to it rather
-    /// than computed from local UTXO RPC (legacy `CurrentUnspentReader` →
-    /// `RemoteUnspentReader`).
-    balance_clients: HashMap<TargetBlockchain, BlockchainClient<Channel>>,
     /// Per-chain Esplora index configured on a Bitcoin upstream. When present
     /// it is the chain's source of unspent outputs, ahead of a remote Dshackle
     /// and of the node's own `listunspent` (legacy `CurrentUnspentReader`).
@@ -167,28 +140,7 @@ pub struct UpstreamManager {
     /// Per-chain ZMQ topic streams of the Bitcoin upstreams, backing the
     /// Bitcoin egress subscriptions.
     zmq_topics: HashMap<TargetBlockchain, Vec<Arc<ZmqTopicStream>>>,
-    /// Per-chain `NativeSubscribe` relays of remote Dshackle upstreams,
-    /// carrying the topics each remote advertised over `Describe` (legacy
-    /// `EthereumDshackleIngressSubscription` /
-    /// `BitcoinDshackleIngressSubscription`). Held here — not rebuilt per
-    /// `egress()` call — so all subscribers keep sharing one remote stream
-    /// per topic.
-    dshackle_relays: HashMap<TargetBlockchain, Vec<Arc<DshackleEgress>>>,
-    /// Per-chain pending transactions, gathered from every upstream able to
-    /// announce them (legacy `EthereumMultistream` builds the same aggregate
-    /// in `onUpstreamsUpdated`). Held here — not rebuilt per use — so all
-    /// listeners share the upstream subscriptions and the aggregate's memory
-    /// of what was already announced.
-    pending_txes: HashMap<TargetBlockchain, Arc<dyn PendingTxSource>>,
 }
-
-/// How long to wait for a remote Dshackle upstream's connect + `Describe`
-/// during startup before giving up on it. A slow or unreachable remote must not
-/// hold back the whole server: the legacy implementation connected in the
-/// background with backoff, so here we cap the wait and start without any remote
-/// that doesn't answer in time (it is simply skipped, as an outright connection
-/// failure already is).
-const DSHACKLE_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
 impl UpstreamManager {
     /// Build upstreams from the parsed configuration.
@@ -211,50 +163,18 @@ impl UpstreamManager {
             None => None,
         };
 
-        let mut per_chain: HashMap<TargetBlockchain, Vec<Arc<dyn RpcUpstream>>> = HashMap::new();
-        // Per-upstream method configs, collected alongside the readers so the
-        // chain-level factory can aggregate them. Order matches `per_chain`
-        // so "first delegate supporting the method" preserves config order.
-        let mut per_chain_methods: HashMap<TargetBlockchain, Vec<Arc<dyn QuorumFactory>>> =
-            HashMap::new();
-        // Per-upstream fork-watch members, collected so the per-chain fork
-        // choice — which also drives the chain's merged head — can be built
-        // once all upstreams of a chain are known.
-        let mut per_chain_fork: HashMap<TargetBlockchain, Vec<ForkMember>> = HashMap::new();
-        // Per-chain caches and caching heads. Created lazily on first upstream
-        // for each chain. The CachingHead subscribes to each upstream's block
-        // stream and deduplicates before writing to the cache — one update per
-        // chain regardless of how many upstreams report the same block.
-        let mut per_chain_caches: HashMap<TargetBlockchain, Arc<Caches>> = HashMap::new();
-        let mut per_chain_caching_heads: HashMap<TargetBlockchain, CachingHead> = HashMap::new();
+        let chains = Arc::new(Chains::new(redis));
         // Per-chain ZMQ topic streams of the Bitcoin upstreams, feeding the
         // chain's egress subscriptions (`NativeSubscribe`).
         let mut per_chain_zmq_topics: HashMap<TargetBlockchain, Vec<Arc<ZmqTopicStream>>> =
             HashMap::new();
-        // First allowance-capable remote Dshackle client per chain (legacy picks
-        // one upstream matching the ALLOWANCE capability).
-        let mut allowance_clients: HashMap<TargetBlockchain, BlockchainClient<Channel>> =
-            HashMap::new();
-        // First BALANCE-capable remote Dshackle client per chain, used to forward
-        // Bitcoin balance requests.
-        let mut balance_clients: HashMap<TargetBlockchain, BlockchainClient<Channel>> =
-            HashMap::new();
         // First Esplora index configured per Bitcoin chain (legacy takes the
         // first upstream that has one).
         let mut per_chain_esplora: HashMap<TargetBlockchain, Arc<EsploraClient>> = HashMap::new();
-        // Per-chain subscription relays of the remote Dshackle upstreams,
-        // feeding the chain's egress alongside the locally-served topics.
-        let mut dshackle_relays: HashMap<TargetBlockchain, Vec<Arc<DshackleEgress>>> =
-            HashMap::new();
-        // Per-chain pending-transaction sources of the Ethereum nodes reached
-        // over WebSocket, the only transport a node pushes them through.
-        let mut node_pending_txes: HashMap<TargetBlockchain, Vec<Arc<dyn PendingTxSource>>> =
-            HashMap::new();
         // Remote Dshackle upstreams to connect after the main loop. Their chains
         // and methods are only known from the remote's `Describe`, so they are
-        // discovered concurrently (each bounded by `DSHACKLE_CONNECT_TIMEOUT`)
-        // instead of blocking startup one-by-one.
-        let mut pending_dshackle: Vec<PendingDshackle> = Vec::new();
+        // discovered concurrently instead of blocking startup one-by-one.
+        let mut remotes: Vec<Arc<RemoteDshackle>> = Vec::new();
 
         for upstream in &config.upstreams {
             if !upstream.enabled {
@@ -347,12 +267,6 @@ impl UpstreamManager {
                     // upstream and subscribe the per-chain CachingHead to it.
                     // That head is also the one the fork watcher follows for
                     // this upstream.
-                    let caching_head = get_or_create_caching_head(
-                        chain,
-                        redis.as_ref(),
-                        &mut per_chain_caches,
-                        &mut per_chain_caching_heads,
-                    );
                     // `disabled-methods` keeps a method off the WS
                     // connection, and for `eth_subscribe` that leaves nothing
                     // to subscribe to: neither the head nor the pending
@@ -371,19 +285,19 @@ impl UpstreamManager {
                     let fork_head: Option<Arc<CurrentHead>> = match (&ws_upstream, &http_upstream) {
                         (Some(ws_up), _) if !ws_subscriptions_disabled => {
                             let head = ws_up.head_height();
-                            caching_head.follow(&head);
+                            chains.cache_blocks_of(chain, &head);
                             start_ws_head(Arc::clone(ws_up));
-                            node_pending_txes
-                                .entry(chain)
-                                .or_default()
-                                .push(Arc::new(WsPendingTxes::new(Arc::clone(ws_up))));
+                            chains.add_pending_source(
+                                chain,
+                                Arc::new(WsPendingTxes::new(Arc::clone(ws_up))),
+                            );
                             Some(head)
                         }
                         (Some(ws_up), None) => {
                             // WS is the only transport, so the polling goes
                             // through it.
                             let head = ws_up.head_height();
-                            caching_head.follow(&head);
+                            chains.cache_blocks_of(chain, &head);
                             start_head_poller(
                                 Arc::clone(ws_up) as Arc<dyn RpcUpstream>,
                                 Arc::clone(&head),
@@ -392,7 +306,7 @@ impl UpstreamManager {
                         }
                         (_, Some(http_up)) => {
                             let head = http_up.head_height();
-                            caching_head.follow(&head);
+                            chains.cache_blocks_of(chain, &head);
                             // The poller's requests go through an instrumented
                             // view of the transport: the legacy head poller
                             // shares the instrumented client, so its calls are
@@ -520,10 +434,7 @@ impl UpstreamManager {
                     // limits. Requests reach it already prepared by the
                     // chain's planner, e.g. rewritten to block-by-hash, which
                     // the cache can answer.
-                    let caches = per_chain_caches
-                        .get(&chain)
-                        .cloned()
-                        .unwrap_or_else(|| Arc::new(Caches::new()));
+                    let caches = chains.caches(chain);
                     let reader = RequestLimitGuard::wrap(
                         reader,
                         RequestBudget::new(&upstream.limits).as_ref(),
@@ -537,14 +448,12 @@ impl UpstreamManager {
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(HardcodedMethods::new(reader, Arc::clone(&methods)));
 
-                    if let Some(head) = fork_head {
-                        per_chain_fork.entry(chain).or_default().push(ForkMember {
-                            id: id.clone(),
-                            priority: options.priority,
-                            head,
-                            state: Arc::clone(reader.state()),
-                        });
-                    }
+                    let fork = fork_head.map(|head| ForkMember {
+                        id: id.clone(),
+                        priority: options.priority,
+                        head,
+                        state: Arc::clone(reader.state()),
+                    });
 
                     // Outermost layer: attach the configured labels, capabilities,
                     // and routing role so `Describe` and upstream selection can
@@ -556,8 +465,14 @@ impl UpstreamManager {
                         upstream.role,
                     ));
 
-                    per_chain.entry(chain).or_default().push(reader);
-                    per_chain_methods.entry(chain).or_default().push(methods);
+                    chains.join(
+                        chain,
+                        ChainMember {
+                            reader,
+                            methods,
+                            fork,
+                        },
+                    );
                 }
                 UpstreamConnection::Bitcoin(btc) => {
                     let labels = local_labels(upstream)?;
@@ -599,13 +514,7 @@ impl UpstreamManager {
                         client,
                     );
                     let head = http_up.head_height();
-                    let caching_head = get_or_create_caching_head(
-                        chain,
-                        redis.as_ref(),
-                        &mut per_chain_caches,
-                        &mut per_chain_caching_heads,
-                    );
-                    caching_head.follow(&head);
+                    chains.cache_blocks_of(chain, &head);
                     let metered = MeteredUpstream::new(
                         Arc::new(http_up),
                         crate::metrics::UpstreamProtocol::HttpJsonRpc,
@@ -697,10 +606,7 @@ impl UpstreamManager {
                         Arc::new(LayeredMethods::new(default_layer, configured_layer));
 
                     // Same wrapping order as the Ethereum branch.
-                    let caches = per_chain_caches
-                        .get(&chain)
-                        .cloned()
-                        .unwrap_or_else(|| Arc::new(Caches::new()));
+                    let caches = chains.caches(chain);
                     let reader = RequestLimitGuard::wrap(
                         reader,
                         RequestBudget::new(&upstream.limits).as_ref(),
@@ -714,7 +620,7 @@ impl UpstreamManager {
                     let reader: Arc<dyn RpcUpstream> =
                         Arc::new(HardcodedMethods::new(reader, Arc::clone(&methods)));
 
-                    per_chain_fork.entry(chain).or_default().push(ForkMember {
+                    let fork = Some(ForkMember {
                         id: id.clone(),
                         priority: options.priority,
                         head: fork_head,
@@ -730,22 +636,26 @@ impl UpstreamManager {
                         upstream.role,
                     ));
 
-                    per_chain.entry(chain).or_default().push(reader);
-                    per_chain_methods.entry(chain).or_default().push(methods);
+                    chains.join(
+                        chain,
+                        ChainMember {
+                            reader,
+                            methods,
+                            fork,
+                        },
+                    );
                 }
                 UpstreamConnection::Dshackle(ds) => {
-                    let url = match resolve_dshackle_url(ds) {
-                        Some(u) => u,
-                        None => {
-                            tracing::warn!(
-                                "Upstream {}: no URL or host configured for Dshackle connection, skipping",
-                                id
-                            );
-                            continue;
-                        }
-                    };
-
                     let tls = crate::tls::client_tls(id.as_str(), ds.tls.as_ref(), config_dir)?;
+                    let Some(endpoint) =
+                        RemoteEndpoint::new(ds, tls).with_context(|| format!("upstream {id}"))?
+                    else {
+                        tracing::warn!(
+                            "Upstream {}: no URL or host configured for Dshackle connection, skipping",
+                            id
+                        );
+                        continue;
+                    };
 
                     // Only `timeout` applies to a dshackle connection; the
                     // validation family is meaningless here and gets a warning.
@@ -771,180 +681,54 @@ impl UpstreamManager {
 
                     // Defer the actual connect: it is done concurrently after the
                     // loop so a slow remote can't stall the rest of startup.
-                    pending_dshackle.push(PendingDshackle {
+                    if endpoint.exposes_credentials() {
+                        tracing::warn!(
+                            "Upstream {}: the auth token is sent to {} without TLS, anyone on the network path can read it",
+                            id,
+                            endpoint.uri()
+                        );
+                    }
+                    remotes.push(Arc::new(RemoteDshackle {
                         id,
                         role: upstream.role,
-                        url,
-                        tls,
+                        endpoint,
                         call_timeout: options.timeout,
                         priority: options.priority,
-                        // Unlike HTTP/WS upstreams this defaults to on, as in
-                        // legacy: gRPC negotiates the encoding per call, so a
-                        // remote without gzip support is not harmed.
-                        compress: ds.compress.unwrap_or(true),
                         budget: RequestBudget::new(&upstream.limits),
-                    });
+                    }));
                 }
             }
         }
 
-        // Connect to the remote Dshackle upstreams concurrently, each bounded by
-        // `DSHACKLE_CONNECT_TIMEOUT`, then wire the ones that answered. Wiring
-        // runs sequentially because it mutates the shared per-chain maps; the
-        // slow part (connect + `Describe` over the network) already happened in
-        // parallel, so a single unreachable remote no longer blocks startup.
-        for pending in &pending_dshackle {
-            tracing::info!(
-                "Connecting to remote Dshackle '{}' at {}",
-                pending.id,
-                pending.url
-            );
-        }
-        let discoveries =
-            futures::future::join_all(pending_dshackle.iter().map(|pending| async move {
-                let outcome = tokio::time::timeout(
-                    DSHACKLE_CONNECT_TIMEOUT,
-                    connect_and_describe(&pending.url, pending.tls.as_ref(), pending.compress),
-                )
-                .await;
-                (pending, outcome)
-            }))
-            .await;
+        // Each remote is either connected and its chains added, or keeps
+        // trying in the background, so a single unreachable one doesn't block
+        // the start.
+        let remotes_pending = !remotes.is_empty();
+        futures::future::join_all(
+            remotes
+                .into_iter()
+                .map(|remote| remote.start(Arc::clone(&chains))),
+        )
+        .await;
 
-        for (pending, outcome) in discoveries {
-            match outcome {
-                Ok(Ok((client, chains))) => wire_remote_dshackle(
-                    pending,
-                    client,
-                    chains,
-                    redis.as_ref(),
-                    &mut per_chain_caches,
-                    &mut per_chain_caching_heads,
-                    &mut per_chain,
-                    &mut per_chain_methods,
-                    &mut allowance_clients,
-                    &mut balance_clients,
-                    &mut dshackle_relays,
-                    &mut per_chain_fork,
-                ),
-                Ok(Err(e)) => {
-                    // `{:#}` so the whole chain shows: a bare tonic
-                    // `transport::Error` renders as just "transport error",
-                    // and the reason is only in its source.
-                    tracing::warn!(
-                        "Upstream {}: failed to connect to Dshackle at {}: {:#}",
-                        pending.id,
-                        pending.url,
-                        e
-                    );
-                }
-                Err(_elapsed) => {
-                    tracing::warn!(
-                        "Upstream {}: timed out after {:?} connecting to Dshackle at {}, starting without it",
-                        pending.id,
-                        DSHACKLE_CONNECT_TIMEOUT,
-                        pending.url
-                    );
-                }
-            }
-        }
-
-        // Start fork detection per chain. PoS chains compare by priority;
-        // everything else falls back to cumulative-difficulty ordering. The
-        // fork choice is shared across the chain's upstreams so it sees them
-        // all; each upstream then gets its own watcher.
-        //
-        // The chain's merged head follows every upstream independently of the
-        // fork verdicts (same as the legacy `MergedPow/PosHead`): conflicts are
-        // resolved inside the merge, and any upstream can advance the head, so
-        // one stalled upstream can never stall the chain.
-        let mut heads: HashMap<TargetBlockchain, Arc<MergedHead>> = HashMap::new();
-        for (chain, members) in per_chain_fork {
-            let TargetBlockchain::Standard(chain_ref) = chain;
-            // A lone upstream has nothing to diverge from, and flagging it
-            // would only take the chain's sole upstream out of routing.
-            let fork_choice: Arc<dyn ForkChoice> = if members.len() < 2 {
-                Arc::new(NeverForkChoice::new())
-            } else if is_pos(chain_ref) {
-                let priority = Arc::new(PriorityForkChoice::new());
-                for member in &members {
-                    priority.add_upstream(
-                        member.id.clone(),
-                        member.priority,
-                        Arc::clone(&member.state),
-                    );
-                }
-                priority
-            } else {
-                Arc::new(DifficultyForkChoice::new())
-            };
-            let order = if is_pos(chain_ref) {
-                MergeOrder::Priority
-            } else {
-                MergeOrder::Difficulty
-            };
-            let merged = Arc::new(MergedHead::new(order));
-            for member in members {
-                merged.follow(member.priority, Arc::clone(&member.head));
-                start_fork_watch(
-                    member.id,
-                    chain,
-                    member.head,
-                    member.state,
-                    Arc::clone(&fork_choice),
-                );
-            }
-            heads.insert(chain, merged);
-        }
-
-        let mut upstreams: HashMap<TargetBlockchain, Arc<Multistream>> = HashMap::new();
-        let mut chain_statuses: Vec<ChainStatus> = Vec::new();
-
-        for (chain, readers) in per_chain {
-            lag::start_lag_tracking(readers.clone());
-            let chain_status = ChainStatus {
-                chain,
-                upstreams: readers.clone(),
-            };
-            chain_statuses.push(chain_status);
-
-            if readers.len() > 1 {
-                tracing::info!("{}: aggregating {} upstreams", chain, readers.len(),);
-            }
-            let delegates = per_chain_methods.remove(&chain).unwrap_or_default();
-            let factory: Arc<dyn QuorumFactory> = if delegates.is_empty() {
-                quorum_factory_for(chain)
-            } else {
-                Arc::new(AggregatedMethods::new(delegates))
-            };
-            // By chain, not by upstream kind: a chain served only by remote
-            // Dshackles needs the same preparation as one with local nodes.
-            let caches = per_chain_caches
-                .get(&chain)
-                .cloned()
-                .unwrap_or_else(|| Arc::new(Caches::new()));
-            let multistream =
-                Multistream::new(chain, readers, factory).with_planner(planner_for(chain, caches));
-            upstreams.insert(chain, Arc::new(multistream));
-        }
-
-        if upstreams.is_empty() {
+        let served = chains.list();
+        if served.is_empty() && !remotes_pending {
             tracing::warn!("No usable upstreams were configured");
         }
+        for chain in served {
+            let count = chains.multistream(&chain).map_or(0, |m| m.len());
+            if count > 1 {
+                tracing::info!("{}: aggregating {} upstreams", chain, count);
+            }
+        }
 
-        status::start_status_reporter(chain_statuses);
+        status::start_status_reporter(Arc::clone(&chains));
 
         Ok(UpstreamManager {
-            upstreams,
-            caches: per_chain_caches,
-            heads,
+            chains,
             tokens: build_token_registry(tokens),
-            allowance_clients,
-            balance_clients,
             esplora: per_chain_esplora,
             zmq_topics: per_chain_zmq_topics,
-            pending_txes: chain_pending_txes(node_pending_txes, &dshackle_relays),
-            dshackle_relays,
         })
     }
 
@@ -955,43 +739,41 @@ impl UpstreamManager {
         upstreams: HashMap<TargetBlockchain, Arc<Multistream>>,
         caches: HashMap<TargetBlockchain, Arc<Caches>>,
     ) -> Self {
+        Self::from_chains(Arc::new(Chains::from_parts(upstreams, caches)))
+    }
+
+    /// Upstreams of the chains, with no tokens or Bitcoin-specific sources.
+    pub(crate) fn from_chains(chains: Arc<Chains>) -> Self {
         Self {
-            upstreams,
-            caches,
-            heads: HashMap::new(),
+            chains,
             tokens: HashMap::new(),
-            allowance_clients: HashMap::new(),
-            balance_clients: HashMap::new(),
             esplora: HashMap::new(),
             zmq_topics: HashMap::new(),
-            dshackle_relays: HashMap::new(),
-            pending_txes: HashMap::new(),
         }
     }
 
-    /// All configured chains, sorted by chain id for deterministic `Describe`
-    /// output (legacy `MultistreamHolder.getAvailable`).
+    /// All chains with at least one upstream, sorted by chain id for
+    /// deterministic `Describe` output (legacy `MultistreamHolder.getAvailable`).
+    /// Grows when a remote Dshackle connects after the start.
     pub fn chains(&self) -> Vec<TargetBlockchain> {
-        let mut chains: Vec<TargetBlockchain> = self.upstreams.keys().copied().collect();
-        chains.sort_by_key(|c| c.id());
-        chains
+        self.chains.list()
     }
 
     /// Look up the upstream aggregate for a given blockchain.
-    pub fn get(&self, chain: &TargetBlockchain) -> Option<&Arc<Multistream>> {
-        self.upstreams.get(chain)
+    pub fn get(&self, chain: &TargetBlockchain) -> Option<Arc<Multistream>> {
+        self.chains.multistream(chain)
     }
 
     /// Look up the merged head stream for a given blockchain.
-    pub fn head(&self, chain: &TargetBlockchain) -> Option<&Arc<MergedHead>> {
-        self.heads.get(chain)
+    pub fn head(&self, chain: &TargetBlockchain) -> Option<Arc<MergedHead>> {
+        self.chains.head(chain)
     }
 
     /// The chain's pending transactions, or `None` when none of its upstreams
     /// can announce them: that takes a node reached over WebSocket, or a
     /// remote Dshackle relaying the topic.
-    pub fn pending_txes(&self, chain: &TargetBlockchain) -> Option<&Arc<dyn PendingTxSource>> {
-        self.pending_txes.get(chain)
+    pub fn pending_txes(&self, chain: &TargetBlockchain) -> Option<Arc<dyn PendingTxSource>> {
+        self.chains.pending_txes(chain)
     }
 
     /// Build the server-pushed-subscription egress for a chain, or `None` when
@@ -1006,12 +788,9 @@ impl UpstreamManager {
         match chain.blockchain_type() {
             BlockchainType::Ethereum => {
                 if let (Some(head), Some(multistream)) = (self.head(chain), self.get(chain)) {
-                    let access: Arc<dyn ChainAccess> = multistream.clone();
-                    let local = Arc::new(EthereumEgress::new(
-                        Arc::clone(head),
-                        access,
-                        self.pending_txes(chain).cloned(),
-                    ));
+                    let access: Arc<dyn ChainAccess> = multistream;
+                    let local =
+                        Arc::new(EthereumEgress::new(head, access, self.pending_txes(chain)));
                     local_topics = local.available_topics();
                     sources.push(local);
                 }
@@ -1023,7 +802,7 @@ impl UpstreamManager {
             }
             BlockchainType::Unknown => {}
         }
-        for relay in self.dshackle_relays.get(chain).into_iter().flatten() {
+        for relay in self.chains.relays(chain) {
             let added: Vec<String> = relay
                 .available_topics()
                 .into_iter()
@@ -1032,7 +811,7 @@ impl UpstreamManager {
             if added.is_empty() {
                 continue;
             }
-            sources.push(Arc::new(TopicSubset::new(Arc::clone(relay) as _, added)));
+            sources.push(Arc::new(TopicSubset::new(relay as _, added)));
         }
         MergedEgress::combined(sources)
     }
@@ -1045,7 +824,7 @@ impl UpstreamManager {
     pub fn fees(&self, chain: &TargetBlockchain) -> Option<Arc<dyn ChainFees>> {
         match chain.blockchain_type() {
             BlockchainType::Ethereum => {
-                let access: Arc<dyn ChainAccess> = self.get(chain)?.clone();
+                let access: Arc<dyn ChainAccess> = self.get(chain)?;
                 Some(Arc::new(EthereumFees::new(
                     access,
                     supports_eip1559(chain),
@@ -1088,10 +867,10 @@ impl UpstreamManager {
         // local UTXO RPC (legacy `CurrentUnspentReader` → `RemoteUnspentReader`).
         if chain.blockchain_type() == BlockchainType::Bitcoin
             && esplora.is_none()
-            && let Some(client) = self.balance_clients.get(&chain)
+            && let Some(client) = self.chains.balance_client(&chain)
         {
             return self
-                .remote_balance(client.clone(), request.clone(), subscribe)
+                .remote_balance(client, request.clone(), subscribe)
                 .await;
         }
 
@@ -1099,7 +878,7 @@ impl UpstreamManager {
             .get(&chain)
             .ok_or(BalanceError::Unavailable(chain.id()))?
             .clone();
-        let head = self.head(&chain).cloned();
+        let head = self.head(&chain);
         let chain_id = chain.id();
         let eth = chain.blockchain_type() == BlockchainType::Ethereum;
         let btc = chain.blockchain_type() == BlockchainType::Bitcoin;
@@ -1228,7 +1007,7 @@ impl UpstreamManager {
     /// `RemoteUnspentReader`). `subscribe` selects the remote's streaming method.
     async fn remote_balance(
         &self,
-        mut client: BlockchainClient<Channel>,
+        mut client: RemoteClient,
         request: BalanceRequest,
         subscribe: bool,
     ) -> Result<BalanceStream, BalanceError> {
@@ -1272,7 +1051,7 @@ impl UpstreamManager {
             .get(&chain)
             .ok_or(TxStatusError::Unavailable(request.chain))?
             .clone();
-        let head = self.head(&chain).cloned();
+        let head = self.head(&chain);
 
         let (reader, limit, ttl): (Arc<dyn tx_status::TxReader>, u32, tx_status::Ttl) =
             match chain.blockchain_type() {
@@ -1313,9 +1092,8 @@ impl UpstreamManager {
         let chain = TargetBlockchain::try_from(request.chain)
             .map_err(|_| AllowanceError::Unavailable(request.chain))?;
         let mut client = self
-            .allowance_clients
-            .get(&chain)
-            .cloned()
+            .chains
+            .allowance_client(&chain)
             .ok_or(AllowanceError::Unsupported(request.chain))?;
 
         let response = if subscribe {
@@ -1334,24 +1112,25 @@ impl UpstreamManager {
         if chain.blockchain_type() != BlockchainType::Bitcoin {
             return None;
         }
-        let access: Arc<dyn ChainAccess> = self.get(chain)?.clone();
-        Some(BitcoinReader::new(access, self.caches.get(chain).cloned()))
+        let access: Arc<dyn ChainAccess> = self.get(chain)?;
+        Some(BitcoinReader::new(access, self.caches(chain)))
     }
 
     /// Look up the cache for a given blockchain.
-    pub fn caches(&self, chain: &TargetBlockchain) -> Option<&Arc<Caches>> {
-        self.caches.get(chain)
+    pub fn caches(&self, chain: &TargetBlockchain) -> Option<Arc<Caches>> {
+        self.chains.existing_caches(chain)
     }
 }
 
 impl crate::metrics::UpstreamsStatus for UpstreamManager {
     fn chains_status(&self) -> Vec<crate::metrics::ChainStatus> {
-        self.upstreams
-            .iter()
-            .map(|(chain, multistream)| crate::metrics::ChainStatus {
-                chain: *chain,
-                upstreams: multistream
-                    .upstreams()
+        self.chains
+            .statuses()
+            .into_iter()
+            .map(|status| crate::metrics::ChainStatus {
+                chain: status.chain,
+                upstreams: status
+                    .upstreams
                     .iter()
                     .map(|up| crate::metrics::UpstreamStatus {
                         id: up.id().to_string(),
@@ -1410,23 +1189,6 @@ fn supports_eip1559(chain: &TargetBlockchain) -> bool {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
-/// Returns a reference to the `CachingHead` for a chain, creating it (and the
-/// underlying `Caches`) on first access.
-fn get_or_create_caching_head<'a>(
-    chain: TargetBlockchain,
-    redis_conn: Option<&redis::aio::ConnectionManager>,
-    caches_map: &mut HashMap<TargetBlockchain, Arc<Caches>>,
-    caching_heads: &'a mut HashMap<TargetBlockchain, CachingHead>,
-) -> &'a CachingHead {
-    let caches = caches_map.entry(chain).or_insert_with(|| {
-        let redis = redis_conn.map(|conn| RedisCache::new(conn.clone(), chain.id()));
-        Arc::new(Caches::with_redis(redis))
-    });
-    caching_heads
-        .entry(chain)
-        .or_insert_with(|| CachingHead::new(Arc::clone(caches)))
-}
-
 /// Parses the blockchain field from a configured upstream. Returns `None` and
 /// logs a warning if the field is missing or unrecognized.
 fn parse_required_chain(upstream: &crate::config::upstreams::Upstream) -> Option<TargetBlockchain> {
@@ -1477,25 +1239,6 @@ fn capabilities_from_proto(proto: &[i32]) -> Vec<Capability> {
         .collect()
 }
 
-/// Resolves the gRPC URL for a Dshackle connection from its config.
-///
-/// tonic applies its TLS connector only to `https` URIs, so a configured TLS
-/// section must be reflected in the scheme.
-fn resolve_dshackle_url(ds: &crate::config::upstreams::DshackleConnection) -> Option<String> {
-    let secure = ds.tls.is_some();
-    if let Some(url) = &ds.url {
-        if secure && url.starts_with("http://") {
-            return Some(url.replacen("http://", "https://", 1));
-        }
-        return Some(url.clone());
-    }
-    let scheme = if secure { "https" } else { "http" };
-    ds.host.as_ref().map(|host| {
-        let port = ds.port.unwrap_or(2448);
-        format!("{scheme}://{host}:{port}")
-    })
-}
-
 /// Returns the appropriate syncing lag threshold for a chain.
 fn syncing_lag_for(chain_ref: ChainRef) -> u64 {
     match chain_ref {
@@ -1518,72 +1261,6 @@ fn planner_for(chain: TargetBlockchain, caches: Arc<Caches>) -> Arc<dyn CallPlan
     }
 }
 
-fn quorum_factory_for(chain: TargetBlockchain) -> Arc<dyn QuorumFactory> {
-    match chain.blockchain_type() {
-        BlockchainType::Bitcoin => Arc::new(DefaultBitcoinMethods::new()),
-        BlockchainType::Ethereum => Arc::new(DefaultEthereumMethods::new(chain)),
-        BlockchainType::Unknown => Arc::new(DefaultMethods),
-    }
-}
-
-/// Connects to a remote Dshackle instance and calls `Describe` to discover its
-/// available chains. Network-only so it can run concurrently for many remotes;
-/// the per-chain wiring (which mutates shared state) is done by
-/// [`wire_remote_dshackle`].
-async fn connect_and_describe(
-    url: &str,
-    tls: Option<&crate::tls::ClientTlsSetup>,
-    compress: bool,
-) -> anyhow::Result<(BlockchainClient<Channel>, Vec<DescribeChain>)> {
-    // tonic always appends its own `tonic/<ver>` token, so the remote sees
-    // `EmeraldDshackle/<ver> tonic/<ver>`.
-    let mut endpoint =
-        tonic::transport::Endpoint::from_shared(url.to_string())?.user_agent(USER_AGENT)?;
-    // An `https` URL enables TLS by itself, even with no `tls` section on the
-    // upstream: tonic refuses to connect to an https endpoint that has no TLS
-    // configured, while every other client here (reqwest, tungstenite) takes
-    // TLS from the scheme. Without this an `https` gRPC upstream would fail
-    // with nothing but "transport error".
-    let secure = tls.is_some() || endpoint.uri().scheme_str() == Some("https");
-    if secure {
-        let tls_config = match tls.and_then(|setup| setup.ca.as_ref()) {
-            Some(ca) => tonic::transport::ClientTlsConfig::new()
-                .ca_certificate(tonic::transport::Certificate::from_pem(ca)),
-            None => tonic::transport::ClientTlsConfig::new().with_native_roots(),
-        };
-        let tls_config = match tls.and_then(|setup| setup.identity.as_ref()) {
-            Some(identity) => tls_config.identity(tonic::transport::Identity::from_pem(
-                &identity.certificate,
-                &identity.key,
-            )),
-            None => tls_config,
-        };
-        endpoint = endpoint.tls_config(tls_config)?;
-    }
-    let channel = endpoint
-        .connect()
-        .await
-        .with_context(|| format!("connecting to {url}"))?;
-    let mut client = BlockchainClient::new(channel);
-    if compress {
-        // Accept-only, like legacy: its channel registries let the client
-        // advertise and decode gzip, but requests were never compressed
-        // (that needed a per-call compressor legacy didn't set). Request
-        // compression is also not negotiated in gRPC — a remote without gzip
-        // would reject such calls outright, so don't send compressed.
-        client = client.accept_compressed(tonic::codec::CompressionEncoding::Gzip);
-    }
-
-    let describe_resp = client.describe(DescribeRequest {}).await?;
-    Ok((client, describe_resp.into_inner().chains))
-}
-
-/// Wire the chains a remote Dshackle reported into the local cluster: one
-/// per-chain upstream each, with head/status subscribers, a method filter from
-/// the remote's advertised methods, and the relay's labels/capabilities.
-///
-/// Runs on the build task (not concurrently) because it mutates the shared
-/// per-chain maps.
 /// Configured options that have no effect on a dshackle connection, by their
 /// YAML names. The remote validates its own upstreams and reports availability
 /// over `SubscribeStatus` (as in legacy), so the local validation settings are
@@ -1618,23 +1295,6 @@ fn warn_inapplicable_dshackle_options(upstream: &crate::config::upstreams::Upstr
     }
 }
 
-/// A configured remote Dshackle upstream (already validated at wiring) waiting
-/// for its concurrent connect + `Describe` before the per-chain upstreams can
-/// be built.
-struct PendingDshackle {
-    id: UpstreamId,
-    role: crate::config::upstreams::UpstreamRole,
-    url: String,
-    tls: Option<crate::tls::ClientTlsSetup>,
-    call_timeout: Duration,
-    /// Merge priority of the discovered chains' heads, as for local upstreams.
-    priority: i32,
-    compress: bool,
-    /// One budget for every chain the remote serves: the configured limits
-    /// are for the connection to the remote, not for each of its chains.
-    budget: Option<Arc<RequestBudget>>,
-}
-
 /// The validated labels of a local upstream, with the failure attributed to
 /// the upstream — unlike the id, the label error can't name its owner itself.
 fn local_labels(upstream: &crate::config::upstreams::Upstream) -> anyhow::Result<UpstreamLabels> {
@@ -1643,245 +1303,17 @@ fn local_labels(upstream: &crate::config::upstreams::Upstream) -> anyhow::Result
         .with_context(|| format!("upstream {}", upstream.id))
 }
 
-/// Folds each chain's pending-transaction sources into the one the chain
-/// serves from: the node sources plus every remote Dshackle relay that
-/// advertises the topic (legacy `EthereumDshackleIngressSubscription`).
-fn chain_pending_txes(
-    mut sources: HashMap<TargetBlockchain, Vec<Arc<dyn PendingTxSource>>>,
-    relays: &HashMap<TargetBlockchain, Vec<Arc<DshackleEgress>>>,
-) -> HashMap<TargetBlockchain, Arc<dyn PendingTxSource>> {
-    for (chain, relays) in relays {
-        for relay in relays {
-            if let Some(relayed) = RelayedPendingTxes::of(Arc::clone(relay) as _) {
-                sources.entry(*chain).or_default().push(Arc::new(relayed));
-            }
-        }
-    }
-    sources
-        .into_iter()
-        .filter_map(|(chain, sources)| {
-            AggregatedPendingTxes::combined(sources).map(|combined| (chain, combined))
-        })
-        .collect()
-}
-
-#[allow(clippy::too_many_arguments)]
-fn wire_remote_dshackle(
-    pending: &PendingDshackle,
-    client: BlockchainClient<Channel>,
-    chains: Vec<DescribeChain>,
-    redis_conn: Option<&redis::aio::ConnectionManager>,
-    caches_map: &mut HashMap<TargetBlockchain, Arc<Caches>>,
-    caching_heads: &mut HashMap<TargetBlockchain, CachingHead>,
-    per_chain: &mut HashMap<TargetBlockchain, Vec<Arc<dyn RpcUpstream>>>,
-    per_chain_methods: &mut HashMap<TargetBlockchain, Vec<Arc<dyn QuorumFactory>>>,
-    allowance_clients: &mut HashMap<TargetBlockchain, BlockchainClient<Channel>>,
-    balance_clients: &mut HashMap<TargetBlockchain, BlockchainClient<Channel>>,
-    dshackle_relays: &mut HashMap<TargetBlockchain, Vec<Arc<DshackleEgress>>>,
-    per_chain_fork: &mut HashMap<TargetBlockchain, Vec<ForkMember>>,
-) {
-    let upstream_id = &pending.id;
-    if chains.is_empty() {
-        tracing::warn!(
-            "Dshackle '{}': remote reported no available chains",
-            upstream_id
-        );
-        return;
-    }
-
-    let mut connected = 0;
-    for desc_chain in &chains {
-        let chain_ref = match ChainRef::try_from(desc_chain.chain) {
-            Ok(c) if c != ChainRef::ChainUnspecified => c,
-            _ => {
-                tracing::debug!(
-                    "Dshackle '{}': skipping unknown chain id {}",
-                    upstream_id,
-                    desc_chain.chain
-                );
-                continue;
-            }
-        };
-
-        let chain = TargetBlockchain::from(chain_ref);
-        // One upstream per discovered chain, named like the legacy
-        // `GrpcUpstreams`: `<id>_<chain code>`.
-        let chain_id: UpstreamId =
-            match format!("{}_{}", upstream_id, chain.code().to_lowercase()).parse() {
-                Ok(id) => id,
-                Err(e) => {
-                    // Only possible if a future chain code stops fitting the
-                    // id pattern; losing one discovered chain beats panicking.
-                    tracing::warn!("Dshackle '{upstream_id}': skipping chain {chain}: {e}");
-                    continue;
-                }
-            };
-        let syncing_lag = syncing_lag_for(chain_ref);
-
-        tracing::info!(
-            "Dshackle '{}': discovered chain {} ({} methods)",
-            upstream_id,
-            chain,
-            desc_chain.supported_methods.len(),
-        );
-
-        let ds_upstream = Arc::new(DshackleUpstream::new(
-            chain_id.clone(),
-            desc_chain.chain,
-            client.clone(),
-            syncing_lag,
-            pending.call_timeout,
-        ));
-
-        // Subscribe caching head before starting the poller so no blocks are missed
-        let head = ds_upstream.head_height();
-        let caching_head = get_or_create_caching_head(chain, redis_conn, caches_map, caching_heads);
-        caching_head.follow(&head);
-
-        // The remote's head joins the chain's fork members like any local
-        // upstream's, so the chain gets a `MergedHead` even when every
-        // upstream is a remote Dshackle: that serves the local
-        // `SubscribeHead`, and the head-derived egress topics are produced
-        // once from the merge instead of relayed per remote.
-        per_chain_fork.entry(chain).or_default().push(ForkMember {
-            id: chain_id.clone(),
-            priority: pending.priority,
-            head,
-            state: ds_upstream.state_handle(),
-        });
-
-        // Start head tracking via SubscribeHead
-        start_head_subscriber(chain_id.clone(), desc_chain.chain, Arc::clone(&ds_upstream));
-
-        // Track the remote's own reported availability via SubscribeStatus.
-        start_status_subscriber(
-            chain_id.clone(),
-            desc_chain.chain,
-            ds_upstream.grpc_client(),
-            ds_upstream.state_handle(),
-        );
-
-        let metered = MeteredUpstream::new(
-            ds_upstream,
-            crate::metrics::UpstreamProtocol::Dshackle,
-            upstream_id.clone(),
-            chain,
-        );
-        let reader: Arc<dyn RpcUpstream> = Arc::new(LoggedUpstream::new(
-            Arc::new(metered),
-            crate::logs::Channel::Dshackle,
-            upstream_id.clone(),
-            chain,
-        ));
-        let reader = RequestLimitGuard::wrap(reader, pending.budget.as_ref(), upstream_id, chain);
-
-        // Capabilities come from the remote's own report (legacy
-        // `RemoteCapabilities.extract`), so a Dshackle relay re-advertises what
-        // the backend can serve.
-        let caps = capabilities_from_proto(&desc_chain.capabilities);
-
-        // Keep the gRPC client to forward allowance requests to, when the
-        // remote advertises that capability (legacy `allowanceUpstreamMatcher`).
-        if caps.contains(&Capability::Allowance) {
-            allowance_clients
-                .entry(chain)
-                .or_insert_with(|| client.clone());
-        }
-        // Likewise for balance: a BALANCE-capable remote serves `GetBalance`
-        // directly, so Bitcoin balance requests forward to it.
-        if caps.contains(&Capability::Balance) {
-            balance_clients
-                .entry(chain)
-                .or_insert_with(|| client.clone());
-        }
-
-        // Topics the remote advertises become a `NativeSubscribe` relay, so
-        // local clients can subscribe to them too and the chain's own
-        // `Describe` re-advertises them (legacy `*DshackleIngressSubscription`).
-        if !desc_chain.supported_subscriptions.is_empty() {
-            dshackle_relays
-                .entry(chain)
-                .or_default()
-                .push(Arc::new(DshackleEgress::new(
-                    chain_id.clone(),
-                    desc_chain.chain,
-                    client.clone(),
-                    desc_chain.supported_subscriptions.clone(),
-                    pending.call_timeout,
-                )));
-        }
-
-        // Use the supported methods from Describe as the allowed set.
-        // The remote Dshackle already handles hardcoded responses, so we
-        // only need a MethodFilter — no HardcodedMethods wrapper.
-        let reader = if !desc_chain.supported_methods.is_empty() {
-            let callable: HashSet<_> = desc_chain
-                .supported_methods
-                .iter()
-                .filter_map(|m| m.parse().ok())
-                .collect();
-            let methods: Arc<dyn QuorumFactory> =
-                Arc::new(ConfiguredMethods::allowed_only(callable));
-            Arc::new(MethodFilter::new(reader, methods)) as Arc<dyn RpcUpstream>
-        } else {
-            // No method list — pass everything through
-            reader
-        };
-
-        // Outermost layer: the capabilities the remote reported, plus one label
-        // set per node the remote advertises (legacy `GrpcUpstreamStatus`) so
-        // label selectors route through the relay without duplicating the
-        // remote's labels in the local config.
-        let label_sets: Vec<UpstreamLabels> = desc_chain
-            .nodes
-            .iter()
-            .map(|node| {
-                node.labels
-                    .iter()
-                    .filter_map(|l| match UpstreamLabel::new(&l.name, &l.value) {
-                        Ok(label) => Some(label),
-                        Err(e) => {
-                            // A remote's labels are its own config's business,
-                            // but an empty one can't be matched meaningfully —
-                            // drop it rather than advertise it further.
-                            tracing::warn!("Dshackle '{upstream_id}': dropping label: {e}");
-                            None
-                        }
-                    })
-                    .collect()
-            })
-            .collect();
-        let reader: Arc<dyn RpcUpstream> = Arc::new(IdentifiedUpstream::new(
-            reader,
-            label_sets,
-            caps,
-            pending.role,
-        ));
-        per_chain.entry(chain).or_default().push(reader);
-        // Remote Dshackles handle their own quorum internally, so this factory
-        // keeps every method callable — but it carries the remote's discovered
-        // methods so `Describe` re-advertises them instead of nothing.
-        per_chain_methods
-            .entry(chain)
-            .or_default()
-            .push(Arc::new(RemoteMethods::new(
-                desc_chain.supported_methods.clone(),
-            )));
-        connected += 1;
-    }
-
-    tracing::info!(
-        "Dshackle '{}': connected with {} chain(s)",
-        upstream_id,
-        connected,
-    );
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::upstreams::PartialOptions;
-    use merged_head::MergeOrder;
+    use dshackle::DshackleUpstream;
+    use dshackle::connection::remote_client;
+    use dshackle::subscribe::DshackleEgress;
+    use emerald_api::creds::Credentials;
+    use methods::DefaultMethods;
+    use std::collections::HashSet;
+    use std::time::Duration;
 
     /// Chosen by chain, so an Ethereum chain served only by remote Dshackles
     /// is prepared the same as one with local nodes.
@@ -1907,126 +1339,60 @@ mod tests {
 
     /// A client to nowhere — enough to build a relay whose topics are
     /// inspected without any remote call.
-    fn dead_client() -> BlockchainClient<Channel> {
-        BlockchainClient::new(
-            tonic::transport::Endpoint::from_shared("http://127.0.0.1:1")
-                .unwrap()
-                .connect_lazy(),
-        )
+    fn dead_client() -> RemoteClient {
+        let channel = tonic::transport::Endpoint::from_shared("http://127.0.0.1:1")
+            .unwrap()
+            .connect_lazy();
+        remote_client(channel, Credentials::None)
+    }
+
+    fn relay(chain: TargetBlockchain, topics: &[&str]) -> Arc<DshackleEgress> {
+        Arc::new(DshackleEgress::new(
+            "remote".parse().unwrap(),
+            chain.id(),
+            dead_client(),
+            topics.iter().map(|t| t.to_string()).collect(),
+            Duration::from_secs(1),
+        ))
+    }
+
+    fn chains_with_relay(chain: TargetBlockchain, topics: &[&str]) -> Chains {
+        let chains = Chains::new(None);
+        chains.add_relay(chain, relay(chain, topics));
+        chains
     }
 
     fn manager_with_relay(chain: TargetBlockchain, topics: &[&str]) -> UpstreamManager {
-        let mut manager = UpstreamManager::from_parts(HashMap::new(), HashMap::new());
-        manager
-            .dshackle_relays
-            .entry(chain)
-            .or_default()
-            .push(Arc::new(DshackleEgress::new(
-                "remote".parse().unwrap(),
-                chain.id(),
-                dead_client(),
-                topics.iter().map(|t| t.to_string()).collect(),
-                Duration::from_secs(1),
-            )));
-        manager
+        UpstreamManager::from_chains(Arc::new(chains_with_relay(chain, topics)))
     }
 
-    /// Serves one TCP connection and returns the first bytes the client sent,
-    /// which tell a TLS ClientHello (0x16) from a cleartext HTTP/2 preface.
-    fn capture_first_bytes(listener: std::net::TcpListener) -> std::thread::JoinHandle<Vec<u8>> {
-        use std::io::Read;
-        std::thread::spawn(move || {
-            let (mut stream, _) = listener.accept().unwrap();
-            let mut buf = [0u8; 16];
-            let n = stream.read(&mut buf).unwrap_or(0);
-            buf[..n].to_vec()
-        })
-    }
-
-    /// Nothing answers the socket, so the connection never completes; the
-    /// assertion is about what the client put on the wire before giving up.
-    async fn first_bytes_sent_to(url_scheme: &str) -> Vec<u8> {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let url = format!("{url_scheme}://{}", listener.local_addr().unwrap());
-        let captured = capture_first_bytes(listener);
-
-        let _ = tokio::time::timeout(
-            Duration::from_secs(5),
-            connect_and_describe(&url, None, false),
-        )
-        .await;
-
-        captured.join().unwrap()
-    }
-
-    // An `https` gRPC upstream with no `tls` section used to fail before
-    // reaching the network, with tonic's "Connecting to HTTPS without TLS
-    // enabled" buried under a bare "transport error".
-    #[tokio::test(flavor = "multi_thread")]
-    async fn https_url_negotiates_tls_without_a_tls_section() {
-        let bytes = first_bytes_sent_to("https").await;
-        assert_eq!(
-            bytes.first(),
-            Some(&0x16),
-            "expected a TLS ClientHello, got {bytes:?}"
-        );
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn http_url_stays_cleartext() {
-        let bytes = first_bytes_sent_to("http").await;
-        assert!(
-            bytes.starts_with(b"PRI * HTTP/2"),
-            "expected a cleartext HTTP/2 preface, got {bytes:?}"
-        );
-    }
-
-    #[tokio::test]
-    async fn wire_remote_dshackle_registers_fork_members() {
-        let pending = PendingDshackle {
-            id: "remote".parse().unwrap(),
-            role: crate::config::upstreams::UpstreamRole::Primary,
-            url: "http://127.0.0.1:1".into(),
-            tls: None,
-            call_timeout: Duration::from_secs(1),
-            priority: 42,
-            compress: false,
-            budget: None,
+    /// Joins `upstream` to the chain with a tracked head, so the chain has a
+    /// merged head as well.
+    fn join_with_head(chains: &Chains, chain: TargetBlockchain, upstream: Arc<dyn RpcUpstream>) {
+        let fork = ForkMember {
+            id: upstream.id().clone(),
+            priority: 0,
+            head: Arc::new(CurrentHead::new()),
+            state: Arc::clone(upstream.state()),
         };
-        let mut caches_map = HashMap::new();
-        let mut caching_heads = HashMap::new();
-        let mut per_chain = HashMap::new();
-        let mut per_chain_methods = HashMap::new();
-        let mut allowance_clients = HashMap::new();
-        let mut balance_clients = HashMap::new();
-        let mut dshackle_relays = HashMap::new();
-        let mut per_chain_fork = HashMap::new();
-
-        wire_remote_dshackle(
-            &pending,
-            dead_client(),
-            vec![DescribeChain {
-                chain: 100,
-                ..Default::default()
-            }],
-            None,
-            &mut caches_map,
-            &mut caching_heads,
-            &mut per_chain,
-            &mut per_chain_methods,
-            &mut allowance_clients,
-            &mut balance_clients,
-            &mut dshackle_relays,
-            &mut per_chain_fork,
+        chains.join(
+            chain,
+            ChainMember {
+                reader: upstream,
+                methods: Arc::new(DefaultMethods),
+                fork: Some(fork),
+            },
         );
+    }
 
-        // The discovered chain's head joined the fork members, so the chain
-        // will get a MergedHead even with no local upstream.
-        let chain: TargetBlockchain = "ethereum".parse().unwrap();
-        let members = per_chain_fork.get(&chain).expect("fork member registered");
-        assert_eq!(members.len(), 1);
-        assert_eq!(members[0].id.as_str(), "remote_eth");
-        assert_eq!(members[0].priority, 42);
+    fn remote_upstream(chain: TargetBlockchain) -> Arc<dyn RpcUpstream> {
+        Arc::new(DshackleUpstream::new(
+            "remote_eth".parse().unwrap(),
+            chain.id(),
+            dead_client(),
+            6,
+            Duration::from_secs(1),
+        ))
     }
 
     #[tokio::test]
@@ -2046,26 +1412,9 @@ mod tests {
     #[tokio::test]
     async fn egress_cuts_locally_served_ethereum_topics_from_the_relay() {
         let chain: TargetBlockchain = "ethereum".parse().unwrap();
-        let mut manager = manager_with_relay(chain, &["newHeads", "newPendingTransactions"]);
-        let upstream: Arc<dyn RpcUpstream> = Arc::new(DshackleUpstream::new(
-            "remote_eth".parse().unwrap(),
-            chain.id(),
-            dead_client(),
-            6,
-            Duration::from_secs(1),
-        ));
-        manager.upstreams.insert(
-            chain,
-            Arc::new(Multistream::new(
-                chain,
-                vec![upstream],
-                quorum_factory_for(chain),
-            )),
-        );
-        manager
-            .heads
-            .insert(chain, Arc::new(MergedHead::new(MergeOrder::Priority)));
-        manager.pending_txes = chain_pending_txes(HashMap::new(), &manager.dshackle_relays);
+        let chains = chains_with_relay(chain, &["newHeads", "newPendingTransactions"]);
+        join_with_head(&chains, chain, remote_upstream(chain));
+        let manager = UpstreamManager::from_chains(Arc::new(chains));
 
         // Both of the remote's topics are served locally, so neither is
         // relayed on top: `newHeads` is derived from the same head the remote
@@ -2107,22 +1456,14 @@ mod tests {
             Arc::new(UpstreamState::new()),
         ));
 
-        let mut manager = UpstreamManager::from_parts(HashMap::new(), HashMap::new());
-        manager.upstreams.insert(
+        let chains = Chains::new(None);
+        join_with_head(
+            &chains,
             chain,
-            Arc::new(Multistream::new(
-                chain,
-                vec![Arc::clone(&ws_upstream) as Arc<dyn RpcUpstream>],
-                quorum_factory_for(chain),
-            )),
+            Arc::clone(&ws_upstream) as Arc<dyn RpcUpstream>,
         );
-        manager
-            .heads
-            .insert(chain, Arc::new(MergedHead::new(MergeOrder::Priority)));
-        let node_sources: Vec<Arc<dyn PendingTxSource>> =
-            vec![Arc::new(WsPendingTxes::new(ws_upstream))];
-        manager.pending_txes =
-            chain_pending_txes(HashMap::from([(chain, node_sources)]), &HashMap::new());
+        chains.add_pending_source(chain, Arc::new(WsPendingTxes::new(ws_upstream)));
+        let manager = UpstreamManager::from_chains(Arc::new(chains));
 
         let egress = manager.egress(&chain).expect("ethereum egress");
         assert!(
@@ -2146,52 +1487,38 @@ mod tests {
     async fn pending_txes_come_from_relays_advertising_them() {
         let ethereum: TargetBlockchain = "ethereum".parse().unwrap();
         let sepolia: TargetBlockchain = "sepolia".parse().unwrap();
-        let mut relays =
-            manager_with_relay(ethereum, &["newHeads", "newPendingTransactions"]).dshackle_relays;
-        relays.extend(manager_with_relay(sepolia, &["newHeads"]).dshackle_relays);
+        let chains = Chains::new(None);
 
-        let pending = chain_pending_txes(HashMap::new(), &relays);
+        chains.add_relay(
+            ethereum,
+            relay(ethereum, &["newHeads", "newPendingTransactions"]),
+        );
+        chains.add_relay(sepolia, relay(sepolia, &["newHeads"]));
 
-        assert!(pending.contains_key(&ethereum));
-        assert!(!pending.contains_key(&sepolia));
+        assert!(chains.pending_txes(&ethereum).is_some());
+        assert!(chains.pending_txes(&sepolia).is_none());
     }
 
     /// An Ethereum chain whose only upstream is a remote Dshackle that does
     /// NOT expose `eth_getLogs` (its Describe method list gates local calls).
-    fn chain_without_get_logs(manager: &mut UpstreamManager, chain: TargetBlockchain) {
-        let inner: Arc<dyn RpcUpstream> = Arc::new(DshackleUpstream::new(
-            "remote_eth".parse().unwrap(),
-            chain.id(),
-            dead_client(),
-            6,
-            Duration::from_secs(1),
-        ));
+    fn chain_without_get_logs(chains: &Chains, chain: TargetBlockchain) {
         let callable: HashSet<crate::jsonrpc::RpcMethod> = ["eth_blockNumber"]
             .iter()
             .filter_map(|m| m.parse().ok())
             .collect();
         let upstream: Arc<dyn RpcUpstream> = Arc::new(MethodFilter::new(
-            inner,
+            remote_upstream(chain),
             Arc::new(ConfiguredMethods::allowed_only(callable)),
         ));
-        manager.upstreams.insert(
-            chain,
-            Arc::new(Multistream::new(
-                chain,
-                vec![upstream],
-                quorum_factory_for(chain),
-            )),
-        );
-        manager
-            .heads
-            .insert(chain, Arc::new(MergedHead::new(MergeOrder::Priority)));
+        join_with_head(chains, chain, upstream);
     }
 
     #[tokio::test]
     async fn egress_hides_logs_when_get_logs_is_not_callable() {
         let chain: TargetBlockchain = "ethereum".parse().unwrap();
-        let mut manager = UpstreamManager::from_parts(HashMap::new(), HashMap::new());
-        chain_without_get_logs(&mut manager, chain);
+        let chains = Chains::new(None);
+        chain_without_get_logs(&chains, chain);
+        let manager = UpstreamManager::from_chains(Arc::new(chains));
 
         let egress = manager.egress(&chain).expect("local egress");
         assert_eq!(
@@ -2206,8 +1533,9 @@ mod tests {
         // the cut leaves the relay's `logs` in place and subscribers reach
         // the remote's working stream instead of a silent local one.
         let chain: TargetBlockchain = "ethereum".parse().unwrap();
-        let mut manager = manager_with_relay(chain, &["logs"]);
-        chain_without_get_logs(&mut manager, chain);
+        let chains = chains_with_relay(chain, &["logs"]);
+        chain_without_get_logs(&chains, chain);
+        let manager = UpstreamManager::from_chains(Arc::new(chains));
 
         let egress = manager.egress(&chain).expect("local + relay egress");
         assert_eq!(
@@ -2235,6 +1563,40 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn upstream_joining_later_is_routed_with_the_others() {
+        let chain: TargetBlockchain = "ethereum".parse().unwrap();
+        let chains = Arc::new(Chains::new(None));
+        join_with_head(&chains, chain, remote_upstream(chain));
+        let manager = UpstreamManager::from_chains(Arc::clone(&chains));
+        let routing = manager.get(&chain).unwrap();
+
+        let late: Arc<dyn RpcUpstream> = Arc::new(DshackleUpstream::new(
+            "late_eth".parse().unwrap(),
+            chain.id(),
+            dead_client(),
+            6,
+            Duration::from_secs(1),
+        ));
+        join_with_head(&chains, chain, late);
+
+        // The same routing as before, so whoever holds it sees the newcomer
+        assert_eq!(routing.len(), 2);
+        assert_eq!(manager.chains(), vec![chain]);
+    }
+
+    #[tokio::test]
+    async fn chain_joining_later_is_served() {
+        let manager = UpstreamManager::from_chains(Arc::new(Chains::new(None)));
+        let chain: TargetBlockchain = "ethereum".parse().unwrap();
+        assert!(manager.get(&chain).is_none());
+
+        join_with_head(&manager.chains, chain, remote_upstream(chain));
+
+        assert_eq!(manager.chains(), vec![chain]);
+        assert!(manager.head(&chain).is_some());
+    }
+
     const BITCOIN: TargetBlockchain = TargetBlockchain::Standard(ChainRef::ChainBitcoin);
 
     // BIP173 example mainnet P2WPKH address.
@@ -2257,15 +1619,16 @@ mod tests {
             local_capabilities(provides_balance),
             crate::config::upstreams::UpstreamRole::Primary,
         ));
-        let mut manager = UpstreamManager::from_parts(HashMap::new(), HashMap::new());
-        manager.upstreams.insert(
+        let chains = Chains::new(None);
+        chains.join(
             BITCOIN,
-            Arc::new(Multistream::new(
-                BITCOIN,
-                vec![node],
-                quorum_factory_for(BITCOIN),
-            )),
+            ChainMember {
+                reader: node,
+                methods: Arc::new(DefaultBitcoinMethods::new()),
+                fork: None,
+            },
         );
+        let mut manager = UpstreamManager::from_chains(Arc::new(chains));
         let http = crate::tls::reqwest_client(None, Duration::from_secs(5), false).unwrap();
         let esplora = EsploraClient::new(esplora_url, None, http).unwrap();
         manager.esplora.insert(BITCOIN, Arc::new(esplora));
@@ -2324,8 +1687,8 @@ mod tests {
     #[tokio::test]
     async fn esplora_outranks_a_remote_balance_provider() {
         let esplora = esplora_with_balance().await;
-        let mut manager = bitcoin_manager_with_esplora(true, esplora.url());
-        manager.balance_clients.insert(BITCOIN, dead_client());
+        let manager = bitcoin_manager_with_esplora(true, esplora.url());
+        manager.chains.offer_balance_client(BITCOIN, &dead_client());
 
         assert_eq!(first_balance(&manager).await, "700");
     }

@@ -148,6 +148,10 @@ pub enum UpstreamError {
     InvalidResponse(String),
     /// The requested RPC method is not supported by this upstream.
     MethodNotAllowed(String),
+    /// The upstream refused our credentials: a remote Dshackle (e.g., the
+    /// Emerald API) answering gRPC `Unauthenticated`. Every call to it fails
+    /// the same way until it accepts them again, like an HTTP upstream's 401.
+    Unauthorized(String),
     /// Request limits refused the call before it reached a node: this
     /// upstream's configured limits, or those of every upstream on a remote
     /// Dshackle. Unlike [`Overloaded`](Self::Overloaded), no node said
@@ -176,11 +180,22 @@ impl std::fmt::Display for UpstreamError {
             // through the gRPC `error_message` and the proxy error body.
             UpstreamError::MethodNotAllowed(method) => write!(f, "Unsupported method: {method}"),
             UpstreamError::LimitReached => write!(f, "{}", Self::LIMIT_REACHED_MESSAGE),
+            UpstreamError::Unauthorized(msg) => write!(f, "unauthorized: {msg}"),
         }
     }
 }
 
 impl std::error::Error for UpstreamError {}
+
+/// A failed gRPC call to a remote Dshackle.
+impl From<tonic::Status> for UpstreamError {
+    fn from(status: tonic::Status) -> Self {
+        match status.code() {
+            tonic::Code::Unauthenticated => UpstreamError::Unauthorized(status.message().into()),
+            _ => UpstreamError::Transport(format!("gRPC error: {status}")),
+        }
+    }
+}
 
 /// Sanitize an HTTP error response body for safe logging.
 ///
@@ -195,6 +210,21 @@ pub fn sanitize_error_body(body: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rejected_credentials_from_remote_are_unauthorized() {
+        let err = UpstreamError::from(tonic::Status::unauthenticated("invalid token"));
+        assert!(matches!(&err, UpstreamError::Unauthorized(m) if m == "invalid token"));
+    }
+
+    #[test]
+    fn other_remote_failures_are_transport() {
+        let err = UpstreamError::from(tonic::Status::unavailable("connection refused"));
+        assert!(matches!(err, UpstreamError::Transport(_)));
+        // Not ours to judge: may concern just the method or the chain
+        let err = UpstreamError::from(tonic::Status::permission_denied("no access"));
+        assert!(matches!(err, UpstreamError::Transport(_)));
+    }
 
     #[test]
     fn sanitize_keeps_printable_ascii() {

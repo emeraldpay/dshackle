@@ -31,34 +31,81 @@ use crate::upstream::availability::UpstreamAvailability;
 use crate::upstream::call_plan::{AsIs, BlockRead, CallPlanner};
 use crate::upstream::egress::ChainAccess;
 use crate::upstream::fork::ForkState;
+use crate::upstream::methods::AggregatedMethods;
 use crate::upstream::quorum::{CallQuorum, QuorumFactory, SelectorHint};
 use crate::upstream::router::{self, Routed};
 use crate::upstream::selector::LabelSelector;
 use crate::upstream::status_signal::{StatusChanges, StatusSignal};
 use crate::upstream::traits::{Capability, RpcUpstream, UpstreamError};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, RwLock};
+use tokio::sync::Notify;
 
 /// Holds every configured upstream for one blockchain and answers queries
 /// about which ones are usable for a given request.
 pub struct Multistream {
     chain: TargetBlockchain,
+    /// Replaced as a whole when an upstream joins (a remote Dshackle connected
+    /// after the start), so each call works with one consistent set.
+    members: RwLock<Arc<Members>>,
+    /// Round-robin cursor advanced on each selector call so that successive
+    /// requests start from different upstreams.
+    cursor: AtomicUsize,
+    /// Prepares each call before routing (see [`call_plan`](super::call_plan)).
+    planner: Arc<dyn CallPlanner>,
+    /// Wakes on every upstream status change, shared with each upstream's state.
+    /// Drives the event-driven `syncing` egress and gRPC `SubscribeStatus`.
+    status_signal: Arc<StatusSignal>,
+    /// Wakes on every head growth of any upstream, for the lag tracking.
+    head_growth: Arc<Notify>,
+}
+
+/// The upstreams of a chain.
+struct Members {
     upstreams: Vec<Arc<dyn RpcUpstream>>,
     /// Upstreams grouped by routing role — primary, secondary, fallback —
     /// preserving config order within each tier. Roles are fixed at wiring
     /// time, so the partition is computed once here instead of on every
     /// selection call.
     tiers: [Vec<Arc<dyn RpcUpstream>>; 3],
-    /// Round-robin cursor advanced on each selector call so that successive
-    /// requests start from different upstreams.
-    cursor: AtomicUsize,
-    /// Per-method quorum picker for this chain (Ethereum / Bitcoin / default).
+    /// The methods of each upstream, kept to aggregate them again when
+    /// another upstream joins.
+    methods: Vec<Arc<dyn QuorumFactory>>,
+    /// Per-method quorum picker for this chain, across all its upstreams.
     quorum_factory: Arc<dyn QuorumFactory>,
-    /// Prepares each call before routing (see [`call_plan`](super::call_plan)).
-    planner: Arc<dyn CallPlanner>,
-    /// Wakes on every upstream status change, shared with each upstream's state.
-    /// Drives the event-driven `syncing` egress and gRPC `SubscribeStatus`.
-    status_signal: Arc<StatusSignal>,
+}
+
+impl Members {
+    fn new(
+        upstreams: Vec<Arc<dyn RpcUpstream>>,
+        methods: Vec<Arc<dyn QuorumFactory>>,
+        quorum_factory: Arc<dyn QuorumFactory>,
+    ) -> Self {
+        let mut tiers: [Vec<Arc<dyn RpcUpstream>>; 3] = Default::default();
+        for upstream in &upstreams {
+            let tier = match upstream.role() {
+                UpstreamRole::Primary => 0,
+                UpstreamRole::Secondary => 1,
+                UpstreamRole::Fallback => 2,
+            };
+            tiers[tier].push(Arc::clone(upstream));
+        }
+        Self {
+            upstreams,
+            tiers,
+            methods,
+            quorum_factory,
+        }
+    }
+
+    fn with(&self, upstream: Arc<dyn RpcUpstream>, methods: Arc<dyn QuorumFactory>) -> Self {
+        let mut upstreams = self.upstreams.clone();
+        upstreams.push(upstream);
+        let mut all_methods = self.methods.clone();
+        all_methods.push(methods);
+        let quorum_factory = Arc::new(AggregatedMethods::new(all_methods.clone()));
+        Self::new(upstreams, all_methods, quorum_factory)
+    }
 }
 
 impl Multistream {
@@ -71,33 +118,69 @@ impl Multistream {
             !upstreams.is_empty(),
             "Multistream requires at least one upstream"
         );
-        // One signal per chain, shared into every upstream's state so any status
-        // writer (lag tracker, validator, fork watcher, remote status) wakes the
-        // chain's status consumers.
-        let status_signal = Arc::new(StatusSignal::new());
-        for upstream in &upstreams {
-            upstream
-                .state()
-                .attach_status_signal(Arc::clone(&status_signal));
-        }
-        let mut tiers: [Vec<Arc<dyn RpcUpstream>>; 3] = Default::default();
-        for upstream in &upstreams {
-            let tier = match upstream.role() {
-                UpstreamRole::Primary => 0,
-                UpstreamRole::Secondary => 1,
-                UpstreamRole::Fallback => 2,
-            };
-            tiers[tier].push(Arc::clone(upstream));
-        }
-        Self {
+        Self::of(
             chain,
-            upstreams,
-            tiers,
+            Members::new(upstreams, vec![Arc::clone(&quorum_factory)], quorum_factory),
+        )
+    }
+
+    /// A chain served by `upstream` alone, until others join it.
+    pub fn starting_with(
+        chain: TargetBlockchain,
+        upstream: Arc<dyn RpcUpstream>,
+        methods: Arc<dyn QuorumFactory>,
+    ) -> Self {
+        let quorum_factory = Arc::new(AggregatedMethods::new(vec![Arc::clone(&methods)]));
+        Self::of(
+            chain,
+            Members::new(vec![upstream], vec![methods], quorum_factory),
+        )
+    }
+
+    fn of(chain: TargetBlockchain, members: Members) -> Self {
+        let multistream = Self {
+            chain,
+            members: RwLock::new(Arc::new(members)),
             cursor: AtomicUsize::new(0),
-            quorum_factory,
             planner: Arc::new(AsIs),
-            status_signal,
+            status_signal: Arc::new(StatusSignal::new()),
+            head_growth: Arc::new(Notify::new()),
+        };
+        for upstream in &multistream.members().upstreams {
+            multistream.attach(upstream);
         }
+        multistream
+    }
+
+    /// Adds an upstream that connected after the start, along with its methods.
+    pub fn join(&self, upstream: Arc<dyn RpcUpstream>, methods: Arc<dyn QuorumFactory>) {
+        self.attach(&upstream);
+        {
+            let mut members = self.members.write().unwrap();
+            *members = Arc::new(members.with(upstream, methods));
+        }
+        // The chain's availability may change with it
+        self.status_signal.notify();
+        self.head_growth.notify_one();
+    }
+
+    /// Shares the chain's signals with the upstream: one per chain, so any
+    /// status writer (lag tracker, validator, fork watcher, remote status) wakes
+    /// the chain's status consumers, and any head growth its lag tracking.
+    fn attach(&self, upstream: &Arc<dyn RpcUpstream>) {
+        upstream
+            .state()
+            .attach_status_signal(Arc::clone(&self.status_signal));
+        upstream.head().notify_growth(&self.head_growth);
+    }
+
+    fn members(&self) -> Arc<Members> {
+        Arc::clone(&self.members.read().unwrap())
+    }
+
+    /// Wakes on head growth of any upstream of the chain, or when one joins.
+    pub(super) fn head_growth(&self) -> &Arc<Notify> {
+        &self.head_growth
     }
 
     /// Use the chain's own rules to prepare calls (see [`CallPlanner`]);
@@ -240,13 +323,13 @@ impl Multistream {
 
     /// Build the `CallQuorum` strategy appropriate for the given RPC method.
     pub fn quorum_for(&self, method: &RpcMethod) -> Box<dyn CallQuorum> {
-        self.quorum_factory.quorum_for(method)
+        self.members().quorum_factory.quorum_for(method)
     }
 
     /// Every method this chain can serve, for `Describe`. Sorted, callable plus
     /// hardcoded, aggregated across all upstreams' method configs.
     pub fn supported_methods(&self) -> Vec<String> {
-        self.quorum_factory.supported_methods()
+        self.members().quorum_factory.supported_methods()
     }
 
     /// Whether any upstream of this chain can answer the method — callable or
@@ -254,7 +337,8 @@ impl Multistream {
     /// routing, distinguishing "unsupported method" from "no upstream
     /// available right now".
     pub fn method_available(&self, method: &RpcMethod) -> bool {
-        self.quorum_factory.is_callable(method) || self.quorum_factory.is_hardcoded(method)
+        let methods = &self.members().quorum_factory;
+        methods.is_callable(method) || methods.is_hardcoded(method)
     }
 
     /// Whether the method is in the chain's method lists, configured or
@@ -263,7 +347,7 @@ impl Multistream {
     /// through for a pass-through upstream; a client picks the method name, so
     /// only this bounded set may name a metric label.
     pub fn method_listed(&self, method: &RpcMethod) -> bool {
-        self.quorum_factory.is_listed(method)
+        self.members().quorum_factory.is_listed(method)
     }
 
     /// Pick candidate upstreams matching the given selector hint, filtered to
@@ -277,21 +361,22 @@ impl Multistream {
         }
     }
 
-    /// All configured upstreams, in their original (config) order. Used by
-    /// the status reporter and for diagnostic snapshots.
-    pub fn upstreams(&self) -> &[Arc<dyn RpcUpstream>] {
-        &self.upstreams
+    /// All upstreams, in their original (config) order, followed by those
+    /// joined later. Used by the status reporter and for diagnostic snapshots.
+    pub fn upstreams(&self) -> Vec<Arc<dyn RpcUpstream>> {
+        self.members().upstreams.clone()
     }
 
     /// Total number of upstreams (including currently unavailable ones).
     pub fn len(&self) -> usize {
-        self.upstreams.len()
+        self.members().upstreams.len()
     }
 
     /// The chain's overall availability: the best (most-available) status across
     /// all upstreams. Upstreams are never empty (asserted in `new`).
     pub fn aggregate_availability(&self) -> UpstreamAvailability {
-        self.upstreams
+        self.members()
+            .upstreams
             .iter()
             .map(|u| u.availability())
             .min()
@@ -370,15 +455,16 @@ impl Multistream {
     where
         F: Fn(&Arc<dyn RpcUpstream>) -> bool,
     {
+        let members = self.members();
         crate::metrics::select_exist(
             &self.chain,
-            self.tiers[0].len(),
-            self.tiers[1].len(),
-            self.tiers[2].len(),
+            members.tiers[0].len(),
+            members.tiers[1].len(),
+            members.tiers[2].len(),
         );
         let pos = self.cursor.fetch_add(1, Ordering::Relaxed);
-        let mut out = Vec::with_capacity(self.upstreams.len());
-        for tier in &self.tiers {
+        let mut out = Vec::with_capacity(members.upstreams.len());
+        for tier in &members.tiers {
             let tier_start = out.len();
             out.extend(tier.iter().filter(|u| predicate(u)).cloned());
             let matching = &mut out[tier_start..];
@@ -453,7 +539,8 @@ impl ChainAccess for Multistream {
         // as the chain's height would filter every healthy upstream out of
         // height-constrained routing. A forked upstream's head is on another
         // chain, so it isn't the chain's height either.
-        self.upstreams
+        self.members()
+            .upstreams
             .iter()
             .filter(|u| u.availability() <= UpstreamAvailability::Immature)
             .filter(|u| !u.state().fork().is_forked())
@@ -465,7 +552,10 @@ impl ChainAccess for Multistream {
         // Structural, not availability-based: the question is whether the
         // method can ever be routed here, the same gate `select_available`
         // applies per call.
-        self.upstreams.iter().any(|u| u.allows_method(method))
+        self.members()
+            .upstreams
+            .iter()
+            .any(|u| u.allows_method(method))
     }
 
     async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
@@ -797,6 +887,53 @@ mod tests {
             ids(&ms.select_available(&"any".into())),
             vec!["main", "backup"]
         );
+    }
+
+    #[test]
+    fn joined_upstream_is_routed_in_its_tier() {
+        let ms = ms_of(vec![
+            MockUpstream::with_role("up-p", UpstreamRole::Primary),
+            MockUpstream::with_role("up-f", UpstreamRole::Fallback),
+        ]);
+
+        ms.join(
+            MockUpstream::with_role("late", UpstreamRole::Primary),
+            Arc::new(DefaultMethods),
+        );
+
+        assert_eq!(ms.len(), 3);
+        let selected = ms.select_available(&"any".into());
+        assert_eq!(ids(&selected[2..]), vec!["up-f"]);
+    }
+
+    #[test]
+    fn joined_upstream_brings_its_methods() {
+        let ms = ms_of(vec![MockUpstream::new("up-a", UpstreamAvailability::Ok)]);
+        let method: RpcMethod = "custom_method".into();
+        let methods =
+            crate::upstream::methods::ConfiguredMethods::allowed_only([method.clone()].into());
+
+        ms.join(
+            MockUpstream::new("late", UpstreamAvailability::Ok),
+            Arc::new(methods),
+        );
+
+        assert!(ms.method_listed(&method));
+    }
+
+    #[tokio::test]
+    async fn joined_upstream_wakes_status_consumers() {
+        let ms = ms_of(vec![MockUpstream::new("up-a", UpstreamAvailability::Ok)]);
+        let mut changes = ms.status_changes();
+
+        ms.join(
+            MockUpstream::new("late", UpstreamAvailability::Ok),
+            Arc::new(DefaultMethods),
+        );
+
+        tokio::time::timeout(std::time::Duration::from_secs(1), changes.changed())
+            .await
+            .expect("no status change after the join");
     }
 
     #[test]

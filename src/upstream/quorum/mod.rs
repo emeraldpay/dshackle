@@ -194,6 +194,7 @@ pub fn is_connection_unavailable(err: &UpstreamError) -> bool {
         UpstreamError::MethodNotAllowed(_) => true,
         UpstreamError::Overloaded(_) => true,
         UpstreamError::LimitReached => true,
+        UpstreamError::Unauthorized(_) => true,
         UpstreamError::InvalidResponse(_) => false,
     }
 }
