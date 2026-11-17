@@ -249,6 +249,16 @@ impl Blockchain for BlockchainRpcService {
             )
         })?;
 
+        if let Some(id) = native_call::duplicate_id(&req.items) {
+            tracing::trace!(%chain, id, "duplicate item id");
+            return Err(refused_native_call(
+                &req.items,
+                Some(&chain),
+                started,
+                tonic::Status::invalid_argument(format!("duplicate item id {id}")),
+            ));
+        }
+
         let multistream = self
             .upstreams
             .get(&chain)
@@ -1251,6 +1261,29 @@ mod tests {
             1,
             "the upstream call should have been cancelled mid-flight, not completed"
         );
+    }
+
+    /// Replies are matched to items only by `id`, so a repeated id makes the
+    /// whole request invalid; none of its items may reach an upstream.
+    #[tokio::test]
+    async fn native_call_with_duplicate_ids_is_invalid_argument() {
+        let probe = ConcurrencyProbeUpstream::new(Duration::ZERO);
+        let service = eth_service_with(probe.clone() as Arc<dyn RpcUpstream>);
+
+        let req = NativeCallRequest {
+            chain: ChainRef::ChainEthereum as i32,
+            items: vec![make_item(1), make_item(2), make_item(1)],
+            ..Default::default()
+        };
+        let status = service
+            .native_call(tonic::Request::new(req))
+            .await
+            .err()
+            .expect("expected an error status");
+
+        assert_eq!(status.code(), tonic::Code::InvalidArgument);
+        assert_eq!(status.message(), "duplicate item id 1");
+        assert_eq!(probe.max_observed_parallel(), 0);
     }
 
     /// Multiple `native_call` invocations issued concurrently against the same

@@ -192,6 +192,20 @@ fn build_signature(
     })
 }
 
+/// The first item `id` that repeats within one `NativeCall` request, if any.
+///
+/// Replies stream back in completion order and the client matches them to its
+/// items only by `id`, so a request with a repeated id can't be answered
+/// unambiguously and is refused as a whole.
+pub fn duplicate_id(items: &[NativeCallItem]) -> Option<u32> {
+    // Most requests carry a single item; skip allocating the set for them.
+    if items.len() < 2 {
+        return None;
+    }
+    let mut seen = std::collections::HashSet::with_capacity(items.len());
+    items.iter().map(|item| item.id).find(|id| !seen.insert(*id))
+}
+
 /// Parse the raw payload bytes from the gRPC request into a `serde_json::Value`.
 ///
 /// The payload is expected to be UTF-8 encoded JSON (typically an array of params).
@@ -794,5 +808,32 @@ mod tests {
 
         assert!(ms.method_available(&"eth_madeUp_1".into()));
         assert_eq!(call_method(&ms, "eth_madeUp_1"), CallMethod::Unsupported);
+    }
+
+    fn item_with_id(id: u32) -> NativeCallItem {
+        NativeCallItem {
+            id,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn distinct_ids_have_no_duplicate() {
+        let items: Vec<_> = [0, 1, 2].into_iter().map(item_with_id).collect();
+        assert_eq!(duplicate_id(&items), None);
+    }
+
+    #[test]
+    fn repeated_id_is_reported() {
+        let items: Vec<_> = [5, 7, 5, 7].into_iter().map(item_with_id).collect();
+        assert_eq!(duplicate_id(&items), Some(5));
+    }
+
+    /// Clients that never set `id` leave it at the proto default 0 on every
+    /// item, which is just as ambiguous as any other repeat.
+    #[test]
+    fn unset_ids_on_several_items_are_duplicates() {
+        let items: Vec<_> = [0, 0].into_iter().map(item_with_id).collect();
+        assert_eq!(duplicate_id(&items), Some(0));
     }
 }
