@@ -1105,6 +1105,37 @@ mod tests {
         }
     }
 
+    /// Upstream that takes as many seconds to answer as the request id, so a
+    /// test can mix fast and slow items in one request.
+    struct DelayByIdUpstream {
+        state: Arc<UpstreamState>,
+    }
+
+    #[async_trait::async_trait]
+    impl RpcUpstream for DelayByIdUpstream {
+        async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
+            tokio::time::sleep(Duration::from_secs(request.id.into())).await;
+            Ok(serde_json::from_str(r#"{"jsonrpc":"2.0","id":1,"result":"0x1"}"#).unwrap())
+        }
+        fn id(&self) -> &UpstreamId {
+            static ID: std::sync::LazyLock<UpstreamId> =
+                std::sync::LazyLock::new(|| "delay-by-id".parse().unwrap());
+            &ID
+        }
+        fn availability(&self) -> UpstreamAvailability {
+            UpstreamAvailability::Ok
+        }
+        fn head(&self) -> &dyn Head {
+            &NoHead
+        }
+        fn lag(&self) -> Option<u64> {
+            None
+        }
+        fn state(&self) -> &Arc<UpstreamState> {
+            &self.state
+        }
+    }
+
     /// Upstream stub that advertises fixed labels and capabilities, to verify
     /// `describe` surfaces per-upstream metadata through the trait (the
     /// `IdentifiedUpstream` wrapper that carries this in production is
@@ -1261,6 +1292,37 @@ mod tests {
             1,
             "the upstream call should have been cancelled mid-flight, not completed"
         );
+    }
+
+    /// A fast item must reach the client as soon as it completes, not wait
+    /// behind a slower item listed before it in the request.
+    #[tokio::test(start_paused = true)]
+    async fn native_call_replies_are_not_held_back_by_slow_items() {
+        let service = eth_service_with(Arc::new(DelayByIdUpstream {
+            state: Arc::new(UpstreamState::new()),
+        }));
+        let req = NativeCallRequest {
+            chain: ChainRef::ChainEthereum as i32,
+            items: vec![make_item(60), make_item(1)],
+            ..Default::default()
+        };
+        let mut stream = service
+            .native_call(tonic::Request::new(req))
+            .await
+            .expect("native_call returned an error")
+            .into_inner();
+        let started = tokio::time::Instant::now();
+
+        let first = stream.next().await.unwrap().unwrap();
+        assert_eq!(first.id, 1);
+        assert!(
+            started.elapsed() < Duration::from_secs(60),
+            "the fast reply waited {:?} for the slow item",
+            started.elapsed()
+        );
+
+        let second = stream.next().await.unwrap().unwrap();
+        assert_eq!(second.id, 60);
     }
 
     /// Replies are matched to items only by `id`, so a repeated id makes the

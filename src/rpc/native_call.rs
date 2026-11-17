@@ -203,7 +203,10 @@ pub fn duplicate_id(items: &[NativeCallItem]) -> Option<u32> {
         return None;
     }
     let mut seen = std::collections::HashSet::with_capacity(items.len());
-    items.iter().map(|item| item.id).find(|id| !seen.insert(*id))
+    items
+        .iter()
+        .map(|item| item.id)
+        .find(|id| !seen.insert(*id))
 }
 
 /// Parse the raw payload bytes from the gRPC request into a `serde_json::Value`.
