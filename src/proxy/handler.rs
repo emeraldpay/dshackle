@@ -28,11 +28,13 @@ use crate::rpc::native_call::{self, execute_call};
 use crate::upstream::Multistream;
 use crate::upstream::selector::LabelSelector;
 use crate::upstream::traits::UpstreamError;
-use futures::future::join_all;
-use futures::stream::{FuturesUnordered, StreamExt};
+use futures::FutureExt;
+use futures::stream::{self, FuturesOrdered, FuturesUnordered, Stream, StreamExt};
 use serde_json::value::RawValue;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use tokio_util::task::AbortOnDropHandle;
 
 /// Access-log identity shared by every call of one proxy request: the client
 /// request details plus the batch position counters. `None` when the access
@@ -59,51 +61,77 @@ impl AccessMeta {
     }
 }
 
-/// Produce the JSON-RPC response body for a request body. The returned string
-/// is always valid JSON and is served with HTTP 200 — JSON-RPC errors live in
-/// the body, never the HTTP status (matching the legacy proxy).
+/// The JSON-RPC response to one HTTP request. Either way it's valid JSON and
+/// served with HTTP 200: JSON-RPC errors live in the body, never the HTTP
+/// status (matching the legacy proxy).
+pub(super) enum ResponseBody {
+    /// One complete JSON value: a single call's response, or the error that
+    /// refused the request as a whole.
+    Complete(String),
+    /// A batch array in pieces, each sent as soon as it's ready so a fast call
+    /// isn't held back by a slow one. Concatenated, they form `[a,b,c]`.
+    Chunks(ChunkStream),
+}
+
+/// Pieces of a streamed response body. `Sync` because warp requires it of a
+/// body stream.
+pub(super) type ChunkStream = Pin<Box<dyn Stream<Item = String> + Send + Sync>>;
+
+/// Produce the JSON-RPC response for a request body.
+///
+/// The upstream calls run in the request's log `ctx`. A batch's calls run as
+/// tasks of their own, which don't inherit it from the caller, so it's passed
+/// in to be applied to each.
 pub async fn process(
     body: &[u8],
-    multistream: &Multistream,
-    chain: &TargetBlockchain,
+    multistream: Arc<Multistream>,
+    chain: TargetBlockchain,
     preserve_order: bool,
+    ctx: Arc<logs::IngressContext>,
     access: Option<AccessMeta>,
-) -> String {
+) -> ResponseBody {
     let kind = match protocol::detect_kind(body) {
         Ok(kind) => kind,
-        Err(e) => return protocol::build_protocol_error(&e),
+        Err(e) => return ResponseBody::Complete(protocol::build_protocol_error(&e)),
     };
     let parsed = match protocol::parse_body(body) {
         Ok(value) => value,
-        Err(e) => return protocol::build_protocol_error(&e),
+        Err(e) => return ResponseBody::Complete(protocol::build_protocol_error(&e)),
     };
 
     match kind {
         BodyKind::Single => match protocol::validate_item(&parsed) {
             Ok(req) => {
-                run(
-                    multistream,
-                    DownstreamProtocol::HttpJsonRpc,
-                    chain,
-                    &req,
-                    access.as_ref(),
-                    0,
+                let response = logs::with_context(
+                    (*ctx).clone(),
+                    run(
+                        &multistream,
+                        DownstreamProtocol::HttpJsonRpc,
+                        &chain,
+                        &req,
+                        access.as_ref(),
+                        0,
+                    ),
                 )
-                .await
+                .await;
+                ResponseBody::Complete(response)
             }
-            Err(e) => protocol::build_protocol_error(&e),
+            Err(e) => ResponseBody::Complete(protocol::build_protocol_error(&e)),
         },
-        BodyKind::Batch => process_batch(parsed, multistream, chain, preserve_order, access).await,
+        BodyKind::Batch => process_batch(parsed, multistream, chain, preserve_order, ctx, access),
     }
 }
 
-async fn process_batch(
+/// Validates the whole batch up front, since an invalid item turns the
+/// response into a single error object, and only then starts streaming.
+fn process_batch(
     parsed: serde_json::Value,
-    multistream: &Multistream,
-    chain: &TargetBlockchain,
+    multistream: Arc<Multistream>,
+    chain: TargetBlockchain,
     preserve_order: bool,
+    ctx: Arc<logs::IngressContext>,
     access: Option<AccessMeta>,
-) -> String {
+) -> ResponseBody {
     let Some(items) = parsed.as_array() else {
         // First byte was `[` but the value isn't an array — malformed.
         let err = ProtocolError {
@@ -111,10 +139,10 @@ async fn process_batch(
             message: "Failed to parse JSON".to_string(),
             id: RequestId::fallback(),
         };
-        return protocol::build_protocol_error(&err);
+        return ResponseBody::Complete(protocol::build_protocol_error(&err));
     };
     if items.is_empty() {
-        return "[]".to_string();
+        return ResponseBody::Complete("[]".to_string());
     }
 
     // Validation is all-or-nothing: a single invalid item aborts the whole
@@ -123,7 +151,7 @@ async fn process_batch(
     for item in items {
         match protocol::validate_item(item) {
             Ok(req) => requests.push(req),
-            Err(e) => return protocol::build_protocol_error(&e),
+            Err(e) => return ResponseBody::Complete(protocol::build_protocol_error(&e)),
         }
     }
 
@@ -134,44 +162,76 @@ async fn process_batch(
         ..meta
     });
 
-    let bodies = if preserve_order {
-        // `join_all` resolves concurrently but yields results in request order.
-        join_all(requests.iter().enumerate().map(|(pos, req)| {
-            run(
-                multistream,
-                DownstreamProtocol::HttpJsonRpc,
-                chain,
-                req,
-                access.as_ref(),
-                pos,
-            )
-        }))
-        .await
-    } else {
-        // Emit in completion order — cheaper and the default, since clients
-        // correlate by id anyway.
-        let mut pending: FuturesUnordered<_> = requests
-            .iter()
-            .enumerate()
-            .map(|(pos, req)| {
-                run(
-                    multistream,
+    // Each call runs as a task of its own, so it completes even while a slow
+    // client holds the response stream back. Dropping the stream (the client
+    // disconnects) aborts the calls still in flight.
+    let calls = requests.into_iter().enumerate().map(move |(pos, req)| {
+        let started = std::time::Instant::now();
+        let id = req.id.clone();
+        let method = req.method.clone();
+        let task = {
+            let multistream = Arc::clone(&multistream);
+            let access = access.clone();
+            AbortOnDropHandle::new(tokio::spawn(logs::with_context(
+                (*ctx).clone(),
+                async move {
+                    run(
+                        &multistream,
+                        DownstreamProtocol::HttpJsonRpc,
+                        &chain,
+                        &req,
+                        access.as_ref(),
+                        pos,
+                    )
+                    .await
+                },
+            )))
+        };
+        let multistream = Arc::clone(&multistream);
+        task.map(move |joined| {
+            joined.unwrap_or_else(|e| {
+                // The task died before it recorded its call.
+                metrics::downstream_call(
                     DownstreamProtocol::HttpJsonRpc,
-                    chain,
-                    req,
-                    access.as_ref(),
-                    pos,
+                    Some(&chain),
+                    native_call::call_method(&multistream, &method),
+                    RequestStatus::Failed,
+                    started.elapsed(),
+                );
+                protocol::build_error(
+                    &id,
+                    CODE_CALL_FAILURE,
+                    format!("call task failed: {e}"),
+                    None,
                 )
             })
-            .collect();
-        let mut out = Vec::with_capacity(requests.len());
-        while let Some(body) = pending.next().await {
-            out.push(body);
-        }
-        out
+        })
+    });
+    let replies: ChunkStream = if preserve_order {
+        // Still sends each reply once all the ones before it are done, rather
+        // than waiting for the whole batch.
+        Box::pin(calls.collect::<FuturesOrdered<_>>())
+    } else {
+        // Completion order is the default, since clients correlate by id anyway.
+        Box::pin(calls.collect::<FuturesUnordered<_>>())
     };
+    ResponseBody::Chunks(json_array(replies))
+}
 
-    format!("[{}]", bodies.join(","))
+/// Frame the replies as a JSON array the way legacy `asArray` does: `[` up
+/// front, each reply as it arrives with a comma before all but the first, and
+/// `]` after the last.
+fn json_array(replies: ChunkStream) -> ChunkStream {
+    let items = replies.enumerate().map(
+        |(i, reply)| {
+            if i == 0 { reply } else { format!(",{reply}") }
+        },
+    );
+    Box::pin(
+        stream::once(async { "[".to_string() })
+            .chain(items)
+            .chain(stream::once(async { "]".to_string() })),
+    )
 }
 
 /// What a call ended with, for the access log record.
@@ -401,15 +461,34 @@ mod tests {
         )
     }
 
+    fn request_context() -> Arc<logs::IngressContext> {
+        Arc::new(logs::IngressContext::new(None))
+    }
+
+    /// The whole response text, however it was sent.
+    async fn respond(body: &[u8], ms: Multistream, preserve_order: bool) -> String {
+        let response = process(
+            body,
+            Arc::new(ms),
+            chain(),
+            preserve_order,
+            request_context(),
+            None,
+        )
+        .await;
+        match response {
+            ResponseBody::Complete(json) => json,
+            ResponseBody::Chunks(chunks) => chunks.collect::<Vec<_>>().await.concat(),
+        }
+    }
+
     #[tokio::test]
     async fn single_request_echoes_id_and_result() {
         let ms = multistream(r#""0xabc""#);
-        let body = process(
+        let body = respond(
             br#"{"jsonrpc":"2.0","id":42,"method":"eth_blockNumber","params":[]}"#,
-            &ms,
-            &chain(),
+            ms,
             false,
-            None,
         )
         .await;
         assert_eq!(body, r#"{"jsonrpc":"2.0","id":42,"result":"0xabc"}"#);
@@ -418,12 +497,10 @@ mod tests {
     #[tokio::test]
     async fn batch_returns_array_in_request_order() {
         let ms = multistream(r#""0x1""#);
-        let body = process(
+        let body = respond(
             br#"[{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber"},{"jsonrpc":"2.0","id":2,"method":"eth_blockNumber"}]"#,
-            &ms,
-            &chain(),
-            true, // preserve order,
-            None
+            ms,
+            true, // preserve order
         )
         .await;
         assert_eq!(
@@ -435,14 +512,14 @@ mod tests {
     #[tokio::test]
     async fn empty_batch_returns_empty_array() {
         let ms = multistream(r#""0x1""#);
-        let body = process(b"[]", &ms, &chain(), false, None).await;
+        let body = respond(b"[]", ms, false).await;
         assert_eq!(body, "[]");
     }
 
     #[tokio::test]
     async fn parse_error_returns_single_object_with_fallback_id() {
         let ms = multistream(r#""0x1""#);
-        let body = process(b"not json", &ms, &chain(), false, None).await;
+        let body = respond(b"not json", ms, false).await;
         assert_eq!(
             body,
             r#"{"jsonrpc":"2.0","id":-1,"error":{"code":-32700,"message":"Failed to parse JSON"}}"#
@@ -453,12 +530,10 @@ mod tests {
     async fn invalid_item_in_batch_aborts_whole_batch() {
         let ms = multistream(r#""0x1""#);
         // Second item is missing its id — the whole batch fails with one error.
-        let body = process(
+        let body = respond(
             br#"[{"jsonrpc":"2.0","id":1,"method":"m"},{"jsonrpc":"2.0","method":"m"}]"#,
-            &ms,
-            &chain(),
+            ms,
             false,
-            None,
         )
         .await;
         assert_eq!(
@@ -503,17 +578,218 @@ mod tests {
             vec![Arc::new(ErrUpstream(Arc::new(UpstreamState::new()))) as Arc<dyn RpcUpstream>],
             Arc::new(AlwaysFactory),
         );
-        let body = process(
-            br#"{"jsonrpc":"2.0","id":9,"method":"eth_foo"}"#,
-            &ms,
-            &chain(),
-            false,
-            None,
+        let body = respond(br#"{"jsonrpc":"2.0","id":9,"method":"eth_foo"}"#, ms, false).await;
+        assert_eq!(
+            body,
+            r#"{"jsonrpc":"2.0","id":9,"error":{"code":-32601,"message":"Method not found"}}"#
+        );
+    }
+
+    /// Upstream that answers after as many seconds as its first param, with
+    /// that number as the result, so a batch can mix fast and slow calls.
+    /// Counts the calls it finished, to tell a cancelled call from a done one.
+    /// Panics when the param isn't a number, to stand for a crashed call.
+    struct DelayUpstream {
+        finished: AtomicUsize,
+        state: Arc<UpstreamState>,
+    }
+
+    impl DelayUpstream {
+        fn new() -> Arc<Self> {
+            Arc::new(Self {
+                finished: AtomicUsize::new(0),
+                state: Arc::new(UpstreamState::new()),
+            })
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl RpcUpstream for DelayUpstream {
+        async fn call(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
+            let Some(secs) = request.params[0].as_u64() else {
+                panic!("upstream call crashed");
+            };
+            tokio::time::sleep(std::time::Duration::from_secs(secs)).await;
+            self.finished.fetch_add(1, Ordering::SeqCst);
+            let raw = format!(r#"{{"jsonrpc":"2.0","id":1,"result":{secs}}}"#);
+            Ok(serde_json::from_str(&raw).unwrap())
+        }
+        fn id(&self) -> &UpstreamId {
+            crate::upstream::id::stub_id()
+        }
+        fn availability(&self) -> UpstreamAvailability {
+            UpstreamAvailability::Ok
+        }
+        fn head(&self) -> &dyn Head {
+            &NoHead
+        }
+        fn lag(&self) -> Option<u64> {
+            None
+        }
+        fn state(&self) -> &Arc<UpstreamState> {
+            &self.state
+        }
+    }
+
+    /// A batch with a 60-second call first and a 1-second call second.
+    const SLOW_THEN_FAST: &[u8] = br#"[{"jsonrpc":"2.0","id":"slow","method":"eth_blockNumber","params":[60]},{"jsonrpc":"2.0","id":"fast","method":"eth_blockNumber","params":[1]}]"#;
+
+    fn batch_chunks(
+        upstream: Arc<DelayUpstream>,
+        body: &'static [u8],
+        preserve_order: bool,
+    ) -> impl Future<Output = ChunkStream> {
+        let ms = Multistream::new(
+            TargetBlockchain::Standard(emerald_api::proto::common::ChainRef::ChainEthereum),
+            vec![upstream as Arc<dyn RpcUpstream>],
+            Arc::new(AlwaysFactory),
+        );
+        async move {
+            match process(
+                body,
+                Arc::new(ms),
+                chain(),
+                preserve_order,
+                request_context(),
+                None,
+            )
+            .await
+            {
+                ResponseBody::Chunks(chunks) => chunks,
+                ResponseBody::Complete(json) => panic!("expected a streamed batch, got {json}"),
+            }
+        }
+    }
+
+    /// A fast call's reply goes out as soon as it's done, not after the slow
+    /// call listed before it.
+    #[tokio::test(start_paused = true)]
+    async fn batch_sends_each_reply_when_ready() {
+        let mut chunks = batch_chunks(DelayUpstream::new(), SLOW_THEN_FAST, false).await;
+        let started = tokio::time::Instant::now();
+
+        assert_eq!(chunks.next().await.unwrap(), "[");
+        assert_eq!(
+            chunks.next().await.unwrap(),
+            r#"{"jsonrpc":"2.0","id":"fast","result":1}"#
+        );
+        assert!(started.elapsed() < std::time::Duration::from_secs(60));
+        assert_eq!(
+            chunks.next().await.unwrap(),
+            r#",{"jsonrpc":"2.0","id":"slow","result":60}"#
+        );
+        assert_eq!(chunks.next().await.unwrap(), "]");
+        assert_eq!(chunks.next().await, None);
+    }
+
+    /// With the request order kept, a reply still goes out once the replies
+    /// before it are done, without waiting for the rest of the batch.
+    #[tokio::test(start_paused = true)]
+    async fn ordered_batch_sends_each_reply_after_the_ones_before_it() {
+        let body = br#"[{"jsonrpc":"2.0","id":"fast","method":"eth_blockNumber","params":[1]},{"jsonrpc":"2.0","id":"slow","method":"eth_blockNumber","params":[60]}]"#;
+        let mut chunks = batch_chunks(DelayUpstream::new(), body, true).await;
+        let started = tokio::time::Instant::now();
+
+        assert_eq!(chunks.next().await.unwrap(), "[");
+        assert_eq!(
+            chunks.next().await.unwrap(),
+            r#"{"jsonrpc":"2.0","id":"fast","result":1}"#
+        );
+        assert!(started.elapsed() < std::time::Duration::from_secs(60));
+        assert_eq!(
+            chunks.next().await.unwrap(),
+            r#",{"jsonrpc":"2.0","id":"slow","result":60}"#
+        );
+    }
+
+    /// A call that crashes gets an error reply of its own; the rest of the
+    /// batch is still answered.
+    #[tokio::test(start_paused = true)]
+    async fn crashed_batch_call_gets_error_reply() {
+        let body = br#"[{"jsonrpc":"2.0","id":"ok","method":"eth_blockNumber","params":[1]},{"jsonrpc":"2.0","id":"crash","method":"eth_blockNumber","params":["x"]}]"#;
+        let chunks = batch_chunks(DelayUpstream::new(), body, true).await;
+
+        let replies = chunks.collect::<Vec<_>>().await.concat();
+
+        let replies: serde_json::Value = serde_json::from_str(&replies).unwrap();
+        assert_eq!(replies[0]["result"], 1);
+        assert_eq!(replies[1]["id"], "crash");
+        assert_eq!(replies[1]["error"]["code"], CODE_CALL_FAILURE);
+    }
+
+    /// A slow client reads the response late; the calls must not wait for it,
+    /// or they'd run into their upstream timeouts.
+    #[tokio::test(start_paused = true)]
+    async fn batch_calls_complete_while_response_is_not_read() {
+        let upstream = DelayUpstream::new();
+        let chunks = batch_chunks(Arc::clone(&upstream), SLOW_THEN_FAST, false).await;
+
+        tokio::time::sleep(std::time::Duration::from_secs(120)).await;
+
+        assert_eq!(upstream.finished.load(Ordering::SeqCst), 2);
+        drop(chunks);
+    }
+
+    /// A client that disconnects drops the response; the calls it was waiting
+    /// for must stop with it rather than load the node for nobody.
+    #[tokio::test(start_paused = true)]
+    async fn dropping_batch_response_cancels_pending_calls() {
+        let upstream = DelayUpstream::new();
+        let mut chunks = batch_chunks(Arc::clone(&upstream), SLOW_THEN_FAST, false).await;
+
+        assert_eq!(chunks.next().await.unwrap(), "[");
+        chunks.next().await.unwrap();
+        drop(chunks);
+        tokio::time::sleep(std::time::Duration::from_secs(120)).await;
+
+        assert_eq!(upstream.finished.load(Ordering::SeqCst), 1);
+    }
+
+    /// Batch calls run while the response is being sent, after `process` has
+    /// returned, and must still be attributed to the client request.
+    #[tokio::test]
+    async fn batch_calls_run_in_request_context() {
+        struct ContextProbe(Arc<UpstreamState>);
+        #[async_trait::async_trait]
+        impl RpcUpstream for ContextProbe {
+            async fn call(&self, _: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
+                let raw = format!(
+                    r#"{{"jsonrpc":"2.0","id":1,"result":{}}}"#,
+                    logs::current().is_some()
+                );
+                Ok(serde_json::from_str(&raw).unwrap())
+            }
+            fn id(&self) -> &UpstreamId {
+                crate::upstream::id::stub_id()
+            }
+            fn availability(&self) -> UpstreamAvailability {
+                UpstreamAvailability::Ok
+            }
+            fn head(&self) -> &dyn Head {
+                &NoHead
+            }
+            fn lag(&self) -> Option<u64> {
+                None
+            }
+            fn state(&self) -> &Arc<UpstreamState> {
+                &self.0
+            }
+        }
+
+        let ms = Multistream::new(
+            TargetBlockchain::Standard(emerald_api::proto::common::ChainRef::ChainEthereum),
+            vec![Arc::new(ContextProbe(Arc::new(UpstreamState::new()))) as Arc<dyn RpcUpstream>],
+            Arc::new(AlwaysFactory),
+        );
+        let body = respond(
+            br#"[{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber"},{"jsonrpc":"2.0","id":2,"method":"eth_blockNumber"}]"#,
+            ms,
+            true,
         )
         .await;
         assert_eq!(
             body,
-            r#"{"jsonrpc":"2.0","id":9,"error":{"code":-32601,"message":"Method not found"}}"#
+            r#"[{"jsonrpc":"2.0","id":1,"result":true},{"jsonrpc":"2.0","id":2,"result":true}]"#
         );
     }
 }

@@ -31,7 +31,9 @@ use crate::tls::ServerTlsSetup;
 use crate::upstream::egress::EgressSubscription;
 use crate::upstream::{Multistream, UpstreamManager};
 use bytes::Bytes;
+use futures::StreamExt;
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use warp::Filter;
@@ -276,21 +278,16 @@ async fn handle(
                 peer, &headers,
             ))));
             let access = handler::AccessMeta::new(logs::Channel::JsonRpc, Arc::clone(&ctx));
-            // The context makes the upstream calls attributable to this
-            // client request in the request log.
-            let body = logs::with_context(
-                (*ctx).clone(),
-                handler::process(
-                    &body,
-                    &route.multistream,
-                    &route.chain,
-                    state.preserve_batch_order,
-                    access,
-                ),
+            let mut response = handler::process(
+                &body,
+                route.multistream,
+                route.chain,
+                state.preserve_batch_order,
+                ctx,
+                access,
             )
-            .await;
-            // Always HTTP 200; JSON-RPC errors are carried in the body.
-            let mut response = warp::reply::with_status(body, StatusCode::OK).into_response();
+            .await
+            .into_response();
             response
                 .headers_mut()
                 .insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
@@ -306,6 +303,20 @@ async fn handle(
         }
         _ => {
             warp::reply::with_status(String::new(), StatusCode::METHOD_NOT_ALLOWED).into_response()
+        }
+    }
+}
+
+/// Always HTTP 200; JSON-RPC errors are carried in the body.
+impl Reply for handler::ResponseBody {
+    fn into_response(self) -> warp::reply::Response {
+        match self {
+            handler::ResponseBody::Complete(json) => {
+                warp::reply::with_status(json, StatusCode::OK).into_response()
+            }
+            handler::ResponseBody::Chunks(chunks) => {
+                warp::reply::stream(chunks.map(Ok::<_, Infallible>)).into_response()
+            }
         }
     }
 }
@@ -476,6 +487,112 @@ mod tests {
         assert_eq!(
             resp.headers()["access-control-allow-headers"],
             "Content-Type"
+        );
+    }
+
+    /// A batch is sent in chunks, but with the same status and headers as a
+    /// single call, and the chunks add up to the whole array.
+    #[tokio::test]
+    async fn post_batch_streams_json_array_with_headers() {
+        let filter = routes_filter(state_with(cors()));
+        let resp = warp::test::request()
+            .method("POST")
+            .path("/eth")
+            .body(r#"[{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber"},{"jsonrpc":"2.0","id":2,"method":"eth_blockNumber"}]"#)
+            .reply(&filter)
+            .await;
+        assert_eq!(resp.status(), 200);
+        assert_eq!(resp.headers()["content-type"], "application/json");
+        assert_eq!(resp.headers()["access-control-allow-origin"], "*");
+        let body: serde_json::Value = serde_json::from_slice(resp.body()).unwrap();
+        let mut ids: Vec<_> = body
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|reply| reply["id"].as_u64().unwrap())
+            .collect();
+        ids.sort();
+        assert_eq!(ids, [1, 2]);
+    }
+
+    /// Over a real connection, a batch's fast reply reaches the client while a
+    /// slower call of the same batch is still running.
+    #[tokio::test]
+    async fn batch_reply_leaves_server_before_slow_call_finishes() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        /// Answers after as many milliseconds as its first param.
+        struct DelayUpstream(Arc<UpstreamState>);
+        #[async_trait::async_trait]
+        impl RpcUpstream for DelayUpstream {
+            async fn call(&self, req: &JsonRpcRequest) -> Result<JsonRpcResponse, UpstreamError> {
+                let millis = req.params[0].as_u64().unwrap();
+                tokio::time::sleep(std::time::Duration::from_millis(millis)).await;
+                Ok(serde_json::from_str(r#"{"jsonrpc":"2.0","id":1,"result":"0x1"}"#).unwrap())
+            }
+            fn id(&self) -> &UpstreamId {
+                crate::upstream::id::stub_id()
+            }
+            fn availability(&self) -> UpstreamAvailability {
+                UpstreamAvailability::Ok
+            }
+            fn head(&self) -> &dyn Head {
+                &NoHead
+            }
+            fn lag(&self) -> Option<u64> {
+                None
+            }
+            fn state(&self) -> &Arc<UpstreamState> {
+                &self.0
+            }
+        }
+
+        let upstream: Arc<dyn RpcUpstream> =
+            Arc::new(DelayUpstream(Arc::new(UpstreamState::new())));
+        let multistream = Arc::new(Multistream::new(
+            eth(),
+            vec![upstream],
+            Arc::new(AlwaysFactory),
+        ));
+        let state = state_of(
+            UpstreamManager::from_parts(HashMap::from([(eth(), multistream)]), HashMap::new()),
+            None,
+        );
+        let addr = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap();
+        tokio::spawn(serve::serve(routes_filter(state), addr, None));
+
+        let mut conn = None;
+        for _ in 0..100 {
+            match tokio::net::TcpStream::connect(addr).await {
+                Ok(stream) => {
+                    conn = Some(stream);
+                    break;
+                }
+                Err(_) => tokio::time::sleep(std::time::Duration::from_millis(10)).await,
+            }
+        }
+        let mut conn = conn.expect("proxy did not start listening");
+
+        let body = r#"[{"jsonrpc":"2.0","id":"slow","method":"eth_blockNumber","params":[2000]},{"jsonrpc":"2.0","id":"fast","method":"eth_blockNumber","params":[10]}]"#;
+        let request = format!(
+            "POST /eth HTTP/1.1\r\nHost: {addr}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        );
+        conn.write_all(request.as_bytes()).await.unwrap();
+
+        let mut received = String::new();
+        let mut buf = [0u8; 4096];
+        while !received.contains(r#""id":"fast""#) {
+            let n = conn.read(&mut buf).await.unwrap();
+            assert!(n > 0, "connection closed before the fast reply: {received}");
+            received.push_str(std::str::from_utf8(&buf[..n]).unwrap());
+        }
+        assert!(
+            !received.contains(r#""id":"slow""#),
+            "the fast reply was held back until the slow call finished: {received}"
         );
     }
 
