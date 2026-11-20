@@ -19,13 +19,13 @@
 //! methods return `UNIMPLEMENTED`.
 
 use crate::blockchain::TargetBlockchain;
-use crate::data::BlockContainer;
 use crate::logs;
 use crate::logs::access;
 use crate::metrics::{self, ApiMethod, CallMethod, DownstreamProtocol, RequestStatus};
 use crate::rpc::downstream_request::DownstreamRequest;
 use crate::rpc::downstream_stream::DownstreamStream;
 use crate::rpc::native_call;
+use crate::upstream::continuous_head::{SequencedBlock, StartAt};
 use crate::upstream::egress::EgressError;
 use crate::upstream::fees::{FeeError, FeeMode};
 use crate::upstream::selector::LabelSelector;
@@ -39,7 +39,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio_stream::Stream;
-use tokio_stream::wrappers::BroadcastStream;
 use tokio_util::task::AbortOnDropHandle;
 
 /// Access-log identity of one gRPC call, from the request peer and metadata.
@@ -419,7 +418,7 @@ impl Blockchain for BlockchainRpcService {
             )
         })?;
 
-        let head = self.upstreams.head(&chain).ok_or_else(|| {
+        let head = self.upstreams.continuous_head(&chain).ok_or_else(|| {
             tracing::trace!(%chain, "no head stream for chain");
             downstream_request.refused(
                 Some(&chain),
@@ -429,33 +428,25 @@ impl Blockchain for BlockchainRpcService {
 
         let chain_id = chain.id();
         let log_index = Arc::new(AtomicUsize::new(0));
-        // Map each merged-head block to a `ChainHead`, skipping the gaps the
-        // broadcast channel reports when a subscriber lags behind.
-        let stream = BroadcastStream::new(head.subscribe()).filter_map(move |item| {
-            let ctx = Arc::clone(&ctx);
-            let log_index = Arc::clone(&log_index);
-            async move {
-                item.ok().map(|block| {
-                    metrics::downstream_subscription_message(
-                        DownstreamProtocol::Dshackle,
-                        ApiMethod::SubscribeHead,
+        let stream = head.subscribe(StartAt::CurrentHead).map(move |next| {
+            metrics::downstream_subscription_message(
+                DownstreamProtocol::Dshackle,
+                ApiMethod::SubscribeHead,
+                Some(&chain),
+            );
+            if logs::access_enabled() {
+                logs::access_log(&access::AccessRecord::new(
+                    logs::Channel::Dshackle,
+                    access::Payload::SubscribeHead(access::OnBlockchain::new(
                         Some(&chain),
-                    );
-                    if logs::access_enabled() {
-                        logs::access_log(&access::AccessRecord::new(
-                            logs::Channel::Dshackle,
-                            access::Payload::SubscribeHead(access::OnBlockchain::new(
-                                Some(&chain),
-                                access::SubscribeHead {
-                                    request: ctx.request_details(),
-                                    index: log_index.fetch_add(1, Ordering::Relaxed),
-                                },
-                            )),
-                        ));
-                    }
-                    Ok(chain_head(chain_id, &block))
-                })
+                        access::SubscribeHead {
+                            request: ctx.request_details(),
+                            index: log_index.fetch_add(1, Ordering::Relaxed),
+                        },
+                    )),
+                ));
             }
+            Ok(chain_head(chain_id, &next))
         });
 
         downstream_request.finish(Some(&chain), Ok(tonic::Response::new(Box::pin(stream))))
@@ -1012,7 +1003,8 @@ fn chain_status(chain: &TargetBlockchain, multistream: &Multistream) -> ChainSta
 /// Build a `ChainHead` gRPC message from a head block. `weight` carries the
 /// cumulative work as a big-endian big integer (empty when unknown), matching
 /// the legacy `StreamHead`.
-fn chain_head(chain_id: i32, block: &BlockContainer) -> ChainHead {
+fn chain_head(chain_id: i32, next: &SequencedBlock) -> ChainHead {
+    let block = &next.block;
     ChainHead {
         chain: chain_id,
         height: block.height,
@@ -1023,7 +1015,7 @@ fn chain_head(chain_id: i32, block: &BlockContainer) -> ChainHead {
         } else {
             block.total_difficulty.to_be_bytes_trimmed_vec()
         },
-        reorg: 0,
+        reorg: next.reorg,
     }
 }
 
@@ -1383,7 +1375,7 @@ mod tests {
     fn chain_head_maps_block_fields() {
         let mut hash = [0u8; 32];
         hash[0] = 0xab;
-        let block = BlockContainer {
+        let block = crate::data::BlockContainer {
             hash: crate::data::BlockId::from_bytes(hash),
             height: 12345,
             parent_hash: None,
@@ -1393,13 +1385,18 @@ mod tests {
             json: None,
             header_json: None,
         };
-        let head = chain_head(ChainRef::ChainEthereum as i32, &block);
+        let hash_hex = block.hash.to_hex();
+        let next = SequencedBlock {
+            block: Arc::new(block),
+            reorg: 2,
+        };
+        let head = chain_head(ChainRef::ChainEthereum as i32, &next);
         assert_eq!(head.chain, ChainRef::ChainEthereum as i32);
         assert_eq!(head.height, 12345);
-        assert_eq!(head.block_id, block.hash.to_hex());
+        assert_eq!(head.block_id, hash_hex);
         assert_eq!(head.timestamp, 1_700_000_000_000);
         assert_eq!(head.weight, vec![0x04, 0x00]); // 1024 == 0x0400
-        assert_eq!(head.reorg, 0);
+        assert_eq!(head.reorg, 2);
     }
 
     #[tokio::test]

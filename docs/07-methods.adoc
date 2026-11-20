@@ -265,6 +265,9 @@ Where:
 - `weight` - total network difficulty on that block, as raw bytes
 - `reorg` - number of reorganized blocks, if reorg happened
 
+The stream starts with the current head and then goes block by block: each block is a child of the previous one, without gaps or reorgs.
+This is done on a best effort basis for up to 16 recent blocks: a deeper reorg, or a block no upstream can provide in time, produces a gap.
+
 === SubscribeBalance or GetBalance
 
 Subscribes to changes (`SubscribeBalance`) or get current (`GetBalance`) balance for a single address, or a set of addresses.

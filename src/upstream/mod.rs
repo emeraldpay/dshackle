@@ -23,6 +23,7 @@ pub mod block_updates;
 pub mod call_plan;
 mod call_status;
 pub(crate) mod chains;
+pub mod continuous_head;
 mod disabled_methods;
 mod dshackle;
 pub mod egress;
@@ -80,6 +81,7 @@ use bitcoin::validator::BitcoinValidator;
 use bitcoin::zmq::start_zmq_head;
 use call_plan::{AsIs, CallPlanner};
 use chains::{ChainMember, Chains};
+use continuous_head::ContinuousHead;
 use dshackle::connection::{RemoteClient, RemoteEndpoint};
 use dshackle::remote::RemoteDshackle;
 use egress::{ChainAccess, EgressSubscription, EthereumEgress, MergedEgress, TopicSubset};
@@ -769,6 +771,11 @@ impl UpstreamManager {
         self.chains.head(chain)
     }
 
+    /// The gap-free head of a blockchain, for the head subscriptions.
+    pub fn continuous_head(&self, chain: &TargetBlockchain) -> Option<Arc<ContinuousHead>> {
+        self.chains.continuous_head(chain)
+    }
+
     /// The chain's pending transactions, or `None` when none of its upstreams
     /// can announce them: that takes a node reached over WebSocket, or a
     /// remote Dshackle relaying the topic.
@@ -787,10 +794,18 @@ impl UpstreamManager {
         let mut local_topics: Vec<String> = Vec::new();
         match chain.blockchain_type() {
             BlockchainType::Ethereum => {
-                if let (Some(head), Some(multistream)) = (self.head(chain), self.get(chain)) {
+                if let (Some(head), Some(continuous), Some(multistream)) = (
+                    self.head(chain),
+                    self.continuous_head(chain),
+                    self.get(chain),
+                ) {
                     let access: Arc<dyn ChainAccess> = multistream;
-                    let local =
-                        Arc::new(EthereumEgress::new(head, access, self.pending_txes(chain)));
+                    let local = Arc::new(EthereumEgress::new(
+                        head,
+                        continuous,
+                        access,
+                        self.pending_txes(chain),
+                    ));
                     local_topics = local.available_topics();
                     sources.push(local);
                 }
