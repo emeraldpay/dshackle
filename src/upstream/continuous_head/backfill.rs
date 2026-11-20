@@ -31,6 +31,19 @@ const FETCH_TIMEOUT: Duration = Duration::from_secs(2);
 /// back for long.
 const WALK_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// Pauses before each lookup of a block: the first goes out right away, the
+/// rest are retries. The routing may settle a lookup on the first answer, even
+/// a miss (a remote Dshackle's quorum, Bitcoin's "Block not found"), from a
+/// node that doesn't have the block yet: one slightly behind, or still on the
+/// old branch of a reorg. Each call starts at the next upstream in the
+/// round-robin order, so a retry usually asks another node, and the pause
+/// gives a node a moment to import the block.
+const ATTEMPT_DELAYS: [Duration; 3] = [
+    Duration::ZERO,
+    Duration::from_millis(50),
+    Duration::from_millis(100),
+];
+
 impl HeadHistory {
     /// The branch from the history to `tip`, oldest first, ready for
     /// [`extend`](HeadHistory::extend).
@@ -111,10 +124,24 @@ impl Fetcher<'_> {
         }
     }
 
-    /// The block, refusing an answer for a different block: an upstream may
+    /// The block, retried on a miss while the walk has time left.
+    async fn block(&self, hash: &BlockId, height: u64) -> Option<BlockContainer> {
+        for delay in ATTEMPT_DELAYS {
+            if Instant::now() + delay >= self.deadline {
+                return None;
+            }
+            tokio::time::sleep(delay).await;
+            if let Some(block) = self.attempt(hash, height).await {
+                return Some(block);
+            }
+        }
+        None
+    }
+
+    /// One lookup, refusing an answer for a different block: an upstream may
     /// resolve the request any way it likes, and a wrong block would corrupt
     /// the branch.
-    async fn block(&self, hash: &BlockId, height: u64) -> Option<BlockContainer> {
+    async fn attempt(&self, hash: &BlockId, height: u64) -> Option<BlockContainer> {
         let limit = self.deadline.min(Instant::now() + FETCH_TIMEOUT);
         let block = tokio::time::timeout_at(limit, self.source.block_by_hash(hash, height))
             .await
@@ -273,7 +300,7 @@ mod tests {
     }
 
     #[tokio::test(start_paused = true)]
-    async fn stuck_fetch_is_given_up_on() {
+    async fn stuck_fetch_is_given_up_on_at_the_walk_limit() {
         let chain = Chain::new(1).grow(100, 4);
         let source = StoredBlocks::of(&chain).answering_after(Duration::from_secs(60));
         let history = history_of(&chain.blocks[..2]);
@@ -283,8 +310,38 @@ mod tests {
             .branch_to(Arc::clone(&chain.blocks[3]), Some(&source))
             .await;
 
-        assert_eq!(started.elapsed(), FETCH_TIMEOUT);
+        // Each attempt times out on its own; the retries end with the walk.
+        assert_eq!(started.elapsed(), WALK_TIMEOUT);
+        assert_eq!(source.fetches(), ATTEMPT_DELAYS.len());
         assert_eq!(heights(&branch), vec![(103, 1)]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn missed_lookup_is_retried() {
+        let chain = Chain::new(1).grow(100, 5);
+        let source = StoredBlocks::of(&chain).missing_first(ATTEMPT_DELAYS.len() - 1);
+        let history = history_of(&chain.blocks[..2]);
+
+        let branch = history
+            .branch_to(Arc::clone(&chain.blocks[4]), Some(&source))
+            .await;
+
+        assert_eq!(heights(&branch), vec![(102, 1), (103, 1), (104, 1)]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn block_missing_everywhere_is_tried_a_few_times() {
+        let chain = Chain::new(1).grow(100, 4);
+        let mut source = StoredBlocks::of(&chain);
+        source.forget(102);
+        let history = history_of(&chain.blocks[..2]);
+
+        let branch = history
+            .branch_to(Arc::clone(&chain.blocks[3]), Some(&source))
+            .await;
+
+        assert_eq!(heights(&branch), vec![(103, 1)]);
+        assert_eq!(source.fetches(), ATTEMPT_DELAYS.len());
     }
 
     #[tokio::test]

@@ -103,6 +103,9 @@ pub struct StoredBlocks {
     wrong_answer: Option<BlockContainer>,
     /// How long each lookup takes.
     delay: Duration,
+    /// How many of the first lookups find nothing, as from a node that
+    /// doesn't have the block yet.
+    misses: usize,
     fetches: AtomicUsize,
 }
 
@@ -120,6 +123,7 @@ impl StoredBlocks {
                 .collect(),
             wrong_answer: None,
             delay: Duration::ZERO,
+            misses: 0,
             fetches: AtomicUsize::new(0),
         }
     }
@@ -129,8 +133,13 @@ impl StoredBlocks {
             blocks: HashMap::new(),
             wrong_answer: Some((*other.blocks[0]).clone()),
             delay: Duration::ZERO,
+            misses: 0,
             fetches: AtomicUsize::new(0),
         }
+    }
+
+    pub fn missing_first(self, misses: usize) -> Self {
+        Self { misses, ..self }
     }
 
     pub fn answering_after(self, delay: Duration) -> Self {
@@ -149,8 +158,11 @@ impl StoredBlocks {
 #[async_trait::async_trait]
 impl BlockSource for StoredBlocks {
     async fn block_by_hash(&self, hash: &BlockId, _height: u64) -> Option<BlockContainer> {
-        self.fetches.fetch_add(1, Ordering::Relaxed);
+        let attempt = self.fetches.fetch_add(1, Ordering::Relaxed);
         tokio::time::sleep(self.delay).await;
+        if attempt < self.misses {
+            return None;
+        }
         if let Some(wrong) = &self.wrong_answer {
             return Some(wrong.clone());
         }
