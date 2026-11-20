@@ -22,6 +22,7 @@
 use crate::data::{BlockContainer, BlockId};
 use crate::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RpcMethod};
 use crate::upstream::block_updates::{BlockUpdate, WINDOW_LIMIT};
+use crate::upstream::continuous_head::{ContinuousHead, StartAt};
 use crate::upstream::ethereum::pending_tx::PendingTxSource;
 #[cfg(test)]
 use crate::upstream::merged_head::MergeOrder;
@@ -35,7 +36,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::error::RecvError;
-use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::{Stream, StreamExt};
 
 /// `eth_subscribe` topics.
@@ -227,6 +227,7 @@ pub trait ChainAccess: Send + Sync {
 /// upstreams able to announce them. Ports `EthereumEgressSubscription`.
 pub struct EthereumEgress {
     head: Arc<MergedHead>,
+    continuous: Arc<ContinuousHead>,
     access: Arc<dyn ChainAccess>,
     pending_txes: Option<Arc<dyn PendingTxSource>>,
 }
@@ -237,11 +238,13 @@ impl EthereumEgress {
     /// accepted, where legacy accepted it and stayed silent forever.
     pub fn new(
         head: Arc<MergedHead>,
+        continuous: Arc<ContinuousHead>,
         access: Arc<dyn ChainAccess>,
         pending_txes: Option<Arc<dyn PendingTxSource>>,
     ) -> Self {
         Self {
             head,
+            continuous,
             access,
             pending_txes,
         }
@@ -266,15 +269,14 @@ impl EgressSubscription for EthereumEgress {
         match method {
             METHOD_NEW_HEADS => {
                 let access = Arc::clone(&self.access);
-                let stream = BroadcastStream::new(self.head.subscribe())
-                    // Skip the gap markers the broadcast emits when a slow
-                    // subscriber falls behind; only the latest head matters.
-                    .filter_map(|item| item.ok())
-                    .then(move |block| {
+                let stream = self
+                    .continuous
+                    .subscribe(StartAt::NextHead)
+                    .then(move |next| {
                         let access = Arc::clone(&access);
                         async move {
-                            let raw = head_raw_header(&block, &*access).await;
-                            new_head_message(&block, raw.as_deref())
+                            let raw = head_raw_header(&next.block, &*access).await;
+                            new_head_message(&next.block, raw.as_deref())
                         }
                     });
                 Ok(Box::pin(stream))
@@ -326,7 +328,10 @@ async fn head_raw_header(block: &BlockContainer, access: &dyn ChainAccess) -> Op
 /// Fetch a full block by hash (`eth_getBlockByHash` with tx hashes only) as raw
 /// JSON. Any failure — call error, JSON-RPC error, or an unknown block (`null`
 /// result) — yields `None` rather than tearing down the subscription.
-async fn fetch_block_json(access: &dyn ChainAccess, hash: &BlockId) -> Option<Arc<[u8]>> {
+pub(crate) async fn fetch_block_json(
+    access: &dyn ChainAccess,
+    hash: &BlockId,
+) -> Option<Arc<[u8]>> {
     let request = JsonRpcRequest::new(
         0,
         RpcMethod::from("eth_getBlockByHash"),
@@ -601,6 +606,7 @@ fn log_message(mut log: serde_json::Value, removed: bool) -> Option<Vec<u8>> {
 mod tests {
     use super::*;
     use crate::data::TxId;
+    use crate::upstream::continuous_head::source::EthereumBlocks;
     use crate::upstream::ethereum::pending_tx::PendingTxStream;
     use crate::upstream::status_signal::StatusSignal;
     use std::sync::Mutex;
@@ -728,7 +734,9 @@ mod tests {
     }
 
     fn egress(head: Arc<MergedHead>, access: Arc<dyn ChainAccess>) -> EthereumEgress {
-        EthereumEgress::new(head, access, None)
+        let blocks = EthereumBlocks(Arc::clone(&access));
+        let continuous = ContinuousHead::start(&head, Some(Arc::new(blocks)));
+        EthereumEgress::new(head, continuous, access, None)
     }
 
     /// A pending-transaction source announcing a fixed list.
@@ -1162,8 +1170,10 @@ mod tests {
 
     #[tokio::test]
     async fn pending_transactions_are_served_as_json_hashes() {
+        let merged = Arc::new(MergedHead::new(MergeOrder::Priority));
         let egress = EthereumEgress::new(
-            Arc::new(MergedHead::new(MergeOrder::Priority)),
+            Arc::clone(&merged),
+            ContinuousHead::start(&merged, None),
             StubAccess::new(false, vec![]),
             Some(Arc::new(FixedPendingTxes(vec![
                 TxId::from_bytes([0x11; 32]),

@@ -19,8 +19,10 @@
 //! Dshackle that couldn't be reached then (or rejected the auth token) adds its
 //! chains once it connects.
 
+use super::continuous_head::{ContinuousHead, source};
 use super::dshackle::connection::RemoteClient;
 use super::dshackle::subscribe::DshackleEgress;
+use super::egress::ChainAccess;
 use super::ethereum::pending_tx::{AggregatedPendingTxes, PendingTxSource, RelayedPendingTxes};
 use super::fork::{ForkGroup, ForkMember, is_pos};
 use super::lag;
@@ -54,6 +56,9 @@ pub struct Chains {
 struct State {
     multistreams: HashMap<TargetBlockchain, Arc<Multistream>>,
     heads: HashMap<TargetBlockchain, Arc<MergedHead>>,
+    /// Started once the chain has both a merged head to follow and the
+    /// routing to fetch the blocks it skips.
+    continuous_heads: HashMap<TargetBlockchain, Arc<ContinuousHead>>,
     forks: HashMap<TargetBlockchain, Arc<ForkGroup>>,
     caches: HashMap<TargetBlockchain, Arc<Caches>>,
     /// Writes each new block of the chain to its caches once, whichever of its
@@ -120,17 +125,19 @@ impl Chains {
                 .or_insert_with(|| ForkGroup::new(chain))
                 .join(fork);
         }
-        if let Some(multistream) = state.multistreams.get(&chain) {
-            multistream.join(member.reader, member.methods);
-            return;
+        match state.multistreams.get(&chain) {
+            Some(multistream) => multistream.join(member.reader, member.methods),
+            None => {
+                let caches = self.caches_in(&mut state, chain);
+                let multistream = Arc::new(
+                    Multistream::starting_with(chain, member.reader, member.methods)
+                        .with_planner(planner_for(chain, caches)),
+                );
+                lag::start_lag_tracking(Arc::clone(&multistream));
+                state.multistreams.insert(chain, multistream);
+            }
         }
-        let caches = self.caches_in(&mut state, chain);
-        let multistream = Arc::new(
-            Multistream::starting_with(chain, member.reader, member.methods)
-                .with_planner(planner_for(chain, caches)),
-        );
-        lag::start_lag_tracking(Arc::clone(&multistream));
-        state.multistreams.insert(chain, multistream);
+        state.start_continuous_head(chain);
     }
 
     /// The chain's caches, created on first use.
@@ -212,6 +219,15 @@ impl Chains {
         self.state.read().unwrap().heads.get(chain).cloned()
     }
 
+    pub fn continuous_head(&self, chain: &TargetBlockchain) -> Option<Arc<ContinuousHead>> {
+        self.state
+            .read()
+            .unwrap()
+            .continuous_heads
+            .get(chain)
+            .cloned()
+    }
+
     pub fn existing_caches(&self, chain: &TargetBlockchain) -> Option<Arc<Caches>> {
         self.state.read().unwrap().caches.get(chain).cloned()
     }
@@ -266,6 +282,23 @@ impl State {
         if let Some(combined) = AggregatedPendingTxes::combined(sources.clone()) {
             self.pending_txes.insert(chain, combined);
         }
+    }
+
+    /// The skipped blocks are read through the chain's own routing, so they
+    /// come from the caches when possible and otherwise from any upstream.
+    fn start_continuous_head(&mut self, chain: TargetBlockchain) {
+        if self.continuous_heads.contains_key(&chain) {
+            return;
+        }
+        let (Some(merged), Some(multistream)) =
+            (self.heads.get(&chain), self.multistreams.get(&chain))
+        else {
+            return;
+        };
+        let access: Arc<dyn ChainAccess> = Arc::clone(multistream) as _;
+        let source = source::routed(chain.blockchain_type(), access);
+        self.continuous_heads
+            .insert(chain, ContinuousHead::start(merged, source));
     }
 }
 
