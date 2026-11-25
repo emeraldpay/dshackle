@@ -428,6 +428,8 @@ pub struct RawUpstream {
     pub id: Option<String>,
     #[serde(alias = "chain")]
     pub blockchain: Option<String>,
+    #[serde(alias = "chains")]
+    pub blockchains: Option<Vec<String>>,
     pub enabled: Option<bool>,
     pub role: Option<String>,
     #[serde(default, deserialize_with = "deserialize_labels")]
@@ -464,6 +466,11 @@ pub struct Upstream {
     /// form when the upstream is actually used.
     pub id: String,
     pub blockchain: Option<String>,
+    /// The chains a remote Dshackle upstream is limited to, when it should
+    /// serve fewer than its remote reports. Only a `dshackle` connection
+    /// takes it, since a node serves just the one in `blockchain`, and never
+    /// together with `blockchain`.
+    pub blockchains: Option<Vec<String>>,
     pub enabled: bool,
     pub role: UpstreamRole,
     pub labels: HashMap<String, String>,
@@ -476,6 +483,15 @@ pub struct Upstream {
 }
 
 impl Upstream {
+    /// The blockchain names the config gives for this upstream, from either
+    /// `blockchain` or `blockchains`.
+    pub fn chain_names(&self) -> impl Iterator<Item = &str> {
+        self.blockchain
+            .iter()
+            .chain(self.blockchains.iter().flatten())
+            .map(String::as_str)
+    }
+
     /// The validated id of this upstream. Called at wiring time, where a
     /// malformed id is a startup error — but only for upstreams that are
     /// actually wired, so a disabled entry never fails on its id.
@@ -540,7 +556,7 @@ impl UpstreamsConfig {
     pub fn options_for(&self, upstream: &Upstream) -> Options {
         let mut merged = PartialOptions::default();
         for defaults in &self.defaults {
-            if defaults_apply(defaults, upstream.blockchain.as_deref()) {
+            if defaults_apply(defaults, upstream) {
                 merged = merged.merge(&defaults.resolved_options());
             }
         }
@@ -548,13 +564,17 @@ impl UpstreamsConfig {
     }
 }
 
-/// Whether a `defaults` entry applies to an upstream of the given blockchain.
-/// An entry must name its blockchains explicitly.
-fn defaults_apply(defaults: &DefaultOptions, blockchain: Option<&str>) -> bool {
-    let (Some(chains), Some(blockchain)) = (&defaults.blockchains, blockchain) else {
+/// Whether a `defaults` entry applies to the upstream. An entry must name its
+/// blockchains explicitly. A remote Dshackle limited to several chains takes
+/// the entries of each of them, since its options are for the connection as
+/// a whole rather than per chain.
+fn defaults_apply(defaults: &DefaultOptions, upstream: &Upstream) -> bool {
+    let Some(chains) = &defaults.blockchains else {
         return false;
     };
-    chains.iter().any(|c| chain_name_matches(c, blockchain))
+    upstream
+        .chain_names()
+        .any(|name| chains.iter().any(|c| chain_name_matches(c, name)))
 }
 
 /// Compare two blockchain names, accounting for aliases ("ethereum" vs "eth")
@@ -630,6 +650,17 @@ pub fn process_raw_upstream(raw: RawUpstream) -> Result<Option<Upstream>> {
         }
     };
 
+    if let Err(e) = check_chain_keys(
+        raw.blockchain.as_deref(),
+        raw.blockchains.as_deref(),
+        &connection,
+    ) {
+        if enabled {
+            return Err(e.context(format!("upstream {id}")));
+        }
+        warn!("Disabled upstream {id}: ignoring invalid blockchains: {e:#}");
+    }
+
     let role = raw
         .role
         .as_deref()
@@ -661,6 +692,7 @@ pub fn process_raw_upstream(raw: RawUpstream) -> Result<Option<Upstream>> {
     Ok(Some(Upstream {
         id,
         blockchain: raw.blockchain,
+        blockchains: raw.blockchains,
         enabled,
         role,
         labels: raw.labels,
@@ -669,6 +701,30 @@ pub fn process_raw_upstream(raw: RawUpstream) -> Result<Option<Upstream>> {
         connection,
         options,
     }))
+}
+
+/// Checks how the upstream names its blockchains. The names themselves are
+/// resolved at wiring time, like the id.
+fn check_chain_keys(
+    blockchain: Option<&str>,
+    blockchains: Option<&[String]>,
+    connection: &UpstreamConnection,
+) -> Result<()> {
+    let Some(blockchains) = blockchains else {
+        return Ok(());
+    };
+    if !matches!(connection, UpstreamConnection::Dshackle(_)) {
+        bail!(
+            "`blockchains` applies only to a dshackle connection, set the one blockchain of a node in `blockchain`"
+        );
+    }
+    if blockchain.is_some() {
+        bail!("set either `blockchain` or `blockchains`, not both");
+    }
+    if blockchains.is_empty() {
+        bail!("`blockchains` is empty, which leaves nothing to route to the upstream");
+    }
+    Ok(())
 }
 
 impl TryFrom<RawUpstreamsConfig> for UpstreamsConfig {
@@ -763,6 +819,7 @@ mod tests {
         Upstream {
             id: "test-up".parse().unwrap(),
             blockchain: Some(blockchain.to_string()),
+            blockchains: None,
             enabled: true,
             role: UpstreamRole::Primary,
             labels: HashMap::new(),
@@ -811,6 +868,19 @@ mod tests {
 
         let options = config.options_for(&upstream_for("ethereum", PartialOptions::default()));
         assert_eq!(options.min_peers, 1);
+    }
+
+    #[test]
+    fn chain_defaults_apply_to_any_chain_of_a_limited_remote() {
+        let config = UpstreamsConfig {
+            defaults: vec![chain_defaults(&["sepolia"], 7)],
+            upstreams: vec![],
+        };
+        let mut upstream = upstream_for("ethereum", PartialOptions::default());
+        upstream.blockchain = None;
+        upstream.blockchains = Some(vec!["ethereum".to_string(), "sepolia".to_string()]);
+
+        assert_eq!(config.options_for(&upstream).min_peers, 7);
     }
 
     #[test]
@@ -889,6 +959,65 @@ connection:
         ))
         .unwrap();
         process_raw_upstream(raw).unwrap().unwrap().connection
+    }
+
+    fn upstream_with_chains(chain_keys: &str, connection: &str) -> Result<Option<Upstream>> {
+        let raw: RawUpstream = serde_yaml::from_str(&format!(
+            "
+id: up
+{chain_keys}
+connection:
+  {connection}
+"
+        ))
+        .unwrap();
+        process_raw_upstream(raw)
+    }
+
+    const REMOTE: &str = "dshackle: {host: 10.2.0.15, port: 2449}";
+    const NODE: &str = "ethereum: {rpc: {url: 'http://localhost:8545'}}";
+
+    #[test]
+    fn remote_takes_blockchains_list() {
+        let upstream = upstream_with_chains("blockchains: [ethereum, sepolia]", REMOTE)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            upstream.chain_names().collect::<Vec<_>>(),
+            vec!["ethereum", "sepolia"]
+        );
+    }
+
+    #[test]
+    fn remote_rejects_both_blockchain_and_blockchains() {
+        let err = upstream_with_chains("blockchain: ethereum\nblockchains: [sepolia]", REMOTE)
+            .unwrap_err();
+        let message = format!("{err:#}");
+        assert!(message.contains("upstream up"), "{message}");
+        assert!(message.contains("not both"), "{message}");
+    }
+
+    #[test]
+    fn remote_rejects_empty_blockchains() {
+        let err = upstream_with_chains("blockchains: []", REMOTE).unwrap_err();
+        assert!(format!("{err:#}").contains("is empty"), "{err:#}");
+    }
+
+    #[test]
+    fn node_rejects_blockchains_list() {
+        let err = upstream_with_chains("blockchains: [ethereum]", NODE).unwrap_err();
+        assert!(
+            format!("{err:#}").contains("applies only to a dshackle connection"),
+            "{err:#}"
+        );
+    }
+
+    #[test]
+    fn disabled_upstream_with_invalid_blockchains_still_loads() {
+        let upstream = upstream_with_chains("enabled: false\nblockchains: []", REMOTE)
+            .unwrap()
+            .unwrap();
+        assert!(!upstream.enabled);
     }
 
     #[test]
@@ -976,6 +1105,7 @@ connection:
         RawUpstream {
             id: id.map(str::to_string),
             blockchain: Some("ethereum".to_string()),
+            blockchains: None,
             enabled: None,
             role: None,
             labels: HashMap::new(),

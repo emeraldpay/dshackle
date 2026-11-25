@@ -18,8 +18,9 @@
 //! Unlike Ethereum/Bitcoin upstreams where we talk directly to a blockchain
 //! node, a Dshackle upstream multiplexes **multiple blockchains** through a
 //! single gRPC connection. Available chains are discovered dynamically by
-//! calling the remote's `Describe` RPC.
+//! calling the remote's `Describe` RPC, and may be limited by the config.
 
+pub mod chain_scope;
 pub mod connection;
 pub mod head;
 pub mod remote;

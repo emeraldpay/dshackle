@@ -82,6 +82,7 @@ use bitcoin::zmq::start_zmq_head;
 use call_plan::{AsIs, CallPlanner};
 use chains::{ChainMember, Chains};
 use continuous_head::ContinuousHead;
+use dshackle::chain_scope::ChainScope;
 use dshackle::connection::{RemoteClient, RemoteEndpoint};
 use dshackle::remote::RemoteDshackle;
 use egress::{ChainAccess, EgressSubscription, EthereumEgress, MergedEgress, TopicSubset};
@@ -662,11 +663,12 @@ impl UpstreamManager {
                     // Only `timeout` applies to a dshackle connection; the
                     // validation family is meaningless here and gets a warning.
                     warn_inapplicable_dshackle_options(upstream);
-                    // A relay serves whatever chains, labels, and methods its
-                    // remote advertises, so locally configured ones have
-                    // nothing to attach to (legacy warns about labels and
-                    // silently ignores methods; ignoring config silently is
-                    // worse than a warning).
+                    // A relay serves the labels and methods its remote
+                    // advertises, so locally configured ones have nothing to
+                    // attach to (legacy warns about labels and silently
+                    // ignores methods; ignoring config silently is worse than
+                    // a warning). The chains are the remote's too, but the
+                    // config may narrow them down.
                     if !upstream.labels.is_empty() {
                         tracing::warn!(
                             "Upstream {}: labels should be not applied to gRPC upstream",
@@ -679,6 +681,8 @@ impl UpstreamManager {
                             id
                         );
                     }
+                    let scope =
+                        ChainScope::try_from(upstream).with_context(|| format!("upstream {id}"))?;
                     let options = config.options_for(upstream);
 
                     // Defer the actual connect: it is done concurrently after the
@@ -697,6 +701,7 @@ impl UpstreamManager {
                         call_timeout: options.timeout,
                         priority: options.priority,
                         budget: RequestBudget::new(&upstream.limits),
+                        scope,
                     }));
                 }
             }
