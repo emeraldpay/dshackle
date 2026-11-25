@@ -16,6 +16,7 @@
 //! ones.
 
 use super::DshackleUpstream;
+use super::chain_scope::ChainScope;
 use super::connection::{RemoteClient, RemoteEndpoint};
 use super::head::start_head_subscriber;
 use super::status::start_status_subscriber;
@@ -62,6 +63,8 @@ pub struct RemoteDshackle {
     /// One budget for every chain the remote serves: the configured limits
     /// are for the connection to the remote, not for each of its chains.
     pub budget: Option<Arc<RequestBudget>>,
+    /// Which of the reported chains to join.
+    pub scope: ChainScope,
 }
 
 impl RemoteDshackle {
@@ -101,7 +104,8 @@ impl RemoteDshackle {
             .map_err(|_| anyhow::anyhow!("timed out after {CONNECT_TIMEOUT:?}"))?
     }
 
-    /// Adds the chains the remote reported: one upstream per chain, with head
+    /// Adds the chains the remote reported that are in the upstream's
+    /// [`ChainScope`]: one upstream per chain, with head
     /// and status subscribers, the methods the remote advertises, and its
     /// labels and capabilities.
     pub fn join(&self, chains: &Chains, client: RemoteClient, described: Vec<DescribeChain>) {
@@ -112,11 +116,29 @@ impl RemoteDshackle {
             );
             return;
         }
+        let reported: HashSet<TargetBlockchain> = described
+            .iter()
+            .filter_map(|c| TargetBlockchain::try_from(c.chain).ok())
+            .collect();
+        for chain in self.scope.unserved(&reported) {
+            tracing::warn!(
+                "Dshackle '{}': blockchain {} is configured for the upstream, but the remote doesn't serve it",
+                self.id,
+                chain
+            );
+        }
         let mut connected = 0;
         for desc_chain in &described {
             if self.join_chain(chains, &client, desc_chain) {
                 connected += 1;
             }
+        }
+        if connected == 0 && self.scope != ChainScope::All {
+            tracing::warn!(
+                "Dshackle '{}': none of the chains the remote serves are configured for the upstream",
+                self.id
+            );
+            return;
         }
         tracing::info!(
             "Dshackle '{}': connected with {} chain(s)",
@@ -145,6 +167,14 @@ impl RemoteDshackle {
         };
 
         let chain = TargetBlockchain::from(chain_ref);
+        if !self.scope.includes(&chain) {
+            tracing::debug!(
+                "Dshackle '{}': skipping chain {}, not configured for the upstream",
+                upstream_id,
+                chain
+            );
+            return false;
+        }
         // One upstream per discovered chain, named like the legacy
         // `GrpcUpstreams`: `<id>_<chain code>`.
         let chain_id: UpstreamId =
@@ -354,6 +384,7 @@ mod tests {
             call_timeout: Duration::from_secs(1),
             priority: 42,
             budget: None,
+            scope: ChainScope::All,
         })
     }
 
@@ -408,6 +439,44 @@ mod tests {
         assert_eq!(upstreams[0].id().as_str(), "remote_eth");
         // Even with no local upstream, the chain has a merged head
         assert!(chains.head(&ethereum()).is_some());
+    }
+
+    fn ethereum_and_bitcoin() -> Vec<DescribeChain> {
+        [ChainRef::ChainEthereum, ChainRef::ChainBitcoin]
+            .into_iter()
+            .map(|chain| DescribeChain {
+                chain: chain as i32,
+                ..Default::default()
+            })
+            .collect()
+    }
+
+    fn bitcoin() -> TargetBlockchain {
+        TargetBlockchain::from(ChainRef::ChainBitcoin)
+    }
+
+    #[tokio::test]
+    async fn unlimited_remote_joins_every_reported_chain() {
+        let chains = Chains::new(None);
+
+        remote("http://127.0.0.1:1", None).join(&chains, dead_client(), ethereum_and_bitcoin());
+
+        assert!(chains.multistream(&ethereum()).is_some());
+        assert!(chains.multistream(&bitcoin()).is_some());
+    }
+
+    #[tokio::test]
+    async fn limited_remote_joins_only_its_chains() {
+        let chains = Chains::new(None);
+        let mut limited = Arc::into_inner(remote("http://127.0.0.1:1", None)).unwrap();
+        limited.scope = ChainScope::Only(HashSet::from([ethereum()]));
+
+        limited.join(&chains, dead_client(), ethereum_and_bitcoin());
+
+        assert!(chains.multistream(&ethereum()).is_some());
+        assert!(chains.multistream(&bitcoin()).is_none());
+        assert!(chains.head(&bitcoin()).is_none());
+        assert_eq!(chains.list(), vec![ethereum()]);
     }
 
     #[tokio::test]

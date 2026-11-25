@@ -1015,7 +1015,7 @@ zeromq:
 Another option is using another Dshackle server as an upstream.
 It's more effective, easier to secure connection, and allows to build a distributed network of servers.
 
-The blockchains of such an upstream are the ones the remote reports when Dshackle connects to it.
+The blockchains of such an upstream are the ones the remote reports when Dshackle connects to it, unless the config limits them with `blockchain` or `blockchains`.
 When the remote can't be reached at the start, or rejects the auth token, Dshackle starts without them and keeps reconnecting: after 10 seconds, then doubling the wait up to 5 minutes.
 Its blockchains are added as soon as it connects.
 
@@ -1031,6 +1031,18 @@ Its blockchains are added as soon as it connects.
         key: client-1.api.mycompany.p8.key
 ----
 
+.Limited to some of the remote's blockchains
+[source,yaml]
+----
+- id: test2
+  blockchains:
+    - ethereum
+    - sepolia
+  connection:
+    dshackle:
+      url: us-api.mycompany.com:2449
+----
+
 .Main Config
 [cols="2a,1a,5"]
 |===
@@ -1039,6 +1051,15 @@ Its blockchains are added as soon as it connects.
 | `id`
 | yes
 | Per-cluster identifier of an upstream
+
+| `blockchain` or `blockchains`
+| no
+| Limits the upstream to a single blockchain (`blockchain: ethereum`), or to a list of them (`blockchains: [ethereum, sepolia]`).
+The other blockchains the remote serves are not routed to it.
+A configured blockchain the remote doesn't serve is logged as a warning when Dshackle connects. +
+Without either, all blockchains the remote serves are used.
+Only one of the two keys can be set, and an unknown blockchain name fails the start. +
+The `defaults` of each listed blockchain apply to the upstream.
 
 | `limits`
 | no

@@ -99,7 +99,7 @@ In the example above we have:
 - default configuration for _Ethereum Mainnet_ which accepts upstream as valid when it not in fast synchronization mode and has at least 10 peers.
 - as upstreams it has 2 configurations
 * balancer connects to another Dshackle/another machine by using gRPC protocol
-** accepts (i.e. proxies) any blockchain available on that remote
+** accepts (i.e. proxies) any blockchain available on that remote, unless limited with `blockchain` or `blockchains` (e.g. `blockchains: [ethereum, sepolia]`)
 ** verifies TLS certificate of the server
 ** uses client certificate for authentication, i.e. remote server is accepting only clients authenticated by a certificate
 * connects to Infura provided _Ethereum Mainnet_
